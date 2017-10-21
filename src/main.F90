@@ -1,0 +1,351 @@
+!========================================================================
+!==== Fore Ecological strategy simulator (ForestESS) ====================
+!============   Main program   ==========================================
+!=============== 12-25-2016 =============================================
+!========================================================================
+!
+! This work was financially supported by US Forest Service and Princeton
+! Environment Institute. The technical details of this model are in:
+!
+! Weng, E. S., Farrior, C. E., Dybzinski, R., Pacala, S. W., 2016. 
+! Predicting vegetation type through physiological and environmental 
+! interactions with leaf traits: evergreen and deciduous forests in an 
+! earth system modeling framework. Global Change Biology, 
+! doi: 10.1111/gcb.13542.
+!
+! Weng, E. S., Malyshev, S., Lichstein, J. W., Farrior, C. E., 
+! Dybzinski, R., Zhang, T., Shevliakova, E., Pacala, S. W., 2015. 
+! Scaling from individual trees to forests in an Earth system modeling 
+! framework using a mathematically tractable model of height-structured 
+! competition. Biogeosciences, 12: 2655–2694, doi:10.5194/bg-12-2655-2015.
+!
+!
+! Contact Ensheng Weng (wengensheng@gmail.com) for qeustions.
+!                      (02/03/2017)
+!
+!------------------------------------------------------------------------
+!
+! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
+! and reproduce the forest succession patterns. But, since it
+! does not include the models of photosynthesis, leaf stomatal
+! conductance, transpiration, soil water dynamics, and energy balance, it 
+! cannot simulate the ESS of allocation as reported in Weng et al. 2015 
+! Biogeosciences.
+!
+! Processes included in this simulator are:
+!     Phenology
+!     Individual-level carbon budget (gain and respiration)
+!     Plant growth: Allometry and allocation
+!     Reproduction
+!     Mortality
+!     Population dynamics
+!     Soil C-N dynamics
+!
+!
+!----------------------------------------
+! Subroutine call structure:
+! ! Initilization:
+!     ! Read in forcing data
+!     call read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
+!     ! Parameter initialization
+!     call initialize_PFT_data()
+!     ! Initialize vegetation tile and plant cohorts
+!     call initialize_vegn_tile(vegn,nCohorts)
+!
+! ! Daily time step:
+!        call vegn_phenology(vegn,j)
+!        call vegn_C_N_budget(vegn, tsoil, soil_theta)
+!        call vegn_starvation(vegn)
+!        call vegn_growth_EW(vegn)
+!
+! ! Yearly time step:
+!            call vegn_reproduction(vegn)
+!            call vegn_nat_mortality(vegn, real(seconds_per_year))
+!            call vegn_starvation(vegn)
+!            ! Re-organize cohorts
+!            call relayer_cohorts(vegn)
+!            call vegn_mergecohorts(vegn)
+!            call kill_lowdensity_cohorts(vegn)
+!            ! update LAImax for each PFT according to available N
+!            call vegn_annualLAImax_update(vegn)
+!            ! set annual variables zero
+!            call vegn_annual_diagnostics_zero(vegn)
+!----- END -----------------------------------------------------------
+!
+
+program BiomeESS
+   use esdvm
+   implicit none
+   type(tile_type),  pointer :: vegn
+   type(cohort_type),pointer :: cp,cc
+
+   character(len=50),parameter :: namelistfile = 'parameters_CN.nml'
+   integer,parameter :: rand_seed = 86456
+   integer,parameter :: totalyears = 10
+   integer,parameter :: nCohorts = 1
+   integer :: datalines ! the total lines in forcing data file
+   integer :: yr_data   ! Years of the forcing data
+   integer :: days_data ! days of the forcing data
+   integer :: steps_per_day ! 24 or 48
+   real    :: timestep  ! hour, Time step of forcing data, usually hourly (1.0)
+   real    :: tsoil, soil_theta
+   real    :: NPPtree,fseed, fleaf, froot, fwood ! for output
+   real    :: dDBH ! yearly growth of DBH, mm
+   real    :: plantC,plantN, soilC, soilN
+   character(len=50) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
+   logical :: new_annual_cycle = .False.
+   logical :: switch = .True.
+   integer :: istat1,istat2,istat3
+   integer :: year0, year1, iyears
+   integer :: fno1,fno2,fno3,fno4,fno5 ! output files
+   integer :: totyears, totdays
+   integer :: i, j, k, idays, idoy
+   integer :: simu_steps,idata
+   character(len=50) filepath_out
+
+   filepath_out='output/'
+   ! create output files
+   plantcohorts = trim(filepath_out)//'Annual_cohorts.txt'
+   plantCNpools = trim(filepath_out)//'Plant_C_N_pools.csv'  ! daily
+   soilCNpools  = trim(filepath_out)//'Soil_C_N_pools.csv'
+   allpools     = trim(filepath_out)//'EcosystemDynamics.csv'
+   faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics.csv' ! hourly
+
+   fno1=91; fno2=101; fno3=102; fno4=103; fno5=104
+   open(fno1, file=trim(faststepfluxes), ACTION='write', IOSTAT=istat1)
+   open(fno2,file=trim(plantcohorts),   ACTION='write', IOSTAT=istat1)
+   open(fno3,file=trim(plantCNpools),   ACTION='write', IOSTAT=istat2)
+   open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
+   open(fno5,file=trim(allpools),       ACTION='write', IOSTAT=istat3)
+   ! head
+   write(fno1,'(5(a8,","),25(a12,","))')        &
+        'year','doy','hour','rad',            &
+        'Tair','Prcp', 'GPP', 'Resp',         &
+        'Transp','Evap','Runoff','Soilwater', &
+        'wcl','FLDCAP','WILTPT'
+   write(fno2,'(3(a5,","),25(a9,","))')             &
+        'cID','PFT','layer','density', 'f_layer',  &
+        'dDBH','dbh','height','Acrown',            &
+        'wood','nsc', 'NSN','NPPtr','seed',        &
+        'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
+        'N_uptk','N_fix','maxLAI'
+
+   write(fno3,'(5(a5,","),25(a8,","))')               &
+        'year','doy','hour','cID','PFT',                    &
+        'layer','density', 'f_layer', 'LAI',         &
+        'gpp','resp','transp',  &
+        'NSC','seedC','leafC','rootC','SW-C','HW-C', &
+        'NSN','seedN','leafN','rootN','SW-N','HW-N'
+
+   write(fno4,'(2(a5,","),25(a8,","))')  'year','doy',         &
+        'GPP', 'NPP', 'Rh',   &
+        'McrbC', 'fineL', 'struL', 'McrbN', 'fineN', 'struN', &
+        'mineralN', 'N_uptk'
+
+   write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
+        'CAI','LAI','GPP', 'NPP',   'Rh',                    &
+        'SiolWater','Transp','Evap','Runoff', &
+        'plantC','soilC',    'plantN', 'soilN',              &
+        'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC',    &
+        'NSN', 'SeedN', 'leafN', 'rootN', 'SapwoodN', 'WoodN', &
+        'McrbC','fineL','struL', 'McrbN', 'fineN',    'struN', &
+        'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss', &
+        'reproC','reproN','NewC-C','NewC-N'
+
+
+   ! Parameter initialization: Initialize PFT parameters
+   call initialize_PFT_data(namelistfile)
+   ! Initialize vegetation tile and plant cohorts
+   allocate(vegn)
+   call initialize_vegn_tile(vegn,nCohorts,namelistfile)
+   ! Sort and relayer cohorts
+   call relayer_cohorts(vegn)
+   call Zero_diagnostics(vegn)
+   ! output initial cohorts
+   do i=1,vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      write(*,*)i,vegn%cohorts(i)%species,vegn%cohorts(i)%height, &
+                vegn%cohorts(i)%crownarea
+   enddo
+
+   ! ----- model run ----------
+   ! Read in forcing data
+   call read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
+   steps_per_day = int(24.0/timestep)
+   dt_fast_yr = 1.0/(365.0 * steps_per_day)
+   write(*,*)steps_per_day,dt_fast_yr
+   ! total years of model run
+   totyears = model_run_years
+   totdays  = INT(totyears/yr_data+1)*days_data
+
+   ! Model run starts here !!
+   year0 = forcingData(1)%year
+   iyears = 1
+   idoy   = 0
+   simu_steps = 0
+   do idays =1, totdays ! 1*days_data ! days for the model run
+        idoy = idoy + 1
+        ! get daily mean temperature
+        vegn%Tc_daily = 0.0
+        tsoil         = 0.0
+        do i=1,steps_per_day
+             idata = MOD(simu_steps, datalines)+1
+             year0 = forcingData(idata)%year  ! Current year
+             vegn%Tc_daily = vegn%Tc_daily + forcingData(idata)%Tair
+             tsoil         = forcingData(idata)%tsoil
+             simu_steps = simu_steps + 1
+
+             !! fast-step calls
+             call vegn_CNW_budget_fast(vegn,forcingData(idata))
+             write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
+                iyears, idoy, i, &
+                forcingData(idata)%radiation,    &
+                forcingData(idata)%Tair,         &
+                forcingData(idata)%rain,         &
+                vegn%GPP,vegn%resp,vegn%transp,  &
+                vegn%evap,vegn%runoff,vegn%soilwater, &
+                vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
+
+        enddo ! hourly or half-hourly
+        vegn%Tc_daily = vegn%Tc_daily/steps_per_day
+        tsoil         = tsoil/steps_per_day
+        soil_theta    = vegn%thetaS
+
+        !!! daily output
+        do j = 1, vegn%n_cohorts
+            cc => vegn%cohorts(j)
+            !! cohorts
+            write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
+                iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
+                cc%nindivs*10000, cc%layerfrac, cc%LAI, &
+                cc%gpp,cc%resp,cc%transp, &
+                cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
+                cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
+                cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
+        enddo
+        !! Tile level, daily
+        write(fno4,'(2(I5,","),15(F12.4,","))') iyears, idoy,  &
+                vegn%GPP, vegn%NPP, vegn%Rh, &
+                vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
+                vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
+                vegn%mineralN*1000,   vegn%N_uptake*1000
+
+        ! daily calls
+        call vegn_phenology(vegn,j)
+        call vegn_starvation(vegn)
+        call vegn_growth_EW(vegn)
+
+        !! annual calls
+        idata = MOD(simu_steps+1, datalines)+1 !
+        year1 = forcingData(idata)%year  ! Check if it is the last day of a year
+        new_annual_cycle = ((year0 /= year1).OR. & ! new year
+                (idata == steps_per_day .and. simu_steps > datalines)) ! last line
+        if(new_annual_cycle)then
+            idoy = 0
+            call annual_calls(vegn,iyears,fno2,fno5)
+            ! update the years of model run
+            iyears = iyears + 1
+        endif
+   enddo
+
+   !deallocate(cc)
+   close(101)
+   close(102)
+   close(103)
+   close(104)
+   deallocate(vegn%cohorts)
+   deallocate(forcingData)
+
+  contains
+!========================================================================
+
+! read in forcing data (Users need to write their own data input procedure)
+subroutine read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
+  type(climate_data_type),pointer,intent(inout) :: forcingData(:)
+  integer,intent(inout) :: datalines,days_data,yr_data
+  real, intent(inout)   :: timestep
+  !------------local var -------------------
+  type(climate_data_type), pointer :: climateData(:)
+  character(len=50)  filepath_in
+  character(len=50)  climfile
+  character(len=50)  parafile       ! parameter file
+  character(len=80)  commts
+  integer, parameter :: niterms=10       ! MDK data for Oak Ridge input
+  integer, parameter :: ilines=12*366*24 ! the maxmum records of Oak Ridge FACE, 1999~2007
+  integer,dimension(ilines) :: year_data
+  real,   dimension(ilines) :: doy_data,hour_data
+  real input_data(niterms,ilines)
+  real inputstep
+  integer :: istat1,istat2,istat3
+  integer :: doy,idays
+  integer :: i,j,k
+  integer :: m,n
+
+  filepath_in = 'input/'
+  climfile    = 'ORNL_forcing.txt'
+  climfile=trim(filepath_in)//trim(climfile)
+
+! open forcing data
+  open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
+  write(*,*)istat2
+! skip 2 lines of input met data file
+  read(11,'(a160)') commts
+! read(11,'(a160)') commts ! MDK data only has one line comments
+  m       = 0  ! to record the lines in a file
+  idays   = 1  ! the total days in a data file
+  yr_data = 0 ! to record years of a dataset
+  do    ! read forcing files
+      m=m+1
+      read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
+                              (input_data(n,m),n=1,niterms)
+      if(istat3<0)exit
+      if(m == 1) then
+          doy = doy_data(m)
+      else
+          doy = doy_data(m-1)
+      endif
+      if(doy /= doy_data(m)) idays = idays + 1
+
+  enddo ! end of reading the forcing file
+
+  timestep = hour_data(2) - hour_data(1)
+  write(*,*)"forcing",datalines,yr_data,timestep,dt_fast_yr
+  if (timestep==1.0)then
+      write(*,*)"the data freqency is hourly"
+  elseif(timestep==0.5)then
+      write(*,*)"the data freqency is half hourly"
+  else
+      write(*,*)"Please check time step!"
+      stop
+  endif
+  close(11)    ! close forcing file
+! Put the data into forcing 
+  datalines = m - 1
+  days_data = idays
+  yr_data  = year_data(datalines-1) - year_data(1) + 1
+
+  allocate(climateData(datalines))
+  do i=1,datalines
+     climateData(i)%year      = year_data(i)          ! Year
+     climateData(i)%doy       = doy_data(i)           ! day of the year
+     climateData(i)%hod       = hour_data(i)          ! hour of the day
+     climateData(i)%PAR       = input_data(1,i)       ! umol/m2/s
+     climateData(i)%radiation = input_data(2,i)       ! W/m2
+     climateData(i)%Tair      = input_data(3,i) + 273.16  ! air temperature, K
+     climateData(i)%Tsoil     = input_data(4,i) + 273.16  ! soil temperature, K
+     climateData(i)%RH        = input_data(5,i) * 0.01    ! relative humidity (0.xx)
+     climateData(i)%rain      = input_data(6,i)/(timestep * 3600)! ! kgH2O m-2 s-1
+     climateData(i)%windU     = input_data(7,i)        ! wind velocity (m s-1)
+     climateData(i)%P_air     = input_data(8,i)        ! pa
+     climateData(i)%CO2       = input_data(9,i) * 1.0e-6       ! mol/mol
+     climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+  enddo
+  forcingData => climateData
+  write(*,*)"forcing", datalines,days_data,yr_data
+end subroutine read_forcingdata
+
+!=====================================================
+end program BiomeESS
+
+
+
