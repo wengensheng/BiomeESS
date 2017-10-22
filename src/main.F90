@@ -1,7 +1,7 @@
 !========================================================================
-!==== Fore Ecological strategy simulator (ForestESS) ====================
+!==== Biome Strategy Simulator (BiomeESS) ====================
 !============   Main program   ==========================================
-!=============== 12-25-2016 =============================================
+!=============== 10-21-2017 =============================================
 !========================================================================
 !
 ! This work was financially supported by US Forest Service and Princeton
@@ -197,39 +197,21 @@ program BiomeESS
 
              !! fast-step calls
              call vegn_CNW_budget_fast(vegn,forcingData(idata))
-             write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
-                iyears, idoy, i, &
-                forcingData(idata)%radiation,    &
-                forcingData(idata)%Tair,         &
-                forcingData(idata)%rain,         &
-                vegn%GPP,vegn%resp,vegn%transp,  &
-                vegn%evap,vegn%runoff,vegn%soilwater, &
-                vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
-
+             !! Output horly diagnostics
+             !write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
+             !  iyears, idoy, i, &
+             !  forcingData%radiation,    &
+             !  forcingData%Tair,         &
+             !  forcingData%rain,         &
+             !  vegn%GPP,vegn%resp,vegn%transp,  &
+             !  vegn%evap,vegn%runoff,vegn%soilwater, &
+             !  vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
         enddo ! hourly or half-hourly
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
         soil_theta    = vegn%thetaS
-
-        !!! daily output
-        do j = 1, vegn%n_cohorts
-            cc => vegn%cohorts(j)
-            !! cohorts
-            write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
-                iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
-                cc%nindivs*10000, cc%layerfrac, cc%LAI, &
-                cc%gpp,cc%resp,cc%transp, &
-                cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
-                cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
-                cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
-        enddo
-        !! Tile level, daily
-        write(fno4,'(2(I5,","),15(F12.4,","))') iyears, idoy,  &
-                vegn%GPP, vegn%NPP, vegn%Rh, &
-                vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
-                vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
-                vegn%mineralN*1000,   vegn%N_uptake*1000
-
+        call daily_diagnostics(vegn,forcingData(idata),iyears,idoy,fno3,fno4)
+        !write(*,*)iyears,idoy
         ! daily calls
         call vegn_phenology(vegn,j)
         call vegn_starvation(vegn)
@@ -241,8 +223,9 @@ program BiomeESS
         new_annual_cycle = ((year0 /= year1).OR. & ! new year
                 (idata == steps_per_day .and. simu_steps > datalines)) ! last line
         if(new_annual_cycle)then
+            call annual_diagnostics(vegn,iyears,fno2,fno5)
             idoy = 0
-            call annual_calls(vegn,iyears,fno2,fno5)
+            call annual_calls(vegn)
             ! update the years of model run
             iyears = iyears + 1
         endif
