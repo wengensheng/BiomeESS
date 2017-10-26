@@ -24,13 +24,15 @@ module esdvm
 
  real,    public, parameter :: PI = 3.1415926
  integer, public, parameter :: MSPECIES = 15
- integer, public, parameter :: max_lev  = 10 ! Soil layers, for soil water dynamics
+ integer, public, parameter :: max_lev  = 3 ! Soil layers, for soil water dynamics
  integer, public, parameter :: LEAF_ON  = 1
  integer, public, parameter :: LEAF_OFF = 0
  integer, public, parameter :: & ! physiology types
  PT_C3        = 0, &
  PT_C4        = 1
- real, public, parameter :: rzone = 1.5 !m
+ real, public, parameter :: rzone = 2.0 !m
+ real,public, parameter ::  thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
+
  real, public, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
  integer, public, parameter :: & ! phenology type
  PHEN_DECIDIOUS = 0, &
@@ -52,9 +54,9 @@ real, public, parameter :: H2OLv0=2.501e6        !latent heat H2O (J/kg)
 real, public, parameter :: p_sea = 101325. !1.e5           ! atmospheric pressure  (Pa)
  ! Soil water dynamics
 !     thickness of soil layers (m)
- real,public, parameter :: thksl(10)=(/0.05,0.1,0.1,0.1,0.15,0.2,0.2,0.2,0.2,0.2/) ! 1.5 m in total
- real,public, parameter :: FR_frac(10)= (/0.15,0.25,0.25,0.15,0.1,     &
-                                         0.05,0.025,0.015,0.005,0.005/)
+  ! (/0.05,0.1,0.1,0.1,0.15,0.2,0.2,0.2,0.2,0.2/) ! 1.5 m in total
+ !real,public, parameter :: FR_frac(max_lev)= (/0.15,0.25,0.25,0.15,0.1,     &
+ !                                        0.05,0.025,0.015,0.005,0.005/)
 ! ---- public variables ---------
  public :: forcingData,spdata, MaxCohortID, &
     K1, K2, K_nitrogen, etaN, MLmixRatio, &
@@ -96,6 +98,7 @@ type spec_data_type
   ! root traits
   real    :: rho_FR       ! material density of fine roots (kgC m-3)
   real    :: root_r       ! radius of the fine roots, m
+  real    :: root_zeta    ! e-folding parameter of root vertical distribution (m)
   real    :: SRA          ! speific fine root area, m2/kg C
   real    :: gamma_FR     ! Fine root respiration rate, kgC kgC-1 yr-1
   real    :: alpha_FR     ! Turnover rate of Fine roots, fraction yr-1
@@ -215,11 +218,9 @@ type :: cohort_type
   real    :: rootarea ! total fine root area per tree
   real    :: rootdepth  ! maximum depth of fine roots
   real    :: rootareaL(max_lev) = 0.0 ! Root length per layer, m of root/m
-  real    :: fWup  ! fraction of water uptake of this cohort to the total
+  real    :: WupL(max_lev) = 0.0 ! normalized vertical distribution of uptake
   real    :: W_supply  ! potential water uptake rate per unit time per tree
   real    :: transp   ! transpiration rate per tree per hour
-  real    :: frac_up(max_lev) = 0.0 ! normalized vertical distribution of uptake
-
 ! for photosynthesis
   real :: An_op = 0.0 ! mol C/(m2 of leaf per year)
   real :: An_cl = 0.0 ! mol C/(m2 of leaf per year)
@@ -352,7 +353,7 @@ real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 
 ! reduction of bl_max and br_max for the understory vegetation, unitless
 real :: understory_lai_factor = 0.25
-
+!real :: rdepth(0: max_lev) = 0.0
 ! -------- PFT-specific parameters ----------
 ! c4grass  c3grass  temp-decid  tropical  evergreen  BE  BD  BN  NE  ND  G  D  T  A
 integer :: pt(0:MSPECIES) = 0
@@ -367,6 +368,7 @@ real :: alpha_FR(0:MSPECIES) = 0.5 ! 1.2 ! Fine root turnover rate yr-1
 real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
+real    :: root_zeta(0:MSPECIES) = 0.29 !
 real :: Kw_root(0:MSPECIES)= 6.3E-8 * 1000000.0/18.0 ! mol /(s m2 Mpa) ! 6.3±3.1×10−8 m s−1 MPa−1
 !(/1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5/)
    ! fine root membrane permeability per unit membrane area, kg/(m3 s).
@@ -440,7 +442,7 @@ namelist /vegn_parameters_nml/  &
   pt, phenotype, lifeform, &
   Vmax, Vannual,wet_leaf_dreg,   &
   gamma_L, gamma_LN, gamma_SW, gamma_FR,  &
-  rho_FR, root_r, Kw_root, &
+  rho_FR, root_r, root_zeta,Kw_root, &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
@@ -515,6 +517,12 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
                 cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
                 cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
                 cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
+
+          ! annual sum
+          cc%annualGPP = cc%annualGPP + cc%dailyGPP
+          cc%annualNPP = cc%annualNPP + cc%dailyNPP
+          cc%annualResp = cc%annualResp + cc%dailyResp
+          cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
           ! Zero Daily variables
           cc%dailyTrsp = 0.0
           cc%dailyGPP = 0.0
@@ -558,10 +566,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
 
 
   !-------local var
-  type(cohort_type), pointer :: cc    ! current cohort
-  real :: C_input  ! carbon assimilated per tree per fast time step
-  !real :: dBL, dBR, dBSW ! leaf and fine root carbon tendencies
-  !real :: turnoverC  ! temporary var for several calculations
+  type(cohort_type), pointer :: cc  ! current cohort
   integer :: i
   real :: tair, tsoil ! temperature of soil, degC
   real :: thetaS ! soil wetness, unitless
@@ -569,13 +574,16 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
   real :: LeafGrowthMin, RootGrowthMin,NSCtarget,v
   real :: LR_growth,WS_growth
   real :: R_days,fNSC,fLFR,fStem
+  integer :: layer
 
   ! Climatic variable
   tair = forcing%Tair -273.16 ! degC
   tsoil = forcing%tsoil -273.16 ! degC
-  thetaS = vegn%thetaS
+  thetaS = (vegn%wcl(2)-WILTPT)/(FLDCAP-WILTPT)
+
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
+  !write(*,*)"photosynthesis OK"
   ! Respiration and allocation for growth
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -670,31 +678,6 @@ subroutine vegn_photosynthesis (forcing, vegn)
 
   step_seconds = seconds_per_year * dt_fast_yr
 
-!! Water supply for photosynthesis
-  ws = vegn%SoilWater/(rzone*1000.0)
-  vegn%wcl = ws ! vol/vol
-  thetaS = max(0.0, (ws - WILTPT)/(FLDCAP - WILTPT))
-  vegn%thetaS = thetaS
-  dpsiSR = 7.5 * SQRT(thetaS)
-
-  W_up0 = 0.0
-  freewater = max(0.0,(vegn%SoilWater-WILTPT*rzone*1000.0) )
-  do i = 1, vegn%n_cohorts
-        cc => vegn%cohorts(i)
-        associate ( sp => spdata(cc%species) )
-        cc%W_supply = cc%rootarea * sp%Kw_root * dpsiSR ! mol s-1 tree-1
-        W_up0 = W_up0 + cc%W_supply * cc%nindivs  * seconds_per_year * dt_fast_yr ! water uptake per unit ground area, kgH2O
-        end associate
-  enddo
-  fWup = Min(W_up0/(0.2 * freewater),1.0)! rate at given root density and time period
-  ! Actual water uptake
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     cc%W_supply = fWup * cc%W_supply
-  enddo
-
-! Light supply for photosynthesis
-  f_gap = 0.1 ! 0.1
 ! update accumulative LAI for each corwn layer
   vegn%CAI      = 0.0
   vegn%LAI      = 0.0
@@ -711,6 +694,13 @@ subroutine vegn_photosynthesis (forcing, vegn)
      vegn%CAI = vegn%CAI + cc%crownarea * cc%nindivs
      END associate
   enddo
+
+  !! Water supply for photosynthesis
+  call vegn_water_supply(forcing, vegn)
+  !write(*,*)"water supply OK"
+
+! Light supply for photosynthesis
+  f_gap = 0.1 ! 0.1
   ! Light fraction
   f_light(1) = 1.0
   do i =2, layer !MIN(int(vegn%CAI+1.0),9)
@@ -735,7 +725,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
          cana_q  = esat(Tair)*forcing%RH/p_surf * mol_h2o/mol_air  ! air specific humidity, kg/kg
          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
         ! recalculate the water supply to mol H20 per m2 of leaf per second
-        water_supply = cc%W_supply/cc%leafarea/mol_h2o ! mol m-2 leafarea s-1
+        water_supply = cc%W_supply/(cc%leafarea*seconds_per_year*dt_fast_yr*mol_h2o) ! mol m-2 leafarea s-1
       
         !call get_vegn_wet_frac (cohort, fw=fw, fs=fs)
         fw = 0.0
@@ -991,6 +981,51 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
    !write(899, '(25(E12.4,","))') rad_net,par_net,apot*3600*12,acl*3600*12,Ed
 end subroutine gs_Leuning
 
+!========================================================================
+! Weng 2017-10-18 ! compute available water for photosynthesis
+subroutine vegn_water_supply(forcing, vegn)
+  type(climate_data_type),intent(in):: forcing
+  type(tile_type), intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real :: fWup(max_lev)      ! fraction to the actual soil water
+  real :: freewater(max_lev)
+  real :: W_up0 ! potential water uptake, mol s-1 m-2
+  real :: thetaS(max_lev) ! soil moisture index (0~1)
+  real :: dpsiSR(max_lev) ! pressure difference between soil water and root water, MPa
+  real  :: step_seconds ! seconds per step
+  integer :: i,j, layer
+
+  step_seconds = seconds_per_year * dt_fast_yr
+
+!! Water pressure difference
+  do i=1, max_lev
+     freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT)*thksl(i)*1000.0))
+     thetaS(i) = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+     dpsiSR(i) = 7.5*SQRT(thetaS(i))*1.0e6 ! Pa
+     W_up0 = 0.0 ! Potential water uptake per layer
+     do j = 1, vegn%n_cohorts
+        cc => vegn%cohorts(j)
+        associate ( sp => spdata(cc%species) )
+        cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i) & ! mol s-1 tree-1
+                     * (seconds_per_year*dt_fast_yr*mol_h2o) ! kg tree-1 step-1
+        W_up0 = W_up0 + cc%WupL(i) * cc%nindivs ! water uptake per layer per unit ground area, mol s-1
+        end associate
+     enddo
+     fWup(i) = Min(W_up0/(0.2 * freewater(i)),1.0)! rate at given root density and time period
+  enddo
+
+! actual W_suplly
+  do j = 1, vegn%n_cohorts
+     cc => vegn%cohorts(j)
+     cc%W_supply = 0.0
+     do i=1,max_lev
+        cc%W_supply = cc%W_supply + fWup(i) * cc%WupL(i) ! kg tree-1 step-1
+     enddo
+  enddo
+
+ end subroutine vegn_water_supply
 !============================================================================
 subroutine plant_respiration(cc, tairK)
   type(cohort_type), intent(inout) :: cc
@@ -1044,6 +1079,7 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
+  real    :: rainwater,W_deficit(max_lev),W_add(max_lev)
   real    :: Esoil      ! soil surface evaporation, kg m-2 s-1
   real    :: Hsoil      ! sensible heat from soil
   real    :: Rsoilabs   ! W/m2
@@ -1059,20 +1095,35 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   real    :: rsoil  ! s m-1
   real    :: raero
   real    :: rLAI
+  real    :: ftransp ! transp/W_supply
   integer :: i,j,k
 
 ! soil water refill by precipitation
-   vegn%SoilWater = vegn%SoilWater + forcing%rain * seconds_per_year * dt_fast_yr
-   vegn%runoff = max(0.0, vegn%SoilWater - FLDCAP*rzone*1000.0) ! mm hour-1
-   vegn%SoilWater = vegn%SoilWater - vegn%runoff
+   vegn%SoilWater = 0.0
+   rainwater =  forcing%rain * seconds_per_year * dt_fast_yr
+   do i=1, max_lev
+      W_deficit(i) = (FLDCAP - vegn%wcl(i))*thksl(i)*1000.0
+      W_add(i) = min(rainwater, W_deficit(i))
+      vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
+      rainwater = rainwater - W_add(i)
+   enddo
+   vegn%runoff = max(0.0, rainwater) ! mm hour-1
+
 ! Water uptaken by roots, hourly
   vegn%transp = 0.0
   do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      vegn%transp = vegn%transp + cc%transp * cc%nindivs
+      if(cc%W_supply>0.0)then
+         ftransp = cc%transp/cc%W_supply
+      else
+         ftransp = 0.0
+      endif
+      do j=1,max_lev
+         vegn%wcl(i) = vegn%wcl(i) - &
+             (ftransp * cc%WupL(i) * cc%nindivs/(thksl(i)*1000))
+      enddo
   enddo
-  vegn%SoilWater = vegn%SoilWater - vegn%transp
-  vegn%wcl = vegn%SoilWater/(rzone*1000.)
+
 ! Soil surface evaporation
 !    thermodynamic parameters for air
       Rsoilabs = forcing%radiation * exp(-0.5*vegn%LAI)
@@ -1102,11 +1153,14 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   !Calculate Esoil, kg m-2 s-1
   ! Esoil = 0.0
   vegn%evap = min(Esoil/H2OLv * 3600.0, &
-                  0.2*vegn%wcl(1) * Edepth *1000.) ! kg m-2 step-1
-  !vegn%wcl(1) = (vegn%wcl(1) * Edepth *1000. - vegn%evap)/(Edepth *1000.)
+                  0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
+  vegn%wcl(1) = vegn%wcl(1) - vegn%evap/(thksl(1) *1000.)
+
   ! Update soil water
-  ! vegn%SoilWater = (vegn%wcl(1) * Edepth + vegn%wcl(2)*(rzone-Edepth)) *1000.
-  vegn%SoilWater = vegn%SoilWater - vegn%evap
+  vegn%SoilWater = 0.0
+   do i=1, max_lev
+      vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
+   enddo
 
 end subroutine SoilWaterDynamics
 
@@ -1185,7 +1239,7 @@ subroutine vegn_growth_EW(vegn)
   real :: alphaBL, alphaBR
   real :: DBHtp
   real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN
-  integer :: i
+  integer :: i,j
 
   ! Turnover of leaves and fine roots
   call vegn_tissue_turnover(vegn)
@@ -1274,7 +1328,7 @@ subroutine vegn_growth_EW(vegn)
         cc%crownarea = cc%crownarea + dCA
         cc%leafarea  = leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
         cc%lai       = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
-        cc%rootarea  = cc%br * sp%SRA
+        call rootarea_and_verticalprofile(cc)
 !       convert sapwood to heartwood ! Nitrogen from sapwood to heart wood
         if(sp%lifeform>0)then
            CSAsw  = cc%bl_max/sp%LMA * sp%phiCSA * cc%height ! with Plant hydraulics, Weng, 2016-11-30
@@ -1320,6 +1374,30 @@ subroutine vegn_growth_EW(vegn)
   cc => null()
 end subroutine vegn_growth_EW ! daily
 
+!=================================================
+! Weng: partioning root area into layers, 10-24-2017
+subroutine rootarea_and_verticalprofile(cc)
+  type(cohort_type), intent(inout) :: cc
+  !----------local var ----------
+  real :: rdepth(0:max_lev)
+  real :: residual
+  integer :: j
+
+  associate (sp => spdata(cc%species) )
+  cc%rootarea  = cc%br * sp%SRA
+  rdepth=0.0
+  do j=1,max_lev
+     rdepth(j) = rdepth(j-1)+thksl(j)
+     cc%rootareaL(j) = cc%rootarea * &
+     (exp(-rdepth(j-1)/sp%root_zeta)-exp(-rdepth(j)/sp%root_zeta))
+  enddo
+  residual = cc%rootarea * exp(-rdepth(max_lev)/sp%root_zeta)
+  do j=1,max_lev
+     cc%rootareaL(j) = cc%rootareaL(j) + residual*thksl(j)/rdepth(max_lev)
+  enddo
+
+  end associate
+ end subroutine rootarea_and_verticalprofile
 !============================================================================
 subroutine vegn_phenology(vegn,doy) ! daily step
   type(tile_type), intent(inout) :: vegn
@@ -1327,7 +1405,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
 
   ! ---- local vars
   type(cohort_type), pointer :: cc
-  integer :: i
+  integer :: i,j
   real    :: loss_coarse, loss_fine, lossN_coarse, lossN_fine
   real    :: stem_fall, grassdensity   ! for grasses only
   real    :: dAleaf, dBL, dBR, dNL, dNR, dNS      ! per day
@@ -1395,6 +1473,8 @@ subroutine vegn_phenology(vegn,doy) ! daily step
          cc%nsc = grassdensity/cc%nindivs * cc%nsc
          cc%bsw = 0.2 *sp%seedlingsize  ! for setting up a initial size
          cc%nsc = cc%nsc - cc%bsw
+
+        call rootarea_and_verticalprofile(cc)
 
 !!        Nitrogen pools
          cc%rootN = grassdensity/cc%nindivs * cc%rootN
@@ -1673,11 +1753,12 @@ subroutine vegn_reproduction (vegn)
 
         ! Carbon pools
         cc%bl      = 0.0 * sp%seedlingsize
-        cc%br      = 0.0 * sp%seedlingsize
-        cc%bsw     = 0.5 * sp%seedlingsize
+        cc%br      = 0.1 * sp%seedlingsize
+        cc%bsw     = 0.4 * sp%seedlingsize
         cc%bHW     = 0.0 * sp%seedlingsize
         cc%seedC   = 0.0
         cc%nsc     = sp%seedlingsize - cc%bsw !
+        call rootarea_and_verticalprofile(cc)
 
 !!      Nitrogen pools
         cc%leafN  = cc%bl/sp%CNleaf0
@@ -2419,6 +2500,7 @@ subroutine initialize_cohort_from_biomass(cc,btot)
      cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea
      cc%NSNmax = 0.2 * cc%crownarea ! 5.0*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
      cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
+     call rootarea_and_verticalprofile(cc)
 !    N pools
      cc%NSN    = 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
      cc%leafN  = cc%bl/sp%CNleaf0
@@ -2487,19 +2569,19 @@ subroutine annual_calls(vegn)
             cc%bsw+cc%bHW,cc%nsc,cc%NSN,                        &
             NPPtree,fseed, fleaf, froot, fwood,                 &
             cc%annualGPP,cc%annualNPP,                          &
-            cc%annualNup*1000,cc%annualfixedN*1000,                  &
+            cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
 
         ! Screen output
-        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.3,","))')          &
-                    cc%ccID,cc%species,cc%layer,                        &
-                    cc%nindivs*10000, cc%layerfrac,dDBH,                &
-                    cc%dbh,cc%height,cc%crownarea,                      &
-                    cc%bsw+cc%bHW,cc%nsc,cc%NSN,                        &
-                    fseed, fleaf, froot, fwood,                         &
-                    cc%annualGPP/cc%crownarea, &
-                    cc%annualNPP/cc%crownarea,                          &
-                    cc%annualNup*1000,cc%annualfixedN*1000,                  &
+        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.3,","))')    &
+                    cc%ccID,cc%species,cc%layer,                     &
+                    cc%nindivs*10000, cc%layerfrac,dDBH,             &
+                    cc%dbh,cc%height,cc%crownarea,                   &
+                    cc%bsw+cc%bHW,cc%nsc,cc%NSN,                     &
+                    fseed, fleaf, froot, fwood,                      &
+                    cc%annualGPP/cc%crownarea,                       &
+                    cc%annualNPP/cc%crownarea,                       &
+                    cc%annualNup*1000,cc%annualfixedN*1000,          &
                     spdata(cc%species)%laimax
     enddo
 
@@ -2769,6 +2851,7 @@ subroutine initialize_PFT_data(namelistfile)
 
   spdata%rho_FR    = rho_FR
   spdata%root_r    = root_r
+  spdata%root_zeta = root_zeta
   spdata%Kw_root   = Kw_root
 !  spdata%rho_N_up0 = rho_N_up0
 !  spdata%N_roots0  = N_roots0
