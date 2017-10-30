@@ -44,39 +44,17 @@
 !
 !----------------------------------------
 ! Subroutine call structure:
-! ! Initilization:
-!     ! Read in forcing data
-!     call read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
-!     ! Parameter initialization
-!     call initialize_PFT_data()
-!     ! Initialize vegetation tile and plant cohorts
-!     call initialize_vegn_tile(vegn,nCohorts)
-!
-! ! Daily time step:
-!        call vegn_phenology(vegn,j)
-!        call vegn_C_N_budget(vegn, tsoil, soil_theta)
-!        call vegn_starvation(vegn)
-!        call vegn_growth_EW(vegn)
-!
-! ! Yearly time step:
-!            call vegn_reproduction(vegn)
-!            call vegn_nat_mortality(vegn, real(seconds_per_year))
-!            call vegn_starvation(vegn)
-!            ! Re-organize cohorts
-!            call relayer_cohorts(vegn)
-!            call vegn_mergecohorts(vegn)
-!            call kill_lowdensity_cohorts(vegn)
-!            ! update LAImax for each PFT according to available N
-!            call vegn_annualLAImax_update(vegn)
-!            ! set annual variables zero
-!            call vegn_annual_diagnostics_zero(vegn)
+
 !----- END -----------------------------------------------------------
 !
 
 program BiomeESS
+   use datatypes
    use esdvm
+   use soil_mod
    implicit none
-   type(tile_type),  pointer :: vegn
+   type(vegn_tile_type),  pointer :: vegn
+   type(soil_tile_type),  pointer :: soil
    type(cohort_type),pointer :: cp,cc
 
    character(len=50),parameter :: namelistfile = 'parameters_CN.nml'
@@ -167,6 +145,8 @@ program BiomeESS
       write(*,*)i,vegn%cohorts(i)%species,vegn%cohorts(i)%height, &
                 vegn%cohorts(i)%crownarea
    enddo
+   ! Initialize soil tile (for soil water dynamics)
+   !allocate(soil)
 
    ! ----- model run ----------
    ! Read in forcing data
@@ -197,15 +177,8 @@ program BiomeESS
 
              !! fast-step calls
              call vegn_CNW_budget_fast(vegn,forcingData(idata))
-             !! Output horly diagnostics
-             !write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
-             !  iyears, idoy, i, &
-             !  forcingData%radiation,    &
-             !  forcingData%Tair,         &
-             !  forcingData%rain,         &
-             !  vegn%GPP,vegn%resp,vegn%transp,  &
-             !  vegn%evap,vegn%runoff,vegn%soilwater, &
-             !  vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
+             ! diagnostics
+             call hourly_diagnostics(vegn,forcingData(idata),iyears,idoy,i,fno1)
         enddo ! hourly or half-hourly
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
