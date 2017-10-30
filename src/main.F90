@@ -116,13 +116,15 @@ program BiomeESS
         'NSN','seedN','leafN','rootN','SW-N','HW-N'
 
    write(fno4,'(2(a5,","),25(a8,","))')  'year','doy',         &
+        'Prcp', 'totWs',  'Trsp', 'Evap','Runoff',         &
+        'ws1','ws2','ws3',      &
         'GPP', 'NPP', 'Rh',   &
         'McrbC', 'fineL', 'struL', 'McrbN', 'fineN', 'struN', &
         'mineralN', 'N_uptk'
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
         'CAI','LAI','GPP', 'NPP',   'Rh',                    &
-        'SiolWater','Transp','Evap','Runoff', &
+        'rain','SiolWater','Transp','Evap','Runoff', &
         'plantC','soilC',    'plantN', 'soilN',              &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC',    &
         'NSN', 'SeedN', 'leafN', 'rootN', 'SapwoodN', 'WoodN', &
@@ -153,7 +155,8 @@ program BiomeESS
    call read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
-   write(*,*)steps_per_day,dt_fast_yr
+   step_seconds = seconds_per_year * dt_fast_yr
+   write(*,*)steps_per_day,dt_fast_yr,step_seconds
    ! total years of model run
    totyears = model_run_years
    totdays  = INT(totyears/yr_data+1)*days_data

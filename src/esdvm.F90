@@ -1,14 +1,3 @@
-! The subroutines are from LM3PPA, the version used in Weng et al. 2016.
-! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
-! and reproduce the forest succession patterns shown in Weng et al.,
-! 2016 Global Change Biology along the graidient of temperature. 
-!
-! This simulator includes:
-! photosynthesis, leaf stomatal conductance, transpiration,
-! plant respiration, plant growth, reproduction, mortality,
-! PPA, soil water dynamics, and soil organic matter decomposition.
-
-
 module esdvm
  use datatypes
  use soil_mod
@@ -45,8 +34,8 @@ public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
   integer :: layer
 
   ! Climatic variable
-  tair = forcing%Tair -273.16   ! degC
-  tsoil = forcing%tsoil -273.16 ! degC
+  tair   = forcing%Tair -273.16   ! degC
+  tsoil  = forcing%tsoil -273.16 ! degC
   thetaS = (vegn%wcl(2)-WILTPT)/(FLDCAP-WILTPT)
 
   ! Photosynsthesis
@@ -95,7 +84,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
   type(cohort_type),pointer :: cc
   real :: freewater, W_up0 ! potential water uptake by roots, kgH2O m-2 fasttimestep-1
   real :: fWup       ! fraction to the actual soil water
-  real    :: ws, thetaS ! soil moisture index (0~1)
+  real :: ws, thetaS ! soil moisture index (0~1)
   real :: dpsiSR     ! pressure difference between soil water and root water, MPa
   real :: rad_top  ! downward radiation at the top of the canopy, W/m2
   real :: rad_net  ! net radiation absorbed by the canopy, W/m2
@@ -109,18 +98,13 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real  :: psyn   ! net photosynthesis, mol C/(m2 of leaves s)
   real  :: resp   ! leaf respiration, mol C/(m2 of leaves s)
   real  :: tempLAI,w_scale2, transp ! mol H20 per m2 of leaf per second
+  real  :: kappa  ! light extinction coefficient of corwn layers
   real :: f_light(10)=0.0      ! light fraction of each layer
   real :: LAIlayer(10),totCA,f_gap ! additional GPP for lower layer cohorts due to gaps
-  real  :: step_seconds ! seconds per step
   integer :: i, layer
-
-  step_seconds = seconds_per_year * dt_fast_yr
 
   !! Water supply for photosynthesis, Layers
   call water_supply_layer(forcing, vegn)
-
-!! Water supply for photosynthesis, a bucket
-  !call water_supply_bucket(forcing, vegn)
 
 !! Light supply for photosynthesis
 ! update accumulative LAI for each corwn layer
@@ -133,14 +117,15 @@ subroutine vegn_photosynthesis (forcing, vegn)
      !/(1.0-sp%internal_gap_frac)
      vegn%LAI = vegn%LAI + cc%leafarea  * cc%nindivs
   enddo
-
   f_gap = 0.1 ! 0.1
+  ! Calculate kappa according to sun zenith angle !!
+  kappa = 0.75
   ! Light fraction
   f_light = 0.0
   f_light(1) = 1.0
   do i =2, layer !MIN(int(vegn%CAI+1.0),9)
       f_light(i) = f_light(i-1) * &
-        (exp(-0.65*LAIlayer(i-1)/(1.-f_gap)) + f_gap)
+        (exp(-kappa*LAIlayer(i-1)/(1.-f_gap)) + f_gap)
   enddo
 
   ! Photosynthesis
@@ -151,15 +136,16 @@ subroutine vegn_photosynthesis (forcing, vegn)
         ! Photosynthesis can be calculated by a photosynthesis model
 
         ! Convert forcing data
+         layer = Max (1, Min(cc%layer,9))
          rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
-         rad_net = f_light(layer) *forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
+         rad_net = f_light(layer) * forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
          p_surf  = forcing%P_air  ! Pa
          TairK   = forcing%Tair ! K
          Tair   = forcing%Tair - 273.16 ! degC
          cana_q  = esat(Tair)*forcing%RH/p_surf * mol_h2o/mol_air  ! air specific humidity, kg/kg
          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
         ! recalculate the water supply to mol H20 per m2 of leaf per second
-        water_supply = cc%W_supply/(cc%leafarea*seconds_per_year*dt_fast_yr*mol_h2o) ! mol m-2 leafarea s-1
+         water_supply = cc%W_supply/(cc%leafarea*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
       
         !call get_vegn_wet_frac (cohort, fw=fw, fs=fs)
         fw = 0.0
@@ -383,18 +369,14 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   if (an_w > 0.) then
      an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet);
   endif
-  
-  gs_w = 1.56 * gsbar ! *(1-spdata(pft)%wet_leaf_dreg*leaf_wet); !Weng: 1.56 for H2O?
+  gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet); !Weng: 1.56 for H2O?
   if (gs_w > gs_lim) then
       if(an_w > 0.) an_w = an_w*gs_lim/gs_w;
       gs_w = gs_lim;
   endif
-
   ! find water availability diagnostic demand
   Ed = gs_w * ds*mol_air/mol_h2o ! ds*mol_air/mol_h2o is the humidity deficit in [mol_h2o/mol_air]
   ! the factor mol_air/mol_h2o makes units of gs_w and humidity deficit ds compatible:
-
-
   if (Ed>ws) then
      w_scale=ws/Ed;
      gs_w=w_scale*gs_w;
@@ -406,8 +388,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   acl=-Resp/lai
   transp = min(ws,Ed) ! mol H20/(m2 of leaf s)
 ! just for reporting
-  w_scale2=min(1.0,ws/Ed) 
-
+  w_scale2=min(1.0,ws/Ed)
    ! finally, convert units of stomatal conductance to m/s from mol/(m2 s) by
    ! multiplying it by a volume of a mole of gas
    gs = gs * Rugas * Tl / p_surf
@@ -716,9 +697,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   real    :: retransN  ! retranslocation coefficient of Nitrogen
   logical :: cc_firstday = .false.
   logical :: growingseason
-  logical :: TURN_ON_life, TURN_OFF_life, do_fake_phenology
-
-  do_fake_phenology = .FALSE. ! .TRUE.
+  logical :: TURN_ON_life, TURN_OFF_life
 
   retransN = 0.5
   leaf_fall_rate = 0.075; root_mort_rate = 0.0
@@ -739,20 +718,15 @@ subroutine vegn_phenology(vegn,doy) ! daily step
 !    for evergreen
      if(sp%phenotype==1 .and. cc%status==LEAF_OFF) cc%status=LEAF_ON
 !    for deciduous and grasses
-     if (do_fake_phenology)then
-         TURN_ON_life  = (doy == 90)
-         TURN_OFF_life = (doy == 300)
-     else
-         TURN_ON_life = (sp%phenotype == 0              .and. &
-                         cc%status    == LEAF_OFF       .and. &
-                         cc%gdd        > sp%gdd_crit    .and. &
-                         vegn%tc_pheno > sp%tc_crit_on) .and. &
+     TURN_ON_life = (sp%phenotype == 0              .and. &
+                    cc%status    == LEAF_OFF       .and. &
+                    cc%gdd        > sp%gdd_crit    .and. &
+                    vegn%tc_pheno > sp%tc_crit_on) .and. &
              (sp%lifeform /=0 .OR.(sp%lifeform ==0 .and.cc%layer==1))
 
-         TURN_OFF_life = (sp%phenotype  == 0 .and.       &
-                          cc%status     == LEAF_ON .and. &
-                          vegn%tc_pheno < sp%tc_crit)
-     endif
+     TURN_OFF_life = (sp%phenotype  == 0 .and.       &
+                    cc%status     == LEAF_ON .and. &
+                    vegn%tc_pheno < sp%tc_crit)
 
      cc_firstday = .false.
      if(TURN_ON_life)then
@@ -847,10 +821,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
      end associate
      cc => null()
   enddo
-
 end subroutine vegn_phenology
-
-
 
 !============================================================================
 !------------------------Mortality------------------------------------
@@ -1973,7 +1944,11 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%FLDCAP = FLDCAP
       vegn%WILTPT = WILTPT
       vegn%wcl = FLDCAP
-      vegn%SoilWater = FLDCAP * rzone * 1000.0 ! mm
+      ! Update soil water
+      vegn%SoilWater = 0.0
+      do i=1, max_lev
+         vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
+      enddo
       vegn%thetaS = 1.0
 
    else

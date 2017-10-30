@@ -43,6 +43,6 @@ maturalage    = 0.5,     0.2,      5,        5,        5,
 
 ! Model run
 
- model_run_years     = 80
+ model_run_years     = 50
  do_fast_run         = .TRUE.
  /

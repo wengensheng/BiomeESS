@@ -284,6 +284,7 @@ type :: vegn_tile_type
    real :: dailyNup
    real :: dailyfixedN
    ! for annual diagnostics
+   real :: dailyPrcp=0.0, annualPrcp = 0.0 ! mm m-2 yr-1
    real :: dailyTrsp=0.0,dailyEvap=0.0, dailyRoff=0.0 ! mm m-2 yr-1
    real :: annualTrsp=0.0,annualEvap=0.0, annualRoff=0.0 ! mm m-2 yr-1
    real :: annualGPP = 0.0 ! kgC m-2 yr-1
@@ -424,7 +425,7 @@ real :: Kw_root(0:MSPECIES)= 6.3E-8 * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Mpa) !
 
 real :: leaf_size(0:MSPECIES)= 0.04 !
 ! photosynthesis parameters
-real :: Vmax(0:MSPECIES)= 70.0E-6 !
+real :: Vmax(0:MSPECIES)= 35.0E-6 ! mol m-2 s-1
 real :: Vannual(0:MSPECIES) = 1.2 ! kgC m-2 yr-1
 real :: wet_leaf_dreg(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 means
         ! photosynthesis of completely wet leaf will be 30% less than that of dry one,
@@ -531,6 +532,7 @@ real   :: WILTPT = 0.05 ! vol/vol
 !Model run control
 integer   :: model_run_years = 100
 real      :: dt_fast_yr = 1.0 / (365.0 * 24.0) ! daily
+real      :: step_seconds = 3600.0
 
 namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
@@ -538,7 +540,7 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc, &
     init_fast_soil_C, init_slow_soil_C,    & 
     init_Nmineral, N_input, FLDCAP,WILTPT, &
-    model_run_years,dt_fast_yr
+    model_run_years
 !---------------------------------
 
  contains
@@ -721,6 +723,7 @@ subroutine Zero_diagnostics(vegn)
 
   !daily
   vegn%dailyfixedN = 0.
+  vegn%dailyPrcp = 0.0
   vegn%dailyTrsp = 0.0
   vegn%dailyEvap = 0.0
   vegn%dailyRoff = 0.0
@@ -731,6 +734,7 @@ subroutine Zero_diagnostics(vegn)
 
   !annual
   vegn%annualfixedN = 0.
+  vegn%annualPrcp = 0.0
   vegn%annualTrsp = 0.0
   vegn%annualEvap = 0.0
   vegn%annualRoff = 0.0
@@ -823,6 +827,7 @@ end subroutine Zero_diagnostics
   vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
   vegn%dailyEvap = vegn%dailyEvap + vegn%evap
   vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
+  vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
 
 end subroutine hourly_diagnostics
 
@@ -840,13 +845,13 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
       !!! daily !! cohorts output
       do i = 1, vegn%n_cohorts
           cc => vegn%cohorts(i)
-          write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
-                iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
-                cc%nindivs*10000, cc%layerfrac, cc%LAI, &
-                cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
-                cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
-                cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
-                cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
+         ! write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
+         !       iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
+         !       cc%nindivs*10000, cc%layerfrac, cc%LAI, &
+         !       cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
+         !       cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
+         !       cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
+         !       cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
 
           ! annual sum
           cc%annualGPP = cc%annualGPP + cc%dailyGPP
@@ -860,11 +865,17 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
           cc%dailyResp = 0.0
       enddo
       !! Tile level, daily
-      write(fno4,'(2(I5,","),15(F12.4,","))') iyears, idoy,  &
+      !if(iyears==70)then
+         write(fno4,'(2(I5,","),28(F12.4,","))') iyears, idoy,  &
+            vegn%dailyPrcp, vegn%soilwater, &
+            vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff, &
+            vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
+            vegn%wcl(3)*thksl(3)*1000., &
             vegn%dailyGPP, vegn%dailyNPP, vegn%dailyRh, &
             vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
             vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
             vegn%mineralN*1000,   vegn%N_uptake*1000
+      !endif
 
         !annual tile
         ! Annual summary:
@@ -872,6 +883,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
         vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
         vegn%annualResp = vegn%annualResp + vegn%dailyresp
         vegn%annualRh   = vegn%annualRh   + vegn%dailyrh
+        vegn%annualPrcp = vegn%annualPrcp + vegn%dailyPrcp
         vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
         vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
         vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
@@ -881,6 +893,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
        vegn%dailyNPP  = 0.0
        vegn%dailyResp = 0.0
        vegn%dailyRh   = 0.0
+       vegn%dailyPrcp = 0.0
        vegn%dailyTrsp = 0.0
        vegn%dailyEvap = 0.0
        vegn%dailyRoff = 0.0
@@ -973,7 +986,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
         iyears,       &
         vegn%CAI,vegn%LAI, &
         vegn%annualGPP, vegn%annualNPP, vegn%annualRh, &
-        vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
+        vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
         plantC,soilC,plantN *1000, soilN * 1000, &
         vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
         vegn%SapwoodC, vegn%woodC,                     &
