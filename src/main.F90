@@ -84,9 +84,9 @@ program BiomeESS
    filepath_out='output/'
    ! create output files
    plantcohorts = trim(filepath_out)//'Annual_cohorts.txt'
-   plantCNpools = trim(filepath_out)//'Plant_C_N_pools.csv'  ! daily
-   soilCNpools  = trim(filepath_out)//'Soil_C_N_pools.csv'
-   allpools     = trim(filepath_out)//'EcosystemDynamics.csv'
+   plantCNpools = trim(filepath_out)//'Cohorts_daily.csv'  ! daily
+   soilCNpools  = trim(filepath_out)//'Ecosystem_daily.csv'
+   allpools     = trim(filepath_out)//'Ecosystem_yearly.csv'
    faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics.csv' ! hourly
 
    fno1=91; fno2=101; fno3=102; fno4=103; fno5=104
@@ -118,7 +118,7 @@ program BiomeESS
    write(fno4,'(2(a5,","),25(a8,","))')  'year','doy',         &
         'Prcp', 'totWs',  'Trsp', 'Evap','Runoff',         &
         'ws1','ws2','ws3',      &
-        'GPP', 'NPP', 'Rh',   &
+        'LAI','GPP', 'NPP', 'Rh',   &
         'McrbC', 'fineL', 'struL', 'McrbN', 'fineN', 'struN', &
         'mineralN', 'N_uptk'
 
@@ -226,11 +226,10 @@ subroutine read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
   !------------local var -------------------
   type(climate_data_type), pointer :: climateData(:)
   character(len=50)  filepath_in
-  character(len=50)  climfile
-  character(len=50)  parafile       ! parameter file
+!  character(len=50)  climfile
   character(len=80)  commts
-  integer, parameter :: niterms=10       ! MDK data for Oak Ridge input
-  integer, parameter :: ilines=12*366*24 ! the maxmum records of Oak Ridge FACE, 1999~2007
+  integer, parameter :: niterms=9       ! MDK data for Oak Ridge input
+  integer, parameter :: ilines=22*366*24 ! the maxmum records of Oak Ridge FACE, 1999~2007
   integer,dimension(ilines) :: year_data
   real,   dimension(ilines) :: doy_data,hour_data
   real input_data(niterms,ilines)
@@ -241,7 +240,7 @@ subroutine read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
   integer :: m,n
 
   filepath_in = 'input/'
-  climfile    = 'ORNL_forcing.txt'
+!  climfile    = 'KNZ_amb.csv' ! 'KNZ_irr.csv' ! 'ORNL_forcing.txt'
   climfile=trim(filepath_in)//trim(climfile)
 
 ! open forcing data
@@ -264,7 +263,7 @@ subroutine read_forcingdata(forcingData,datalines,days_data,yr_data,timestep)
           doy = doy_data(m-1)
       endif
       if(doy /= doy_data(m)) idays = idays + 1
-
+      !write(*,*)year_data(m),doy_data(m),hour_data(m)
   enddo ! end of reading the forcing file
 
   timestep = hour_data(2) - hour_data(1)

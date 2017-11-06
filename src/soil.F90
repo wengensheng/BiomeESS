@@ -19,10 +19,23 @@ public :: SoilWaterDynamicsLayer, water_supply_layer
 public :: soil_data_beta
 
 !---------------------------------
+! ==== module data ===========================================================
+real, public :: &
+     cpw = 1952.0, & ! specific heat of water vapor at constant pressure
+     clw = 4218.0, & ! specific heat of water (liquid)
+     csw = 2106.0    ! specific heat of water (ice)
 
- contains
-!=============== soil water subroutines ==================================
-!=========================================================================
+! soil layer depth
+real     :: dz    (max_lev) = thksl   ! thicknesses of layers
+real     :: zfull (max_lev)
+real     :: zhalf (max_lev+1)
+
+
+contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+! =============== soil water subroutines ==================================
+! =========================================================================
 
 !========================================================================
 ! Weng 2017-10-18 ! compute available water for photosynthesis
@@ -35,14 +48,21 @@ subroutine water_supply_layer(forcing, vegn)
   real :: fWup(max_lev)      ! fraction to the actual soil water
   real :: freewater(max_lev)
   real :: W_up0(max_lev) ! potential water uptake, mol s-1 m-2
+  real :: psi_soil, psi_leaf, psi_stem, psi_root ! Pa, water potentials from soil to leaf
   real :: thetaS(max_lev) ! soil moisture index (0~1)
   real :: dpsiSR(max_lev) ! pressure difference between soil water and root water, Pa
   integer :: i,j, layer
 
+!! Plant hydraulics
+   psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
 !! Water pressure difference
   do i=1, max_lev ! Calculate water uptake potential layer by layer
      freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT)*thksl(i)*1000.0))
      thetaS(i)    = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+     !Soil water pressure
+     psi_soil = soilpars(vegn%soiltype)%psi_sat_ref * &  ! Pa
+            ((FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
+
      dpsiSR(i) = 1.5 *1.0e6 * thetaS(i)**2 ! Pa
 
      W_up0(i) = 0.0 ! Potential water uptake per layer
@@ -82,6 +102,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 !----- local var --------------
   type(cohort_type),pointer :: cc
   real    :: rainwater,W_deficit(max_lev),W_add(max_lev)
+  real    :: kappa  ! light extinction coefficient of corwn layers
   real    :: Esoil      ! soil surface evaporation, kg m-2 s-1
   real    :: Hsoil      ! sensible heat from soil
   real    :: Rsoilabs   ! W/m2
@@ -118,8 +139,10 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   vegn%SoilWater = vegn%SoilWater - vegn%transp
 
 !! Soil surface evaporation
+!    calculate kappa  ! light extinction coefficient of corwn layers
+     kappa = 0.75
 !    thermodynamic parameters for air
-      Rsoilabs = forcing%radiation * exp(-0.65*vegn%LAI)
+      Rsoilabs = forcing%radiation * exp(-kappa*vegn%LAI)
       Hgrownd = 0.0
       TairK = forcing%Tair
       Tair  = forcing%Tair - 273.16
@@ -130,16 +153,18 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
       slope = (esat(Tair+0.1)-esat(Tair))/0.1
       psyc=forcing%P_air*cpair*mol_air/(H2OLv*mol_h2o)
       Cmolar=forcing%P_air/(Rugas*TairK) ! mole density of air (mol/m3)
+      rsoil = exp(8.206-4.255*fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
       !Rsoil=3.0E+10 * (FILDCP-vegn%wcl(1))**16 ! Kondo et al. 1990
-      rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
+      ! rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
       raero=50./(forcing%windU + 0.2)
       rLAI=exp(vegn%LAI)
 !     latent heat flux into air from soil
 !           Eleaf(ileaf)=1.0*
 !     &     (slope*Y*Rnstar(ileaf)+rhocp*Dair/(rbH_L+raero))/    !2* Weng 0215
 !     &     (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))
-      Esoil=(slope*(Rsoilabs-Hgrownd)+rhocp*Dair/(raero+rLAI))/ &
-            (slope+psyc*(rsoil/(raero+rLAI)+1.0))
+      Esoil=(slope*Rsoilabs + rhocp*Dair/raero)/ &
+            (slope + psyc*(1.0+rsoil/raero)) *   &
+            max(vegn%wcl(1),0.0)/FLDCAP ! (vegn%wcl(1)-ws0)/(FLDCAP-ws0)
 !     sensible heat flux into air from soil
 !      Hsoil = Rsoilabs - Esoil - Hgrownd
 
@@ -164,6 +189,8 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 
 end subroutine SoilWaterDynamicsLayer
 
+! ==============Scheme used in LM3, but not here =============================
+! =============== just for reference =========================================
 ! ============================================================================
 ! compute uptake-related properties
 subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
@@ -188,7 +215,7 @@ subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
        VRL, & ! volumetric root length
        u, du ! uptake and its derivative (the latter is not used)
   real :: z  !  soil depth
-  real :: psi_wilt ! added by Weng, 2017-10-29
+  !real :: psi_wilt ! added by Weng, 2017-10-29
   logical :: uptake_oneway = .TRUE. ! added by Weng
   logical :: uptake_from_sat = .true.
   type (cohort_type), pointer :: cc
@@ -293,7 +320,7 @@ subroutine darcy2d_uptake_lin ( soil, psi_x0, R, VRL, K_r, r_r,uptake_oneway, &
      du(k) = VRL(k)*dz(k)*du(k)
   enddo
 
-end subroutine
+end subroutine darcy2d_uptake_lin
 
 ! ============================================================================
 ! given soil and root parameters, calculate the flux of water toward root

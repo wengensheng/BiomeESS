@@ -1,5 +1,5 @@
 #/bin/sh
-gfortran src/datatypes.F90 src/soil.F90 src/esdvm.F90 src/main.F90 -o ess
+gfortran src/datatypes.F90 src/soil.F90 src/vegetation.F90 src/main.F90 -o ess
 ./ess
 gfortran src/BasalAreaAnalysis.F90 -o ana
 ./ana

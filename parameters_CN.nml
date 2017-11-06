@@ -1,33 +1,45 @@
  &vegn_parameters_nml
+soiltype = 3,
+FLDCAP   = 0.4,
+WILTPT   = 0.05,
 K1 =  3.0,  ! turnover rate of fast SOM
 K2 =  0.2,  ! turnover rate of slow SOM
 K_nitrogen = 0.0 ! 2.5 ! rate of a year, 2.5
 etaN       = 0.0 ! 0.025 ! loss rate with runoff
+f_initialBSW = 0.005
 ! species      0         1         2         3         4
 lifeform      = 0,       0,        1,        1,        1,    ! 0: grass; 1 Woody
 phenotype     = 0,       0,        0,        1,        0,    ! 0: Deciduous; 1 Evergreen
 pt            = 1,       1,        0,        0,        0,    ! 0: C3; 1: C4
-laimax        = 3.0,     3.0,      3.5,      3.5,      3.5,
-LMA           = 0.035,   0.035,    0.035,    0.175,    0.035,
-LAI_light     = 3.0,     3.0,      3.5,      3.0,      3.5,
-CNleafsupport = 40.,     40.,      40.,      40.,      40.,
-Nfixrate0     = 5.0,     5.0,      0.0,      0.0,      0.05   ! 0.03 kgN kgRootC-1 yr-1
-NfixCost0     = 30.,     30.,      12.,      12.,      12.,   ! 12, 24
-Vannual       = 1.2,     1.2,      1.5,      1.5,      1.5,   ! 1.2 kgC m-2 yr-1
+seedlingsize  = 0.02,    0.02,     0.05,     0.05,     0.05  ! initial size of seedlings
+laimax        = 3.0,     3.0,      3.5,      3.5,      3.5,  ! maximum crown LAI
+LMA           = 0.035,   0.035,    0.035,    0.175,    0.035,! Leaf mass per unit area
+LAI_light     = 3.0,     3.0,      3.5,      3.0,      3.5,  ! Light-limited crown LAI
+CNleafsupport = 40.,     40.,      40.,      40.,      40.,  ! C/N ratio of leaf support tissues
+Nfixrate0     = 0.0,     0.0,      0.0,      0.0,      0.05   ! 0.03 kgN kgRootC-1 yr-1
+NfixCost0     = 12.,     12.,      12.,      12.,      12.,   ! 12, 24 gC/gN
+Vmax          = 35.E-6,  35.E-6,   35.E-6,   35.E-6,   35.E-6,   ! mol m-2 s-1
 gamma_LN      = 25.,     25.,      50.5,     50.5,     50.5,
-gamma_FR      = 2.5,     2.5,      1.5,      1.5,      1.5,
-gamma_SW      = 0.0025,  0.0025,   0.0012,   0.0012,   0.0012
+gamma_FR      = 1.5,     1.5,      1.5,      1.5,      1.5,
+gamma_SW      = 0.00025,  0.00025,   0.0012,   0.0012,   0.0012
 phiRL         = 0.8,     0.8,      0.8,      0.8,      0.8,
 phiCSA        = 1.25E-4, 1.25E-4,  0.25E-4,  0.25E-4,  0.25E-4,
 mortrate_d_c  = 0.02,    0.02,     0.02,     0.02,     0.02,    ! canopy tree mortality rate, year-1
-mortrate_d_u  = 0.05,    0.05,     0.05,     0.05,     0.05,    ! understory tree mortality rate, year-1
+mortrate_d_u  = 0.2,    0.05,     0.05,     0.05,     0.05,    ! understory tree mortality rate, year-1
 maturalage    = 0.5,     0.2,      5,        5,        5,
+ /
+ 
+ &soil_data_nml
+ GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+ chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+ psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
+ k_sat_ref = 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2, ! mol/(s MPa m)
  /
 
  &initial_state_nml
 !!   plant
  init_n_cohorts      = 1,  ! 2,               !  5
- init_cohort_species = 3,  !  3,   ! 4,    ! 3,
+ init_cohort_species = 1,  !  3,   ! 4,    ! 3,
  init_cohort_nindivs = 0.3,!  0.3  ! 0.25, ! 0.25,
  init_cohort_bsw     = 0.2, ! 0.2, ! 0.2,  ! 1.5,
  init_cohort_bHW     = 0.0, ! 0.0, ! 0.0,  ! 0.0,
@@ -42,7 +54,8 @@ maturalage    = 0.5,     0.2,      5,        5,        5,
                                ! low  N input --> Evergreen
 
 ! Model run
-
- model_run_years     = 50
- do_fast_run         = .TRUE.
+ climfile    = 'KNZ_amb.csv' ! 'KNZ_amb.csv' ! 'KNZ_irr.csv' ! 'ORNL_forcing.txt'
+ model_run_years     = 6
+ outputhourly        = .False.
+ outputdaily         = .True.
  /
