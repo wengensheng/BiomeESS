@@ -26,9 +26,9 @@ real, public :: &
      csw = 2106.0    ! specific heat of water (ice)
 
 ! soil layer depth
-real     :: dz    (max_lev) = thksl   ! thicknesses of layers
-real     :: zfull (max_lev)
-real     :: zhalf (max_lev+1)
+real     :: dz(max_lev) = thksl   ! thicknesses of layers
+real     :: zfull(max_lev)
+real     :: zhalf(max_lev+1)
 
 
 contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -449,8 +449,6 @@ subroutine cohort_uptake_profile(cohort, dz, uptake_frac_max, vegn_uptake_term)
   endif
 
 end subroutine 
-
-! ================================================
 ! ================================================
 
 end module soil_mod

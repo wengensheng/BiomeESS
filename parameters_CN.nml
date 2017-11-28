@@ -18,10 +18,10 @@ LAI_light     = 3.0,     3.0,      3.5,      3.0,      3.5,  ! Light-limited cro
 CNleafsupport = 40.,     40.,      40.,      40.,      40.,  ! C/N ratio of leaf support tissues
 Nfixrate0     = 0.0,     0.0,      0.0,      0.0,      0.05   ! 0.03 kgN kgRootC-1 yr-1
 NfixCost0     = 12.,     12.,      12.,      12.,      12.,   ! 12, 24 gC/gN
-Vmax          = 35.E-6,  35.E-6,   35.E-6,   35.E-6,   35.E-6,   ! mol m-2 s-1
-gamma_LN      = 25.,     25.,      50.5,     50.5,     50.5,
+Vmax          = 35.E-6,  35.E-6,   35.E-6,   25.E-6,   35.E-6,   ! mol m-2 s-1
+gamma_LN      = 25.,     25.,      70.5,     70.5,     70.5,
 gamma_FR      = 1.5,     1.5,      1.5,      1.5,      1.5,
-gamma_SW      = 0.00025,  0.00025,   0.0012,   0.0012,   0.0012
+gamma_SW      = 0.00025,  0.00025,   0.002,   0.002,   0.002
 phiRL         = 0.8,     0.8,      0.8,      0.8,      0.8,
 phiCSA        = 1.25E-4, 1.25E-4,  0.25E-4,  0.25E-4,  0.25E-4,
 mortrate_d_c  = 0.02,    0.02,     0.02,     0.02,     0.02,    ! canopy tree mortality rate, year-1
@@ -39,7 +39,7 @@ maturalage    = 0.5,     0.2,      5,        5,        5,
  &initial_state_nml
 !!   plant
  init_n_cohorts      = 1,  ! 2,               !  5
- init_cohort_species = 1,  !  3,   ! 4,    ! 3,
+ init_cohort_species = 3,  ! 1,  !  3,   ! 4,    ! 3,
  init_cohort_nindivs = 0.3,!  0.3  ! 0.25, ! 0.25,
  init_cohort_bsw     = 0.2, ! 0.2, ! 0.2,  ! 1.5,
  init_cohort_bHW     = 0.0, ! 0.0, ! 0.0,  ! 0.0,
@@ -54,8 +54,9 @@ maturalage    = 0.5,     0.2,      5,        5,        5,
                                ! low  N input --> Evergreen
 
 ! Model run
- climfile    = 'KNZ_amb.csv' ! 'KNZ_amb.csv' ! 'KNZ_irr.csv' ! 'ORNL_forcing.txt'
- model_run_years     = 6
+ climfile    = 'ORNL_forcing.txt' ! 'KNZ_amb.csv' ! 'KNZ_irr.csv' ! 'ORNL_forcing.txt'
+ model_run_years     = 300
  outputhourly        = .False.
- outputdaily         = .True.
+ outputdaily         = .False. ! .True.
+ do_U_shaped_mortality = .True.
  /

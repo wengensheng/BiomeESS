@@ -572,8 +572,9 @@ real      :: step_seconds = 3600.0
 
 character(len=50) :: climfile = 'ORNL_forcing.txt'
 integer   :: model_run_years = 100
-logical   ::  outputhourly = .False.
-logical   ::  outputdaily  = .True.
+logical   :: outputhourly = .False.
+logical   :: outputdaily  = .True.
+logical   :: do_U_shaped_mortality = .True.
 
 namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
@@ -581,7 +582,8 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc, &
     init_fast_soil_C, init_slow_soil_C,    & 
     init_Nmineral, N_input,  &
-    climfile, model_run_years, outputhourly, outputdaily
+    climfile, model_run_years, outputhourly, outputdaily, &
+    do_U_shaped_mortality
 !---------------------------------
 
  contains
@@ -951,7 +953,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
           cc%dailyResp = 0.0
       enddo
       !! Tile level, daily
-      if(outputdaily) &
+      ! if(outputdaily) &
          write(fno4,'(2(I5,","),28(F12.4,","))') iyears, idoy,  &
             vegn%dailyPrcp, vegn%soilwater, &
             vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff, &

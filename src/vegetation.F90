@@ -518,7 +518,7 @@ subroutine vegn_growth_EW(vegn)
   call vegn_tissue_turnover(vegn)
 
   !Allocate C_gain to tissues
-  DBHtp = 0.8
+  DBHtp = 1.5
   fNr   = 0.25
   do i = 1, vegn%n_cohorts   
      cc => vegn%cohorts(i)
@@ -621,7 +621,7 @@ subroutine vegn_growth_EW(vegn)
 
 !       update bl_max and br_max daily
         BL_c = sp%LMA * sp%LAImax * cc%crownarea * &
-               (1.0-sp%internal_gap_frac)
+               (1.0-sp%internal_gap_frac)/max(1,cc%layer)
         BL_u = sp%LMA*cc%crownarea*(1.0-sp%internal_gap_frac)* &
                     sp%underLAImax
         if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
@@ -859,18 +859,36 @@ subroutine vegn_nat_mortality (vegn, deltat)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
-
-     ! mortality rate is a function of growth rate, age, and environmental
-     ! conditions. Here, we only use two constants for canopy layer and under-
+     ! mortality rate can be a function of growth rate, age, and environmental
+     ! conditions. Here, we only used two constants for canopy layer and under-
      ! story layer (mortrate_d_c and mortrate_d_u)
-     ! for trees
-     if(cc%layer > 1) then
-            tmp = (1 + A_mort*exp(B_mort*(DBH_mort-cc%dbh)) &
-                       /(1.0 + exp(B_mort*(DBH_mort-cc%dbh))))
-            deathrate = spdata(cc%species)%mortrate_d_u * tmp
-     else
-            deathrate = spdata(cc%species)%mortrate_d_c !sp%mortrate_d_c
+     if(sp%lifeform==0)then  ! for grasses
+         if(cc%layer > 1) then
+             deathrate = sp%mortrate_d_u
+         else
+             deathrate = sp%mortrate_d_c
+         endif
+     else                    ! for trees
+         if(cc%layer > 1) then
+!            deathrate = sp%mortrate_d_u
+!            deathrate = sp%mortrate_d_u * &
+!                     (1 + A_mort*exp(B_mort*(DBH_mort-cc%dbh)) &
+!                       /(1.0 + exp(B_mort*(DBH_mort-cc%dbh))) &
+!                     )
+            deathrate = sp%mortrate_d_u * &
+                         (1.0 + 2*exp(500*(DBH_mort-cc%dbh))   &
+                        /(1.0 + exp(500*(DBH_mort-cc%dbh)))    &
+                     )
 
+         else
+            if(do_U_shaped_mortality)then
+                deathrate = sp%mortrate_d_c *                 &
+                           (1. + 6.*exp(8.*(cc%dbh-DBHtp))/  &
+                           (1. + exp(8.*(cc%dbh-DBHtp))))
+            else
+                deathrate = sp%mortrate_d_c
+            endif
+         endif
      endif
      deadtrees = cc%nindivs*(1.0-exp(-deathrate*deltat/seconds_per_year)) ! individuals / m2
      ! Carbon and Nitrogen from dead plants to soil pools
@@ -896,23 +914,19 @@ subroutine vegn_starvation (vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species)  )
-
 !   Mortality due to starvation
     deathrate = 0.0
 !   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
-    if (cc%nsc < 0.00001*cc%bl_max) then
+    if (cc%nsc < 0.01*cc%bl_max) then
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
-
          ! Carbon and Nitrogen from plants to soil pools
          call plant2soil(vegn,cc,deadtrees)
-
 !        update cohort individuals
-         cc%nindivs = cc%nindivs*(1.0-deathrate)
+         cc%nindivs = cc%nindivs*(1.0 - deathrate)
      else
          deathrate = 0.0
      endif
-
      end associate
   enddo
 end subroutine vegn_starvation
@@ -1738,8 +1752,8 @@ subroutine initialize_cohort_from_biomass(cc,btot)
      cc%height     = sp%alphaHT * cc%dbh ** sp%thetaHT
      cc%crownarea  = sp%alphaCA * cc%dbh ** sp%thetaCA
 
-     cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea
-     cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea
+     cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/max(1,cc%layer)
+     cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/max(1,cc%layer)
      cc%NSNmax = 0.2 * cc%crownarea ! 5.0*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
      cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
      call rootarea_and_verticalprofile(cc)
@@ -1758,12 +1772,13 @@ subroutine annual_calls(vegn)
 
     ! ---------- annual call -------------
     ! update the LAImax of each PFT according to available N for next year
+
     ! call vegn_annualLAImax_update(vegn)
 
     ! Reproduction and mortality
     call vegn_reproduction(vegn)
     call vegn_nat_mortality(vegn, real(seconds_per_year))
-    call vegn_starvation(vegn)  ! called daily
+    !call vegn_starvation(vegn)  ! called daily
 
     ! Re-organize cohorts
     call relayer_cohorts(vegn)
@@ -1778,11 +1793,13 @@ subroutine annual_calls(vegn)
 subroutine init_cohort_allometry(cc)
   type(cohort_type), intent(inout) :: cc
   ! ----- local var -----------
+  integer :: layer
   real    :: btot ! total biomass per individual, kg C
 
   associate(sp=>spdata(cc%species))
   !if(sp%lifeform>0)then
      btot = max(0.0001,cc%bHW+cc%bsw)
+     layer = max(1, cc%layer)
      cc%DBH        = (btot / sp%alphaBM) ** ( 1.0/sp%thetaBM )
      cc%height     = sp%alphaHT * cc%dbh ** sp%thetaHT
      cc%crownarea  = sp%alphaCA * cc%dbh ** sp%thetaCA
@@ -1791,8 +1808,8 @@ subroutine init_cohort_allometry(cc)
      ! diagnostics, because otherwise those fields are inherited from the 
      ! parent cohort and produce spike in the output, even though these spurious
      ! values are not used by the model
-     cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea
-     cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea
+     cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/layer
+     cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/layer
      cc%NSNmax = 0.2 * cc%crownarea ! 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
   end associate
 end subroutine
