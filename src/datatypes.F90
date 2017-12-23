@@ -18,7 +18,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  public :: MaxCohortID, &
     K1, K2, K_nitrogen, etaN, MLmixRatio, &
     fsc_fine, fsc_wood,  &
-    GR_factor,  l_fract, f_initialBSW, &
+    GR_factor,  l_fract, retransN, f_initialBSW, &
     DBH_mort, A_mort, B_mort
 
 !===============constants===============
@@ -267,9 +267,7 @@ type :: vegn_tile_type
    real :: structuralN = 0  ! slow soil nitrogen pool, (kg N/m2)
    real :: mineralN = 0  ! Mineral nitrogen pool, (kg N/m2)
    real :: N_input        ! annual N input (kgN m-2 yr-1)
-   real :: N_uptake  = 0  ! kg N m-2 yr-1
-   real :: accu_Nup       ! accumulated N uptake kgN m-2
-   real :: annualfixedN = 0.  ! fixe N in a tile
+   real :: N_uptake  = 0  ! kg N m-2 hour-1
    real :: annualN = 0.0  ! annual available N in a year
    real :: Nloss_yr= 0.0  ! annual N loss
    real :: N_P2S_yr= 0.0  ! annual N from plants to soil
@@ -310,6 +308,8 @@ type :: vegn_tile_type
    real :: annualNPP = 0.0
    real :: annualResp = 0.0
    real :: annualRh   = 0.0
+   real :: annualNup       ! accumulated N uptake kgN m-2 yr-1
+   real :: annualfixedN = 0.  ! fixe N in a tile
    ! for annual reporting at tile level
    real :: NSC, SeedC, leafC, rootC, SapwoodC, WoodC
    real :: NSN, SeedN, leafN, rootN, SapwoodN, WoodN
@@ -401,6 +401,7 @@ real :: fsc_fine   = 1.0     ! fraction of fast turnover carbon in fine biomass
 real :: fsc_wood   = 0.2     ! fraction of fast turnover carbon in wood biomass
 real :: GR_factor  = 0.33 ! growth respiration factor
 real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
+real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
 real :: f_initialBSW = 0.2 !0.01
 
 ! Ensheng's growth parameters:
@@ -511,7 +512,7 @@ namelist /vegn_parameters_nml/  &
   LMA, LNbase, CNleafsupport, c_LLS,      &
   K1,K2, K_nitrogen, etaN, MLmixRatio,    &
   LMAmin, fsc_fine, fsc_wood, &
-  GR_factor, l_fract, f_initialBSW, wood_fract_min,  &
+  GR_factor, l_fract, retransN, f_initialBSW, wood_fract_min,  &
   gdd_crit,tc_crit, tc_crit_on, &
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
@@ -572,6 +573,7 @@ real      :: step_seconds = 3600.0
 
 character(len=50) :: climfile = 'ORNL_forcing.txt'
 integer   :: model_run_years = 100
+integer   :: equi_days       = 100 * 365
 logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .True.
@@ -774,10 +776,10 @@ subroutine qscomp(T, p, qsat)
 
 end subroutine qscomp
 
- FUNCTION esat(T)
+ FUNCTION esat(T) ! pressure, Pa
    IMPLICIT NONE
    REAL :: esat
-   REAL, INTENT(IN) :: T
+   REAL, INTENT(IN) :: T ! degC
    esat=610.78*exp(17.27*T/(T+237.3))
  END FUNCTION esat
 ! ==================================
@@ -789,30 +791,13 @@ subroutine Zero_diagnostics(vegn)
   !-------local var
   type(cohort_type),pointer :: cc
   integer :: i
-
-  ! State variables
-  vegn%LAI     = 0.0
-  
-  vegn%NSC     = 0.0
-  vegn%SeedC   = 0.0
-  vegn%leafC   = 0.0
-  vegn%rootC   = 0.0
-  vegn%SapwoodC= 0.0
-  vegn%WoodC   = 0.0
-
-  vegn%NSN     = 0.0
-  vegn%SeedN   = 0.0
-  vegn%leafN   = 0.0
-  vegn%rootN   = 0.0
-  vegn%SapwoodN= 0.0
-  vegn%WoodN   = 0.0
-
   !daily
   vegn%dailyfixedN = 0.
   vegn%dailyPrcp = 0.0
   vegn%dailyTrsp = 0.0
   vegn%dailyEvap = 0.0
   vegn%dailyRoff = 0.0
+  vegn%dailyNup  = 0.0
   vegn%dailyGPP = 0.0
   vegn%dailyNPP = 0.0
   vegn%dailyResp = 0.0
@@ -831,7 +816,7 @@ subroutine Zero_diagnostics(vegn)
   vegn%N_P2S_yr  = 0.
   vegn%annualN   = 0.
   vegn%Nloss_yr  = 0.
-  vegn%accu_Nup  = 0.0
+  vegn%annualNup  = 0.0
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -863,6 +848,53 @@ subroutine Zero_diagnostics(vegn)
      cc%DBH_ys    = cc%DBH
   enddo
 end subroutine Zero_diagnostics
+
+! ========================
+subroutine summarize_tile(vegn)
+! for annual update
+  type(vegn_tile_type), intent(inout) :: vegn
+  !-------local var
+  type(cohort_type),pointer :: cc
+  integer :: i
+
+  ! State variables
+  vegn%NSC     = 0.0
+  vegn%SeedC   = 0.0
+  vegn%leafC   = 0.0
+  vegn%rootC   = 0.0
+  vegn%SapwoodC= 0.0
+  vegn%WoodC   = 0.0
+
+  vegn%NSN     = 0.0
+  vegn%SeedN   = 0.0
+  vegn%leafN   = 0.0
+  vegn%rootN   = 0.0
+  vegn%SapwoodN= 0.0
+  vegn%WoodN   = 0.0
+
+  vegn%LAI     = 0.0
+  vegn%CAI     = 0.0
+  do i = 1, vegn%n_cohorts
+        cc => vegn%cohorts(i)
+        ! Vegn C pools:
+        vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
+        vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
+        vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
+        vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
+        vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
+        vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
+        vegn%CAI     = vegn%CAI + cc%crownarea * cc%nindivs
+        vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
+        ! Vegn N pools
+        vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
+        vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
+        vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
+        vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
+        vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
+        vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
+  enddo
+
+end subroutine summarize_tile
 
 !=========================================================================
 ! Hourly fluxes sum to daily
@@ -907,6 +939,7 @@ end subroutine Zero_diagnostics
       vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
 
   ! Daily summary:
+  vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
   vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
   vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
   vegn%dailyResp = vegn%dailyResp + vegn%resp
@@ -919,10 +952,10 @@ end subroutine Zero_diagnostics
 end subroutine hourly_diagnostics
 
 !============================================
-subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
+subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
-  integer, intent(in) :: iyears,idoy,fno3,fno4
+  integer, intent(in) :: iyears,idoy,iday,fno3,fno4
 
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
@@ -932,7 +965,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
       !!! daily !! cohorts output
       do i = 1, vegn%n_cohorts
           cc => vegn%cohorts(i)
-          if(outputdaily) &
+          if(outputdaily.and. iday>equi_days) &
           write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
                 iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
                 cc%nindivs*10000, cc%layerfrac, cc%LAI, &
@@ -953,19 +986,26 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
           cc%dailyResp = 0.0
       enddo
       !! Tile level, daily
-      ! if(outputdaily) &
-         write(fno4,'(2(I5,","),28(F12.4,","))') iyears, idoy,  &
+      if(outputdaily.and. iday>equi_days) then
+         call summarize_tile(vegn)
+         write(fno4,'(2(I5,","),60(F12.6,","))') iyears, idoy,  &
             vegn%dailyPrcp, vegn%soilwater, &
             vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff, &
             vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
             vegn%wcl(3)*thksl(3)*1000., &
             vegn%LAI,vegn%dailyGPP, vegn%dailyNPP, vegn%dailyRh, &
+            vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
+            vegn%SapwoodC, vegn%woodC,                     &
+            vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,  &
+            vegn%rootN*1000, vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
             vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
             vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
-            vegn%mineralN*1000,   vegn%N_uptake*1000
+            vegn%mineralN*1000,   vegn%dailyNup*1000
+      endif
 
         !annual tile
         ! Annual summary:
+        vegn%annualNup  = vegn%annualNup  + vegn%dailyNup
         vegn%annualGPP  = vegn%annualGPP  + vegn%dailygpp
         vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
         vegn%annualResp = vegn%annualResp + vegn%dailyresp
@@ -975,7 +1015,8 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
         vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
         vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
 
-       ! Annual summary:
+       ! zero:
+       vegn%dailyNup  = 0.0
        vegn%dailyGPP  = 0.0
        vegn%dailyNPP  = 0.0
        vegn%dailyResp = 0.0
@@ -1040,26 +1081,9 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
     enddo
 
     ! tile pools output
-    vegn%LAI = 0.0
-    vegn%CAI =0.0
+    call summarize_tile(vegn)
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
-        ! Vegn C pools:
-        vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
-        vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
-        vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
-        vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
-        vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
-        vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
-        vegn%CAI     = vegn%CAI + cc%crownarea * cc%nindivs
-        vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
-        ! Vegn N pools
-        vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
-        vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
-        vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
-        vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
-        vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
-        vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
         vegn%annualfixedN  = vegn%annualfixedN  + cc%annualfixedN * cc%nindivs
     enddo
     plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
@@ -1073,14 +1097,14 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,fno3,fno4)
         vegn%CAI,vegn%LAI, &
         vegn%annualGPP, vegn%annualNPP, vegn%annualRh, &
         vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
-        plantC,soilC,plantN *1000, soilN * 1000, &
+        plantC,soilC,plantN *1000, soilN * 1000, (plantN+soilN)*1000,&
         vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
         vegn%SapwoodC, vegn%woodC,                     &
         vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000, vegn%rootN*1000, &
         vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
         vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
         vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
-        vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%accu_Nup*1000, &
+        vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%annualNup*1000, &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000, &
         vegn%totseedC*1000,vegn%totseedN*1000,vegn%totNewCC*1000,vegn%totNewCN*1000
 

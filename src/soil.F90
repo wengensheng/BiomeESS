@@ -169,7 +169,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 !      Hsoil = Rsoilabs - Esoil - Hgrownd
 
   !Calculate Esoil, kg m-2 step-1
-  vegn%evap = min(Esoil/H2OLv * 3600.0, &
+  vegn%evap = min(Esoil/H2OLv * step_seconds, &
                   0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
   vegn%wcl(1) = vegn%wcl(1) - vegn%evap/(thksl(1) *1000.)
   vegn%SoilWater = vegn%SoilWater - vegn%evap
@@ -185,7 +185,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 
       if(rainwater<=0.0)exit
    enddo
-   vegn%runoff = max(0.0, rainwater) ! mm hour-1
+   vegn%runoff = max(0.0, rainwater) ! mm step-1
 
 end subroutine SoilWaterDynamicsLayer
 
