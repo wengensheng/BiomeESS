@@ -55,7 +55,7 @@ subroutine water_supply_layer(forcing, vegn)
 
 !! Plant hydraulics
    psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
-!! Water pressure difference
+!! Water supply from each layer
   do i=1, max_lev ! Calculate water uptake potential layer by layer
      freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT)*thksl(i)*1000.0))
      thetaS(i)    = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
@@ -65,27 +65,26 @@ subroutine water_supply_layer(forcing, vegn)
 
      dpsiSR(i) = 1.5 *1.0e6 * thetaS(i)**2 ! Pa
 
-     W_up0(i) = 0.0 ! Potential water uptake per layer
+     W_up0(i) = 0.0 ! Potential water uptake per layer by all cohorts
+     fWup(i) = 0.0
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         associate ( sp => spdata(cc%species) )
-        cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i) * (step_seconds*mol_h2o) ! kg tree-1 step-1
-        cc%WupL(i) = 0.00016*freewater(i)*cc%crownarea ! for test
-        W_up0(i) = W_up0(i) + cc%WupL(i) * cc%nindivs ! water uptake per layer by all
+        cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i) * (step_seconds*mol_h2o) ! kg H2O tree-1 step-1
+        !cc%WupL(i) = 0.00016*freewater(i)*cc%crownarea ! for test
+        W_up0(i) = W_up0(i) + cc%WupL(i) * cc%nindivs ! water uptake per layer by all cohorts
         end associate
      enddo
-     if(W_up0(i)>0.0)then
-         fWup(i) = Min(0.05*freewater(i)/W_up0(i),1.0)! ratio of available soil water
-     else
-         fWup(i) = 0.0
-     endif
+     ! adjust cc%WupL(i) according to available water
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
+        if(W_up0(i)>0.0) fWup(i) = &
+            Min(0.05*freewater(i)/W_up0(i),1.0)! ratio of available soil water
         cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
      enddo
   enddo
 
-! actual W_suplly
+! total water suplly for each cohort
   do j = 1, vegn%n_cohorts
      cc => vegn%cohorts(j)
      cc%W_supply = sum(cc%WupL(:))
@@ -95,7 +94,8 @@ subroutine water_supply_layer(forcing, vegn)
 ! ============================================================================
 ! Weng, 2017-10-27
 subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
-!     All of inputs, the unit of water is 'mm', soil moisture or soil water content is a ratio
+!     All of inputs, the unit of water is 'mm',
+!     soil moisture (soil water content) is a ratio
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
 
@@ -118,7 +118,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   real    :: rsoil  ! s m-1
   real    :: raero
   real    :: rLAI
-  real    :: ftransp ! transp/W_supply
+  real    :: fsupply ! fraction of transpiration from a soil layer
   real    :: totTransp(max_lev)
   integer :: i,j,k
 
@@ -131,8 +131,8 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
       cc%W_supply = sum(cc%WupL(:))
       if(cc%W_supply>0.0)then
          do i=1,max_lev
-            ftransp = cc%WupL(i)/cc%W_supply
-            vegn%wcl(i) = vegn%wcl(i) - ftransp * cc%transp * cc%nindivs/(thksl(i)*1000.0)
+            fsupply = cc%WupL(i)/cc%W_supply
+            vegn%wcl(i) = vegn%wcl(i) - fsupply * cc%transp * cc%nindivs/(thksl(i)*1000.0)
          enddo
       endif
   enddo
@@ -169,27 +169,27 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 !      Hsoil = Rsoilabs - Esoil - Hgrownd
 
   !Calculate Esoil, kg m-2 step-1
-  vegn%evap = min(Esoil/H2OLv * 3600.0, &
+  vegn%evap = min(Esoil/H2OLv * step_seconds, &
                   0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
   vegn%wcl(1) = vegn%wcl(1) - vegn%evap/(thksl(1) *1000.)
   vegn%SoilWater = vegn%SoilWater - vegn%evap
 
 !! soil water refill by precipitation
-   rainwater =  forcing%rain * step_seconds
-   do i=1, max_lev
-      W_deficit(i) = (FLDCAP - vegn%wcl(i))*thksl(i)*1000.0
-      W_add(i) = min(rainwater, W_deficit(i))
-      rainwater = rainwater - W_add(i)
-      vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
-      vegn%SoilWater = vegn%SoilWater + W_add(i)
-
-      if(rainwater<=0.0)exit
-   enddo
-   vegn%runoff = max(0.0, rainwater) ! mm hour-1
-
+  rainwater =  forcing%rain * step_seconds
+  if(rainwater > 0.0)then
+     do i=1, max_lev
+        W_deficit(i) = (FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
+        W_add(i) = min(rainwater, W_deficit(i))
+        rainwater = rainwater - W_add(i)
+        vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
+        vegn%SoilWater = vegn%SoilWater + W_add(i)
+        if(rainwater<=0.0)exit
+     enddo
+  endif
+  vegn%runoff = max(0.0, rainwater) ! mm step-1
 end subroutine SoilWaterDynamicsLayer
 
-! ==============Scheme used in LM3, but not here =============================
+! ==============used in LM3, but not here =============================
 ! =============== just for reference =========================================
 ! ============================================================================
 ! compute uptake-related properties
