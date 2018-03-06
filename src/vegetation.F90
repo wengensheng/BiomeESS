@@ -129,7 +129,6 @@ subroutine vegn_photosynthesis (forcing, vegn)
       f_light(i) = f_light(i-1) * (exp(0.0-kappa*LAIlayer(i-1)) + f_gap)
       !f_light(i) = f_light(i-1) * (exp(0.0-kappa*3.5) + 0.1)
   enddo
-
   ! Photosynthesis
   accuCAI = 0.0
   do i = 1, vegn%n_cohorts
@@ -832,6 +831,7 @@ subroutine Seasonal_fall(cc,vegn)
         loss_fine    = cc%nindivs * (dBR        + dAleaf * LMAmin) ! + dBStem ! for grasses
         lossN_coarse = cc%nindivs * (dNStem+dNL - dAleaf * sp%LNbase)
         lossN_fine   = cc%nindivs * (dNR        + dAleaf * sp%LNbase)  !  + dBStem/sp%CNwood
+
         vegn%metabolicL = vegn%metabolicL + (1.-l_fract) *  &
                          (fsc_fine * loss_fine + fsc_wood * loss_coarse)
         vegn%structuralL = vegn%structuralL + (1.-l_fract) *     &

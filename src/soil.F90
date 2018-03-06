@@ -175,18 +175,19 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   vegn%SoilWater = vegn%SoilWater - vegn%evap
 
 !! soil water refill by precipitation
-  rainwater =  forcing%rain * step_seconds
-  if(rainwater > 0.0)then
-     do i=1, max_lev
-        W_deficit(i) = (FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
-        W_add(i) = min(rainwater, W_deficit(i))
-        rainwater = rainwater - W_add(i)
-        vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
-        vegn%SoilWater = vegn%SoilWater + W_add(i)
-        if(rainwater<=0.0)exit
-     enddo
-  endif
-  vegn%runoff = max(0.0, rainwater) ! mm step-1
+
+   rainwater =  forcing%rain * step_seconds
+   do i=1, max_lev
+      W_deficit(i) = (FLDCAP - vegn%wcl(i))*thksl(i)*1000.0
+      W_add(i) = min(rainwater, W_deficit(i))
+      rainwater = rainwater - W_add(i)
+      vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
+      vegn%SoilWater = vegn%SoilWater + W_add(i)
+
+      if(rainwater<=0.0)exit
+   enddo
+   vegn%runoff = max(0.0, rainwater) ! mm step-1
+
 end subroutine SoilWaterDynamicsLayer
 
 ! ==============used in LM3, but not here =============================
