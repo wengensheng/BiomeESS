@@ -424,7 +424,7 @@ integer :: pt(0:MSPECIES) = 0
 integer :: phenotype(0:MSPECIES)= 0
 ! (/0,  0,  0,  0,  1,  1,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0 /) ! 0 for Deciduous, 1 for evergreen
 integer :: lifeform(0:MSPECIES) = 1 ! life form of PFTs: 0 for grasses, 1 for trees
-real :: alpha_FR(0:MSPECIES) = 0.5 ! 1.2 ! Fine root turnover rate yr-1
+real :: alpha_FR(0:MSPECIES) = 1.2 ! 1.2 ! Fine root turnover rate yr-1
 !(/0.8, 0.8,0.8, 0.8, 0.8,0.8,0.8,0.8,1.0,1.0,0.6, 1.0, 0.55, 0.9, 0.55, 0.55/)
 
 ! root parameters
@@ -459,9 +459,9 @@ real :: tc_crit_on(0:MSPECIES)= 280.16 !
 real :: gdd_crit(0:MSPECIES)= 300.0 !
 
 ! Allometry parameters
-real :: alphaHT(0:MSPECIES)      = 36.01
+real :: alphaHT(0:MSPECIES)      = 36.0
 real :: thetaHT(0:MSPECIES)      = 0.5 !
-real :: alphaCA(0:MSPECIES)      = 200.0
+real :: alphaCA(0:MSPECIES)      = 150.0
 real :: thetaCA(0:MSPECIES)      = 1.5
 real :: alphaBM(0:MSPECIES)      = 5200.0
 real :: thetaBM(0:MSPECIES)      = 2.5
@@ -489,7 +489,7 @@ real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tr
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
 real :: tauNSC(0:MSPECIES)        = 3.0 ! NSC residence time,years
-real :: phiRL(0:MSPECIES)         = 1.2 ! ratio of fine root area to leaf area
+real :: phiRL(0:MSPECIES)         = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)        = 1.25E-4 ! ratio of sapwood area to leaf area
 ! C/N ratios for plant pools
 real :: CNleaf0(0:MSPECIES)   = 50. ! C/N ratios for leaves
