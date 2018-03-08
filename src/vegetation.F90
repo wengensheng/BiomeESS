@@ -40,6 +40,8 @@ public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
+  ! Update soil water
+  call SoilWaterDynamicsLayer(forcing,vegn)
 
   ! Respiration and allocation for growth
   do i = 1, vegn%n_cohorts
@@ -59,9 +61,6 @@ public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
      END ASSOCIATE
   enddo ! all cohorts
 
-  ! Update soil water 
-   !call SoilWaterDynamicsBucket(forcing,vegn)
-   call SoilWaterDynamicsLayer(forcing,vegn)
   ! update soil carbon
    call SOMdecomposition(vegn, forcing%tsoil, thetaS)
 
@@ -81,10 +80,6 @@ subroutine vegn_photosynthesis (forcing, vegn)
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
-  real :: freewater, W_up0 ! potential water uptake by roots, kgH2O m-2 fasttimestep-1
-  real :: fWup       ! fraction to the actual soil water
-  real :: ws, thetaS ! soil moisture index (0~1)
-  real :: dpsiSR     ! pressure difference between soil water and root water, MPa
   real :: rad_top  ! downward radiation at the top of the canopy, W/m2
   real :: rad_net  ! net radiation absorbed by the canopy, W/m2
   real :: Tair, TairK     ! air temperature, degC and degK

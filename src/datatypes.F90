@@ -908,7 +908,7 @@ end subroutine summarize_tile
 
   vegn%age = vegn%age + dt_fast_yr
   ! Tile summary
-  vegn%Transp = 0.; vegn%GPP    = 0.
+  vegn%GPP    = 0.
   vegn%NPP    = 0.; vegn%Resp   = 0.
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -919,7 +919,6 @@ end subroutine summarize_tile
      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
 
      ! Tile hourly
-     vegn%Transp = vegn%Transp + cc%Transp * cc%nindivs
      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
      vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
      vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs

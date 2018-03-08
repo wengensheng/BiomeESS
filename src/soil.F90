@@ -47,7 +47,7 @@ subroutine water_supply_layer(forcing, vegn)
   type(cohort_type),pointer :: cc
   real :: fWup(max_lev)      ! fraction to the actual soil water
   real :: freewater(max_lev)
-  real :: W_up0(max_lev) ! potential water uptake, mol s-1 m-2
+  real :: totWsup(max_lev) ! potential water uptake, mol s-1 m-2
   real :: psi_soil, psi_leaf, psi_stem, psi_root ! Pa, water potentials from soil to leaf
   real :: thetaS(max_lev) ! soil moisture index (0~1)
   real :: dpsiSR(max_lev) ! pressure difference between soil water and root water, Pa
@@ -57,32 +57,29 @@ subroutine water_supply_layer(forcing, vegn)
    psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
 !! Water supply from each layer
   do i=1, max_lev ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT)*thksl(i)*1000.0))
+     freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT) * thksl(i) * 1000.0))
      thetaS(i)    = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
      !Soil water pressure
      psi_soil = soilpars(vegn%soiltype)%psi_sat_ref * &  ! Pa
             ((FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
-
      dpsiSR(i) = 1.5 *1.0e6 * thetaS(i)**2 ! Pa
-
-     W_up0(i) = 0.0 ! Potential water uptake per layer by all cohorts
-     fWup(i) = 0.0
+     ! Layer allocation, water uptake capacity
+     totWsup(i) = 0.0 ! Potential water uptake per layer by all cohorts
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         associate ( sp => spdata(cc%species) )
         cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i) * (step_seconds*mol_h2o) ! kg H2O tree-1 step-1
-        !cc%WupL(i) = 0.00016*freewater(i)*cc%crownarea ! for test
-        W_up0(i) = W_up0(i) + cc%WupL(i) * cc%nindivs ! water uptake per layer by all cohorts
+        totWsup(i) = totWsup(i) + cc%WupL(i) * cc%nindivs ! water uptake per layer by all cohorts
         end associate
      enddo
      ! adjust cc%WupL(i) according to available water
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
-        if(W_up0(i)>0.0) fWup(i) = &
-            Min(0.05*freewater(i)/W_up0(i),1.0)! ratio of available soil water
+        if(totWsup(i)>0.0) &
+            fWup(i) = Min(0.25 * freewater(i) / totWsup(i),1.0)! ratio of available soil water
         cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
-     enddo
-  enddo
+     enddo ! cohort for each layer
+  enddo    ! all layers
 
 ! total water suplly for each cohort
   do j = 1, vegn%n_cohorts
@@ -118,25 +115,32 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   real    :: rsoil  ! s m-1
   real    :: raero
   real    :: rLAI
-  real    :: fsupply ! fraction of transpiration from a soil layer
-  real    :: totTransp(max_lev)
+  real    :: transp,fsupply ! fraction of transpiration from a soil layer
+  real    :: WaterBudgetL(max_lev)
   integer :: i,j,k
 
+! Soil water conditions
+  !call water_supply_layer(forcing, vegn)
+
 ! Water uptaken by roots, hourly
+  WaterBudgetL = 0.0
   vegn%transp = 0.0
   do j = 1, vegn%n_cohorts
       cc => vegn%cohorts(j)
-      vegn%transp = vegn%transp + cc%transp * cc%nindivs
+      ! Compare with soil water
+      ! cc%W_supply = sum(cc%WupL(:))
+      ! cc%transp   = min(cc%transp,cc%W_supply)
       ! deduct from soil water pool
-      cc%W_supply = sum(cc%WupL(:))
       if(cc%W_supply>0.0)then
          do i=1,max_lev
             fsupply = cc%WupL(i)/cc%W_supply
-            vegn%wcl(i) = vegn%wcl(i) - fsupply * cc%transp * cc%nindivs/(thksl(i)*1000.0)
+            transp  = fsupply * cc%transp * cc%nindivs
+            !vegn%wcl(i) = vegn%wcl(i) - transp/(thksl(i)*1000.0)
+            WaterBudgetL(i) = WaterBudgetL(i) - transp
+            vegn%transp = vegn%transp + transp
          enddo
       endif
-  enddo
-  vegn%SoilWater = vegn%SoilWater - vegn%transp
+  enddo ! all cohorts
 
 !! Soil surface evaporation
 !    calculate kappa  ! light extinction coefficient of corwn layers
@@ -155,7 +159,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
       Cmolar=forcing%P_air/(Rugas*TairK) ! mole density of air (mol/m3)
       rsoil = exp(8.206-4.255*fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
       !Rsoil=3.0E+10 * (FILDCP-vegn%wcl(1))**16 ! Kondo et al. 1990
-      ! rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
+      !rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
       raero=50./(forcing%windU + 0.2)
       rLAI=exp(vegn%LAI)
 !     latent heat flux into air from soil
@@ -171,22 +175,30 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   !Calculate Esoil, kg m-2 step-1
   vegn%evap = min(Esoil/H2OLv * step_seconds, &
                   0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
-  vegn%wcl(1) = vegn%wcl(1) - vegn%evap/(thksl(1) *1000.)
-  vegn%SoilWater = vegn%SoilWater - vegn%evap
+  !vegn%wcl(1) = vegn%wcl(1) - vegn%evap/(thksl(1) *1000.)
+  WaterBudgetL(1) = WaterBudgetL(1) - vegn%evap
 
 !! soil water refill by precipitation
+  rainwater =  forcing%rain * step_seconds
+  if(rainwater > 0.0)then
+     do i=1, max_lev
+        W_deficit(i) = (FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
+        W_add(i) = min(rainwater, W_deficit(i))
+        rainwater = rainwater - W_add(i)
+        !vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
+        WaterBudgetL(i) = WaterBudgetL(i) + W_add(i)
 
-   rainwater =  forcing%rain * step_seconds
-   do i=1, max_lev
-      W_deficit(i) = (FLDCAP - vegn%wcl(i))*thksl(i)*1000.0
-      W_add(i) = min(rainwater, W_deficit(i))
-      rainwater = rainwater - W_add(i)
-      vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
-      vegn%SoilWater = vegn%SoilWater + W_add(i)
+        if(rainwater<=0.0)exit
+     enddo
+  endif
+  vegn%runoff = rainwater ! mm step-1
 
-      if(rainwater<=0.0)exit
-   enddo
-   vegn%runoff = max(0.0, rainwater) ! mm step-1
+  ! Total soil water
+  vegn%SoilWater = 0.0
+  do i=1,max_lev
+     vegn%wcl(i) = vegn%wcl(i) +  WaterBudgetL(i)/(thksl(i)*1000.0)
+     vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
+  enddo
 
 end subroutine SoilWaterDynamicsLayer
 
