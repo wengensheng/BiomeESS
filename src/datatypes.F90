@@ -483,7 +483,7 @@ real :: LMA(0:MSPECIES)          = 0.035  !  leaf mass per unit area, kg C/m2
 real :: leafLS(0:MSPECIES) = 1.0
 !(/1., 1., 1., 1., 3., 3., 1., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 /)
 real :: LNbase(0:MSPECIES)        = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
-real :: CNleafsupport(0:MSPECIES) = 60.0 ! CN ratio of leaf supporting tissues
+real :: CNleafsupport(0:MSPECIES) = 40.0 ! 60.0 ! CN ratio of leaf supporting tissues
 real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree

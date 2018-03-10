@@ -546,7 +546,7 @@ subroutine vegn_growth_EW(vegn)
 !!       Nitrogen available for all tisues, including wood
         N_supply= MAX(0.0, fNr*cc%NSN)
 !!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
-        IF(N_demand > N_supply )then
+        IF(N_demand > N_supply .and. N_demand > 0.0 )then
             Nsupplyratio = N_supply / N_demand
             dB_LRS = dBL+dBR+dSeed
             dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed)
@@ -904,6 +904,9 @@ subroutine vegn_nat_mortality (vegn, deltat)
      cc%nindivs = cc%nindivs-deadtrees
      end associate
   enddo
+  ! Remove the cohorts with 0 individuals
+  call kill_lowdensity_cohorts(vegn)
+
 end subroutine vegn_nat_mortality
 
 !========================================================================
@@ -936,6 +939,9 @@ subroutine vegn_starvation (vegn)
      endif
      end associate
   enddo
+  ! Remove the cohorts with 0 individuals
+  call kill_lowdensity_cohorts(vegn)
+
 end subroutine vegn_starvation
 
 !========================================================================
@@ -968,6 +974,9 @@ subroutine vegn_annual_starvation (vegn)
      endif
      end associate
   enddo
+  ! Remove the cohorts with 0 individuals
+  call kill_lowdensity_cohorts(vegn)
+
 end subroutine vegn_annual_starvation
 
 ! ===============================
@@ -1294,12 +1303,12 @@ end subroutine relayer_cohorts
      else
         alpha_S = 0.0
      endif
-     dBL = cc%bl    *    alpha_L  /days_per_year
-     dBStem = cc%bsw    *    alpha_S  /days_per_year
-     dBR = cc%br    * sp%alpha_FR /days_per_year
-     dNL = cc%leafN *    alpha_L  /days_per_year
-     dNStem = cc%sapwN  *    alpha_S  /days_per_year
-     dNR = cc%rootN * sp%alpha_FR /days_per_year
+     dBL    = cc%bl    *    alpha_L  /days_per_year
+     dBStem = cc%bsw   *    alpha_S  /days_per_year
+     dBR    = cc%br    * sp%alpha_FR /days_per_year
+     dNL    = cc%leafN *    alpha_L  /days_per_year
+     dNStem = cc%sapwN *    alpha_S  /days_per_year
+     dNR    = cc%rootN * sp%alpha_FR /days_per_year
      dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
 
 !    Retranslocation to NSC and NSN
@@ -1384,7 +1393,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
         ! Add a temperature response equation herefor rho_N_up0 (Zhu Qing 2016)
         ! rho_N_up = 1.-exp(-rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr) ! rate at given root density and time period
         rho_N_up = rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr
-        totNup = rho_N_up * vegn%mineralN  ! * exp(9000.0 * (1./298.16 - 1./tsoil)) ! kgN m-2 time step-1
+        totNup = rho_N_up * vegn%mineralN * exp(9000.0 * (1./298.16 - 1./tsoil)) ! kgN m-2 time step-1
         avgNup = totNup / N_roots ! kgN time step-1 kg roots-1
         ! Nitrogen uptaken by each cohort, N_uptake
         vegn%N_uptake = 0.0
@@ -1494,8 +1503,9 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
   fast_N_free = MAX(0.0, fast_L_loss*(1./CNfast - CUEfast/CNm))
   slow_N_free = MAX(0.0, slow_L_loss*(1./CNslow - CUEslow/CNm))
 
-! N_loss = MAX(0.,vegn%mineralN)        * A * K_nitrogen * dt_fast_yr
-  N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
+  N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
+!  N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
+  N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
   vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
 
   vegn%mineralN = vegn%mineralN - N_loss       &
