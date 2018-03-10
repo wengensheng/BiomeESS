@@ -451,12 +451,12 @@ real :: wet_leaf_dreg(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulatio
 real :: m_cond(0:MSPECIES)= 7.0 !
 real :: alpha_phot(0:MSPECIES)=  0.06 !
 real :: gamma_L(0:MSPECIES)= 0.02 !
-real :: gamma_LN(0:MSPECIES)= 25.0  ! kgC kgN-1 yr-1
-real :: gamma_SW(0:MSPECIES)= 5.0e-4 ! kgC m-2 Acambium yr-1
-real :: gamma_FR(0:MSPECIES)= 12.5 !kgC kgN-1 yr-1 ! 0.6: kgC kgC-1 yr-1
-real :: tc_crit(0:MSPECIES)= 283.16
-real :: tc_crit_on(0:MSPECIES)= 280.16 !
-real :: gdd_crit(0:MSPECIES)= 300.0 !
+real :: gamma_LN(0:MSPECIES)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
+real :: gamma_SW(0:MSPECIES)= 0.002 ! 5.0e-4 ! kgC m-2 Acambium yr-1
+real :: gamma_FR(0:MSPECIES)= 1.5 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
+real :: tc_crit(0:MSPECIES)= 283.16 ! OFF
+real :: tc_crit_on(0:MSPECIES)= 280.16 ! ON
+real :: gdd_crit(0:MSPECIES)= 280.0 !
 
 ! Allometry parameters
 real :: alphaHT(0:MSPECIES)      = 36.0
@@ -488,9 +488,9 @@ real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
-real :: tauNSC(0:MSPECIES)        = 3.0 ! NSC residence time,years
+real :: tauNSC(0:MSPECIES)        = 3 ! NSC residence time,years
 real :: phiRL(0:MSPECIES)         = 3.5 ! ratio of fine root area to leaf area
-real :: phiCSA(0:MSPECIES)        = 1.25E-4 ! ratio of sapwood area to leaf area
+real :: phiCSA(0:MSPECIES)        = 0.25E-4 ! ratio of sapwood area to leaf area
 ! C/N ratios for plant pools
 real :: CNleaf0(0:MSPECIES)   = 50. ! C/N ratios for leaves
 real :: CNsw0(0:MSPECIES)     = 350.0 ! C/N ratios for woody biomass
@@ -572,7 +572,7 @@ real      :: step_seconds = 3600.0
 
 character(len=50) :: climfile = 'ORNL_forcing.txt'
 integer   :: model_run_years = 100
-integer   :: equi_days       = 100 * 365
+integer   :: equi_days       = 0 ! 100 * 365
 logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .False.
@@ -583,7 +583,7 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc, &
     init_fast_soil_C, init_slow_soil_C,    & 
     init_Nmineral, N_input,  &
-    climfile, model_run_years, outputhourly, outputdaily, &
+    climfile, model_run_years, outputhourly, outputdaily, equi_days, &
     do_U_shaped_mortality
 !---------------------------------
 

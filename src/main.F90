@@ -58,7 +58,7 @@ program BiomeESS
    type(soil_tile_type),  pointer :: soil
    type(cohort_type),     pointer :: cp,cc
 
-   character(len=50),parameter :: namelistfile = 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml'
+   character(len=50),parameter :: namelistfile = 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' !
    integer,parameter :: rand_seed = 86456
    integer,parameter :: totalyears = 10
    integer,parameter :: nCohorts = 1

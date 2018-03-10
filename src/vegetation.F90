@@ -53,6 +53,7 @@ public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
      call plant_respiration(cc,forcing%tair) ! get resp per tree per time step
      cc%resp = cc%resp + cc%resg/(24.0*3600/step_seconds) ! put growth respiration into total resp.
      cc%npp  = cc%gpp  - cc%resp ! kgC tree-1 step-1
+
      ! detach photosynthesis model from plant growth
      !cc%nsc  = cc%nsc + 2.4 * cc%crownarea * dt_fast_yr - cc%resp
      cc%nsc = cc%nsc + cc%npp
@@ -428,7 +429,7 @@ subroutine plant_respiration(cc, tairK)
   r_root   = fnsc*spdata(sp)%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
   r_leaf   = fnsc*spdata(sp)%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
 
-  cc%resp = (r_leaf + r_stem + r_root + r_Nfix) !kgC tree-1 step-1
+  cc%resp = r_leaf + r_stem + r_root + r_Nfix !kgC tree-1 step-1
   cc%resl = r_leaf !tree-1 step-1
   cc%resr = r_root + r_Nfix ! tree-1 step-1
 end subroutine plant_respiration
@@ -459,7 +460,7 @@ subroutine fetch_Carbon_for_growth(cc)
     if (cc%status == LEAF_ON) then ! growing season
         C_demand = (Max(cc%bl_max - cc%bl,0.0) +   &
                     Max(cc%br_max - cc%br,0.0))* LFR_rate
-        C_push = max(cc%nsc-0.5*NSCtarget, 0.0)/(365.0*sp%tauNSC)
+        C_push = max(cc%nsc-0.5*NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
         growthC= Max(0.0,MIN(0.025*cc%nsc, C_demand+C_push))
         cc%resg        = 0.25 * growthC
         cc%carbon_gain = 0.75 * growthC    ! kgC/tree
@@ -568,9 +569,9 @@ subroutine vegn_growth_EW(vegn)
         cc%sapwN = cc%sapwN + MAX((N_supply - N_demand),0.0)
 !       Return excessiive Nitrogen in SW back to NSN
         if(cc%sapwN > cc%bsw/sp%CNsw0)then
-           extrasapwN = cc%sapwN - cc%bsw/sp%CNsw0
-           cc%NSN     = cc%NSN   + extrasapwN ! MAX(0.0, cc%sapwN - cc%bsw/sp%CNsw0)
-           cc%sapwN   = cc%sapwN - extrasapwN ! MAX(0.0, cc%sapwN - cc%bsw/sp%CNsw0)
+           extrasapwN = MAX(0.0, cc%sapwN - cc%bsw/sp%CNsw0)
+           cc%NSN     = cc%NSN   + extrasapwN !
+           cc%sapwN   = cc%sapwN - extrasapwN !
         endif
 
 !       accumulated C allocated to leaf, root, and wood
@@ -689,7 +690,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
 
   ! update vegn GDD and tc_pheno
   vegn%gdd      = vegn%gdd + max(0.0, vegn%tc_daily - 278.15)
-  vegn%tc_pheno = vegn%tc_pheno * 0.85 + vegn%Tc_daily * 0.15
+  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
 
 ! ON and OFF of phenology: change the indicator of growing season for deciduous
   do i = 1,vegn%n_cohorts
@@ -705,7 +706,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
                     cc%status    == LEAF_OFF       .and. &
                     cc%gdd        > sp%gdd_crit    .and. &
                     vegn%tc_pheno > sp%tc_crit_on) .and. &
-             (sp%lifeform /=0 .OR.(sp%lifeform ==0 .and.cc%layer==1))
+             (sp%lifeform .ne. 0 .OR.(sp%lifeform .eq. 0 .and.cc%layer==1))
 
      cc_firstday = .false.
      if(TURN_ON_life)then
@@ -738,8 +739,8 @@ subroutine vegn_phenology(vegn,doy) ! daily step
          call init_cohort_allometry(cc)
      endif
      end associate
-
   enddo
+
   if(TURN_ON_life) call relayer_cohorts(vegn)
 
   ! OFF of a growing season
@@ -748,6 +749,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
      associate (sp => spdata(cc%species) )
      TURN_OFF_life = (sp%phenotype  == 0 .and.     &
                     cc%status == LEAF_ON .and.     &
+                    cc%gdd > sp%gdd_crit+600. .and. &
                     vegn%tc_pheno < sp%tc_crit)
      end associate
 
@@ -786,6 +788,7 @@ subroutine Seasonal_fall(cc,vegn)
             dNStem    = MIN(1.0,dBL/cc%bl) * cc%sapwN
         else
             dBStem = 0.0
+            dNStem = 0.0
         endif
         ! Nitrogen out
         if(cc%bl>0)then
@@ -1281,14 +1284,15 @@ end subroutine relayer_cohorts
 !    longevity. Deciduous: 0; Evergreen 0.035/LMa
 !    root turnover
      if(cc%status==LEAF_OFF)then
-        alpha_L = 60.0 ! yr-1
+        alpha_L = 60.0 ! yr-1, for decuduous leaf fall
      else
         alpha_L = sp%alpha_L
      endif
+     ! Stem turnover
      if(sp%lifeform == 0)then
         alpha_S = alpha_L
      else
-        alpha_S = 0
+        alpha_S = 0.0
      endif
      dBL = cc%bl    *    alpha_L  /days_per_year
      dBStem = cc%bsw    *    alpha_S  /days_per_year
@@ -1350,8 +1354,8 @@ subroutine vegn_N_uptake(vegn, tsoil)
 
   !-------local var
   type(cohort_type),pointer :: cc
-  real    :: rho_N_up0 = 0.02 ! hourly N uptake rate, fraction of the total mineral N
-  real    :: N_roots0  = 0.1  ! root biomass at half max N-uptake rate,kg C m-2
+  real    :: rho_N_up0 = 0.012 ! hourly N uptake rate, fraction of the total mineral N
+  real    :: N_roots0  = 0.2  ! root biomass at half max N-uptake rate,kg C m-2
   real    :: totNup    ! kgN m-2
   real    :: avgNup
   real    :: rho_N_up,N_roots   ! actual N uptake rate
@@ -1378,9 +1382,9 @@ subroutine vegn_N_uptake(vegn, tsoil)
      ! rate at given root biomass and period of time
      if(N_roots>0.0)then
         ! Add a temperature response equation herefor rho_N_up0 (Zhu Qing 2016)
-        rho_N_up = 1.-exp(-rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr) ! rate at given root density and time period
-        totNup = rho_N_up * vegn%mineralN  &
-                * exp(9000.0 * (1./298.16 - 1./tsoil)) ! kgN m-2 time step-1
+        ! rho_N_up = 1.-exp(-rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr) ! rate at given root density and time period
+        rho_N_up = rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr
+        totNup = rho_N_up * vegn%mineralN  ! * exp(9000.0 * (1./298.16 - 1./tsoil)) ! kgN m-2 time step-1
         avgNup = totNup / N_roots ! kgN time step-1 kg roots-1
         ! Nitrogen uptaken by each cohort, N_uptake
         vegn%N_uptake = 0.0
@@ -1389,7 +1393,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
            associate ( sp => spdata(cc%species) )
            NSN_not_full = (cc%NSN < cc%NSNmax)
            if(NSN_not_full)then
-               cc%N_uptake = cc%br  * avgNup  !
+               cc%N_uptake = min(cc%br*avgNup, cc%NSNmax- cc%NSN)!
                cc%nsn      = cc%nsn + cc%N_uptake
                cc%annualNup  = cc%annualNup + cc%N_uptake/cc%crownarea
 
