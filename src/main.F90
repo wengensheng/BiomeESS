@@ -58,7 +58,8 @@ program BiomeESS
    type(soil_tile_type),  pointer :: soil
    type(cohort_type),     pointer :: cp,cc
 
-   character(len=50),parameter :: namelistfile = 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' !
+   character(len=50),parameter :: namelistfile = 'parameters_Konza.nml' !
+   ! 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' !
    integer,parameter :: rand_seed = 86456
    integer,parameter :: totalyears = 10
    integer,parameter :: nCohorts = 1
@@ -156,8 +157,8 @@ program BiomeESS
 
    ! ----- model run ----------
    ! Read in forcing data
-   !call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
    step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
@@ -232,8 +233,6 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
   real, intent(inout)   :: timestep
   !------------local var -------------------
   type(climate_data_type), pointer :: climateData(:)
-  character(len=50)  filepath_in
-!  character(len=50)  climfile
   character(len=80)  commts
   integer, parameter :: niterms=9       ! MDK data for Oak Ridge input
   integer, parameter :: ilines=22*366*24 ! the maxmum records of Oak Ridge FACE, 1999~2007
@@ -246,8 +245,6 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
   integer :: i,j,k
   integer :: m,n
 
-  filepath_in = 'input/'
-!  climfile    = 'KNZ_amb.csv' ! 'KNZ_irr.csv' ! 'ORNL_forcing.txt'
   climfile=trim(filepath_in)//trim(climfile)
 
 ! open forcing data
@@ -317,8 +314,6 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   real, intent(inout)   :: timestep
   !------------local var -------------------
   type(climate_data_type), pointer :: climateData(:)
-  character(len=50)  filepath_in
-!  character(len=50)  climfile
   character(len=80)  commts
   integer, parameter :: niterms=15       ! NACP site forcing
   integer, parameter :: ilines=22*366*48 ! the maxmum records
@@ -331,7 +326,6 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   integer :: i,j,k
   integer :: m,n
 
-  filepath_in = 'input/'
   climfile=trim(filepath_in)//trim(climfile)
   write(*,*)'inputfile: ',climfile
 ! open forcing data

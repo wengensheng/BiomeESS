@@ -461,7 +461,7 @@ subroutine fetch_Carbon_for_growth(cc)
         C_demand = (Max(cc%bl_max - cc%bl,0.0) +   &
                     Max(cc%br_max - cc%br,0.0))* LFR_rate
         C_push = max(cc%nsc-0.5*NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        growthC= Max(0.0,MIN(0.025*cc%nsc, C_demand+C_push))
+        growthC= Max(0.0,MIN(0.075*cc%nsc, C_demand+C_push))
         cc%resg        = 0.25 * growthC
         cc%carbon_gain = 0.75 * growthC    ! kgC/tree
         ! Update NSC pool
@@ -474,8 +474,7 @@ subroutine fetch_Carbon_for_growth(cc)
  end subroutine fetch_Carbon_for_growth
 
 ! ============================================================================
-
-subroutine vegn_growth_EW(vegn)
+ subroutine vegn_growth_EW(vegn)
 ! updates cohort biomass pools, LAI, and height using accumulated 
 ! carbon_gain and bHW_gain
   type(vegn_tile_type), intent(inout) :: vegn
