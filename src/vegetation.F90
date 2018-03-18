@@ -455,13 +455,13 @@ subroutine fetch_Carbon_for_growth(cc)
     ! make these two variables to PFT-specific parameters
     LFR_rate = 1.0/16.0 ! filling rate/day
     associate ( sp => spdata(cc%species) )
-    NSCtarget = 2.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
-    ! Fetch C from labile C pool if it is in the growing seasaon
+    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
+    ! Fetch C from labile C pool if it is in the growing season
     if (cc%status == LEAF_ON) then ! growing season
         C_demand = (Max(cc%bl_max - cc%bl,0.0) +   &
                     Max(cc%br_max - cc%br,0.0))* LFR_rate
         C_push = max(cc%nsc-0.5*NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        growthC= Max(0.0,MIN(0.075*cc%nsc, C_demand+C_push))
+        growthC= Max(0.0,MIN(0.05*cc%nsc, C_demand+C_push))
         cc%resg        = 0.25 * growthC
         cc%carbon_gain = 0.75 * growthC    ! kgC/tree
         ! Update NSC pool
@@ -541,19 +541,26 @@ subroutine fetch_Carbon_for_growth(cc)
 !!       Nitrogen effects on allocations between wood and leaves+roots
 !
 !!       Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
-        N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0
+        N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
 !!       Nitrogen available for all tisues, including wood
         N_supply= MAX(0.0, fNr*cc%NSN)
 !!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
-        IF(N_demand > N_supply .and. N_demand > 0.0 )then
+        IF(N_supply < N_demand)then
             Nsupplyratio = N_supply / N_demand
-            dB_LRS = dBL+dBR+dSeed
-            dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed)
-            dBR  =  Nsupplyratio * dBR
-            dBL  =  Nsupplyratio * dBL
-            dSeed=  Nsupplyratio * dSeed
-
-            N_demand = N_supply ! dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0
+            if(sp%lifeform ==0 )then
+               dB_LRS = dBL+dBR+dSeed
+               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed)
+               dBR  =  Nsupplyratio * dBR
+               dBL  =  Nsupplyratio * dBL
+               dSeed=  Nsupplyratio * dSeed
+            else ! for grasses
+               dBR  =  Nsupplyratio * dBR
+               dBL  =  Nsupplyratio * dBL
+               dSeed=  Nsupplyratio * dSeed
+               dBSW =  Nsupplyratio * dBSW
+               cc%nsc = cc%NSC + cc%carbon_gain - dBR - dBL -dSeed - dBSW
+            endif
+            N_demand = N_supply
         ENDIF
 !       update biomass pools
         cc%bl     = cc%bl    + dBL
@@ -561,14 +568,16 @@ subroutine fetch_Carbon_for_growth(cc)
         cc%bsw    = cc%bsw   + dBSW
         cc%seedC  = cc%seedC + dSeed
 !!      update nitrogen pools, Nitrogen allocation
-        cc%NSN   = cc%NSN   - N_supply
+        !cc%NSN   = cc%NSN   - N_supply
         cc%leafN = cc%leafN + dBL   /sp%CNleaf0
         cc%rootN = cc%rootN + dBR   /sp%CNroot0
         cc%seedN = cc%seedN + dSeed /sp%CNseed0
         cc%sapwN = cc%sapwN + MAX((N_supply - N_demand),0.0)
+        cc%NSN   = cc%NSN   -  &
+                  (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0+MAX((N_supply-N_demand),0.0))
 !       Return excessiive Nitrogen in SW back to NSN
         if(cc%sapwN > cc%bsw/sp%CNsw0)then
-           extrasapwN = MAX(0.0, cc%sapwN - cc%bsw/sp%CNsw0)
+           extrasapwN = cc%sapwN - cc%bsw/sp%CNsw0
            cc%NSN     = cc%NSN   + extrasapwN !
            cc%sapwN   = cc%sapwN - extrasapwN !
         endif
@@ -722,17 +731,17 @@ subroutine vegn_phenology(vegn,doy) ! daily step
          cc%nindivs = ccNSC /sp%seedlingsize
          cc%bsw = f_initialBSW *sp%seedlingsize  ! for setting up a initial size
          cc%br    = 0.25 * cc%bsw
-         cc%nsc   = ccNSC/cc%nindivs - cc%bsw - cc%br
          cc%bl    = 0.0
          cc%bHW   = 0.0
          cc%seedC = 0.0
+         cc%nsc   = ccNSC/cc%nindivs - (cc%bl+ cc%bsw+cc%bHW+cc%br+cc%seedC)
          ! nitrogen pools
          cc%sapwN = cc%bsw  /sp%CNsw0
          cc%rootN = cc%br   /sp%CNroot0
-         cc%NSN   = ccNSN/cc%nindivs - cc%sapwN - cc%rootN
          cc%leafN = 0.0
          cc%woodN = 0.0
          cc%seedN = 0.0
+         cc%NSN   = ccNSN/cc%nindivs - (cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN)
 
          call rootarea_and_verticalprofile(cc)
          call init_cohort_allometry(cc)
@@ -757,8 +766,8 @@ subroutine vegn_phenology(vegn,doy) ! daily step
         cc%gdd   = 0.0        ! Start to counting a new cycle of GDD
         vegn%gdd = 0.0
      endif
+     ! leaf fall
      call Seasonal_fall(cc,vegn)
-     cc => null()
   enddo
 end subroutine vegn_phenology
 
@@ -775,28 +784,29 @@ subroutine Seasonal_fall(cc,vegn)
   real    :: dAleaf, dBL, dBR, dNL, dNR, dBStem, dNStem      ! per day
   real    :: leaf_fall_rate, root_mort_rate      ! per day
 
-  leaf_fall_rate = 0.075; root_mort_rate = 0.0
+  leaf_fall_rate = 0.05; root_mort_rate = 0.025
 !    End a growing season: leaves fall for deciduous
      associate (sp => spdata(cc%species) )
      if(cc%status == LEAF_OFF .AND. cc%bl > 0.0)then
-        dBL = cc%bl ! min(leaf_fall_rate * cc%bl_max, cc%bl)
-        dBR = 0.0   ! min( root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
+        dBL = min(leaf_fall_rate * cc%bl_max, cc%bl)
+        dBR = min( root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
         dBStem = 0.0 ! trees
+        dNStem = 0.0 ! trees
         if(sp%lifeform==0)then  ! grasses
             dBStem = MIN(1.0,dBL/cc%bl) * cc%bsw
-            dNStem    = MIN(1.0,dBL/cc%bl) * cc%sapwN
-        else
-            dBStem = 0.0
-            dNStem = 0.0
+            dNStem = MIN(1.0,dBL/cc%bl) * cc%sapwN
         endif
         ! Nitrogen out
         if(cc%bl>0)then
-           dNL = dBL/cc%bl * cc%leafN
-           !dBL/sp%CNleaf0
+           dNL = dBL/cc%bl * cc%leafN !dBL/sp%CNleaf0
         else
            dNL = 0.0
         endif
-        dNR = dBR/sp%CNroot0
+        if(cc%br>0)then
+           dNR = dBR/cc%br * cc%rootN !dBR/sp%CNroot0
+        else
+           dNR = 0.0
+        endif
 
         dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
 
@@ -808,8 +818,8 @@ subroutine Seasonal_fall(cc,vegn)
         cc%br    = cc%br  - dBR
         cc%bsw   = cc%bsw - dBStem ! for grass
 
-        cc%leafN = cc%leafN - dNL ! cc%leafN * (1. - dBL    / cc%bl)
-        cc%rootN = cc%rootN - dNR ! cc%rootN * (1.- dBR / cc%br)
+        cc%leafN = cc%leafN - dNL
+        cc%rootN = cc%rootN - dNR
         cc%sapwN = cc%sapwN - dNStem
 !       update NPP for leaves, fine roots, and wood
 
@@ -824,18 +834,18 @@ subroutine Seasonal_fall(cc,vegn)
         !call init_cohort_allometry(cc)
 
 !       put C and N into soil pools:  Substraction of C and N from leaf and root pools
-        loss_coarse  = cc%nindivs * (dBStem+dBL - dAleaf * LMAmin)
-        loss_fine    = cc%nindivs * (dBR        + dAleaf * LMAmin) ! + dBStem ! for grasses
-        lossN_coarse = cc%nindivs * (dNStem+dNL - dAleaf * sp%LNbase)
-        lossN_fine   = cc%nindivs * (dNR        + dAleaf * sp%LNbase)  !  + dBStem/sp%CNwood
+        loss_coarse  = (1.-l_fract) * cc%nindivs * (dBStem+dBL - dAleaf * LMAmin)
+        loss_fine    = (1.-l_fract) * cc%nindivs * (dBR        + dAleaf * LMAmin)
+        lossN_coarse = (1.-retransN)* cc%nindivs * (dNStem+dNL - dAleaf * sp%LNbase)
+        lossN_fine   = (1.-retransN)* cc%nindivs * (dNR        + dAleaf * sp%LNbase)
 
-        vegn%metabolicL = vegn%metabolicL + (1.-l_fract) *  &
+        vegn%metabolicL = vegn%metabolicL +  &
                          (fsc_fine * loss_fine + fsc_wood * loss_coarse)
         vegn%structuralL = vegn%structuralL + (1.-l_fract) *     &
                          ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
 
 !       Nitrogen to soil SOMs
-        vegn%metabolicN  = vegn%metabolicN + (1.-retransN) *    &
+        vegn%metabolicN  = vegn%metabolicN +    &
                           (fsc_fine * lossN_fine + fsc_wood * lossN_coarse)
         vegn%structuralN = vegn%structuralN + (1.-retransN) *    &
                           ((1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse)
@@ -844,8 +854,6 @@ subroutine Seasonal_fall(cc,vegn)
         vegn%N_P2S_yr = vegn%N_P2S_yr + (lossN_fine + lossN_coarse)*(1.-retransN)
      endif
      end associate
-
-
  end subroutine Seasonal_fall
 
 !============================================================================
@@ -900,11 +908,11 @@ subroutine vegn_nat_mortality (vegn, deltat)
      ! Carbon and Nitrogen from dead plants to soil pools
      call plant2soil(vegn,cc,deadtrees)
      ! Update plant density
-     cc%nindivs = cc%nindivs-deadtrees
+     cc%nindivs = cc%nindivs - deadtrees
      end associate
   enddo
   ! Remove the cohorts with 0 individuals
-  call kill_lowdensity_cohorts(vegn)
+  !call kill_lowdensity_cohorts(vegn)
 
 end subroutine vegn_nat_mortality
 
@@ -932,14 +940,14 @@ subroutine vegn_starvation (vegn)
          ! Carbon and Nitrogen from plants to soil pools
          call plant2soil(vegn,cc,deadtrees)
 !        update cohort individuals
-         cc%nindivs = cc%nindivs*(1.0 - deathrate)
+         cc%nindivs = 0.0 ! cc%nindivs*(1.0 - deathrate)
      else
          deathrate = 0.0
      endif
      end associate
   enddo
   ! Remove the cohorts with 0 individuals
-  call kill_lowdensity_cohorts(vegn)
+  ! call kill_lowdensity_cohorts(vegn)
 
 end subroutine vegn_starvation
 
@@ -961,20 +969,20 @@ subroutine vegn_annual_starvation (vegn)
 !   Mortality due to starvation
     deathrate = 0.0
 !   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
-    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then
+    if (cc%nsc < 0.01*cc%bl_max ) then ! .OR. cc%annualNPP < 0.0
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
          ! Carbon and Nitrogen from plants to soil pools
          call plant2soil(vegn,cc,deadtrees)
 !        update cohort individuals
-         cc%nindivs = cc%nindivs*(1.0 - deathrate)
+         cc%nindivs = 0.0 ! cc%nindivs*(1.0 - deathrate)
      else
          deathrate = 0.0
      endif
      end associate
   enddo
   ! Remove the cohorts with 0 individuals
-  call kill_lowdensity_cohorts(vegn)
+  ! call kill_lowdensity_cohorts(vegn)
 
 end subroutine vegn_annual_starvation
 
@@ -1292,7 +1300,7 @@ end subroutine relayer_cohorts
 !    longevity. Deciduous: 0; Evergreen 0.035/LMa
 !    root turnover
      if(cc%status==LEAF_OFF)then
-        alpha_L = 60.0 ! yr-1, for decuduous leaf fall
+        alpha_L = sp%alpha_L ! 60.0 ! yr-1, for decuduous leaf fall
      else
         alpha_L = sp%alpha_L
      endif
@@ -1303,11 +1311,14 @@ end subroutine relayer_cohorts
         alpha_S = 0.0
      endif
      dBL    = cc%bl    *    alpha_L  /days_per_year
-     dBStem = cc%bsw   *    alpha_S  /days_per_year
-     dBR    = cc%br    * sp%alpha_FR /days_per_year
      dNL    = cc%leafN *    alpha_L  /days_per_year
+
+     dBStem = cc%bsw   *    alpha_S  /days_per_year
      dNStem = cc%sapwN *    alpha_S  /days_per_year
+
+     dBR    = cc%br    * sp%alpha_FR /days_per_year
      dNR    = cc%rootN * sp%alpha_FR /days_per_year
+
      dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
 
 !    Retranslocation to NSC and NSN
@@ -1329,20 +1340,21 @@ end subroutine relayer_cohorts
 !    update NPP for leaves, fine roots, and wood
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
      cc%NPProot = cc%NPProot - l_fract * dBR
+     cc%NPPwood = cc%NPPwood - l_fract * dBStem
 
 !    put C and N into soil pools
-     loss_coarse  = cc%nindivs * (dBL - dAleaf * LMAmin)
-     loss_fine    = cc%nindivs * (dBR + dAleaf * LMAmin)
-     lossN_coarse = cc%nindivs * (dNL - dAleaf * sp%LNbase)
-     lossN_fine   = cc%nindivs * (dNR + dAleaf * sp%LNbase)
+     loss_coarse  = (1.-l_fract) * cc%nindivs * (dBL - dAleaf * LMAmin    + dBStem)
+     loss_fine    = (1.-l_fract) * cc%nindivs * (dBR + dAleaf * LMAmin)
+     lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNStem)
+     lossN_fine   = (1.-retransN)* cc%nindivs * (dNR + dAleaf * sp%LNbase)
 
-     vegn%metabolicL = vegn%metabolicL + (1.-l_fract) *  &
+     vegn%metabolicL = vegn%metabolicL +  &
                         (fsc_fine * loss_fine + fsc_wood * loss_coarse)
      vegn%structuralL = vegn%structuralL + (1.-l_fract) *     &
                          ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
 
 !    Nitrogen to soil SOMs
-     vegn%metabolicN  = vegn%metabolicN + (1.-retransN) *    &
+     vegn%metabolicN  = vegn%metabolicN +    &
                           (fsc_fine * lossN_fine + fsc_wood * lossN_coarse)
      vegn%structuralN = vegn%structuralN + (1.-retransN) *    &
                           ((1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse)
@@ -1398,25 +1410,19 @@ subroutine vegn_N_uptake(vegn, tsoil)
         vegn%N_uptake = 0.0
         do i = 1, vegn%n_cohorts
            cc => vegn%cohorts(i)
-           associate ( sp => spdata(cc%species) )
            NSN_not_full = (cc%NSN < cc%NSNmax)
            if(NSN_not_full)then
-               cc%N_uptake = min(cc%br*avgNup, cc%NSNmax- cc%NSN)!
-               cc%nsn      = cc%nsn + cc%N_uptake
-               cc%annualNup  = cc%annualNup + cc%N_uptake/cc%crownarea
-
+               cc%N_uptake  = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
+               cc%nsn       = cc%nsn + cc%N_uptake
+               cc%annualNup = cc%annualNup + cc%N_uptake !/cc%crownarea
                ! subtract N from mineral N
                vegn%mineralN = vegn%mineralN - cc%N_uptake * cc%nindivs
                vegn%N_uptake = vegn%N_uptake + cc%N_uptake * cc%nindivs
-
            endif
-           end associate
         enddo
         cc =>null()
      endif ! N_roots>0
-
   endif
-  
 end subroutine vegn_N_uptake
 ! ============================================================================
 ! Nitrogen mineralization and immoblization with microbial C & N pools
@@ -1837,7 +1843,7 @@ subroutine annual_calls(vegn)
     ! ---------- annual call -------------
     ! update the LAImax of each PFT according to available N for next year
 
-     call vegn_annualLAImax_update(vegn)
+    if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
     ! Reproduction and mortality
     call vegn_reproduction(vegn)

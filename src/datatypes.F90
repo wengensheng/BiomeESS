@@ -577,6 +577,7 @@ integer   :: equi_days       = 0 ! 100 * 365
 logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .False.
+logical   :: update_annualLAImax = .False.
 
 namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
@@ -586,7 +587,7 @@ namelist /initial_state_nml/ &
     init_Nmineral, N_input,  &
     filepath_in,climfile, model_run_years, &
     outputhourly, outputdaily, equi_days, &
-    do_U_shaped_mortality
+    do_U_shaped_mortality,update_annualLAImax
 !---------------------------------
 
  contains
@@ -989,11 +990,11 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
       if(outputdaily.and. iday>equi_days) then
          call summarize_tile(vegn)
          write(fno4,'(2(I5,","),60(F12.6,","))') iyears, idoy,  &
-            vegn%dailyPrcp, vegn%soilwater, &
-            vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff, &
+            vegn%tc_daily, vegn%dailyPrcp, vegn%soilwater,      &
+            vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,      &
             vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
             vegn%wcl(3)*thksl(3)*1000., &
-            vegn%LAI,vegn%dailyGPP, vegn%dailyNPP, vegn%dailyRh, &
+            vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh, &
             vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
             vegn%SapwoodC, vegn%woodC,                     &
             vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,  &
@@ -1095,7 +1096,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     write(f2,'(1(I5,","),27(F9.4,","),6(F9.3,","),18(F10.4,","))') &
         iyears,       &
         vegn%CAI,vegn%LAI, &
-        vegn%annualGPP, vegn%annualNPP, vegn%annualRh, &
+        vegn%annualGPP, vegn%annualResp, vegn%annualRh, &
         vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
         plantC,soilC,plantN *1000, soilN * 1000, (plantN+soilN)*1000,&
         vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &

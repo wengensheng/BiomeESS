@@ -118,8 +118,8 @@ program BiomeESS
         'NSN','seedN','leafN','rootN','SW-N','HW-N'
 
    write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &
-        'Prcp', 'totWs',  'Trsp', 'Evap','Runoff',         &
-        'ws1','ws2','ws3', 'LAI','GPP', 'NPP', 'Rh',       &
+        'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &
+        'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
         'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
         'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
         'McrbC', 'fastSOM',   'slowSOM',                   &
@@ -127,7 +127,7 @@ program BiomeESS
         'mineralN', 'N_uptk'
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
-        'CAI','LAI','GPP', 'NPP',   'Rh',                      &
+        'CAI','LAI','GPP', 'Rauto',   'Rh',                    &
         'rain','SiolWater','Transp','Evap','Runoff',           &
         'plantC','soilC',    'plantN', 'soilN','totN',         &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC', &
