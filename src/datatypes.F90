@@ -1062,7 +1062,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
             cc%ccID,cc%species,cc%layer,                        &
             cc%nindivs*10000, cc%layerfrac,dDBH,                &
             cc%dbh,cc%height,cc%crownarea,                      &
-            cc%bsw+cc%bHW,cc%nsc,cc%NSN,                        &
+            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                   &
             NPPtree,fseed, fleaf, froot, fwood,                 &
             cc%annualGPP,cc%annualNPP,                          &
             cc%annualNup*1000,cc%annualfixedN*1000,             &
@@ -1073,7 +1073,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
                     cc%ccID,cc%species,cc%layer,                     &
                     cc%nindivs*10000, cc%layerfrac,dDBH,             &
                     cc%dbh,cc%height,cc%crownarea,                   &
-                    cc%bsw+cc%bHW,cc%nsc,cc%NSN,                     &
+                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
                     fseed, fleaf, froot, fwood,                      &
                     cc%annualGPP/cc%crownarea,                       &
                     cc%annualNPP/cc%crownarea,                       &

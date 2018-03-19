@@ -728,7 +728,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
          ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
          ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
          ! reset
-         cc%nindivs = ccNSC /sp%seedlingsize
+         cc%nindivs = MIN(ccNSC /sp%seedlingsize, ccNSN/(sp%seedlingsize/sp%CNroot0))
          cc%bsw = f_initialBSW *sp%seedlingsize  ! for setting up a initial size
          cc%br    = 0.25 * cc%bsw
          cc%bl    = 0.0
