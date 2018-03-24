@@ -398,7 +398,7 @@ real :: MLmixRatio = 0.8     ! the ratio of C and N returned to litters from mic
 real :: etaN       = 0.025    ! N loss through runoff (organic and mineral)
 real :: LMAmin     = 0.02    ! minimum LMA, boundary condition
 real :: fsc_fine   = 1.0     ! fraction of fast turnover carbon in fine biomass
-real :: fsc_wood   = 0.2     ! fraction of fast turnover carbon in wood biomass
+real :: fsc_wood   = 0.0     ! fraction of fast turnover carbon in wood biomass
 real :: GR_factor  = 0.33 ! growth respiration factor
 real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
 real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
@@ -483,7 +483,7 @@ real :: LMA(0:MSPECIES)          = 0.035  !  leaf mass per unit area, kg C/m2
 real :: leafLS(0:MSPECIES) = 1.0
 !(/1., 1., 1., 1., 3., 3., 1., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 /)
 real :: LNbase(0:MSPECIES)        = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
-real :: CNleafsupport(0:MSPECIES) = 40.0 ! 60.0 ! CN ratio of leaf supporting tissues
+real :: CNleafsupport(0:MSPECIES) = 60.0 ! CN ratio of leaf supporting tissues
 real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
@@ -492,11 +492,11 @@ real :: tauNSC(0:MSPECIES)        = 3 ! NSC residence time,years
 real :: phiRL(0:MSPECIES)         = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)        = 0.25E-4 ! ratio of sapwood area to leaf area
 ! C/N ratios for plant pools
-real :: CNleaf0(0:MSPECIES)   = 50. ! C/N ratios for leaves
+real :: CNleaf0(0:MSPECIES)   = 25. ! C/N ratios for leaves
 real :: CNsw0(0:MSPECIES)     = 350.0 ! C/N ratios for woody biomass
 real :: CNwood0(0:MSPECIES)   = 350.0 ! C/N ratios for woody biomass
-real :: CNroot0(0:MSPECIES)   = 60.0 ! C/N ratios for leaves
-real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for leaves
+real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
+real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
 real :: NfixRate0(0:MSPECIES) = 0.0 !Reference N fixation rate (0.03 kgN kgC-1 root yr-1)
 real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC
 real :: internal_gap_frac(0:MSPECIES)= 0.1 ! The gaps between trees
@@ -754,8 +754,12 @@ subroutine initialize_PFT_data(namelistfile)
    sp%LNA     = sp%LNbase +  sp%LMA/sp%CNleafsupport
    sp%CNleaf0 = sp%LMA/sp%LNA
 !  Leaf life span as a function of LMA
-   sp%leafLS = MAX(c_LLS * sp%LMA,1.0)
-
+   sp%leafLS = c_LLS * sp%LMA
+   if(sp%leafLS>1.0)then
+      sp%phenotype = 1
+   else
+      sp%phenotype = 0
+   endif
 !  Leaf turnover rate, (leaf longevity as a function of LMA)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
 

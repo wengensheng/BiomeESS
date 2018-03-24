@@ -58,8 +58,9 @@ program BiomeESS
    type(soil_tile_type),  pointer :: soil
    type(cohort_type),     pointer :: cp,cc
 
-   character(len=50),parameter :: namelistfile = 'parameters_Konza.nml' !
-   ! 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' !
+   character(len=50),parameter :: namelistfile = 'parameters_WC_biodiversity.nml'
+   !'parameters_Konza.nml' !
+   !  'parameters_CN.nml' !
    integer,parameter :: rand_seed = 86456
    integer,parameter :: totalyears = 10
    integer,parameter :: nCohorts = 1
@@ -135,7 +136,7 @@ program BiomeESS
         'McrbC','fastSOM',   'SlowSOM',                        &
         'McrbN','fastSoilN', 'slowSoilN',                      &
         'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss', &
-        'reproC','reproN','NewC-C','NewC-N'
+        'seedC','seedN','Seedling-C','Seedling-N'
 
 
    ! Parameter initialization: Initialize PFT parameters
@@ -157,8 +158,8 @@ program BiomeESS
 
    ! ----- model run ----------
    ! Read in forcing data
-   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   !call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
    step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
@@ -207,9 +208,25 @@ program BiomeESS
         new_annual_cycle = ((year0 /= year1).OR. & ! new year
                 (idata == steps_per_day .and. simu_steps > datalines)) ! last line
         if(new_annual_cycle)then
-            call annual_diagnostics(vegn,iyears,fno2,fno5)
+
             idoy = 0
-            call annual_calls(vegn)
+            !call annual_calls(vegn)
+            if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
+
+            ! mortality
+            call vegn_annual_starvation(vegn)
+            call vegn_nat_mortality(vegn, real(seconds_per_year))
+            call annual_diagnostics(vegn,iyears,fno2,fno5)
+
+            ! Reproduction and Re-organize cohorts
+            call vegn_reproduction(vegn)
+            call kill_lowdensity_cohorts(vegn)
+            call relayer_cohorts(vegn)
+            call vegn_mergecohorts(vegn)
+
+            ! set annual variables zero
+            call Zero_diagnostics(vegn)
+
             ! update the years of model run
             iyears = iyears + 1
         endif

@@ -10,7 +10,7 @@ public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_nat_mortality, vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
-
+public :: vegn_annual_starvation,Zero_diagnostics
  contains
 !=============== ESS subroutines ========================================
 !========================================================================
@@ -545,10 +545,9 @@ subroutine fetch_Carbon_for_growth(cc)
 !!       Nitrogen available for all tisues, including wood
         N_supply= MAX(0.0, fNr*cc%NSN)
 !!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
-        IF(N_supply < N_demand)then
+        IF(N_demand > N_supply)then
             Nsupplyratio = N_supply / N_demand
-            if(sp%lifeform ==0 )then
-               dB_LRS = dBL+dBR+dSeed
+            if(sp%lifeform > 0 )then ! for trees
                dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed)
                dBR  =  Nsupplyratio * dBR
                dBL  =  Nsupplyratio * dBL
@@ -558,6 +557,7 @@ subroutine fetch_Carbon_for_growth(cc)
                dBL  =  Nsupplyratio * dBL
                dSeed=  Nsupplyratio * dSeed
                dBSW =  Nsupplyratio * dBSW
+               ! Return NSC for grasses
                cc%nsc = cc%NSC + cc%carbon_gain - dBR - dBL -dSeed - dBSW
             endif
             N_demand = N_supply
@@ -568,13 +568,11 @@ subroutine fetch_Carbon_for_growth(cc)
         cc%bsw    = cc%bsw   + dBSW
         cc%seedC  = cc%seedC + dSeed
 !!      update nitrogen pools, Nitrogen allocation
-        !cc%NSN   = cc%NSN   - N_supply
+        cc%NSN   = cc%NSN   - N_supply
         cc%leafN = cc%leafN + dBL   /sp%CNleaf0
         cc%rootN = cc%rootN + dBR   /sp%CNroot0
         cc%seedN = cc%seedN + dSeed /sp%CNseed0
-        cc%sapwN = cc%sapwN + MAX((N_supply - N_demand),0.0)
-        cc%NSN   = cc%NSN   -  &
-                  (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0+MAX((N_supply-N_demand),0.0))
+        cc%sapwN = cc%sapwN + N_supply - (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0)
 !       Return excessiive Nitrogen in SW back to NSN
         if(cc%sapwN > cc%bsw/sp%CNsw0)then
            extrasapwN = cc%sapwN - cc%bsw/sp%CNsw0
@@ -826,7 +824,6 @@ subroutine Seasonal_fall(cc,vegn)
         cc%NPPleaf = cc%NPPleaf - l_fract * dBL
         cc%NPProot = cc%NPProot - l_fract * dBR
         cc%NPPwood = cc%NPPwood - l_fract * dBStem
-        ! cc%NPPwood = cc%NPPwood - l_fract * dBStem  ! for grasses
         cc%leafarea= leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
         cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
 
@@ -840,18 +837,18 @@ subroutine Seasonal_fall(cc,vegn)
         lossN_fine   = (1.-retransN)* cc%nindivs * (dNR        + dAleaf * sp%LNbase)
 
         vegn%metabolicL = vegn%metabolicL +  &
-                         (fsc_fine * loss_fine + fsc_wood * loss_coarse)
-        vegn%structuralL = vegn%structuralL + (1.-l_fract) *     &
-                         ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
+                         fsc_fine * loss_fine + fsc_wood * loss_coarse
+        vegn%structuralL = vegn%structuralL +   &
+                         (1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse
 
 !       Nitrogen to soil SOMs
         vegn%metabolicN  = vegn%metabolicN +    &
-                          (fsc_fine * lossN_fine + fsc_wood * lossN_coarse)
-        vegn%structuralN = vegn%structuralN + (1.-retransN) *    &
-                          ((1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse)
+                          fsc_fine * lossN_fine + fsc_wood * lossN_coarse
+        vegn%structuralN = vegn%structuralN +   &
+                          (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
 !       annual N from plants to soil
-        vegn%N_P2S_yr = vegn%N_P2S_yr + (lossN_fine + lossN_coarse)*(1.-retransN)
+        vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
      endif
      end associate
  end subroutine Seasonal_fall
@@ -861,13 +858,11 @@ subroutine Seasonal_fall(cc,vegn)
 subroutine vegn_nat_mortality (vegn, deltat)
 ! TODO: update background mortality rate as a function of wood density (Weng, Jan. 07 2017)
   type(vegn_tile_type), intent(inout) :: vegn
-  real, intent(in) :: deltat ! time since last mortality calculations, s
+  real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
-  real :: loss_fine, loss_coarse
-  real :: lossN_fine,lossN_coarse
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
@@ -904,7 +899,8 @@ subroutine vegn_nat_mortality (vegn, deltat)
             endif
          endif
      endif
-     deadtrees = cc%nindivs*(1.0-exp(-deathrate*deltat/seconds_per_year)) ! individuals / m2
+     !deadtrees = cc%nindivs*(1.0-exp(0.0-deathrate*deltat/seconds_per_year)) ! individuals / m2
+     deadtrees = cc%nindivs * MIN(1.0,deathrate*deltat/seconds_per_year) ! individuals / m2
      ! Carbon and Nitrogen from dead plants to soil pools
      call plant2soil(vegn,cc,deadtrees)
      ! Update plant density
@@ -917,7 +913,7 @@ subroutine vegn_nat_mortality (vegn, deltat)
 end subroutine vegn_nat_mortality
 
 !========================================================================
-! Starvation due to low NSC
+! Starvation due to low NSC or NSN, daily
 subroutine vegn_starvation (vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
@@ -930,11 +926,11 @@ subroutine vegn_starvation (vegn)
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species)  )
+     associate ( sp => spdata(cc%species))
 !   Mortality due to starvation
     deathrate = 0.0
 !   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
-    if (cc%nsc < 0.01*cc%bl_max) then
+    if (cc%nsc < 0.01*cc%bl_max )then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
          ! Carbon and Nitrogen from plants to soil pools
@@ -947,8 +943,7 @@ subroutine vegn_starvation (vegn)
      end associate
   enddo
   ! Remove the cohorts with 0 individuals
-  ! call kill_lowdensity_cohorts(vegn)
-
+  !call kill_lowdensity_cohorts(vegn)
 end subroutine vegn_starvation
 
 !========================================================================
@@ -969,7 +964,7 @@ subroutine vegn_annual_starvation (vegn)
 !   Mortality due to starvation
     deathrate = 0.0
 !   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
-    if (cc%nsc < 0.01*cc%bl_max ) then ! .OR. cc%annualNPP < 0.0
+    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
          ! Carbon and Nitrogen from plants to soil pools
@@ -1348,16 +1343,16 @@ end subroutine relayer_cohorts
      lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNStem)
      lossN_fine   = (1.-retransN)* cc%nindivs * (dNR + dAleaf * sp%LNbase)
 
-     vegn%metabolicL = vegn%metabolicL +  &
-                        (fsc_fine * loss_fine + fsc_wood * loss_coarse)
-     vegn%structuralL = vegn%structuralL + (1.-l_fract) *     &
+     vegn%metabolicL = vegn%metabolicL   +  &
+                        fsc_fine * loss_fine + fsc_wood * loss_coarse
+     vegn%structuralL = vegn%structuralL +  &
                          ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
 
 !    Nitrogen to soil SOMs
      vegn%metabolicN  = vegn%metabolicN +    &
-                          (fsc_fine * lossN_fine + fsc_wood * lossN_coarse)
-     vegn%structuralN = vegn%structuralN + (1.-retransN) *    &
-                          ((1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse)
+                          fsc_fine * lossN_fine + fsc_wood * lossN_coarse
+     vegn%structuralN = vegn%structuralN + &
+                          (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
 !    annual N from plants to soil
      vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
@@ -1392,9 +1387,8 @@ subroutine vegn_N_uptake(vegn, tsoil)
         cc => vegn%cohorts(i)
         associate (sp => spdata(cc%species))
 !!       A scheme for deciduous to get enough N:
-        cc%NSNmax = 0.2 * cc%crownarea  ! 5*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)) !
-        NSN_not_full = (cc%NSN < cc%NSNmax) !
-        if(NSN_not_full) N_Roots = N_Roots + cc%br * cc%nindivs
+        cc%NSNmax = 0.2 * cc%crownarea  ! 5.0 * (cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)) !
+        if(cc%NSN < cc%NSNmax) N_Roots = N_Roots + cc%br * cc%nindivs
 
         end associate
      enddo
@@ -1410,9 +1404,8 @@ subroutine vegn_N_uptake(vegn, tsoil)
         vegn%N_uptake = 0.0
         do i = 1, vegn%n_cohorts
            cc => vegn%cohorts(i)
-           NSN_not_full = (cc%NSN < cc%NSNmax)
-           if(NSN_not_full)then
-               cc%N_uptake  = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
+           if(cc%NSN < cc%NSNmax)then
+               cc%N_uptake  = cc%br*avgNup ! min(cc%br*avgNup, cc%NSNmax- cc%NSN)
                cc%nsn       = cc%nsn + cc%N_uptake
                cc%annualNup = cc%annualNup + cc%N_uptake !/cc%crownarea
                ! subtract N from mineral N
@@ -1704,8 +1697,6 @@ subroutine kill_lowdensity_cohorts(vegn)
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
   real, parameter :: mindensity = 0.25E-4
-  real :: loss_fine,loss_coarse
-  real :: lossN_fine,lossN_coarse
   integer :: i,j,k
 
  ! calculate the number of cohorts with indivs>mindensity
@@ -1846,10 +1837,11 @@ subroutine annual_calls(vegn)
     if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
     ! Reproduction and mortality
-    call vegn_reproduction(vegn)
-    call vegn_nat_mortality(vegn, real(seconds_per_year))
     !call vegn_starvation(vegn)  ! called daily
     call vegn_annual_starvation(vegn)
+    call vegn_reproduction(vegn)
+    call vegn_nat_mortality(vegn, real(seconds_per_year))
+
 
     ! Re-organize cohorts
     call relayer_cohorts(vegn)
