@@ -16,9 +16,12 @@ lifeform      = 0,       1,        1,        1,        1,      1,        1,     
 phenotype     = 0,       1,        1,        1,        1,      1,        1,        1,      1,        1,        0,    ! 0: Deciduous; 1 Evergreen
 pt            = 1,       0,        0,        0,        0,      0,        0,        0,      0,        0,        0,    ! 0: C3; 1: C4
 seedlingsize  = 0.02,    0.05,     0.05,     0.05,     0.05,   0.05,     0.05,     0.05,   0.05,     0.05,     0.05,  ! initial size of seedlings
-LMA           = 0.035,   0.14,     0.14,     0.14,     0.105,  0.105,    0.105,    0.07,   0.07,     0.07,     0.035,! Leaf mass per unit area
+!LMA           = 0.035,   0.14,     0.14,     0.14,     0.105,  0.105,    0.105,    0.07,   0.07,     0.07,     0.035,! Leaf mass per unit area
+!phiRL         = 1.6,     4.0,      6.0,      8.0,      4.0,    6.0,      8.0,      4.0,    6.0,      8.0,      3.0,
+LMA           = 0.035,   0.14,     0.14,     0.14,     0.14,     0.14,    0.14,   0.14,     0.14,     0.14,     0.035,! Leaf mass per unit area
+phiRL         = 1.6,     1.0,      2.0,     3.0,      4.0,      5.0,      6.0,      7.0,     8.0,    9.0,       3.0,
+
 LNbase        = 0.8E-3,  0.8E-3,   0.8E-3,   0.8E-3,   0.8E-3, 0.8E-3,   0.8E-3,   0.8E-3, 0.8E-3,   0.8E-3,   0.8E-3,   ! kgN m-2 leaf, Vmax = 0.03125*LNbase
-phiRL         = 1.6,     4.0,      6.0,      8.0,      4.0,    6.0,      8.0,      4.0,    6.0,      8.0,      3.0,
 
 laimax        = 3.0,     1.2,      1.2,      1.2,      1.2,    1.2,      1.2,      1.2,    1.2,      1.2,      1.2,  ! maximum crown LAI
 LAI_light     = 3.0,     3.5,      3.5,      3.5,      3.5,    3.5,      3.5,      3.5,    3.5,      3.5,      3.8,  ! Light-limited crown LAI
@@ -43,8 +46,8 @@ maturalage    = 0.5,     0.2,      5,        5,        5,      5,        5,     
 
  &initial_state_nml
 !!   plant
- init_n_cohorts      = 1,
- init_cohort_species = 10,      2,        3,        4,      5,        6,        7,      8,        9,       10,
+ init_n_cohorts      = 9,
+ init_cohort_species = 1,      2,        3,        4,      5,        6,        7,      8,        9,       10,
  init_cohort_nindivs = 0.01,   0.01,     0.01,     0.01,   0.01,     0.01,     0.01,   0.01,     0.01,    0.01,
  init_cohort_bsw     = 0.2,    0.2,      0.2,      0.2,    0.2,      0.2,      0.2,    0.2,      0.2,     0.2,
  init_cohort_bHW     = 0.0,    0.0,      0.0,      0.0,    0.0,      0.0,      0.0,    0.0,      0.0,     0.0,
@@ -52,7 +55,7 @@ maturalage    = 0.5,     0.2,      5,        5,        5,      5,        5,     
 
 !  Soil
  init_fast_soil_C    = 0.2 ! .1 ! 0.8  ! kg C m-2
- init_slow_soil_C    = 64.0   ! .1 ! 40.0 ! kg C m-2
+ init_slow_soil_C    = 27.0   ! .1 ! 40.0 ! kg C m-2
  init_Nmineral       = 2.5E-3, ! kg N m-2
  N_input             = 0.0E-3 ! 2.4E-3, ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
                                ! high N input --> Deciduous
@@ -64,10 +67,11 @@ maturalage    = 0.5,     0.2,      5,        5,        5,      5,        5,     
                ! 'CA-Manforcing.txt'   !  'US-WBWforcing.txt'
                !   'US-Dk1forcing.txt' ! CA-Obsforcing.txt
                !   'ORNL_forcing.txt'  ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
- model_run_years     =  800,
+ model_run_years     =  600,
  equi_days           =  0,
  outputhourly        = .False.
  outputdaily         = .True. ! .False. ! .True.
- do_U_shaped_mortality = .False. ! .True.
+ do_U_shaped_mortality = .False. ! .True. !
  update_annualLAImax = .True. ! .False.
+ do_closedN_run = .True.
  /

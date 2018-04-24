@@ -58,9 +58,6 @@ program BiomeESS
    type(soil_tile_type),  pointer :: soil
    type(cohort_type),     pointer :: cp,cc
 
-   character(len=50),parameter :: namelistfile = 'parameters_WC_biodiversity.nml'
-   !'parameters_Konza.nml' !
-   !  'parameters_CN.nml' !
    integer,parameter :: rand_seed = 86456
    integer,parameter :: totalyears = 10
    integer,parameter :: nCohorts = 1
@@ -73,7 +70,8 @@ program BiomeESS
    real    :: NPPtree,fseed, fleaf, froot, fwood ! for output
    real    :: dDBH ! yearly growth of DBH, mm
    real    :: plantC,plantN, soilC, soilN
-   character(len=50) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
+   real    :: dSlowSOM  ! for multiple tests only
+   character(len=150) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
    logical :: new_annual_cycle = .False.
    logical :: switch = .True.
    integer :: istat1,istat2,istat3
@@ -82,18 +80,23 @@ program BiomeESS
    integer :: totyears, totdays
    integer :: i, j, k, idays, idoy
    integer :: simu_steps,idata
-   character(len=50) filepath_out
+   character(len=50) :: filepath_out,filesuffix
+   character(len=50) :: parameterfile(10),chaSOM(10)
+   character(len=50) :: namelistfile = 'parameters_CN.nml'
+   ! 'parameters_Allocation.nml' !'parameters_Konza.nml' !
+   !
 
-   filepath_out='output/'
    ! create output files
-   plantcohorts = trim(filepath_out)//'Annual_cohorts.csv'
-   plantCNpools = trim(filepath_out)//'Cohorts_daily.csv'  ! daily
-   soilCNpools  = trim(filepath_out)//'Ecosystem_daily.csv'
-   allpools     = trim(filepath_out)//'Ecosystem_yearly.csv'
-   faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics.csv' ! hourly
+   filepath_out='output/'
+   filesuffix  = 'test.csv' ! tag for simulation experiments
+   plantcohorts = trim(filepath_out)//'Annual_cohorts'//trim(filesuffix)
+   plantCNpools = trim(filepath_out)//'Cohorts_daily'//trim(filesuffix)  ! daily
+   soilCNpools  = trim(filepath_out)//'Ecosystem_daily'//trim(filesuffix)
+   allpools     = trim(filepath_out)//'Ecosystem_yearly'//trim(filesuffix)
+   faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics'//trim(filesuffix) ! hourly
 
    fno1=91; fno2=101; fno3=102; fno4=103; fno5=104
-   open(fno1, file=trim(faststepfluxes), ACTION='write', IOSTAT=istat1)
+   open(fno1, file=trim(faststepfluxes),ACTION='write', IOSTAT=istat1)
    open(fno2,file=trim(plantcohorts),   ACTION='write', IOSTAT=istat1)
    open(fno3,file=trim(plantCNpools),   ACTION='write', IOSTAT=istat2)
    open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
@@ -153,13 +156,10 @@ program BiomeESS
       write(*,*)i,vegn%cohorts(i)%species,vegn%cohorts(i)%height, &
                 vegn%cohorts(i)%crownarea
    enddo
-   ! Initialize soil tile (for soil water dynamics)
-   !allocate(soil)
 
-   ! ----- model run ----------
    ! Read in forcing data
-   !call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
    step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
@@ -169,7 +169,7 @@ program BiomeESS
    totdays  = INT(totyears/yr_data+1)*days_data
    equi_days = totdays - days_data
 
-   ! Model run starts here !!
+   ! ----- model run ---------- ! Model run starts here !!
    year0 = forcingData(1)%year
    iyears = 1
    idoy   = 0
@@ -189,7 +189,7 @@ program BiomeESS
              !! fast-step calls, hourly or half-hourly
              call vegn_CNW_budget_fast(vegn,forcingData(idata))
              ! diagnostics
-             call hourly_diagnostics(vegn,forcingData(idata),iyears,idoy,i,fno1)
+             call hourly_diagnostics(vegn,forcingData(idata),iyears,idoy,i,idays,fno1)
         enddo ! hourly or half-hourly
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
@@ -199,7 +199,7 @@ program BiomeESS
         !write(*,*)iyears,idoy
         ! daily calls
         call vegn_phenology(vegn,j)
-        call vegn_starvation(vegn)
+        !call vegn_starvation(vegn)
         call vegn_growth_EW(vegn)
 
         !! annual calls
@@ -214,9 +214,10 @@ program BiomeESS
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
             ! mortality
+
+            call annual_diagnostics(vegn,iyears,fno2,fno5)
             call vegn_annual_starvation(vegn)
             call vegn_nat_mortality(vegn, real(seconds_per_year))
-            call annual_diagnostics(vegn,iyears,fno2,fno5)
 
             ! Reproduction and Re-organize cohorts
             call vegn_reproduction(vegn)
@@ -233,6 +234,7 @@ program BiomeESS
    enddo
 
    !deallocate(cc)
+   close(91)
    close(101)
    close(102)
    close(103)
@@ -409,6 +411,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   write(*,*)"forcing", datalines,days_data,yr_data
   
 end subroutine read_NACPforcing
+
 
 !=====================================================
 end program BiomeESS

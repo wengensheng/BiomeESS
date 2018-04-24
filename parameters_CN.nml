@@ -59,9 +59,9 @@ maturalage    = 0.2,     0.2,      5,        5,        5,
                                ! low  N input --> Evergreen
 
 ! Model run
- climfile    = 'US-WBWforcing.txt' ! 'CA-Manforcing.txt' !
+ climfile    = 'ORNL_forcing.txt' ! 'US-WBWforcing.txt' ! 'CA-Manforcing.txt' !
                !   'US-Dk1forcing.txt' ! CA-Obsforcing.txt
-               !   'ORNL_forcing.txt' ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
+               !   'KNZ_amb.csv' !  'KNZ_irr.csv' !
  model_run_years     = 200 ! 600
  outputhourly        = .False.
  outputdaily         = .True. ! .False. ! .True.

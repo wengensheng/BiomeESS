@@ -25,7 +25,8 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  logical, public, parameter :: read_from_parameter_file = .TRUE.
  integer, public, parameter :: days_per_year  = 365
  integer, public, parameter :: hours_per_year = 365 * 24  ! 8760
- real, public, parameter :: seconds_per_year = 365. * 24. * 3600.
+ real,    public, parameter :: seconds_per_year = 365. * 24. * 3600.
+ real,    public, parameter :: seconds_per_day = 24. * 3600.
 
  real,    public, parameter :: PI = 3.1415926
  integer, public, parameter :: MSPECIES = 15, Nsoiltypes = 7
@@ -61,7 +62,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
 
  ! Soil SOM reference C/N ratios
  real, public, parameter :: CN0metabolicL  = 15.0 ! 25.0 ! 15.0
- real, public, parameter :: CN0structuralL = 35.0 ! 55.0 ! 35.0
+ real, public, parameter :: CN0structuralL = 40.0 ! 55.0 ! 35.0
 
 ! Physical constants
 real, public, parameter :: TFREEZE = 273.16
@@ -123,6 +124,7 @@ type spec_data_type
   real    :: phiRL            ! ratio of fine root to leaf area
   real    :: phiCSA           ! ratio of sapwood CSA to target leaf area
   real    :: tauNSC           ! residence time of C in NSC (to define storage capacity)
+  real    :: fNSNmax          ! multilier for NSNmax
   ! Default C/N ratios
   real    :: CNleaf0
   real    :: CNroot0
@@ -185,14 +187,14 @@ type :: cohort_type
   real :: resr = 0.0 ! root respiration
   real :: resg = 0.0 ! growth respiration
   real :: NPPleaf,NPProot,NPPwood ! to record C allocated to leaf, root, and wood
-  real :: dailyTrsp  ! kg day-1
-  real :: dailyGPP
+  real :: dailyTrsp
+  real :: dailyGPP   ! kgC/tree day-1
   real :: dailyNPP
   real :: dailyResp
   real :: dailyNup
   real :: dailyfixedN
   real :: annualTrsp
-  real :: annualGPP
+  real :: annualGPP ! C flux/tree
   real :: annualNPP
   real :: annualResp
 
@@ -231,7 +233,8 @@ type :: cohort_type
   real :: An_op = 0.0 ! mol C/(m2 of leaf per year)
   real :: An_cl = 0.0 ! mol C/(m2 of leaf per year)
   real :: w_scale =-9999
-  real :: carbon_gain = 0.0 ! carbon gain since last growth, kg C/individual
+  real :: C_growth = 0.0 ! carbon gain since last growth, kg C/individual
+  real :: N_growth = 0.0 ! Nitrogen used for plant tissue growth
   real :: extinct = 0.75     ! light extinction coefficient in the canopy for photosynthesis
 
 end type cohort_type
@@ -265,13 +268,15 @@ type :: vegn_tile_type
    real :: MicrobialN= 0
    real :: metabolicN = 0  ! fast soil nitrogen pool, (kg N/m2)
    real :: structuralN = 0  ! slow soil nitrogen pool, (kg N/m2)
-   real :: mineralN = 0  ! Mineral nitrogen pool, (kg N/m2)
+   real :: mineralN = 0.  ! Mineral nitrogen pool, (kg N/m2)
+   real :: totN = 0.
    real :: N_input        ! annual N input (kgN m-2 yr-1)
-   real :: N_uptake  = 0  ! kg N m-2 hour-1
+   real :: N_uptake  = 0.  ! kg N m-2 hour-1
    real :: annualN = 0.0  ! annual available N in a year
    real :: Nloss_yr= 0.0  ! annual N loss
    real :: N_P2S_yr= 0.0  ! annual N from plants to soil
    real :: previousN      ! an weighted annual available N
+   real :: initialN0
 
 ! Soil water
    integer :: soiltype       ! lookup table for soil hydrologic parameters
@@ -304,7 +309,7 @@ type :: vegn_tile_type
    real :: dailyPrcp=0.0, annualPrcp = 0.0 ! mm m-2 yr-1
    real :: dailyTrsp=0.0,dailyEvap=0.0, dailyRoff=0.0 ! mm m-2 yr-1
    real :: annualTrsp=0.0,annualEvap=0.0, annualRoff=0.0 ! mm m-2 yr-1
-   real :: annualGPP = 0.0 ! kgC m-2 yr-1
+   real :: annualGPP = 0.0 ! kgC m-2 ground yr-1
    real :: annualNPP = 0.0
    real :: annualResp = 0.0
    real :: annualRh   = 0.0
@@ -405,12 +410,12 @@ real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
 real :: f_initialBSW = 0.2 !0.01
 
 ! Ensheng's growth parameters:
-real :: wood_fract_min = 0.33333
+real :: wood_fract_min = 0.15 ! 0.2 ! 0.33333
 ! for understory mortality rate is calculated as:
 ! deathrate = mortrate_d_u * (1+A*exp(B*DBH))/(1+exp(B*DBH))
 real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correction, 1/year
 real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
-real :: DBHtp      = 0.8 ! m, for canopy tree's mortality rate
+real :: DBHtp      = 2.0 !  m, for canopy tree's mortality rate
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 
@@ -452,8 +457,8 @@ real :: m_cond(0:MSPECIES)= 7.0 !
 real :: alpha_phot(0:MSPECIES)=  0.06 !
 real :: gamma_L(0:MSPECIES)= 0.02 !
 real :: gamma_LN(0:MSPECIES)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
-real :: gamma_SW(0:MSPECIES)= 0.002 ! 5.0e-4 ! kgC m-2 Acambium yr-1
-real :: gamma_FR(0:MSPECIES)= 1.5 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
+real :: gamma_SW(0:MSPECIES)= 0.08 ! 5.0e-4 ! kgC m-2 Acambium yr-1
+real :: gamma_FR(0:MSPECIES)= 15.0 ! 1.5 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 real :: tc_crit(0:MSPECIES)= 283.16 ! OFF
 real :: tc_crit_on(0:MSPECIES)= 280.16 ! ON
 real :: gdd_crit(0:MSPECIES)= 280.0 !
@@ -475,7 +480,7 @@ real :: prob_e(0:MSPECIES)       = 1.0
 
 ! Mortality
 real :: mortrate_d_c(0:MSPECIES) = 0.01 ! yearly
-real :: mortrate_d_u(0:MSPECIES) = 0.05
+real :: mortrate_d_u(0:MSPECIES) = 0.075
 
 ! Leaf parameters
 real :: LMA(0:MSPECIES)          = 0.035  !  leaf mass per unit area, kg C/m2
@@ -483,12 +488,13 @@ real :: LMA(0:MSPECIES)          = 0.035  !  leaf mass per unit area, kg C/m2
 real :: leafLS(0:MSPECIES) = 1.0
 !(/1., 1., 1., 1., 3., 3., 1., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 /)
 real :: LNbase(0:MSPECIES)        = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
-real :: CNleafsupport(0:MSPECIES) = 60.0 ! CN ratio of leaf supporting tissues
+real :: CNleafsupport(0:MSPECIES) = 80.0 ! CN ratio of leaf supporting tissues
 real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
-real :: tauNSC(0:MSPECIES)        = 3 ! NSC residence time,years
+real :: tauNSC(0:MSPECIES)        = 3 ! 3 ! NSC residence time,years
+real :: fNSNmax(0:MSPECIES)       = 2 ! 2 ! multilier for NSNmax as sum of potential bl and br
 real :: phiRL(0:MSPECIES)         = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)        = 0.25E-4 ! ratio of sapwood area to leaf area
 ! C/N ratios for plant pools
@@ -518,7 +524,7 @@ namelist /vegn_parameters_nml/  &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
   mortrate_d_c, mortrate_d_u, A_mort, B_mort,DBHtp,     &
   phiRL, phiCSA, rho_wood, taperfactor, &
-  tauNSC, understory_lai_factor, &
+  tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0,  &
   internal_gap_frac
@@ -578,6 +584,7 @@ logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .False.
 logical   :: update_annualLAImax = .False.
+logical   :: do_closedN_run = .True. !.False.
 
 namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
@@ -702,6 +709,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%underLAImax  = LAImax
   spdata%LAI_light    = LAI_light
   spdata%tauNSC       = tauNSC
+  spdata%fNSNmax      = fNSNmax
   spdata%phiRL        = phiRL
   spdata%phiCSA       = phiCSA
   ! root urnover rate
@@ -748,8 +756,7 @@ subroutine initialize_PFT_data(namelistfile)
    sp%alphaBM    = sp%rho_wood * sp%taperfactor * PI/4. * sp%alphaHT ! 5200
 
 !  Vmax as a function of LNbase
-   sp%Vmax = 0.03125 * sp%LNbase ! Vmax/LNbase= 25E-6/0.8E-3 = 0.03125 ! 70.E-6 !
-   !sp%Vmax = 0.04 * sp%LNbase
+   sp%Vmax = 0.02 * sp%LNbase ! 0.03125 * sp%LNbase ! Vmax/LNbase= 25E-6/0.8E-3 = 0.03125 !
 !  CN0 of leaves
    sp%LNA     = sp%LNbase +  sp%LMA/sp%CNleafsupport
    sp%CNleaf0 = sp%LMA/sp%LNA
@@ -826,14 +833,15 @@ subroutine Zero_diagnostics(vegn)
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     cc%carbon_gain = 0.0
-     cc%gpp          = 0.0
-     cc%npp          = 0.0
-     cc%resp         = 0.0
-     cc%resl         = 0.0
-     cc%resr         = 0.0
-     cc%resg         = 0.0
-     cc%transp       = 0.0
+     cc%C_growth = 0.0
+     cc%N_growth = 0.0
+     cc%gpp      = 0.0
+     cc%npp      = 0.0
+     cc%resp     = 0.0
+     cc%resl     = 0.0
+     cc%resr     = 0.0
+     cc%resg     = 0.0
+     cc%transp   = 0.0
      !daily
      cc%dailyTrsp = 0.0
      cc%dailyGPP = 0.0
@@ -904,10 +912,10 @@ end subroutine summarize_tile
 
 !=========================================================================
 ! Hourly fluxes sum to daily
- subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,fno1)
+ subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday,fno1)
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
-  integer, intent(in) :: iyears,idoy,ihour,fno1
+  integer, intent(in) :: iyears,idoy,ihour,iday,fno1
 
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
@@ -933,7 +941,7 @@ end subroutine summarize_tile
   ! NEP is equal to NNP minus soil respiration
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
   !! Output horly diagnostics
-  If(outputhourly) &
+  If(outputhourly.and. iday>equi_days) &
     write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
       iyears, idoy, ihour,      &
       forcingData%radiation,    &
@@ -975,6 +983,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
                 iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
                 cc%nindivs*10000, cc%layerfrac, cc%LAI, &
                 cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
+                cc%seedC,cc%NPPleaf,cc%NPProot,cc%NPPwood, &
                 cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
                 cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
                 cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
@@ -1039,7 +1048,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
 
 !   --------local var --------
     type(cohort_type), pointer :: cc
-    real NPPtree, fseed, fleaf, froot,fwood,dDBH
+    real treeG, fseed, fleaf, froot,fwood,dDBH
     real :: plantC, plantN, soilC, soilN
     integer :: i
 
@@ -1056,24 +1065,24 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
-        NPPtree = cc%seedC + cc%NPPleaf + cc%NPProot + cc%NPPwood
-        fseed = cc%seedC/NPPtree
-        fleaf = cc%NPPleaf/NPPtree
-        froot = cc%NPProot/NPPtree
-        fwood = cc%NPPwood/NPPtree
+        treeG = cc%seedC + cc%NPPleaf + cc%NPProot + cc%NPPwood
+        fseed = cc%seedC/treeG
+        fleaf = cc%NPPleaf/treeG
+        froot = cc%NPProot/treeG
+        fwood = cc%NPPwood/treeG
         dDBH = (cc%DBH   - cc%DBH_ys)*1000.
-        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.3,","))')        &
+        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),45(F12.4,","))')        &
             cc%ccID,cc%species,cc%layer,                        &
             cc%nindivs*10000, cc%layerfrac,dDBH,                &
             cc%dbh,cc%height,cc%crownarea,                      &
             cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                   &
-            NPPtree,fseed, fleaf, froot, fwood,                 &
+            treeG,fseed, fleaf, froot, fwood,                 &
             cc%annualGPP,cc%annualNPP,                          &
             cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
 
         ! Screen output
-        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.3,","))')    &
+        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
                     cc%ccID,cc%species,cc%layer,                     &
                     cc%nindivs*10000, cc%layerfrac,dDBH,             &
                     cc%dbh,cc%height,cc%crownarea,                   &
@@ -1097,6 +1106,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
             vegn%rootN + vegn%SapwoodN + vegn%woodN
     soilC  = vegn%MicrobialC + vegn%metabolicL + vegn%structuralL
     soilN  = vegn%MicrobialN + vegn%metabolicN + vegn%structuralN + vegn%mineralN
+    vegn%totN = plantN + soilN
     write(f2,'(1(I5,","),27(F9.4,","),6(F9.3,","),18(F10.4,","))') &
         iyears,       &
         vegn%CAI,vegn%LAI, &
@@ -1112,9 +1122,19 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
         vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%annualNup*1000, &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000, &
         vegn%totseedC*1000,vegn%totseedN*1000,vegn%totNewCC*1000,vegn%totNewCN*1000
+    ! I cannot figure out why N losing. Hack!
+   if(do_closedN_run) call Recover_N_balance(vegn)
 
  end subroutine annual_diagnostics
 
+subroutine Recover_N_balance(vegn)
+   type(vegn_tile_type), intent(inout) :: vegn
+      if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
+         vegn%structuralN = vegn%structuralN - vegn%totN + vegn%initialN0
+         vegn%totN =  vegn%initialN0
+      endif
+
+ end subroutine
 !================================================
 end module datatypes
 

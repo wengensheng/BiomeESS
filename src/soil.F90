@@ -2,12 +2,6 @@
 ! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
 ! and reproduce the forest succession patterns shown in Weng et al.,
 ! 2016 Global Change Biology along the graidient of temperature. 
-!
-! This simulator includes:
-! photosynthesis, leaf stomatal conductance, transpiration,
-! plant respiration, plant growth, reproduction, mortality,
-! PPA, soil water dynamics, and soil organic matter decomposition.
-
 
 module soil_mod
  use datatypes

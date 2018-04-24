@@ -17,7 +17,7 @@ public :: vegn_annual_starvation,Zero_diagnostics
  subroutine vegn_CNW_budget_fast(vegn, forcing)
 ! hourly carbon, nitrogen, and water dynamics, Weng 2016-11-25
 ! include Nitrogen uptake and carbon budget
-! carbon_gain is calculated here to drive plant growth and reproduciton
+! C_growth is calculated here to drive plant growth and reproduciton
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
 
@@ -51,7 +51,7 @@ public :: vegn_annual_starvation,Zero_diagnostics
      cc%age = cc%age + dt_fast_yr
      ! Maintenance respiration
      call plant_respiration(cc,forcing%tair) ! get resp per tree per time step
-     cc%resp = cc%resp + cc%resg/(24.0*3600/step_seconds) ! put growth respiration into total resp.
+     cc%resp = cc%resp + (cc%resg *step_seconds)/seconds_per_day ! put growth respiration to tot resp
      cc%npp  = cc%gpp  - cc%resp ! kgC tree-1 step-1
 
      ! detach photosynthesis model from plant growth
@@ -156,7 +156,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
         ! store the calculated photosynthesis, photorespiration, and transpiration for future use
         ! in growth
         cc%An_op  = psyn  ! molC s-1 m-2 of leaves
-        cc%An_cl  = resp  ! molC s-1 m-2 of leaves
+        cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
         cc%w_scale  = w_scale2
         cc%transp = transp * mol_h2o * cc%leafarea * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
@@ -284,8 +284,8 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 !  Resp=(spdata(pft)%gamma_LNbase*spdata(pft)%LNbase+spdata(pft)%gamma_LMA*spdata(pft)%LMA)  & ! basal rate, mol m-2 s-1
 !  Resp=spdata(pft)%gamma_LNbase*(2.5*spdata(pft)%LNA-1.5*spdata(pft)%LNbase)     & ! basal rate, mol m-2 s-1
   Resp= spdata(pft)%gamma_LN/seconds_per_year & ! per seconds, ! basal rate, mol m-2 s-1
-       * spdata(pft)%LNA * lai / mol_c    &  ! whole canopy, ! basal rate, mol m-2 s-1
-       * exp(24920/Rgas*(1.0/298.2-1.0/tl))        ! temperature scaled
+       * spdata(pft)%LNA * lai / mol_c    &     ! whole canopy, ! basal rate, mol m-2 s-1
+       * exp(24920/Rgas*(1.0/298.2-1.0/tl))     ! temperature scaled
                !                                  &
 !       /((layer-1)*1.0+1.0)
 ! Temperature effects
@@ -407,10 +407,11 @@ subroutine plant_respiration(cc, tairK)
   sp = cc%species
   ! temperature response function
   tf  = exp(9000.0*(1.0/298.16-1.0/tairK))
+
 !  tfs = thermal_inhibition(tsoil)  ! original
   tfs = tf ! Rm_T_response_function(tsoil) ! Weng 2014-01-14
 ! With nitrogen model, leaf respiration is a function of leaf nitrogen
-  NSCtarget = 3.0 * (cc%bl_max + cc%br_max)
+  !NSCtarget = 3.0 * (cc%bl_max + cc%br_max)
   fnsc = 1.0 ! min(max(0.0,cc%nsc/NSCtarget),1.0)
   Acambium = PI * cc%DBH * cc%height * 1.2
 
@@ -423,19 +424,19 @@ subroutine plant_respiration(cc, tairK)
 
   ! Obligate Nitrogen Fixation
   cc%fixedN = fnsc*spdata(sp)%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-  r_Nfix    = spdata(sp)%NfixCost0 * cc%fixedN                  ! tree-1 step-1
+  r_Nfix    = spdata(sp)%NfixCost0 * cc%fixedN ! + 0.25*spdata(sp)%NfixCost0 * cc%N_uptake    ! tree-1 step-1
   ! LeafN    = spdata(sp)%LNA * cc%leafarea
   r_stem   = fnsc*spdata(sp)%gamma_SW  * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
   r_root   = fnsc*spdata(sp)%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
-  r_leaf   = fnsc*spdata(sp)%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
+  r_leaf   = cc%An_cl * mol_C * cc%leafarea * step_seconds ! fnsc*spdata(sp)%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
 
-  cc%resp = r_leaf + r_stem + r_root + r_Nfix !kgC tree-1 step-1
-  cc%resl = r_leaf !tree-1 step-1
+  cc%resp = r_leaf + r_stem + r_root + r_Nfix   !kgC tree-1 step-1
+  cc%resl = r_leaf + r_stem !tree-1 step-1
   cc%resr = r_root + r_Nfix ! tree-1 step-1
 end subroutine plant_respiration
 
 !========= Plant growth ==========================
-subroutine fetch_Carbon_for_growth(cc)
+subroutine fetch_CN_for_growth(cc)
 !@sum Fetch C from labile C pool according to the demand of leaves and fine roots,
 !@+   and the push of labile C pool
 !@+   DAILY call.
@@ -446,11 +447,12 @@ subroutine fetch_Carbon_for_growth(cc)
     logical :: woody
     logical :: dormant,growing
 
-    real*8 :: NSCtarget, growthC
-    real*8 :: C_push, C_demand
-    real*8 :: LFR_rate ! make these two variables to PFT-specific parameters
-    real*8 :: bl_max, br_max
-    real*8 :: resp_growth
+    real :: NSCtarget
+    real :: C_push, C_pull, growthC
+    real :: N_push, N_pull, growthN
+    real :: LFR_rate ! make these two variables to PFT-specific parameters
+    real :: bl_max, br_max
+    real :: resp_growth
 
     ! make these two variables to PFT-specific parameters
     LFR_rate = 1.0/16.0 ! filling rate/day
@@ -458,25 +460,27 @@ subroutine fetch_Carbon_for_growth(cc)
     NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
     ! Fetch C from labile C pool if it is in the growing season
     if (cc%status == LEAF_ON) then ! growing season
-        C_demand = (Max(cc%bl_max - cc%bl,0.0) +   &
+        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0   &
+                             + Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
+        N_push   = cc%NSN /(days_per_year*sp%tauNSC)
+        cc%N_growth = Min(max(0.025*cc%NSN,0.0), N_pull+N_push)
+
+        C_pull = (Max(cc%bl_max - cc%bl,0.0) +   &
                     Max(cc%br_max - cc%br,0.0))* LFR_rate
-        C_push = max(cc%nsc-0.5*NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        growthC= Max(0.0,MIN(0.05*cc%nsc, C_demand+C_push))
-        cc%resg        = 0.25 * growthC
-        cc%carbon_gain = 0.75 * growthC    ! kgC/tree
-        ! Update NSC pool
-        cc%nsc = cc%nsc - cc%carbon_gain ! growthC !
+        C_push  = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+        cc%C_growth = Max(0.0,MIN(0.05*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+
     else ! non-growing season
-        cc%carbon_gain = 0.0
+        cc%C_growth = 0.0
         cc%resg    = 0.0
     endif
     end associate
- end subroutine fetch_Carbon_for_growth
+ end subroutine fetch_CN_for_growth
 
 ! ============================================================================
  subroutine vegn_growth_EW(vegn)
 ! updates cohort biomass pools, LAI, and height using accumulated 
-! carbon_gain and bHW_gain
+! C_growth and bHW_gain
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -497,7 +501,7 @@ subroutine fetch_Carbon_for_growth(cc)
   real :: dNS    ! Nitrogen from SW to HW
   real :: sw2nsc = 0.0 ! conversion of sapwood to non-structural carbon
   real :: b,BL_u,BL_c
-  real :: alphaBL, alphaBR
+  real :: LFR_deficit, LF_deficit, FR_deficit
   real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN
   integer :: i,j
 
@@ -505,32 +509,40 @@ subroutine fetch_Carbon_for_growth(cc)
   call vegn_tissue_turnover(vegn)
 
   !Allocate C_gain to tissues
-  fNr   = 0.25
+  fNr   = 0.025
   do i = 1, vegn%n_cohorts   
      cc => vegn%cohorts(i)
  !    call biomass_allocation(cc)
      associate (sp => spdata(cc%species)) ! F2003
      if (cc%status == LEAF_ON) then
         ! Get carbon from NSC pool
-        call fetch_Carbon_for_growth(cc) ! Weng, 2017-10-19
+        call fetch_CN_for_growth(cc) ! Weng, 2017-10-19
 
         ! Allocate carbon to the plant pools
         ! calculate the carbon spent on growth of leaves and roots
-        G_LFR = max(0.0, min(cc%bl_max+cc%br_max-cc%bl-cc%br,  &
-                            (1.-Wood_fract_min)*cc%carbon_gain))
-        ! and distribute it between roots and leaves
+        LF_deficit = max(0.0, cc%bl_max - cc%bl)
+        FR_deficit = max(0.0, cc%br_max - cc%br)
+        LFR_deficit = LF_deficit + FR_deficit
+        G_LFR = max(0.0, min(LFR_deficit,  &
+                            (1.- Wood_fract_min)*cc%C_growth))
+        !! and distribute it between roots and leaves
         dBL  = min(G_LFR, max(0.0, &
           (G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/(cc%bl_max + cc%br_max) &
           ))
+        !! flexible allocation scheme
+        !dBL = min(LF_deficit, 0.6*G_LFR)
+
+        if((G_LFR-dBL) > FR_deficit) dBL = G_LFR - FR_deficit
         dBR  = G_LFR - dBL
         ! calculate carbon spent on growth of sapwood growth
         if(cc%layer == 1 .AND. cc%age > sp%maturalage)then
-            dSeed=      sp%v_seed * (cc%carbon_gain - G_LFR)
-            dBSW = (1.0-sp%v_seed)* (cc%carbon_gain - G_LFR)
+            dSeed =     sp%v_seed * (cc%C_growth - G_LFR)
+            dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
         else
             dSeed= 0.0
-            dBSW = cc%carbon_gain - G_LFR
+            dBSW = cc%C_growth - G_LFR
         endif
+
 !       For grasses, temporary
         if(sp%lifeform ==0 )then
             dSeed = dSeed + 0.15*G_LFR
@@ -538,17 +550,17 @@ subroutine fetch_Carbon_for_growth(cc)
             dBR   = 0.85 * dBR
             dBL   = 0.85 * dBL
         endif
-!!       Nitrogen effects on allocations between wood and leaves+roots
+!!       Nitrogen adjust on allocations between wood and leaves+roots
 !
 !!       Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
         N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
 !!       Nitrogen available for all tisues, including wood
-        N_supply= MAX(0.0, fNr*cc%NSN)
+        N_supply= cc%N_growth ! MAX(0.0, fNr*cc%NSN)
 !!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
         IF(N_demand > N_supply)then
             Nsupplyratio = N_supply / N_demand
             if(sp%lifeform > 0 )then ! for trees
-               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed)
+               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
                dBR  =  Nsupplyratio * dBR
                dBL  =  Nsupplyratio * dBL
                dSeed=  Nsupplyratio * dSeed
@@ -567,18 +579,20 @@ subroutine fetch_Carbon_for_growth(cc)
         cc%br     = cc%br    + dBR
         cc%bsw    = cc%bsw   + dBSW
         cc%seedC  = cc%seedC + dSeed
+        cc%nsc    = cc%NSC  - dBR - dBL -dSeed - dBSW
+        cc%resg = 0.5 * (dBR + dBL + dSeed + dBSW) !  daily
 !!      update nitrogen pools, Nitrogen allocation
-        cc%NSN   = cc%NSN   - N_supply
+
         cc%leafN = cc%leafN + dBL   /sp%CNleaf0
         cc%rootN = cc%rootN + dBR   /sp%CNroot0
         cc%seedN = cc%seedN + dSeed /sp%CNseed0
         cc%sapwN = cc%sapwN + N_supply - (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0)
+        cc%NSN   = cc%NSN   - N_supply
 !       Return excessiive Nitrogen in SW back to NSN
-        if(cc%sapwN > cc%bsw/sp%CNsw0)then
-           extrasapwN = cc%sapwN - cc%bsw/sp%CNsw0
-           cc%NSN     = cc%NSN   + extrasapwN !
-           cc%sapwN   = cc%sapwN - extrasapwN !
-        endif
+        extrasapwN = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
+        cc%NSN     = cc%NSN   + extrasapwN !
+        cc%sapwN   = cc%sapwN - extrasapwN !
+
 
 !       accumulated C allocated to leaf, root, and wood
         cc%NPPleaf = cc%NPPleaf + dBL
@@ -615,14 +629,16 @@ subroutine fetch_Carbon_for_growth(cc)
 
 !       update bl_max and br_max daily
         BL_c = sp%LMA * sp%LAImax * cc%crownarea * &
-               (1.0-sp%internal_gap_frac)/max(1,cc%layer)
+               (1.0-sp%internal_gap_frac) /max(1,cc%layer)
         BL_u = sp%LMA*cc%crownarea*(1.0-sp%internal_gap_frac)* &
                     sp%underLAImax
         if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
         if (cc%layer > 1 .and. cc%firstlayer == 0) then ! changed back, Weng 2014-01-23
             cc%bl_max = BL_u
 !           Keep understory tree's root low and constant
-            cc%br_max = 0.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
+            cc%br_max = 1.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
+            !cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
+
         else
             cc%bl_max = BL_u + min(cc%topyear/5.0,1.0)*(BL_c - BL_u)
             cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
@@ -632,11 +648,12 @@ subroutine fetch_Carbon_for_growth(cc)
            cc%bl_max = BL_c
            cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         endif ! for grasses
-     elseif(cc%status == LEAF_OFF .and. cc%carbon_gain>0.)then
-        cc%nsc = cc%nsc + cc%carbon_gain
+     elseif(cc%status == LEAF_OFF .and. cc%C_growth > 0.)then
+        cc%nsc = cc%nsc + cc%C_growth
+        cc%resg = 0.0
      endif ! "cc%status == LEAF_ON"
      ! reset carbon acculmulation terms
-     cc%carbon_gain = 0
+     cc%C_growth = 0
   end associate ! F2003
   enddo
   cc => null()
@@ -892,8 +909,8 @@ subroutine vegn_nat_mortality (vegn, deltat)
          else  ! First layer mortality
             if(do_U_shaped_mortality)then
                 deathrate = sp%mortrate_d_c *                 &
-                           (1. + 6.*exp(8.*(cc%dbh-DBHtp))/  &
-                           (1. + exp(8.*(cc%dbh-DBHtp))))
+                           (1. + 5.*exp(4.*(cc%dbh-DBHtp))/  &
+                           (1. + exp(4.*(cc%dbh-DBHtp))))
             else
                 deathrate = sp%mortrate_d_c
             endif
@@ -1057,7 +1074,7 @@ subroutine vegn_reproduction (vegn)
            endif
         enddo
         if(matchflag==0)then ! when it is a new PFT, put it to the next place
-            nPFTs            = nPFTs + 1 ! update the number os reproducible PFTs
+            nPFTs            = nPFTs + 1 ! update the number of reproducible PFTs
             reproPFTs(nPFTs) = cc%species ! PFT number
             seedC(nPFTs)     = cc%seedC * cc%nindivs ! seed carbon
             seedN(nPFTs)     = cc%seedN * cc%nindivs ! seed nitrogen
@@ -1114,7 +1131,8 @@ subroutine vegn_reproduction (vegn)
         cc%sapwN  = cc%bsw/sp%CNsw0
         cc%woodN  = cc%bHW/sp%CNwood0
         cc%seedN  = 0.0
-        cc%NSN    = sp%seedlingsize * seedN(i) / seedC(i) -  &
+        if(cc%nindivs>0.0) &
+           cc%NSN    = sp%seedlingsize * seedN(i) / seedC(i) -  &
                     (cc%leafN + cc%rootN + cc%sapwN + cc%woodN)
 
         vegn%totNewCC = vegn%totNewCC + cc%nindivs*(cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc)
@@ -1154,6 +1172,7 @@ function cohort_can_reproduce(cc); logical cohort_can_reproduce
 
   associate (sp => spdata(cc%species) )! F2003
   cohort_can_reproduce = (cc%layer == 1 .and. &
+                          cc%nindivs > 0.0 .and. &
                           cc%age   > sp%maturalage.and. &
                           cc%seedC > sp%seedlingsize .and. &
                           cc%seedN > sp%seedlingsize/sp%CNseed0)
@@ -1369,8 +1388,8 @@ subroutine vegn_N_uptake(vegn, tsoil)
 
   !-------local var
   type(cohort_type),pointer :: cc
-  real    :: rho_N_up0 = 0.012 ! hourly N uptake rate, fraction of the total mineral N
-  real    :: N_roots0  = 0.2  ! root biomass at half max N-uptake rate,kg C m-2
+  real    :: rho_N_up0 = 0.05 ! hourly N uptake rate, fraction of the total mineral N
+  real    :: N_roots0  = 0.4  ! root biomass at half max N-uptake rate,kg C m-2
   real    :: totNup    ! kgN m-2
   real    :: avgNup
   real    :: rho_N_up,N_roots   ! actual N uptake rate
@@ -1387,7 +1406,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
         cc => vegn%cohorts(i)
         associate (sp => spdata(cc%species))
 !!       A scheme for deciduous to get enough N:
-        cc%NSNmax = 0.2 * cc%crownarea  ! 5.0 * (cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)) !
+        cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0) !5.0 * (cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)) !
         if(cc%NSN < cc%NSNmax) N_Roots = N_Roots + cc%br * cc%nindivs
 
         end associate
@@ -1404,8 +1423,9 @@ subroutine vegn_N_uptake(vegn, tsoil)
         vegn%N_uptake = 0.0
         do i = 1, vegn%n_cohorts
            cc => vegn%cohorts(i)
+           cc%N_uptake  = 0.0
            if(cc%NSN < cc%NSNmax)then
-               cc%N_uptake  = cc%br*avgNup ! min(cc%br*avgNup, cc%NSNmax- cc%NSN)
+               cc%N_uptake  = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
                cc%nsn       = cc%nsn + cc%N_uptake
                cc%annualNup = cc%annualNup + cc%N_uptake !/cc%crownarea
                ! subtract N from mineral N
@@ -1757,7 +1777,7 @@ subroutine merge_cohorts(c1,c2)
      c2%height = x1*c1%height + x2*c2%height
      c2%crownarea = x1*c1%crownarea + x2*c2%crownarea
      c2%age = x1*c1%age + x2*c2%age
-     c2%carbon_gain = x1*c1%carbon_gain + x2*c2%carbon_gain
+     c2%C_growth = x1*c1%C_growth + x2*c2%C_growth
      c2%topyear = x1*c1%topyear + x2*c2%topyear
 
   !  Nitrogen
@@ -1815,7 +1835,7 @@ subroutine initialize_cohort_from_biomass(cc,btot)
 
      cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/max(1,cc%layer)
      cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/max(1,cc%layer)
-     cc%NSNmax = 0.2 * cc%crownarea ! 5.0*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+     cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
      cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
      call rootarea_and_verticalprofile(cc)
 !    N pools
@@ -1873,7 +1893,7 @@ subroutine init_cohort_allometry(cc)
      ! values are not used by the model
      cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/layer
      cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/layer
-     cc%NSNmax = 0.2 * cc%crownarea ! 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
+     cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
   end associate
 end subroutine init_cohort_allometry
 
@@ -1891,7 +1911,7 @@ subroutine vegn_annualLAImax_update(vegn)
   type(cohort_type), pointer :: cc
   real   :: LAImin, LAIfixedN, LAImineralN
   real   :: LAI_Nitrogen
-  real   :: fixedN
+  real   :: fixedN, rootN
   logical:: fixedN_based
   integer :: i
   ! Calculating LAI max based on mineral N or mineralN + fixed N
@@ -1913,6 +1933,7 @@ subroutine vegn_annualLAImax_update(vegn)
 
       LAIfixedN  = 0.5 * sp%Nfixrate0 * sp%CNleaf0 * sp%leafLS
       LAImineralN = 0.5*vegn%previousN*sp%CNleaf0*sp%leafLS/sp%LMA
+      !LAImineralN = vegn%previousN/(sp%LMA/(sp%CNleaf0*sp%leafLS)+sp%phiRL*sp%alpha_FR/sp%SRA /sp%CNroot0)
       LAI_nitrogen = LAIfixedN + LAImineralN
 
       spdata(i)%LAImax = MAX(LAImin, MIN(LAI_nitrogen,sp%LAI_light))
@@ -2029,6 +2050,13 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       enddo
       vegn%thetaS = 1.0
 
+      ! tile
+      call summarize_tile(vegn)
+      vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
+                       vegn%rootN + vegn%SapwoodN + vegn%woodN + &
+                       vegn%MicrobialN + vegn%metabolicN +       &
+                       vegn%structuralN + vegn%mineralN
+      vegn%totN =  vegn%initialN0
    else
      ! ------- Generate cohorts randomly --------
      ! Initialize plant cohorts
@@ -2062,6 +2090,14 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%N_input     = N_input  ! kgN m-2 yr-1, N input to soil
       vegn%mineralN    = 0.005  ! Mineral nitrogen pool, (kg N/m2)
       vegn%previousN   = vegn%mineralN
+
+      ! tile
+      call summarize_tile(vegn)
+      vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
+                       vegn%rootN + vegn%SapwoodN + vegn%woodN + &
+                       vegn%MicrobialN + vegn%metabolicN +       &
+                       vegn%structuralN + vegn%mineralN
+      vegn%totN =  vegn%initialN0
 
    endif  ! initialization: random or pre-described
 end subroutine initialize_vegn_tile
