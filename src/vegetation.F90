@@ -570,7 +570,7 @@ subroutine fetch_CN_for_growth(cc)
                dSeed=  Nsupplyratio * dSeed
                dBSW =  Nsupplyratio * dBSW
                ! Return NSC for grasses
-               cc%nsc = cc%NSC + cc%carbon_gain - dBR - dBL -dSeed - dBSW
+               cc%nsc = cc%NSC + cc%C_growth - dBR - dBL -dSeed - dBSW
             endif
             N_demand = N_supply
         ENDIF

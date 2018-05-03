@@ -82,7 +82,7 @@ program BiomeESS
    integer :: simu_steps,idata
    character(len=50) :: filepath_out,filesuffix
    character(len=50) :: parameterfile(10),chaSOM(10)
-   character(len=50) :: namelistfile = 'parameters_CN.nml'
+   character(len=50) :: namelistfile = 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml'
    ! 'parameters_Allocation.nml' !'parameters_Konza.nml' !
    !
 
@@ -158,8 +158,8 @@ program BiomeESS
    enddo
 
    ! Read in forcing data
-   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   !call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
    step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
