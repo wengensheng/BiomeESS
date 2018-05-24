@@ -576,8 +576,8 @@ real   :: N_input    = 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
 real      :: dt_fast_yr = 1.0 / (365.0 * 24.0) ! daily
 real      :: step_seconds = 3600.0
 
-character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
-character(len=160) :: climfile = 'US-Ha1forcing.txt'
+character(len=80) :: filepath_in = 'input/'
+character(len=160) :: climfile = 'US-WCrforcing.txt'
 integer   :: model_run_years = 100
 integer   :: equi_days       = 0 ! 100 * 365
 logical   :: outputhourly = .False.

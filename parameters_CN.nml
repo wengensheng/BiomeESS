@@ -11,27 +11,26 @@ l_fract =0.0
 retransN = 0.0
 f_initialBSW = 0.005
 
-! species      0         1         2         3         4
-lifeform      = 0,       0,        1,        1,        1,    ! 0: grass; 1 Woody
-phenotype     = 0,       0,        0,        1,        0,    ! 0: Deciduous; 1 Evergreen
-pt            = 1,       1,        0,        0,        0,    ! 0: C3; 1: C4
-seedlingsize  = 0.02,    0.02,     0.05,     0.05,     0.05  ! initial size of seedlings
-LMA           = 0.035,   0.035,    0.035,    0.175,    0.035,! Leaf mass per unit area
-LNbase        = 0.8E-3,  0.8E-3,   0.8E-3,   0.6E-3,   0.6E-3,
-phiRL         = 1.6,     1.6,      3.5,      1.2,      1.2,
-
-laimax        = 3.0,     3.0,      3.5,      1.2,      1.2,  ! maximum crown LAI
-LAI_light     = 3.5,     3.5,      3.5,      3.0,      3.3,  ! Light-limited crown LAI
-CNleafsupport = 40.,     40.,      40.,      40.,      40.,  ! C/N ratio of leaf support tissues
-Nfixrate0     = 0.0,     0.0,      0.0,      0.0,      0.0   ! 0.03 kgN kgRootC-1 yr-1
-NfixCost0     = 12.,     12.,      12.,      12.,      12.,   ! 12, 24 gC/gN
-gamma_LN      = 50.,     50.,      70.5,     70.5,     70.5,
-gamma_FR      = 1.5,     1.5,      1.5,      1.5,      1.5,
-gamma_SW      = 0.00025,  0.00025, 0.002,    0.002,    0.002
-phiCSA        = 1.25E-4, 1.25E-4,  0.25E-4,  0.25E-4,  0.25E-4,
-mortrate_d_c  = 0.02,    0.02,     0.02,     0.02,     0.02,    ! canopy tree mortality rate, year-1
-mortrate_d_u  = 0.2,     0.05,     0.05,     0.05,     0.08,    ! understory tree mortality rate, year-1
-maturalage    = 0.2,     0.2,      5,        5,        5,
+! species       0         1
+lifeform      = 1,        1,    ! 0: grass; 1 Woody
+phenotype     = 1,        0,    ! 0: Deciduous; 1 Evergreen
+pt            = 0,        0,    ! 0: C3; 1: C4
+seedlingsize  = 0.05,     0.05  ! initial size of seedlings
+LMA           = 0.175,    0.035,! Leaf mass per unit area
+LNbase        = 0.6E-3,   0.6E-3,
+phiRL         = 1.2,      1.2,
+laimax        = 3.5,      3.5,  ! maximum crown LAI
+LAI_light     = 3.0,      3.3,  ! Light-limited crown LAI
+CNleafsupport = 40.,      40.,  ! C/N ratio of leaf support tissues
+Nfixrate0     = 0.0,      0.0   ! 0.03 kgN kgRootC-1 yr-1
+NfixCost0     = 12.,      12.,  ! 12, 24 gC/gN
+gamma_LN      = 70.5,     70.5,
+gamma_FR      = 1.5,      1.5,
+gamma_SW      = 0.002,    0.002
+phiCSA        = 0.25E-4,  0.25E-4,
+mortrate_d_c  = 0.02,     0.02,    ! canopy tree mortality rate, year-1
+mortrate_d_u  = 0.05,     0.08,    ! understory tree mortality rate, year-1
+maturalage    = 5,        5,
  /
  
  &soil_data_nml
@@ -44,7 +43,7 @@ maturalage    = 0.2,     0.2,      5,        5,        5,
  &initial_state_nml
 !!   plant
  init_n_cohorts      = 2,  ! 2,               !  5
- init_cohort_species = 3,    4,    ! 3,
+ init_cohort_species = 0,    1,    ! 3,
  init_cohort_nindivs = 0.05  0.05, ! 0.25,
  init_cohort_bsw     = 0.2,  0.2, ! 0.2,  ! 1.5,
  init_cohort_bHW     = 0.0,  0.0, ! 0.0,  ! 0.0,
@@ -52,18 +51,18 @@ maturalage    = 0.2,     0.2,      5,        5,        5,
 
 !  Soil
  init_fast_soil_C    = 1.6 ! .1 ! 0.8  ! kg C m-2
- init_slow_soil_C    = 32.0   ! .1 ! 40.0 ! kg C m-2
+ init_slow_soil_C    = 8.0   ! .1 ! 40.0 ! kg C m-2
  init_Nmineral       = 200.5E-3, ! kg N m-2
  N_input             = 0.0 ! 1.8E-3 ! 4.8E-3, ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
                                ! high N input --> Deciduous
                                ! low  N input --> Evergreen
 
 ! Model run
- climfile    = 'ORNL_forcing.txt' ! 'US-WBWforcing.txt' ! 'CA-Manforcing.txt' !
-               !   'US-Dk1forcing.txt' ! CA-Obsforcing.txt
-               !   'KNZ_amb.csv' !  'KNZ_irr.csv' !
+ filepath_in = 'input/'
+ climfile    = 'US-WCrforcing.txt' ! 'ORNL_forcing.txt'
  model_run_years     = 200 ! 600
  outputhourly        = .False.
  outputdaily         = .True. ! .False. ! .True.
+ update_annualLAImax = .False.
  do_U_shaped_mortality = .True.
  /

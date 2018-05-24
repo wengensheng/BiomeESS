@@ -82,13 +82,13 @@ program BiomeESS
    integer :: simu_steps,idata
    character(len=50) :: filepath_out,filesuffix
    character(len=50) :: parameterfile(10),chaSOM(10)
-   character(len=50) :: namelistfile = 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml'
+   character(len=50) :: namelistfile = 'parameters_CN.nml'
    ! 'parameters_Allocation.nml' !'parameters_Konza.nml' !
    !
 
    ! create output files
-   filepath_out='output/'
-   filesuffix  = 'test.csv' ! tag for simulation experiments
+   filepath_out='' !'output/'
+   filesuffix  = '.csv' ! tag for simulation experiments
    plantcohorts = trim(filepath_out)//'Annual_cohorts'//trim(filesuffix)
    plantCNpools = trim(filepath_out)//'Cohorts_daily'//trim(filesuffix)  ! daily
    soilCNpools  = trim(filepath_out)//'Ecosystem_daily'//trim(filesuffix)
