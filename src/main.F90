@@ -150,12 +150,6 @@ program BiomeESS
    ! Sort and relayer cohorts
    call relayer_cohorts(vegn)
    call Zero_diagnostics(vegn)
-   ! output initial cohorts
-   do i=1,vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      write(*,*)i,vegn%cohorts(i)%species,vegn%cohorts(i)%height, &
-                vegn%cohorts(i)%crownarea
-   enddo
 
    ! Read in forcing data
    !call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)

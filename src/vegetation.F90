@@ -116,7 +116,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
      !
   enddo
 
-  ! Calculate kappa according to sun zenith angle !!
+  ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
   kappa = cc%extinct ! 0.75
   ! Light fraction
   f_light = 0.0
@@ -390,6 +390,33 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
    gs = gs * Rugas * Tl / p_surf
    !write(899, '(25(E12.4,","))') rad_net,par_net,apot*3600*12,acl*3600*12,Ed
 end subroutine gs_Leuning
+!============================================================================
+ ! Weng, 05/24/2018
+ subroutine calc_solarzen(td,latdegrees,cosz,solarelev,solarzen)
+      !* Calculate solar zenith angle **in radians**
+      !* From Spitters, C. J. T. (1986), AgForMet 38: 231-242.
+      implicit none
+      real,intent(in) :: td             ! day(to minute fraction)
+      real,intent(in) :: latdegrees     ! latitude in degrees
+      real :: hour,latrad
+      real :: delta    ! declination angle
+      real :: pi, rad
+      real,intent(out) :: cosz        ! cosz=cos(zen angle)=sin(elev angle)
+      real,intent(out) :: solarelev    ! solar elevation angle (rad)
+      real,intent(out) :: solarzen     ! solar zenith angle (rad)
+      pi  = 3.1415926
+      rad = pi / 180.0 ! Conversion from degrees to radians.
+      hour = (td-floor(td))*24.0
+      latrad = latdegrees*rad
+      delta  = asin(-sin(rad*23.450)*cos(2.0*pi*(td+10.0)/365.0))
+      cosz = sin(latrad)*sin(delta) + &
+               cos(latrad)*cos(delta)*cos(rad* 15.0*(hour-12.0))
+      cosz = max (cosz, 0.01)  ! Sun's angular is 0.01
+
+      ! compute the solar elevation and zenth angles below
+      solarelev = asin(cosz)/pi*180.0  !since asin(cos(zen))=pi/2-zen=elev
+      solarzen = 90.0 - solarelev ! pi/2.d0 - solarelev
+ end subroutine calc_solarzen
 
 !============================================================================
 subroutine plant_respiration(cc, tairK)
@@ -1388,7 +1415,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
 
   !-------local var
   type(cohort_type),pointer :: cc
-  real    :: rho_N_up0 = 0.05 ! hourly N uptake rate, fraction of the total mineral N
+  real    :: rho_N_up0 = 0.1 ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
   real    :: N_roots0  = 0.4  ! root biomass at half max N-uptake rate,kg C m-2
   real    :: totNup    ! kgN m-2
   real    :: avgNup

@@ -429,10 +429,10 @@ integer :: pt(0:MSPECIES) = 0
 integer :: phenotype(0:MSPECIES)= 0
 ! (/0,  0,  0,  0,  1,  1,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0 /) ! 0 for Deciduous, 1 for evergreen
 integer :: lifeform(0:MSPECIES) = 1 ! life form of PFTs: 0 for grasses, 1 for trees
-real :: alpha_FR(0:MSPECIES) = 1.2 ! 1.2 ! Fine root turnover rate yr-1
-!(/0.8, 0.8,0.8, 0.8, 0.8,0.8,0.8,0.8,1.0,1.0,0.6, 1.0, 0.55, 0.9, 0.55, 0.55/)
 
 ! root parameters
+real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
+!(/0.8, 0.8,0.8, 0.8, 0.8,0.8,0.8,0.8,1.0,1.0,0.6, 1.0, 0.55, 0.9, 0.55, 0.55/)
 real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
@@ -458,7 +458,7 @@ real :: alpha_phot(0:MSPECIES)=  0.06 !
 real :: gamma_L(0:MSPECIES)= 0.02 !
 real :: gamma_LN(0:MSPECIES)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
 real :: gamma_SW(0:MSPECIES)= 0.08 ! 5.0e-4 ! kgC m-2 Acambium yr-1
-real :: gamma_FR(0:MSPECIES)= 15.0 ! 1.5 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
+real :: gamma_FR(0:MSPECIES)= 12.0 ! 15 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 real :: tc_crit(0:MSPECIES)= 283.16 ! OFF
 real :: tc_crit_on(0:MSPECIES)= 280.16 ! ON
 real :: gdd_crit(0:MSPECIES)= 280.0 !

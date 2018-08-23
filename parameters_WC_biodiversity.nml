@@ -43,8 +43,8 @@ maturalage    = 0.5,     0.2,      5,        5,        5,      5,        5,     
 
  &initial_state_nml
 !!   plant
- init_n_cohorts      = 9,
- init_cohort_species = 1,      2,        3,        4,      5,        6,        7,      8,        9,       10,
+ init_n_cohorts      = 2,
+ init_cohort_species = 3,      4,        3,        4,      5,        6,        7,      8,        9,       10,
  init_cohort_nindivs = 0.01,   0.01,     0.01,     0.01,   0.01,     0.01,     0.01,   0.01,     0.01,    0.01,
  init_cohort_bsw     = 0.2,    0.2,      0.2,      0.2,    0.2,      0.2,      0.2,    0.2,      0.2,     0.2,
  init_cohort_bHW     = 0.0,    0.0,      0.0,      0.0,    0.0,      0.0,      0.0,    0.0,      0.0,     0.0,
