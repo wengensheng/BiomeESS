@@ -2129,6 +2129,109 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
    endif  ! initialization: random or pre-described
 end subroutine initialize_vegn_tile
 
+! ===== Get PFTs based on climate conditions =================
+! Author: Elena and Sergey, LM3
+
+! =============================================================================
+subroutine vegn_biogeography(vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  ! ---- local vars
+  integer :: i
+
+  do i = 1, vegn%n_cohorts   
+     call update_species(vegn%cohorts(i), vegn%t_ann, vegn%t_cold, &
+          vegn%p_ann*seconds_per_year, vegn%ncm, vegn%landuse)
+  enddo
+end subroutine
+
+! ============================================================================
+! given a cohort, climatology, and land use type, determines and updates 
+! physiology type, phenology type, and species of the cohort
+subroutine update_species(c, t_ann, t_cold, p_ann, cm, landuse)
+  type(cohort_type), intent(inout) :: c    ! cohort to update
+  real,              intent(in) :: t_ann   ! annual-mean temperature, degK
+  real,              intent(in) :: t_cold  ! average temperature of the coldest month, degK
+  real,              intent(in) :: p_ann   ! annual-mean precipitation, mm/yr
+  real,              intent(in) :: cm      ! number of cold months
+  integer,           intent(in) :: landuse ! land use type
+  ! ---- local var -----------
+  integer :: spp
+
+  c%pt    = c3c4(c,t_ann,p_ann)
+  c%phenotype = phenology_type(cm)
+  
+  if(landuse == LU_CROP) c%phenotype = 0  ! crops can't be evergreen
+  
+  if(c%pt==PT_C4) then
+     spp=SP_C4GRASS  ! c4 grass
+  elseif(c%phenotype==1) then
+     spp=SP_EVERGR   ! evergreen non-grass
+  elseif(btotal(c) < tg_c3_thresh) then
+     spp=SP_C3GRASS  ! c3 grass
+  elseif ( t_cold > 278.16 ) then  ! ens,slm Jun 21 2003 to prohibit tropical forest in coastal cells
+     spp=SP_TROPICAL ! tropical deciduous non-grass
+  else 
+     spp=SP_TEMPDEC  ! temperate deciduous non-grass
+  endif
+
+  ! reset leaf age to zero if species are chnaged
+  if (spp/=c%species) c%leaf_age = 0.0
+
+  c%species = spp
+end subroutine
+
+! ============================================================================
+function btotal(c)
+  real :: btotal ! returned value
+  type(cohort_type), intent(in) :: c
+  
+  btotal = c%NSC + c%seedC + c%bl + c%br + c%bsw + c%bHW
+end function
+
+! ============================================================================
+function c3c4(c, temp, precip) result (pt)
+  integer :: pt
+  type(cohort_type), intent(in) :: c
+  real,              intent(in) :: temp   ! temperatire, degK
+  real,              intent(in) :: precip ! precipitation, ???
+
+  real :: pc4
+  
+  ! Rule based on analysis of ED global output; equations from JPC, 2/02
+  if(btotal(c) < tg_c4_thresh) then
+    pc4=exp(-0.0421*(273.16+25.56-temp)-(0.000048*(273.16+25.5-temp)*precip));
+  else
+    pc4=0.0;
+  endif
+  
+  if(pc4>0.5) then 
+    pt=PT_C4
+  else 
+    pt=PT_C3
+  endif
+  
+end function
+
+! ============================================================================
+! given current conditions, returns type of phenology.
+function phenology_type(cm) ! result(phenology_type)
+  integer :: phenology_type ! returned value
+  real, intent(in) :: cm ! number of cold months
+   
+  real :: pe  ! prob evergreen
+   
+  ! GCH, Rule based on analysis of ED global output; equations from JPC, 2/02
+  ! GCH, Parameters updated 2/9/02 from JPC
+  pe = 1.0/(1.0+((1.0/0.00144)*exp(-0.7491*cm)));
+  
+  if(pe>phen_ev1 .and. pe<phen_ev2) then
+     phenology_type = PHEN_EVERGREEN ! its evergreen
+  else
+     phenology_type = PHEN_DECIDIOUS ! its deciduous
+  endif
+end function
+
 ! ====================================
 
 end module esdvm

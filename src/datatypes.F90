@@ -35,9 +35,6 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  integer, public, parameter :: num_l    = 3 ! Soil layers,
  integer, public, parameter :: LEAF_ON  = 1
  integer, public, parameter :: LEAF_OFF = 0
- integer, public, parameter :: & ! physiology types
- PT_C3        = 0, &
- PT_C4        = 1
 
  ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
@@ -55,10 +52,28 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
                     FrittedClay = 5, &
                     Loam        = 6, &
                     Clay        = 7
-
+ ! Vegetation types
  integer, public, parameter :: & ! phenology type
  PHEN_DECIDIOUS = 0, &
  PHEN_EVERGREEN = 1
+
+ integer, public, parameter :: & ! physiology types
+ PT_C3        = 0, &
+ PT_C4        = 1
+
+ integer, public, parameter :: NSPECIES = 5, & ! number of species
+ SP_C4GRASS   = 0, & ! c4 grass
+ SP_C3GRASS   = 1, & ! c3 grass
+ SP_TEMPDEC   = 2, & ! temperate deciduous
+ SP_TROPICAL  = 3, & ! non-grass tropical
+ SP_EVERGR    = 4    ! non-grass evergreen
+
+ integer, public, parameter :: & ! land use types
+ N_LU_TYPES = 4, & ! number of different land use types
+ LU_PAST    = 1, & ! pasture
+ LU_CROP    = 2, & ! crops
+ LU_NTRL    = 3, & ! natural vegetation
+ LU_SCND    = 4    ! secondary vegetation
 
  ! Soil SOM reference C/N ratios
  real, public, parameter :: CN0metabolicL  = 15.0 ! 25.0 ! 15.0
@@ -154,6 +169,9 @@ end type
 
 !----------cohort-----------------
 type :: cohort_type
+  ! for climate-vegetation type
+  integer :: phenotype    ! phenology type: 0 for deciduous, 1 for evergreen
+  integer :: pt           ! photosynthetic physiology of species
   ! ---- biological prognostic variables
   integer :: ccID    = 0   ! cohort ID
   integer :: species = 0   ! vegetation species
@@ -162,7 +180,8 @@ type :: cohort_type
   integer :: layer   = 1   ! the layer of this cohort (numbered from top, top layer=1)
   integer :: firstlayer = 0 ! 0 = never been in the first layer; 1 = at least one year in first layer
   real    :: layerfrac  = 0.0 ! fraction of layer area occupied by this cohort
-
+  real    :: leaf_age     ! leaf age (year)
+  
 ! for populatin structure
   real    :: nindivs   = 1.0 ! density of vegetation, individuals/m2
   real    :: age       = 0.0 ! age of cohort, years
@@ -241,6 +260,8 @@ end type cohort_type
 
 !---------------------------
 type :: vegn_tile_type
+   integer :: tag ! kind of the tile
+   integer :: landuse = LU_NTRL
    integer :: n_cohorts = 0
    integer :: n_years   = 0
    integer :: n_canopycc = 0
@@ -319,6 +340,12 @@ type :: vegn_tile_type
    real :: NSC, SeedC, leafC, rootC, SapwoodC, WoodC
    real :: NSN, SeedN, leafN, rootN, SapwoodN, WoodN
    real :: totSeedC,totSeedN,totNewCC, totNewCN
+   ! for cohort plant types (climate-vegetation relationship, Biome, LM3)
+   real :: t_ann  = 0.0 ! annual mean T, degK
+   real :: t_cold = 0.0 ! average temperature of the coldest month, degK
+   real :: p_ann  = 0.0 ! annual mean precip
+   real :: ncm    = 0.0 ! number of cold months
+
 end type vegn_tile_type
 
 !---------------------------
@@ -391,6 +418,11 @@ type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
 integer :: MaxCohortID = 0
 
 ! Constants:
+! Climate and vegetation types
+real :: phen_ev1 = 0.5, phen_ev2 = 0.9 ! thresholds for evergreen/decidious 
+      ! differentiation (see phenology_type in cohort.F90)
+real :: tg_c3_thresh = 1.5 ! threshold biomass between tree and grass for C3 plants
+real :: tg_c4_thresh = 2.0 ! threshold biomass between tree and grass for C4 plants
 ! Soil water properties
 real   :: soiltype = SandyLoam  ! 1 Sand; 2
 real   :: FLDCAP = 0.4  ! vol/vol
@@ -508,6 +540,7 @@ real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC
 real :: internal_gap_frac(0:MSPECIES)= 0.1 ! The gaps between trees
 
 namelist /vegn_parameters_nml/  &
+  phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &
   soiltype, FLDCAP, WILTPT, &
   pt, phenotype, lifeform, &
   Vmax, Vannual,wet_leaf_dreg,   &
@@ -1053,14 +1086,14 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     integer :: i
 
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
-    write(*,  '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
-    ! output yearly variables
-    write(*,'(3(a5,","),25(a9,","))') &
-    'chtID','PFT','layer','density', 'f_layer',  &
-        'dDBH','dbh','height','Acrown', &
-        'wood','nsc', 'NSN','fNPPseed',     &
-        'fNPPL','fNPPR','fNPPW','GPP-yr','NPP-yr', &
-        'N_uptk','N_fix','spLAI'
+    ! write(*,  '(2(I6,","),1(F9.2,","))')iyears !, vegn%n_cohorts,vegn%annualN*1000
+    !! output yearly variables
+    !write(*,'(3(a5,","),25(a9,","))') &
+    !'chtID','PFT','layer','density', 'f_layer',  &
+    !    'dDBH','dbh','height','Acrown', &
+    !    'wood','nsc', 'NSN','fNPPseed',     &
+    !    'fNPPL','fNPPR','fNPPW','GPP-yr','NPP-yr', &
+    !    'N_uptk','N_fix','spLAI'
 
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
@@ -1081,17 +1114,17 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
             cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
 
-        ! Screen output
-        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
-                    cc%ccID,cc%species,cc%layer,                     &
-                    cc%nindivs*10000, cc%layerfrac,dDBH,             &
-                    cc%dbh,cc%height,cc%crownarea,                   &
-                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
-                    fseed, fleaf, froot, fwood,                      &
-                    cc%annualGPP/cc%crownarea,                       &
-                    cc%annualNPP/cc%crownarea,                       &
-                    cc%annualNup*1000,cc%annualfixedN*1000,          &
-                    spdata(cc%species)%laimax
+        !! Screen output
+        !write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
+        !            cc%ccID,cc%species,cc%layer,                     &
+        !            cc%nindivs*10000, cc%layerfrac,dDBH,             &
+        !            cc%dbh,cc%height,cc%crownarea,                   &
+        !            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
+        !            fseed, fleaf, froot, fwood,                      &
+        !            cc%annualGPP/cc%crownarea,                       &
+        !            cc%annualNPP/cc%crownarea,                       &
+        !            cc%annualNup*1000,cc%annualfixedN*1000,          &
+        !            spdata(cc%species)%laimax
     enddo
 
     ! tile pools output
