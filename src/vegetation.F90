@@ -8,7 +8,8 @@ module esdvm
 public :: initialize_cohort_from_biomass, initialize_vegn_tile
 public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
-public :: vegn_starvation, vegn_nat_mortality, vegn_species_switch
+public :: vegn_starvation, vegn_nat_mortality, vegn_fire_disturbance
+public :: vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 public :: vegn_annual_starvation,Zero_diagnostics
  contains
@@ -586,19 +587,23 @@ subroutine fetch_CN_for_growth(cc)
 !!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
         IF(N_demand > N_supply)then
             Nsupplyratio = N_supply / N_demand
-            if(sp%lifeform > 0 )then ! for trees
-               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-               dBR  =  Nsupplyratio * dBR
-               dBL  =  Nsupplyratio * dBL
-               dSeed=  Nsupplyratio * dSeed
-            else ! for grasses
-               dBR  =  Nsupplyratio * dBR
-               dBL  =  Nsupplyratio * dBL
-               dSeed=  Nsupplyratio * dSeed
-               dBSW =  Nsupplyratio * dBSW
-               ! Return NSC for grasses
-               cc%nsc = cc%NSC + cc%C_growth - dBR - dBL -dSeed - dBSW
-            endif
+            dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
+            dBR  =  Nsupplyratio * dBR
+            dBL  =  Nsupplyratio * dBL
+            dSeed=  Nsupplyratio * dSeed
+!            if(sp%lifeform > 0 )then ! for trees
+!               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
+!               dBR  =  Nsupplyratio * dBR
+!               dBL  =  Nsupplyratio * dBL
+!               dSeed=  Nsupplyratio * dSeed
+!            else ! for grasses
+!               dBR  =  Nsupplyratio * dBR
+!               dBL  =  Nsupplyratio * dBL
+!               dSeed=  Nsupplyratio * dSeed
+!               dBSW =  Nsupplyratio * dBSW
+!               ! Return NSC for grasses
+!               cc%nsc = cc%NSC + cc%C_growth - dBR - dBL -dSeed - dBSW
+!            endif
             N_demand = N_supply
         ENDIF
 !       update biomass pools
@@ -834,7 +839,7 @@ subroutine Seasonal_fall(cc,vegn)
         dBR = min( root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
         dBStem = 0.0 ! trees
         dNStem = 0.0 ! trees
-        if(sp%lifeform==0)then  ! grasses
+        if(sp%lifeform == 0)then  ! grasses
             dBStem = MIN(1.0,dBL/cc%bl) * cc%bsw
             dNStem = MIN(1.0,dBL/cc%bl) * cc%sapwN
         endif
@@ -911,9 +916,6 @@ subroutine vegn_nat_mortality (vegn, deltat)
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
-  real, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number, 
-  ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth 
-
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
@@ -955,6 +957,85 @@ subroutine vegn_nat_mortality (vegn, deltat)
   !call kill_lowdensity_cohorts(vegn)
 
 end subroutine vegn_nat_mortality
+
+!============================================================================
+!----------------------- fire disturbance -----------------------------------
+subroutine vegn_fire_disturbance (vegn, deltat)
+! TODO: update background mortality rate as a function of wood density (Weng, Jan. 07 2017)
+  type(vegn_tile_type), intent(inout) :: vegn
+  real, intent(in) :: deltat ! seconds since last mortality calculations, s
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc => null()
+  type(spec_data_type),   pointer :: sp
+
+  real :: r_fire ! envi_fire_prb
+  real :: veg_flammable0,veg_flammable,veg_flammability
+  real :: deathrate ! mortality rate, 1/year
+  real :: deadtrees ! number of trees that died over the time step
+  integer :: i, k
+
+  ! Vegetation flammability (Grass only)
+  veg_flammable0 = 0.2 ! kg m-2
+  veg_flammable  = 0.0
+  vegn%treecover = 0.0
+  vegn%grasscover = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+     if(sp%lifeform==0) then
+         veg_flammable = veg_flammable + (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC) * cc%nindivs
+         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+     elseif(sp%lifeform==1 .and. cc%layer == 1)then ! for trees in the top layer
+         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+     endif
+
+     end associate
+  enddo
+  veg_flammability = min(1.0,veg_flammable/veg_flammable0)
+
+  ! Environmental fire occurrence probability
+  ! envi_fire_prb = 0.2 ! it should be function of environmental conditions
+
+  !CALL RANDOM_NUMBER(r_fire)
+  r_fire=rand(0)
+  vegn%fire_occurrence = r_fire < (veg_flammability*envi_fire_prb)
+  write(*,*)vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, veg_flammability
+
+  ! fire effects on vegetation and soil
+  vegn%C_combusted = 0.0
+   if(vegn%fire_occurrence)then
+    do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      associate ( sp => spdata(cc%species))
+      if(sp%lifeform==0) then
+         deathrate = 0.2  ! for grasses
+      else                 ! for trees
+         if(cc%height > 5.0) then ! Tall trees
+            deathrate = 4.0/(cc%height+5.0) * min(1.0,vegn%treecover)
+         else  ! short trees
+            deathrate = 4.0/(cc%height+5.0) * min(1.0,vegn%grasscover)
+         endif
+      endif
+      deadtrees = cc%nindivs * MIN(1.0,deathrate * deltat/seconds_per_year) ! individuals / m2
+      ! Carbon and Nitrogen release by burning
+      vegn%C_combusted = vegn%C_combusted + &
+                  (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC)*deadtrees
+      vegn%mineralN = vegn%mineralN + &
+             (cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN + cc%seedN)*deadtrees
+
+      ! Update plant density
+      cc%nindivs = cc%nindivs - deadtrees
+      end associate
+    enddo
+    ! Burned litter
+    vegn%C_combusted = vegn%C_combusted + 0.2 * vegn%metabolicL
+    vegn%mineralN    = vegn%mineralN    + 0.2 * vegn%metabolicN
+    vegn%metabolicL = vegn%metabolicL - 0.2 * vegn%metabolicL
+    vegn%metabolicN = vegn%metabolicN - 0.2 * vegn%metabolicN
+  endif
+
+end subroutine vegn_fire_disturbance
 
 !========================================================================
 ! Starvation due to low NSC or NSN, daily
@@ -1008,7 +1089,8 @@ subroutine vegn_annual_starvation (vegn)
 !   Mortality due to starvation
     deathrate = 0.0
 !   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
-    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
+!    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
+    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
          ! Carbon and Nitrogen from plants to soil pools

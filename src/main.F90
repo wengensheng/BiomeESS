@@ -82,10 +82,14 @@ program BiomeESS
    integer :: simu_steps,idata
    character(len=50) :: filepath_out,filesuffix
    character(len=50) :: parameterfile(10),chaSOM(10)
-   character(len=50) :: namelistfile = 'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml'
-   ! 'parameters_Allocation.nml' !'parameters_Konza.nml' !
+   character(len=50) :: namelistfile = 'parameters_Konza.nml' ! 'parameters_WC_biodiversity.nml' 
+   integer :: timeArray(3)
+   ! 'parameters_CN.nml'
+   ! 'parameters_Allocation.nml' !
    !
-
+   ! call random_seed()
+   call itime(timeArray)     ! Get the current time
+   i = rand ( timeArray(1)+timeArray(2)+timeArray(3) )
    ! create output files
    filepath_out='output/'
    filesuffix  = 'test.csv' ! tag for simulation experiments
@@ -131,7 +135,8 @@ program BiomeESS
         'mineralN', 'N_uptk'
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
-        'CAI','LAI','GPP', 'Rauto',   'Rh',                    &
+        'CAI','LAI','treecover', 'grasscover', &
+        'GPP', 'Rauto',   'Rh', 'burned',          &
         'rain','SiolWater','Transp','Evap','Runoff',           &
         'plantC','soilC',    'plantN', 'soilN','totN',         &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC', &
@@ -152,8 +157,8 @@ program BiomeESS
    call Zero_diagnostics(vegn)
 
    ! Read in forcing data
-   !call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
    step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
@@ -210,8 +215,9 @@ program BiomeESS
             ! mortality
 
             call annual_diagnostics(vegn,iyears,fno2,fno5)
-            call vegn_annual_starvation(vegn)
+            call vegn_annual_starvation(vegn) ! turned off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
+            if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
 
             ! Reproduction and Re-organize cohorts
             call vegn_reproduction(vegn)

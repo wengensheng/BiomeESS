@@ -19,7 +19,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
     K1, K2, K_nitrogen, etaN, MLmixRatio, &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
-    A_mort, B_mort,DBHtp
+    A_mort, B_mort,DBHtp, envi_fire_prb
 
 !===============constants===============
  logical, public, parameter :: read_from_parameter_file = .TRUE.
@@ -35,10 +35,11 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  integer, public, parameter :: num_l    = 3 ! Soil layers,
  integer, public, parameter :: LEAF_ON  = 1
  integer, public, parameter :: LEAF_OFF = 0
-
+ real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
+  ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
  ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
- real,public, parameter ::  thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
+ real, public, parameter ::  thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
  real, public, parameter :: psi_wilt  = -150.0  ! matric head at wilting
  real, public, parameter :: K_rel_min = 1.e-12
  real, public, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d drainage rate at FC
@@ -319,6 +320,12 @@ type :: vegn_tile_type
    real :: resp = 0 ! auto-respiration of plants
    real :: nep =0 ! net ecosystem productivity
    real :: rh  =0 ! soil carbon lost to the atmosphere
+
+!  fire disturbance
+   logical :: fire_occurrence = .false.
+   real :: C_combusted ! Carbon released to atmosphere via fire
+   real :: treecover=0.0 ! tree CAI in the top layer, affecting fire spread in canopy
+   real :: grasscover=0.0 ! grass CAI, initial fire severity
    ! daily diagnostics
    real :: dailyGPP
    real :: dailyNPP
@@ -441,6 +448,9 @@ real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after l
 real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
 real :: f_initialBSW = 0.2 !0.01
 
+! Fire disturbance
+real :: envi_fire_prb = 0.5 ! fire probability due to environment
+
 ! Ensheng's growth parameters:
 real :: wood_fract_min = 0.15 ! 0.2 ! 0.33333
 ! for understory mortality rate is calculated as:
@@ -552,7 +562,7 @@ namelist /vegn_parameters_nml/  &
   K1,K2, K_nitrogen, etaN, MLmixRatio,    &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_initialBSW, wood_fract_min,  &
-  gdd_crit,tc_crit, tc_crit_on, &
+  gdd_crit,tc_crit, tc_crit_on, envi_fire_prb,  &
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
   mortrate_d_c, mortrate_d_u, A_mort, B_mort,DBHtp,     &
@@ -617,6 +627,7 @@ logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .False.
 logical   :: update_annualLAImax = .False.
+logical   :: do_fire = .False.
 logical   :: do_closedN_run = .True. !.False.
 
 namelist /initial_state_nml/ &
@@ -627,7 +638,8 @@ namelist /initial_state_nml/ &
     init_Nmineral, N_input,  &
     filepath_in,climfile, model_run_years, &
     outputhourly, outputdaily, equi_days, &
-    do_U_shaped_mortality,update_annualLAImax
+    do_U_shaped_mortality,update_annualLAImax,do_fire, &
+    do_closedN_run
 !---------------------------------
 
  contains
@@ -1086,15 +1098,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     integer :: i
 
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
-    ! write(*,  '(2(I6,","),1(F9.2,","))')iyears !, vegn%n_cohorts,vegn%annualN*1000
-    !! output yearly variables
-    !write(*,'(3(a5,","),25(a9,","))') &
-    !'chtID','PFT','layer','density', 'f_layer',  &
-    !    'dDBH','dbh','height','Acrown', &
-    !    'wood','nsc', 'NSN','fNPPseed',     &
-    !    'fNPPL','fNPPR','fNPPW','GPP-yr','NPP-yr', &
-    !    'N_uptk','N_fix','spLAI'
-
+    write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
@@ -1113,18 +1117,17 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
             cc%annualGPP,cc%annualNPP,                          &
             cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
-
-        !! Screen output
-        !write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
-        !            cc%ccID,cc%species,cc%layer,                     &
-        !            cc%nindivs*10000, cc%layerfrac,dDBH,             &
-        !            cc%dbh,cc%height,cc%crownarea,                   &
-        !            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
-        !            fseed, fleaf, froot, fwood,                      &
-        !            cc%annualGPP/cc%crownarea,                       &
-        !            cc%annualNPP/cc%crownarea,                       &
-        !            cc%annualNup*1000,cc%annualfixedN*1000,          &
-        !            spdata(cc%species)%laimax
+        ! Screen output
+        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
+                    cc%ccID,cc%species,cc%layer,                     &
+                    cc%nindivs*10000, cc%layerfrac,dDBH,             &
+                    cc%dbh,cc%height,cc%crownarea,                   &
+                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
+                    fseed, fleaf, froot, fwood,                      &
+                    cc%annualGPP/cc%crownarea,                       &
+                    cc%annualNPP/cc%crownarea,                       &
+                    cc%annualNup*1000,cc%annualfixedN*1000,          &
+                    spdata(cc%species)%laimax
     enddo
 
     ! tile pools output
@@ -1140,10 +1143,10 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     soilC  = vegn%MicrobialC + vegn%metabolicL + vegn%structuralL
     soilN  = vegn%MicrobialN + vegn%metabolicN + vegn%structuralN + vegn%mineralN
     vegn%totN = plantN + soilN
-    write(f2,'(1(I5,","),27(F9.4,","),6(F9.3,","),18(F10.4,","))') &
+    write(f2,'(1(I5,","),30(F9.4,","),6(F9.3,","),18(F10.4,","))') &
         iyears,       &
-        vegn%CAI,vegn%LAI, &
-        vegn%annualGPP, vegn%annualResp, vegn%annualRh, &
+        vegn%CAI,vegn%LAI, vegn%treecover, vegn%grasscover, &
+        vegn%annualGPP, vegn%annualResp, vegn%annualRh, vegn%C_combusted, &
         vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
         plantC,soilC,plantN *1000, soilN * 1000, (plantN+soilN)*1000,&
         vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
@@ -1160,7 +1163,8 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
 
  end subroutine annual_diagnostics
 
-subroutine Recover_N_balance(vegn)
+ ! Hack !!!!!
+ subroutine Recover_N_balance(vegn)
    type(vegn_tile_type), intent(inout) :: vegn
       if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
          vegn%structuralN = vegn%structuralN - vegn%totN + vegn%initialN0
