@@ -191,6 +191,7 @@ type :: cohort_type
   real    :: crownarea = 1.0 ! crown area, m2/individual
   real    :: leafarea  = 0.0 ! total area of leaves, m2/individual
   real    :: lai       = 0.0 ! crown leaf area index, m2/m2
+  real    :: D_bark    = 0.0 ! thickness of bark
 ! carbon pools
   real    :: bl      = 0.0 ! biomass of leaves, kg C/individual
   real    :: br      = 0.0 ! biomass of fine roots, kg C/individual
@@ -264,11 +265,15 @@ type :: vegn_tile_type
    integer :: tag ! kind of the tile
    integer :: landuse = LU_NTRL
    integer :: n_cohorts = 0
+   integer :: n_initialCC = 0
    integer :: n_years   = 0
    integer :: n_canopycc = 0
    type(cohort_type), pointer :: cohorts(:)=>NULL()
+   type(cohort_type), pointer :: initialCC(:)=>NULL()
    real :: area  ! m2
    real :: age=0 ! tile age
+
+
    ! leaf area index
    real :: LAI  ! leaf area index
    real :: CAI  ! crown area index
@@ -553,7 +558,7 @@ namelist /vegn_parameters_nml/  &
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &
   soiltype, FLDCAP, WILTPT, &
   pt, phenotype, lifeform, &
-  Vmax, Vannual,wet_leaf_dreg,   &
+  Vmax, m_cond, Vannual,wet_leaf_dreg,   &
   gamma_L, gamma_LN, gamma_SW, gamma_FR,  &
   rho_FR, root_r, root_zeta,Kw_root, &
   !rho_N_up0, N_roots0, &

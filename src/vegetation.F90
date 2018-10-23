@@ -9,7 +9,7 @@ public :: initialize_cohort_from_biomass, initialize_vegn_tile
 public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_nat_mortality, vegn_fire_disturbance
-public :: vegn_species_switch
+public :: vegn_migration, vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 public :: vegn_annual_starvation,Zero_diagnostics
  contains
@@ -345,7 +345,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
            ! gross photosynthesis for light-limited part of the canopy
            Ag_l   = spdata(pft)%alpha_phot * (ci-capgam)/(ci+2.*capgam) * par_net &
-                * (exp(-lai_eq*kappa)-exp(-lai*kappa))/(1-exp(-lai*kappa))
+                * (exp(-lai_eq*kappa)-exp(-lai*kappa))/(1.0-exp(-lai*kappa))
            ! gross photosynthesis for rubisco-limited part of the canopy
            Ag_rb  = dum2*lai_eq
 
@@ -675,7 +675,7 @@ subroutine fetch_CN_for_growth(cc)
             cc%bl_max = BL_u + min(cc%topyear/5.0,1.0)*(BL_c - BL_u)
             cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         endif
-        ! Grasses have the saem bl_max regardless of their layer position
+        ! Grasses have the same bl_max regardless of their layer position
         if(sp%lifeform == 0) then
            cc%bl_max = BL_c
            cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
@@ -969,26 +969,36 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
 
-  real :: m_tree_fire0, m_grass_fire0 ! mortality rates of trees and grasses due to fire
+  real :: m0_w_fire, m0_g_fire ! mortality rates of trees and grasses due to fire
   real :: f_HT0 ! shape parameter fire resistence (due to growth of bark) as a function of height
   real :: h0_escape ! tree height that escapes direct burning of grass fires
-  real :: grass_f0 ! shape parameter for grass flammability
+  real :: r_BK0, D_BK0 ! D_BK0: Bark thickness at half survival rate; r_BK0: shape parameter
 
-  real :: r_fire ! envi_fire_prb
-  real :: BM_grass,grass_flammability,bart_r ! bart resistence to fire
-  real :: tree_spread_prob ! canopy tree spread probability
-  real :: grass_fire_cover ! fire coverage of grasses (= grass coverage)
+  real :: fire_prob, r_fire ! envi_fire_prb
+  real :: Ignition_G0, Ignition_W0 ! Ignition probability once meets envi_fire_prb
+  real :: BM_grass,bark_r ! bark resistence to fire
+  real :: grass_flmb,tree_flmb
+  real :: f_tree  ! canopy tree spread probability
+  real :: f_grass ! fire coverage of grasses (= grass coverage)
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
-  ! Vegetation flammability (Grass only)
-  m_tree_fire0 = 1.0
-  m_grass_fire0= 0.2
-  grass_f0 = 0.05 ! kg m-2, shape parameter for grass flammability
-  f_HT0  = 5.0
-  h0_escape = 5.0 ! meter
 
+  ! Environmental fire occurrence probability (match-dropping probability)
+  ! envi_fire_prb = 0.2 ! it should be function of environmental conditions
+
+  ! Vegetation flammability parameters
+
+  Ignition_G0 = 1.0
+  Ignition_W0 = 0.05 !0.05
+  r_BK0  = -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
+  D_BK0  = 5.9/1000.0 ! half survival bark thickness, m
+  m0_w_fire = 0.85 !1.0
+  m0_g_fire = 0.2
+
+  !f_HT0  = 10.0   ! for bark resistance
+  !h0_escape = 5.0 ! meter
   ! Calculation starts here
   BM_grass  = 0.0
   vegn%treecover = 0.0
@@ -999,24 +1009,28 @@ subroutine vegn_fire_disturbance (vegn, deltat)
      if(sp%lifeform==0) then
          BM_grass = BM_grass + (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC) * cc%nindivs
          if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
-     elseif(sp%lifeform==1 .and. cc%height>f_HT0)then ! for trees in the escape layer
+     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
          vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
      endif
 
      end associate
   enddo
-  grass_flammability = BM_grass/(BM_grass+grass_f0)
-  grass_fire_cover   = min(1.0,vegn%grasscover)
-  !tree_spread_prob   = min(1.0,4.0*vegn%treecover*vegn%treecover)
-  tree_spread_prob   = vegn%treecover/(0.2+vegn%treecover) ! min(1.0,2.0*vegn%treecover)
+  f_grass   = min(1.0,vegn%grasscover)
+  !f_tree   = min(1.0,4.0*vegn%treecover*vegn%treecover)
+  f_tree   = min(1.0, vegn%treecover) ! vegn%treecover/(0.2+vegn%treecover) ! min(1.0,2.0*vegn%treecover)
 
-  ! Environmental fire occurrence probability
-  ! envi_fire_prb = 0.2 ! it should be function of environmental conditions
+  grass_flmb = Ignition_G0 * f_grass
+  tree_flmb  = Ignition_W0 * (1.0 - f_grass)
+
 
   !CALL RANDOM_NUMBER(r_fire)
   r_fire=rand(0)
-  vegn%fire_occurrence = r_fire < (grass_flammability*envi_fire_prb)
-  write(*,*)vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, grass_flammability
+  fire_prob = 1.0 - (1.0 - grass_flmb*envi_fire_prb)*(1.0 - tree_flmb*envi_fire_prb)
+  vegn%fire_occurrence = r_fire < fire_prob ! (grass_flmb*envi_fire_prb)
+  write(*,*)vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
+
+  ! Grass fire and tree fire: grass fire burns all grasses and kill trees based on grass cover and tree resistense
+  ! Tree fire induces grass fire and kills trees at a much higher mortality rate than grass fire does
 
   ! fire effects on vegetation and soil
   vegn%C_combusted = 0.0
@@ -1025,17 +1039,28 @@ subroutine vegn_fire_disturbance (vegn, deltat)
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
       if(sp%lifeform==0) then
-         deathrate = m_grass_fire0  ! for grasses
+         deathrate = m0_g_fire  ! for grasses
       else                 ! for trees
-         bart_r = f_HT0/(0.5*cc%height+f_HT0)
-         if(cc%height < h0_escape) then ! Short trees
-            deathrate = m_tree_fire0 * bart_r * grass_fire_cover
-            ! Didn't consider the probability of protection of big trees over small trees
-            ! by excluding grasses and it leads to heterogeinity.
-
-         else  ! Tall trees
-            deathrate = m_tree_fire0 * bart_r * tree_spread_prob
+         ! Hoffmann et 2012: Y=1.105*X^1.083 for shrubs; Y=0.31*X^1.276 for trees (Y:mm, X:cm)
+         cc%D_bark = 0.1105 * cc%dbh ! bark thickness,
+         bark_r = 1.0 - exp(r_BK0*cc%D_bark)
+         !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
+         write(*,*)'bark, bark_r',cc%D_bark,bark_r
+         if(r_fire < tree_flmb*envi_fire_prb)then
+             deathrate = 0.9 * f_tree   ! tree canopy fire
+         else ! grass fire
+             deathrate = m0_w_fire * (1.0 - bark_r) * max(0.0, 1.0-vegn%treecover)
          endif
+
+         !!!!----- Old scheme -------- !!!!!!
+         ! bark_r = cc%height / (cc%height + f_HT0)
+         !if(cc%height < h0_escape) then ! Short trees
+         !   deathrate = m0_w_fire * (1.0 - bark_r) * f_grass
+         !   ! Didn't consider the probability of protection of big trees over small trees
+         !   ! by excluding grasses and it leads to heterogeinity.
+         !else  ! Tall trees
+         !   deathrate = m0_w_fire * (1.0 - bark_r) * f_tree
+         !endif
       endif
 
       ! Effects on vegetation and soils
@@ -1354,6 +1379,130 @@ end function
      cc%species = mod(iyears/FREQ,N_SP)+2
 
  end subroutine vegn_species_switch
+
+!=======================================================================
+! Put missing PFTs back with information of initial cohorts (initialCC)
+! 10/17/2018, Weng
+subroutine vegn_migration (vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+! ---- local vars
+  type(cohort_type), pointer :: cc ! parent and child cohort pointers
+  type(cohort_type), dimension(:),pointer :: ccold, ccnew   ! pointer to old cohort array
+  integer,dimension(16) :: initialPFTs, currPFTs, missingPFTs
+  real :: addedC, addedN ! seed pool of productible PFTs
+  integer :: newcohorts, matchflag
+  integer :: n_initialPFTs, nPFTs ! number of new cohorts to be created
+  integer :: nCohorts, istat
+  integer :: i, j, k, n ! cohort indices
+
+! Looping through all current cohorts and get the exsiting PFTs
+  currPFTs = -999 ! the code of existing PFT
+  nPFTs = 0
+  do k=1, vegn%n_cohorts
+     cc => vegn%cohorts(k)
+     matchflag = 0
+     do i=1,nPFTs
+        if(cc%species == currPFTs(i))then
+            matchflag = 1
+            exit
+        endif
+     enddo
+     if(matchflag==0)then ! when it is a new PFT, put it to the next place
+        nPFTs            = nPFTs + 1 ! update the number of existing PFTs
+        currPFTs(nPFTs) = cc%species ! PFT number
+     endif
+  enddo ! k, vegn%n_cohorts
+  write(*,*)'current cc',currPFTs(1),currPFTs(2)
+
+! Looping through all initial cohorts and get the initial PFTs
+  initialPFTs = -999 ! the code of initial PFT
+  n_initialPFTs = 0
+  do k=1, vegn%n_initialCC
+     cc => vegn%initialCC(k)
+     !initialPFTs(k) = cc%species
+     !n_initialPFTs = n_initialPFTs + 1
+     matchflag = 0
+     do i=1,n_initialPFTs
+        if(cc%species == initialPFTs(i))then
+            matchflag = 1
+            exit
+        endif
+     enddo
+     if(matchflag==0)then ! when it is a new PFT, put it to the next place
+        n_initialPFTs      = n_initialPFTs + 1 ! update the number of existing PFTs
+        initialPFTs(n_initialPFTs) = cc%species ! PFT number
+     endif
+  enddo ! k, vegn%n_initialCC
+  write(*,*)'initial cc',initialPFTs(1:2)
+
+  ! Get missing PFT(s)
+  missingPFTs = -999
+  n = 0
+  if(nPFTs < n_initialPFTs)then
+      do i=1, n_initialPFTs
+         matchflag = 0
+         do j=1, nPFTs ! go through all current PFTs
+            if(initialPFTs(i)==currPFTs(j))then
+               matchflag = 1
+               exit
+            endif
+         enddo
+         if(matchflag ==0)then
+             n = n + 1
+             missingPFTs(n) = initialPFTs(i)
+         endif
+      enddo
+      write(*,*)'missing PFTs',missingPFTs(1)
+  endif
+
+  ! Generate new cohorts
+  addedC = 0.0
+  addedN = 0.0
+  newcohorts = n
+  if (newcohorts >= 1) then   ! build new cohorts for seedlings
+     ccold => vegn%cohorts ! keep old cohort information
+     nCohorts = vegn%n_cohorts + newcohorts
+     allocate(ccnew(1:nCohorts), STAT = istat)
+     ccnew(1:vegn%n_cohorts) = ccold(1:vegn%n_cohorts) ! copy old cohort information
+     vegn%cohorts => ccnew
+
+     deallocate (ccold)
+
+     ! set up new cohorts
+     k = vegn%n_cohorts
+     do i = 1, newcohorts
+        k = k+1 ! increment new cohort index
+        cc => vegn%cohorts(k)
+        ! Give the new cohort an ID
+        cc%ccID = MaxCohortID + i
+        ! find out the equivalent initial cohort with species n
+        do n=1, vegn%n_initialCC
+            if(vegn%initialCC(n)%species == missingPFTs(i))then
+               ! update new cohort parameters
+               cc = vegn%initialCC(n)
+               cc%nindivs = 0.01 ! a small number of individuals
+               call rootarea_and_verticalprofile(cc)
+               exit
+            endif
+        enddo
+
+        addedC = addedC + cc%nindivs*(cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc)
+        addedN = addedN + cc%nindivs*(cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN)
+
+        call init_cohort_allometry(cc)
+     enddo
+
+     MaxCohortID = MaxCohortID + newcohorts
+     vegn%n_cohorts = k
+     ccnew => null()
+     call zero_diagnostics(vegn)
+     ! Make carbon and nitrogen balance
+     vegn%structuralL = vegn%structuralL - min(0.05*vegn%structuralL,addedC)
+     vegn%structuralN = vegn%structuralN - min(0.05*vegn%structuralN,addedN)
+  endif ! set up newly moved-in cohorts
+
+end subroutine vegn_migration
 
 ! ============================================================================
 ! Arrange crowns into canopy layers according to their height and crown areas.
@@ -1968,6 +2117,7 @@ subroutine initialize_cohort_from_biomass(cc,btot)
      cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/max(1,cc%layer)
      cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
      cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
+     cc%seedC  = 0.0
      call rootarea_and_verticalprofile(cc)
 !    N pools
      cc%NSN    = 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
@@ -1975,6 +2125,7 @@ subroutine initialize_cohort_from_biomass(cc,btot)
      cc%rootN  = cc%br/sp%CNroot0
      cc%sapwN  = cc%bsw/sp%CNsw0
      cc%woodN  = cc%bHW/sp%CNwood0
+     cc%seedN  = 0.0
   end associate
 end subroutine initialize_cohort_from_biomass
 
@@ -2121,7 +2272,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
    character(len=50),intent(in) :: namelistfile
 !--------local vars -------
 
-   type(cohort_type),dimension(:), pointer :: cc
+   type(cohort_type),dimension(:), pointer :: cc, initialCC
    type(cohort_type),pointer :: cp
    integer,parameter :: rand_seed = 86456
    real    :: r
@@ -2231,6 +2382,15 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%totN =  vegn%initialN0
 
    endif  ! initialization: random or pre-described
+
+   !Setup reserved initial cohorts
+      ! Initialize plant cohorts
+      allocate(cc(1:init_n_cohorts), STAT = istat)
+      cc = vegn%cohorts
+      vegn%initialCC   => cc
+      vegn%n_initialCC = init_n_cohorts
+      cc => null()
+
 end subroutine initialize_vegn_tile
 
 ! ===== Get PFTs based on climate conditions =================

@@ -82,7 +82,7 @@ program BiomeESS
    integer :: simu_steps,idata
    character(len=50) :: filepath_out,filesuffix
    character(len=50) :: parameterfile(10),chaSOM(10)
-   character(len=50) :: namelistfile = 'parameters_Konza.nml' ! 'parameters_WC_biodiversity.nml' 
+   character(len=50) :: namelistfile = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !  'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
    ! 'parameters_CN.nml'
    ! 'parameters_Allocation.nml' !
@@ -221,6 +221,7 @@ program BiomeESS
 
             ! Reproduction and Re-organize cohorts
             call vegn_reproduction(vegn)
+            call vegn_migration(vegn)
             call kill_lowdensity_cohorts(vegn)
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
