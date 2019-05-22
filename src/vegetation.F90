@@ -487,19 +487,23 @@ subroutine fetch_CN_for_growth(cc)
     NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
     ! Fetch C from labile C pool if it is in the growing season
     if (cc%status == LEAF_ON) then ! growing season
-        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0   &
-                             + Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
-        N_push   = cc%NSN /(days_per_year*sp%tauNSC)
-        cc%N_growth = Min(max(0.025*cc%NSN,0.0), N_pull+N_push)
+        C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
+                  Max(cc%br_max - cc%br,0.0))
 
-        C_pull = (Max(cc%bl_max - cc%bl,0.0) +   &
-                    Max(cc%br_max - cc%br,0.0))* LFR_rate
-        C_push  = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        cc%C_growth = Max(0.0,MIN(0.05*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
+                  Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
+        C_push = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+
+        N_push = cc%NSN*4.0/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
+
+        cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull+N_push)
+        cc%C_growth = Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+        !!! cc%NSC      = cc%NSC - cc%C_growth ! just an estimate, not out yet
     else ! non-growing season
         cc%C_growth = 0.0
-        cc%resg    = 0.0
+        cc%N_growth = 0.0
+        cc%resg     = 0.0
     endif
     end associate
  end subroutine fetch_CN_for_growth
@@ -529,7 +533,8 @@ subroutine fetch_CN_for_growth(cc)
   real :: sw2nsc = 0.0 ! conversion of sapwood to non-structural carbon
   real :: b,BL_u,BL_c
   real :: LFR_deficit, LF_deficit, FR_deficit
-  real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN
+  real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN,r_trans
+  logical :: do_new_reallocation
   integer :: i,j
 
   ! Turnover of leaves and fine roots
@@ -577,49 +582,65 @@ subroutine fetch_CN_for_growth(cc)
             dBR   = 0.85 * dBR
             dBL   = 0.85 * dBL
         endif
-!!       Nitrogen adjust on allocations between wood and leaves+roots
+!!       Nitrogen adjustment on allocations between wood and leaves+roots
 !
 !!       Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
         N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
 !!       Nitrogen available for all tisues, including wood
         N_supply= cc%N_growth ! MAX(0.0, fNr*cc%NSN)
-!!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
-        IF(N_demand > N_supply)then
-            Nsupplyratio = N_supply / N_demand
+
+        IF(N_demand > N_supply)THEN
+            ! a new method, Weng, 2019-05-21
+            ! same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
+            Nsupplyratio = MAX(0.0, MIN(1.0, N_supply/N_demand))
+            r_trans = (N_demand-N_supply)/(N_demand-cc%C_growth/sp%CNwood0) ! fixed wood CN
+            !r_trans = (N_demand-N_supply)/N_demand ! = 1-Nsupplyratio
             if(sp%lifeform > 0 )then ! for trees
-               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-               dBR  =  Nsupplyratio * dBR
-               dBL  =  Nsupplyratio * dBL
-               dSeed=  Nsupplyratio * dSeed
+               if(r_trans<1.0)then
+                dBSW =  dBSW + r_trans * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW
+                dBR  =  (1.0 - r_trans) * dBR
+                dBL  =  (1.0 - r_trans) * dBL
+                dSeed=  (1.0 - r_trans) * dSeed
+               else
+                dBSW = N_supply/sp%CNwood0
+                dBR  =  0.0
+                dBL  =  0.0
+                dSeed=  0.0
+               endif
             else ! for grasses
                dBR  =  Nsupplyratio * dBR
                dBL  =  Nsupplyratio * dBL
                dSeed=  Nsupplyratio * dSeed
                dBSW =  Nsupplyratio * dBSW
-               ! Return NSC for grasses
-               cc%nsc = cc%NSC + cc%C_growth - dBR - dBL -dSeed - dBSW
             endif
+            ! update N demand
             N_demand = N_supply
+        ELSE
+            ! cc%woodN = sapwN + (N_supply-N_demand)
+            ! N_supply = N_demand
+
         ENDIF
+
 !       update biomass pools
         cc%bl     = cc%bl    + dBL
         cc%br     = cc%br    + dBR
         cc%bsw    = cc%bsw   + dBSW
         cc%seedC  = cc%seedC + dSeed
-        cc%nsc    = cc%NSC  - dBR - dBL -dSeed - dBSW
-        cc%resg = 0.5 * (dBR + dBL + dSeed + dBSW) !  daily
-!!      update nitrogen pools, Nitrogen allocation
+        cc%NSC    = cc%NSC  - dBR - dBL -dSeed - dBSW
+        cc%resg = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
 
+!!      update nitrogen pools, Nitrogen allocation
         cc%leafN = cc%leafN + dBL   /sp%CNleaf0
         cc%rootN = cc%rootN + dBR   /sp%CNroot0
         cc%seedN = cc%seedN + dSeed /sp%CNseed0
         cc%sapwN = cc%sapwN + N_supply - (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0)
         cc%NSN   = cc%NSN   - N_supply
+
 !       Return excessiive Nitrogen in SW back to NSN
-        extrasapwN = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
+        extrasapwN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
+        !extrasapwN = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
         cc%NSN     = cc%NSN   + extrasapwN !
         cc%sapwN   = cc%sapwN - extrasapwN !
-
 
 !       accumulated C allocated to leaf, root, and wood
         cc%NPPleaf = cc%NPPleaf + dBL
@@ -1434,7 +1455,8 @@ subroutine vegn_N_uptake(vegn, tsoil)
         associate (sp => spdata(cc%species))
 !!       A scheme for deciduous to get enough N:
         cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0) !5.0 * (cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)) !
-        if(cc%NSN < cc%NSNmax) N_Roots = N_Roots + cc%br * cc%nindivs
+        !if(cc%NSN < cc%NSNmax) &
+          N_Roots = N_Roots + cc%br * cc%nindivs
 
         end associate
      enddo
@@ -1451,14 +1473,14 @@ subroutine vegn_N_uptake(vegn, tsoil)
         do i = 1, vegn%n_cohorts
            cc => vegn%cohorts(i)
            cc%N_uptake  = 0.0
-           if(cc%NSN < cc%NSNmax)then
+           !if(cc%NSN < cc%NSNmax)then
                cc%N_uptake  = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
                cc%nsn       = cc%nsn + cc%N_uptake
                cc%annualNup = cc%annualNup + cc%N_uptake !/cc%crownarea
                ! subtract N from mineral N
                vegn%mineralN = vegn%mineralN - cc%N_uptake * cc%nindivs
                vegn%N_uptake = vegn%N_uptake + cc%N_uptake * cc%nindivs
-           endif
+           !endif
         enddo
         cc =>null()
      endif ! N_roots>0
@@ -2036,6 +2058,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
 20    close (nml_unit)
       write(*,nml=initial_state_nml)
       ! Initialize plant cohorts
+      init_n_cohorts = nCohorts ! Weng,2018-11-21
       allocate(cc(1:init_n_cohorts), STAT = istat)
       vegn%cohorts => cc
       vegn%n_cohorts = init_n_cohorts

@@ -494,7 +494,7 @@ real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tr
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
 real :: tauNSC(0:MSPECIES)        = 3 ! 3 ! NSC residence time,years
-real :: fNSNmax(0:MSPECIES)       = 2 ! 2 ! multilier for NSNmax as sum of potential bl and br
+real :: fNSNmax(0:MSPECIES)       = 20 ! 5 ! multilier for NSNmax as sum of potential bl and br
 real :: phiRL(0:MSPECIES)         = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)        = 0.25E-4 ! ratio of sapwood area to leaf area
 ! C/N ratios for plant pools
@@ -1053,14 +1053,14 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     integer :: i
 
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
-    write(*,  '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
-    ! output yearly variables
-    write(*,'(3(a5,","),25(a9,","))') &
-    'chtID','PFT','layer','density', 'f_layer',  &
-        'dDBH','dbh','height','Acrown', &
-        'wood','nsc', 'NSN','fNPPseed',     &
-        'fNPPL','fNPPR','fNPPW','GPP-yr','NPP-yr', &
-        'N_uptk','N_fix','spLAI'
+    ! write(*,  '(2(I6,","),1(F9.2,","))')iyears !, vegn%n_cohorts,vegn%annualN*1000
+    !! output yearly variables
+    !write(*,'(3(a5,","),25(a9,","))') &
+    !'chtID','PFT','layer','density', 'f_layer',  &
+    !    'dDBH','dbh','height','Acrown', &
+    !    'wood','nsc', 'NSN','fNPPseed',     &
+    !    'fNPPL','fNPPR','fNPPW','GPP-yr','NPP-yr', &
+    !    'N_uptk','N_fix','spLAI'
 
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
@@ -1081,17 +1081,17 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
             cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
 
-        ! Screen output
-        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
-                    cc%ccID,cc%species,cc%layer,                     &
-                    cc%nindivs*10000, cc%layerfrac,dDBH,             &
-                    cc%dbh,cc%height,cc%crownarea,                   &
-                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
-                    fseed, fleaf, froot, fwood,                      &
-                    cc%annualGPP/cc%crownarea,                       &
-                    cc%annualNPP/cc%crownarea,                       &
-                    cc%annualNup*1000,cc%annualfixedN*1000,          &
-                    spdata(cc%species)%laimax
+        !! Screen output
+        !write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
+        !            cc%ccID,cc%species,cc%layer,                     &
+        !            cc%nindivs*10000, cc%layerfrac,dDBH,             &
+        !            cc%dbh,cc%height,cc%crownarea,                   &
+        !            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
+        !            fseed, fleaf, froot, fwood,                      &
+        !            cc%annualGPP/cc%crownarea,                       &
+        !            cc%annualNPP/cc%crownarea,                       &
+        !            cc%annualNup*1000,cc%annualfixedN*1000,          &
+        !            spdata(cc%species)%laimax
     enddo
 
     ! tile pools output
