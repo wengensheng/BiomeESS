@@ -3,7 +3,7 @@ soiltype = 3,
 FLDCAP   = 0.4,
 WILTPT   = 0.05,
 K1 =  2.0,  ! turnover rate of fast SOM per year
-K2 =  0.075, ! 0.075 ! turnover rate of slow SOM per year
+K2 =  0.1 ! 0.2, ! 0.075 ! turnover rate of slow SOM per year
 K_nitrogen = 0.0, ! 1.2 ! 2.5 ! rate of a year, 2.5
 etaN       = 0.0, ! 0.025 ! loss rate with runoff
 MLmixRatio = 0.8, ! 0.8 ! fraction of microbes to litter
@@ -12,7 +12,7 @@ retransN = 0.0,
 f_initialBSW = 0.005,
 ! alpha_FR =  1.2; gamma_FR = 12.0; dSlowSOM = 2.5 * iSOM + 1.5; rho_N_up0 = 0.1
 
-! species      0         1         2         3         4       5         6         7       8         9         10
+! species       0        1         2         3         4       5         6         7       8         9         10
 lifeform      = 0,       1,        1,        1,        1,      1,        1,        1,      1,        1,        1,    ! 0: grass; 1 Woody
 phenotype     = 0,       1,        1,        1,        1,      1,        1,        1,      1,        1,        0,    ! 0: Deciduous; 1 Evergreen
 pt            = 1,       0,        0,        0,        0,      0,        0,        0,      0,        0,        0,    ! 0: C3; 1: C4
@@ -48,7 +48,7 @@ maturalage    = 0.5,     5,        5,        5,        5,      5,        5,     
 !!   plant
  ! init_n_cohorts      = 1, ! 8, ! total 9
  init_cohort_species = 1,      2,        3,        4,      5,        6,        7,      8,        9,       10,
- init_cohort_nindivs = 0.01,   0.01,     0.01,     0.01,   0.01,     0.01,     0.01,   0.01,     0.01,    0.01,
+ init_cohort_nindivs = 0.02,   0.02,     0.02,     0.02,   0.02,     0.02,     0.02,   0.02,     0.02,    0.02,
  init_cohort_bsw     = 0.2,    0.2,      0.2,      0.2,    0.2,      0.2,      0.2,    0.2,      0.2,     0.2,
  init_cohort_bHW     = 0.0,    0.0,      0.0,      0.0,    0.0,      0.0,      0.0,    0.0,      0.0,     0.0,
  init_cohort_nsc     = 0.5,    0.5,      0.5,      0.5,    0.5,      0.5,      0.5,    0.5,      0.5,     0.5,
@@ -67,11 +67,11 @@ maturalage    = 0.5,     5,        5,        5,        5,      5,        5,     
                ! 'CA-Manforcing.txt'   !  'US-WBWforcing.txt'
                !   'US-Dk1forcing.txt' ! CA-Obsforcing.txt
                !   'ORNL_forcing.txt'  ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
- model_run_years     =  1200,
+ model_run_years     =  1800, ! 1200,
  equi_days           =  0,
  outputhourly        =  .False. ! .True. !
  outputdaily         =  .False. ! .True.
  do_U_shaped_mortality = .False. ! .True. !
- update_annualLAImax = .False. ! .True. !
+ update_annualLAImax   = .False. ! .True. !
  do_closedN_run = .True.
  /

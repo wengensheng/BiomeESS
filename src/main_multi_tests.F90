@@ -85,15 +85,15 @@ program BiomeESS
  real    :: dSlowSOM  ! for multiple tests only
 
    !filepath_out='output/rerun1120/FixedRL8PFTs/'
-   filepath_out='output/rerun0521/'
+   filepath_out='output/rerun0521/SSOM0.1/'
    chaSOM = (/'SC04','SC06','SC08','SC10','SC12','SC14', &
               'SC16','SC18','SC20','SC22','SC24','SC26'/)
-   initialPFTs = 1 ! 1 ! init_n_cohorts
+   initialPFTs = 1 ! 8 ! 1 ! init_n_cohorts
    RLplus      = 7 ! 9 ! 7 ! total R/L ratios + 1
    RLtests = RLplus - initialPFTs ! number of R/L tests
    write(*,*)'RLtests', RLtests
    n_Nlevels = 8 ! max 8
-   n_CO2 = 1 ! max 2
+   n_CO2 = 2 ! max 2
    if(initialPFTs == 3)then
       parameterfile = (/'phiRL1-3','phiRL2-4','phiRL3-5','phiRL4-6','phiRL5-7', &
                         'phiRL6-8','phiRL7-9','phiRL8-1','phiRL9-1','_decdu33' /)
@@ -108,17 +108,16 @@ program BiomeESS
    endif
 
 !  model run
-   do_varied_phiRL = .False.
-   dCO2 = 0.0 - 200.0e-6  !  ppm
-   do iCO2=1, n_CO2 ! 2 ! aCO2 and eCO2
-      dCO2 = dCO2 + 200.0e-6
+   do_varied_phiRL = .False. ! .True. ! .False.
+   do iCO2=1, n_CO2 ! 2, aCO2 and eCO2
+      dCO2 = (iCO2-1) * 200.0e-6  !  ppm
       if(dCO2 < 50.0e-6)then
          others = '_aCO2_' !
       else
          others = '_eCO2_'
       endif
       do iSOM = 1, n_Nlevels ! soil N levels, 8 ! 3, 4 ! only for 302 gN m-2 !
-      do iTests = 3, 3 ! 1, RLtests ! R/L ratios
+      do iTests = 1, RLtests ! R/L ratios ! 3, 3 !
           filesuffix = trim(chaSOM(iSOM))//trim(others)//trim(parameterfile(iTests))//'.csv'
           dSlowSOM = 2.5 * iSOM + 1.5 ! 2 ! 4 kgC m-2 = 4000/40 = 100 gN
 

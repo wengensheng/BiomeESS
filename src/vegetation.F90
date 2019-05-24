@@ -482,7 +482,7 @@ subroutine fetch_CN_for_growth(cc)
     real :: resp_growth
 
     ! make these two variables to PFT-specific parameters
-    LFR_rate = 1.0/16.0 ! filling rate/day
+    LFR_rate = 1.0/5.0 ! filling rate/day
     associate ( sp => spdata(cc%species) )
     NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
     ! Fetch C from labile C pool if it is in the growing season
@@ -493,12 +493,12 @@ subroutine fetch_CN_for_growth(cc)
         N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
                   Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-        C_push = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+        C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
 
-        N_push = cc%NSN*4.0/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
+        N_push = cc%NSN/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
 
         cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull+N_push)
-        cc%C_growth = Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+        cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull+C_push) ! Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
         !!! cc%NSC      = cc%NSC - cc%C_growth ! just an estimate, not out yet
     else ! non-growing season
         cc%C_growth = 0.0
@@ -533,7 +533,8 @@ subroutine fetch_CN_for_growth(cc)
   real :: sw2nsc = 0.0 ! conversion of sapwood to non-structural carbon
   real :: b,BL_u,BL_c
   real :: LFR_deficit, LF_deficit, FR_deficit
-  real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN,r_trans
+  real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN
+  real :: r_trans
   logical :: do_new_reallocation
   integer :: i,j
 
@@ -556,7 +557,7 @@ subroutine fetch_CN_for_growth(cc)
         FR_deficit = max(0.0, cc%br_max - cc%br)
         LFR_deficit = LF_deficit + FR_deficit
         G_LFR = max(0.0, min(LFR_deficit,  &
-                            (1.- Wood_fract_min)*cc%C_growth))
+               (1.- Wood_fract_min)*cc%C_growth))
         !! and distribute it between roots and leaves
         dBL  = min(G_LFR, max(0.0, &
           (G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/(cc%bl_max + cc%br_max) &
@@ -568,7 +569,7 @@ subroutine fetch_CN_for_growth(cc)
         dBR  = G_LFR - dBL
         ! calculate carbon spent on growth of sapwood growth
         if(cc%layer == 1 .AND. cc%age > sp%maturalage)then
-            dSeed =     sp%v_seed * (cc%C_growth - G_LFR)
+            dSeed = sp%v_seed * (cc%C_growth - G_LFR)
             dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
         else
             dSeed= 0.0
@@ -583,18 +584,16 @@ subroutine fetch_CN_for_growth(cc)
             dBL   = 0.85 * dBL
         endif
 !!       Nitrogen adjustment on allocations between wood and leaves+roots
-!
 !!       Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
         N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
 !!       Nitrogen available for all tisues, including wood
         N_supply= cc%N_growth ! MAX(0.0, fNr*cc%NSN)
-
         IF(N_demand > N_supply)THEN
             ! a new method, Weng, 2019-05-21
             ! same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
             Nsupplyratio = MAX(0.0, MIN(1.0, N_supply/N_demand))
-            r_trans = (N_demand-N_supply)/(N_demand-cc%C_growth/sp%CNwood0) ! fixed wood CN
-            !r_trans = (N_demand-N_supply)/N_demand ! = 1-Nsupplyratio
+            !r_trans = (N_demand-N_supply)/(N_demand-cc%C_growth/sp%CNwood0) ! fixed wood CN
+            r_trans = (N_demand-N_supply)/N_demand ! = 1-Nsupplyratio
             if(sp%lifeform > 0 )then ! for trees
                if(r_trans<1.0)then
                 dBSW =  dBSW + r_trans * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW
@@ -615,10 +614,6 @@ subroutine fetch_CN_for_growth(cc)
             endif
             ! update N demand
             N_demand = N_supply
-        ELSE
-            ! cc%woodN = sapwN + (N_supply-N_demand)
-            ! N_supply = N_demand
-
         ENDIF
 
 !       update biomass pools
@@ -633,12 +628,13 @@ subroutine fetch_CN_for_growth(cc)
         cc%leafN = cc%leafN + dBL   /sp%CNleaf0
         cc%rootN = cc%rootN + dBR   /sp%CNroot0
         cc%seedN = cc%seedN + dSeed /sp%CNseed0
-        cc%sapwN = cc%sapwN + N_supply - (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0)
-        cc%NSN   = cc%NSN   - N_supply
+        cc%sapwN = cc%sapwN + 0.05*cc%NSN + N_supply &
+                  - (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0)
+        cc%NSN   = cc%NSN - 0.05*cc%NSN - N_supply
 
 !       Return excessiive Nitrogen in SW back to NSN
-        extrasapwN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
-        !extrasapwN = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
+        !extrasapwN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
+        extrasapwN = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
         cc%NSN     = cc%NSN   + extrasapwN !
         cc%sapwN   = cc%sapwN - extrasapwN !
 
@@ -1028,8 +1024,9 @@ subroutine vegn_annual_starvation (vegn)
      associate ( sp => spdata(cc%species)  )
 !   Mortality due to starvation
     deathrate = 0.0
-!   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
-    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
+    !if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
+    !if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
+    if (cc%nsc < 0.01*cc%bl_max) then
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
          ! Carbon and Nitrogen from plants to soil pools
@@ -1474,7 +1471,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
            cc => vegn%cohorts(i)
            cc%N_uptake  = 0.0
            !if(cc%NSN < cc%NSNmax)then
-               cc%N_uptake  = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
+               cc%N_uptake  = cc%br*avgNup ! min(cc%br*avgNup, cc%NSNmax-cc%NSN)
                cc%nsn       = cc%nsn + cc%N_uptake
                cc%annualNup = cc%annualNup + cc%N_uptake !/cc%crownarea
                ! subtract N from mineral N
@@ -1907,7 +1904,7 @@ subroutine annual_calls(vegn)
 
     ! Reproduction and mortality
     !call vegn_starvation(vegn)  ! called daily
-    call vegn_annual_starvation(vegn)
+    !call vegn_annual_starvation(vegn)
     call vegn_reproduction(vegn)
     call vegn_nat_mortality(vegn, real(seconds_per_year))
 
