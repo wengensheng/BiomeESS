@@ -85,9 +85,10 @@ program BiomeESS
  real    :: dSlowSOM  ! for multiple tests only
 
    !filepath_out='output/rerun1120/FixedRL8PFTs/'
-   filepath_out='output/rerun0521/SC0.15/'
+   filepath_out='output/rerun0521/SC01ML08/' ! 'SC0.1ML0.6/' !'NCAPS0.1/'
    chaSOM = (/'SC04','SC06','SC08','SC10','SC12','SC14', &
               'SC16','SC18','SC20','SC22','SC24','SC26'/)
+   do_varied_phiRL = .True. ! .False. !
    initialPFTs = 8 ! 8 ! 1 ! init_n_cohorts
    RLplus      = 9 ! 9 ! 7 ! total R/L ratios + 1
    RLtests = RLplus - initialPFTs ! number of R/L tests
@@ -108,7 +109,7 @@ program BiomeESS
    endif
 
 !  model run
-   do_varied_phiRL = .True. ! .False. !
+
    do iCO2=1, n_CO2 ! 2, aCO2 and eCO2
       dCO2 = (iCO2-1) * 200.0e-6  !  ppm
       if(dCO2 < 50.0e-6)then
@@ -117,7 +118,7 @@ program BiomeESS
          others = '_eCO2_'
       endif
       do iSOM = 1, n_Nlevels ! soil N levels, 8 ! 3, 4 ! only for 302 gN m-2 !
-      do iTests = 1, RLtests ! R/L ratios ! 3, 3 !
+      do iTests = 1, RLtests ! R/L ratios
           filesuffix = trim(chaSOM(iSOM))//trim(others)//trim(parameterfile(iTests))//'.csv'
           dSlowSOM = 2.5 * iSOM + 1.5 ! 2 ! 4 kgC m-2 = 4000/40 = 100 gN
 
@@ -179,7 +180,8 @@ program BiomeESS
    call initialize_PFT_data(namelistfile)
    !Change phi_RL ranges
    if(do_varied_phiRL.and.initialPFTs>5)then
-      spdata(1:9)%phiRL = (/4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5/)
+      spdata(1:9)%phiRL = (/4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5/) ! MLmixratio=0.8
+      !spdata(1:9)%phiRL = (/4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0/) ! MLmixratio=0.6
       write(*,*)"spdata%phiRL",iSOM,spdata(1:9)%phiRL
       spdata(1:9)%phiRL = spdata(1:9)%phiRL - 0.5*(iSOM-1.0)
    else

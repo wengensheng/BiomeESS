@@ -3,12 +3,14 @@ soiltype = 3,
 FLDCAP   = 0.4,
 WILTPT   = 0.05,
 K1 =  2.0,  ! turnover rate of fast SOM per year
-K2 =  0.15 ! 0.12 ! 0.2, ! 0.075 ! turnover rate of slow SOM per year
+K2 =  0.1   ! 0.12 ! 0.2, ! 0.075 ! turnover rate of slow SOM per year
 K_nitrogen = 0.0, ! 1.2 ! 2.5 ! rate of a year, 2.5
 etaN       = 0.0, ! 0.025 ! loss rate with runoff
 MLmixRatio = 0.8, ! 0.8 ! fraction of microbes to litter
 l_fract =0.0,
 retransN = 0.0,
+fNSNmax = 5.0, ! 5.0
+f_N_add = 0.02 ! 0.005, ! 0.02
 f_initialBSW = 0.005,
 ! alpha_FR =  1.2; gamma_FR = 12.0; dSlowSOM = 2.5 * iSOM + 1.5; rho_N_up0 = 0.1
 
@@ -18,11 +20,7 @@ phenotype     = 0,       1,        1,        1,        1,      1,        1,     
 pt            = 1,       0,        0,        0,        0,      0,        0,        0,      0,        0,        0,    ! 0: C3; 1: C4
 seedlingsize  = 0.02,    0.05,     0.05,     0.05,     0.05,   0.05,     0.05,     0.05,   0.05,     0.05,     0.05,  ! initial size of seedlings
 LMA           = 0.035,   0.14,     0.14,     0.14,     0.14,   0.14,    0.14,   0.14,     0.14,     0.14,     0.035,! Leaf mass per unit area
-!LMA           = 0.035,   0.07,    0.07,    0.07,     0.07,    0.07,    0.07,   0.07,     0.07,     0.07,     0.035,! Leaf mass per unit area
-phiRL         = 4.0,     1.0,      2.0,     3.0,      4.0,     5.0,      6.0,      7.0,     8.0,    9.0,      3.0,
-!phiRL         = 4.0,     3.0,      3.25,    3.5,      3.75,    4.0,     4.25,     4.5,    4.75,     5.0,      3.0,
-!phiRL         = 0.99,     4.5,      5.0,     5.5,      6.0,     6.5,     7.0,     7.5,      8.0,    8.5,       3.0, ! varied with SOM,phiRL = phiRL - 0.5 * (iSOM-1.0)
-
+phiRL         = 4.0,     1.0,      2.0,      3.0,      4.0,     5.0,     6.0,      7.0,     8.0,    9.0,      3.0,
 LNbase        = 0.8E-3,  0.8E-3,   0.8E-3,   0.8E-3,   0.8E-3, 0.8E-3,   0.8E-3,   0.8E-3, 0.8E-3,   0.8E-3,   0.8E-3,   ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 
 ! laimax      = 3.0,     1.2,      1.2,      1.2,      1.2,    1.2,      1.2,      1.2,    1.2,      1.2,      1.2,  ! maximum crown LAI
@@ -54,7 +52,7 @@ maturalage    = 0.5,     5,        5,        5,        5,      5,        5,     
  init_cohort_nsc     = 0.5,    0.5,      0.5,      0.5,    0.5,      0.5,      0.5,    0.5,      0.5,     0.5,
 
 !  Soil
- init_fast_soil_C    = 0.15    ! kg C m-2    ! C/N = 15, 0.75 kg SOM ~ 50 gN
+ init_fast_soil_C    = 0.15   ! kg C m-2    ! C/N = 15, 0.75 kg SOM ~ 50 gN
  init_slow_soil_C    = 16.0   ! kg C m-2    ! C/N = 40
  init_Nmineral       = 2.5E-3, ! kg N m-2
  N_input             = 0.0E-3 ! 2.4E-3, ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
@@ -67,11 +65,11 @@ maturalage    = 0.5,     5,        5,        5,        5,      5,        5,     
                ! 'CA-Manforcing.txt'   !  'US-WBWforcing.txt'
                !   'US-Dk1forcing.txt' ! CA-Obsforcing.txt
                !   'ORNL_forcing.txt'  ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
- model_run_years     =  1800, ! 1200,
- equi_days           =  0,
- outputhourly        =  .False. ! .True. !
- outputdaily         =  .False. ! .True.
- do_U_shaped_mortality = .False. ! .True. !
- update_annualLAImax   = .False. ! .True. !
+ model_run_years       =  1800, ! 1200,
+ equi_days             =  0,
+ outputhourly          =  .False. ! .True. !
+ outputdaily           =  .False. ! .True.
+ do_U_shaped_mortality =  .False. ! .True. !
+ update_annualLAImax   =  .False. ! .True. !
  do_closedN_run = .True.
  /

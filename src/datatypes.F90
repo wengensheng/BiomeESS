@@ -19,7 +19,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
     K1, K2, K_nitrogen, etaN, MLmixRatio, &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
-    A_mort, B_mort,DBHtp
+    f_N_add, A_mort, B_mort,DBHtp
 
 !===============constants===============
  logical, public, parameter :: read_from_parameter_file = .TRUE.
@@ -125,6 +125,7 @@ type spec_data_type
   real    :: phiCSA           ! ratio of sapwood CSA to target leaf area
   real    :: tauNSC           ! residence time of C in NSC (to define storage capacity)
   real    :: fNSNmax          ! multilier for NSNmax
+  real    :: f_N_add
   ! Default C/N ratios
   real    :: CNleaf0
   real    :: CNroot0
@@ -408,10 +409,10 @@ real :: GR_factor  = 0.33 ! growth respiration factor
 real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
 real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
 real :: f_initialBSW = 0.2 !0.01
+real :: f_N_add = 0.02 ! re-fill of N for sapwood
 
 ! Ensheng's growth parameters:
-real :: wood_fract_min = 0.15 ! 0.2 ! 0.33333
-! for understory mortality rate is calculated as:
+real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_min = 0.15 ! for understory mortality rate is calculated as:
 ! deathrate = mortrate_d_u * (1+A*exp(B*DBH))/(1+exp(B*DBH))
 real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correction, 1/year
 real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
@@ -518,7 +519,8 @@ namelist /vegn_parameters_nml/  &
   LMA, LNbase, CNleafsupport, c_LLS,      &
   K1,K2, K_nitrogen, etaN, MLmixRatio,    &
   LMAmin, fsc_fine, fsc_wood, &
-  GR_factor, l_fract, retransN, f_initialBSW, wood_fract_min,  &
+  GR_factor, l_fract, retransN,f_N_add,   &
+  f_initialBSW,f_LFR_max,  &
   gdd_crit,tc_crit, tc_crit_on, &
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
