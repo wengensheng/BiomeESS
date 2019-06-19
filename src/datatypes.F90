@@ -141,6 +141,7 @@ type spec_data_type
   real    :: phiCSA           ! ratio of sapwood CSA to target leaf area
   real    :: tauNSC           ! residence time of C in NSC (to define storage capacity)
   real    :: fNSNmax          ! multilier for NSNmax
+  real    :: f_N_add
   ! Default C/N ratios
   real    :: CNleaf0
   real    :: CNroot0
@@ -452,13 +453,13 @@ real :: GR_factor  = 0.33 ! growth respiration factor
 real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
 real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
 real :: f_initialBSW = 0.2 !0.01
+real :: f_N_add = 0.02 ! re-fill of N for sapwood
 
 ! Fire disturbance
 real :: envi_fire_prb = 0.5 ! fire probability due to environment
 
 ! Ensheng's growth parameters:
-real :: wood_fract_min = 0.15 ! 0.2 ! 0.33333
-! for understory mortality rate is calculated as:
+real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_min = 0.15 ! for understory mortality rate is calculated as:
 ! deathrate = mortrate_d_u * (1+A*exp(B*DBH))/(1+exp(B*DBH))
 real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correction, 1/year
 real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
@@ -541,7 +542,7 @@ real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tr
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
 real :: tauNSC(0:MSPECIES)        = 3 ! 3 ! NSC residence time,years
-real :: fNSNmax(0:MSPECIES)       = 2 ! 2 ! multilier for NSNmax as sum of potential bl and br
+real :: fNSNmax(0:MSPECIES)       = 5 ! 5 ! multilier for NSNmax as sum of potential bl and br
 real :: phiRL(0:MSPECIES)         = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)        = 0.25E-4 ! ratio of sapwood area to leaf area
 ! C/N ratios for plant pools
@@ -566,7 +567,8 @@ namelist /vegn_parameters_nml/  &
   LMA, LNbase, CNleafsupport, c_LLS,      &
   K1,K2, K_nitrogen, etaN, MLmixRatio,    &
   LMAmin, fsc_fine, fsc_wood, &
-  GR_factor, l_fract, retransN, f_initialBSW, wood_fract_min,  &
+  GR_factor, l_fract, retransN, f_N_add,  &
+  f_initialBSW, f_LFR_max,  &
   gdd_crit,tc_crit, tc_crit_on, envi_fire_prb,  &
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
@@ -632,6 +634,7 @@ logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .False.
 logical   :: update_annualLAImax = .False.
+logical   :: do_migration = .False.
 logical   :: do_fire = .False.
 logical   :: do_closedN_run = .True. !.False.
 
@@ -643,7 +646,8 @@ namelist /initial_state_nml/ &
     init_Nmineral, N_input,  &
     filepath_in,climfile, model_run_years, &
     outputhourly, outputdaily, equi_days, &
-    do_U_shaped_mortality,update_annualLAImax,do_fire, &
+    do_U_shaped_mortality,update_annualLAImax, &
+    do_fire, do_migration, &
     do_closedN_run
 !---------------------------------
 
