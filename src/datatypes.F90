@@ -632,6 +632,7 @@ logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
 logical   :: do_U_shaped_mortality = .False.
 logical   :: update_annualLAImax = .False.
+logical   :: do_migration = .False.
 logical   :: do_fire = .False.
 logical   :: do_closedN_run = .True. !.False.
 
@@ -643,7 +644,8 @@ namelist /initial_state_nml/ &
     init_Nmineral, N_input,  &
     filepath_in,climfile, model_run_years, &
     outputhourly, outputdaily, equi_days, &
-    do_U_shaped_mortality,update_annualLAImax,do_fire, &
+    do_U_shaped_mortality,update_annualLAImax, &
+    do_fire, do_migration, &
     do_closedN_run
 !---------------------------------
 

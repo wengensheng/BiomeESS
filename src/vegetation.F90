@@ -991,7 +991,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   ! Vegetation flammability parameters
 
   Ignition_G0 = 1.0
-  Ignition_W0 = 0.05 !0.05
+  Ignition_W0 = 0.025 !0.05
   r_BK0  = -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
   D_BK0  = 5.9/1000.0 ! half survival bark thickness, m
   m0_w_fire = 0.85 !1.0
@@ -1046,7 +1046,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
          bark_r = 1.0 - exp(r_BK0*cc%D_bark)
          !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
          write(*,*)'bark, bark_r',cc%D_bark,bark_r
-         if(r_fire < tree_flmb*envi_fire_prb)then
+         if(r_fire < tree_flmb*envi_fire_prb)then  ! tree canopy fire
              deathrate = 0.9 * f_tree   ! tree canopy fire
          else ! grass fire
              deathrate = m0_w_fire * (1.0 - bark_r) * max(0.0, 1.0-vegn%treecover)
