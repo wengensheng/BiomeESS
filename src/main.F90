@@ -82,17 +82,20 @@ program BiomeESS
    integer :: simu_steps,idata
    character(len=50) :: filepath_out,filesuffix
    character(len=50) :: parameterfile(10),chaSOM(10)
-   character(len=50) :: namelistfile = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !  !   'parameters_WC_biodiversity.nml'
+   character(len=50) :: runID
+   character(len=50) :: namelistfile  ! = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !
+                                       !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
-   ! 'parameters_CN.nml'
-   ! 'parameters_Allocation.nml' !
-   !
+
+   runID = 'Konza-shrub' !
+   namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
+    !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
    call itime(timeArray)     ! Get the current time
    i = rand ( timeArray(1)+timeArray(2)+timeArray(3) )
    ! create output files
    filepath_out='output/'
-   filesuffix  = 'GS.csv' ! 'test.csv' ! tag for simulation experiments
+   filesuffix  = trim(runID)//'.csv' ! tag for simulation experiments
    plantcohorts = trim(filepath_out)//'Annual_cohorts'//trim(filesuffix)
    plantCNpools = trim(filepath_out)//'Cohorts_daily'//trim(filesuffix)  ! daily
    soilCNpools  = trim(filepath_out)//'Ecosystem_daily'//trim(filesuffix)

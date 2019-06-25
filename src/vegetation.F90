@@ -131,7 +131,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-     if(cc%status == LEAF_ON .and. cc%lai > 0) then
+     if(cc%status == LEAF_ON .and. cc%lai > 0.1) then
         ! Convert forcing data
          layer = Max (1, Min(cc%layer,9))
          !accuCAI = accuCAI + cc%crownarea * cc%nindivs/(1.0-f_gap)
@@ -161,6 +161,9 @@ subroutine vegn_photosynthesis (forcing, vegn)
         cc%w_scale  = w_scale2
         cc%transp = transp * mol_h2o * cc%leafarea * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
+        !if(isnan(cc%gpp))cc%gpp=0.0
+
+        if(isnan(cc%gpp))stop '"gpp" is a NaN'
      else
         ! no leaves means no photosynthesis and no stomatal conductance either
         cc%An_op  = 0.0;  cc%An_cl  = 0.0
@@ -472,8 +475,7 @@ subroutine fetch_CN_for_growth(cc)
     implicit none
     type(cohort_type), intent(inout) :: cc
     !------local var -----------
-    logical :: woody
-    logical :: dormant,growing
+    logical :: do_new_scheme
 
     real :: NSCtarget
     real :: C_push, C_pull, growthC
@@ -482,26 +484,39 @@ subroutine fetch_CN_for_growth(cc)
     real :: bl_max, br_max
     real :: resp_growth
 
-    ! make these two variables to PFT-specific parameters
-    LFR_rate = 1.0/16.0 ! filling rate/day
+    do_new_scheme = .false. ! .true. !
     associate ( sp => spdata(cc%species) )
-    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
-    ! Fetch C from labile C pool if it is in the growing season
-    if (cc%status == LEAF_ON) then ! growing season
-        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0   &
-                             + Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
-        N_push   = cc%NSN /(days_per_year*sp%tauNSC)
-        cc%N_growth = Min(max(0.025*cc%NSN,0.0), N_pull+N_push)
 
-        C_pull = (Max(cc%bl_max - cc%bl,0.0) +   &
-                    Max(cc%br_max - cc%br,0.0))* LFR_rate
-        C_push  = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        cc%C_growth = Max(0.0,MIN(0.05*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+     ! make these two variables to PFT-specific parameters
+     LFR_rate = 1.0/5.0 ! 1.0/16.0 ! filling rate/day
+     NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
 
-    else ! non-growing season
+     ! Fetch C from labile C pool if it is in the growing season
+     if (cc%status == LEAF_ON) then ! growing season
+        C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
+                  Max(cc%br_max - cc%br,0.0))
+
+        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
+                  Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
+
+
+
+        N_push = cc%NSN/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
+
+        cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull+N_push)
+        if(do_new_scheme)then
+           C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+           cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull+C_push) ! Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+        else
+           C_push = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC) ! cc%nsc/(days_per_year*sp%tauNSC) !
+           cc%C_growth = Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push)) ! Min(max(0.02*cc%NSC,0.0), C_pull+C_push) !
+        endif
+     else ! non-growing season
         cc%C_growth = 0.0
-        cc%resg    = 0.0
-    endif
+        cc%N_growth = 0.0
+        cc%resg     = 0.0
+     endif
+
     end associate
  end subroutine fetch_CN_for_growth
 
@@ -530,14 +545,17 @@ subroutine fetch_CN_for_growth(cc)
   real :: sw2nsc = 0.0 ! conversion of sapwood to non-structural carbon
   real :: b,BL_u,BL_c
   real :: LFR_deficit, LF_deficit, FR_deficit
-  real :: N_supply, N_demand,fNr,Nsupplyratio,extrasapwN
+  real :: N_demand,Nsupplyratio,extraN
+  real :: r_N_SD
+  logical :: do_editor_scheme = .False.
   integer :: i,j
+
+  do_editor_scheme = .False. ! .True.
 
   ! Turnover of leaves and fine roots
   call vegn_tissue_turnover(vegn)
 
   !Allocate C_gain to tissues
-  fNr   = 0.025
   do i = 1, vegn%n_cohorts   
      cc => vegn%cohorts(i)
  !    call biomass_allocation(cc)
@@ -551,8 +569,8 @@ subroutine fetch_CN_for_growth(cc)
         LF_deficit = max(0.0, cc%bl_max - cc%bl)
         FR_deficit = max(0.0, cc%br_max - cc%br)
         LFR_deficit = LF_deficit + FR_deficit
-        G_LFR = max(0.0, min(LFR_deficit,  &
-                            (1.- Wood_fract_min)*cc%C_growth))
+        G_LFR = max(min(LF_deficit + FR_deficit,  &
+                        f_LFR_max  * cc%C_growth), 0.0)
         !! and distribute it between roots and leaves
         dBL  = min(G_LFR, max(0.0, &
           (G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/(cc%bl_max + cc%br_max) &
@@ -564,66 +582,63 @@ subroutine fetch_CN_for_growth(cc)
         dBR  = G_LFR - dBL
         ! calculate carbon spent on growth of sapwood growth
         if(cc%layer == 1 .AND. cc%age > sp%maturalage)then
-            dSeed =     sp%v_seed * (cc%C_growth - G_LFR)
+            dSeed = sp%v_seed * (cc%C_growth - G_LFR)
             dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
-        else
+        elseif(cc%layer == 1)then
             dSeed= 0.0
             dBSW = cc%C_growth - G_LFR
+        elseif(sp%lifeform ==0 )then !  For grasses, temporary
+            dSeed = sp%v_seed*(cc%C_growth-G_LFR)
+            dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
         endif
-
-!       For grasses, temporary
-        if(sp%lifeform ==0 )then
-            dSeed = dSeed + 0.15*G_LFR
-            G_LFR = 0.85 * G_LFR
-            dBR   = 0.85 * dBR
-            dBL   = 0.85 * dBL
-        endif
-!!       Nitrogen adjust on allocations between wood and leaves+roots
-!
+!!       Nitrogen adjustment on allocations between wood and leaves+roots
 !!       Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
-        N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
+        N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
 !!       Nitrogen available for all tisues, including wood
-        N_supply= cc%N_growth ! MAX(0.0, fNr*cc%NSN)
-!!       same ratio reduction for leaf, root, and seed if(N_supply < N_demand)
-        IF(N_demand > N_supply)then
-            Nsupplyratio = N_supply / N_demand
-            dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-            dBR  =  Nsupplyratio * dBR
-            dBL  =  Nsupplyratio * dBL
-            dSeed=  Nsupplyratio * dSeed
-!            if(sp%lifeform > 0 )then ! for trees
-!               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-!               dBR  =  Nsupplyratio * dBR
-!               dBL  =  Nsupplyratio * dBL
-!               dSeed=  Nsupplyratio * dSeed
-!            else ! for grasses
-!               dBR  =  Nsupplyratio * dBR
-!               dBL  =  Nsupplyratio * dBL
-!               dSeed=  Nsupplyratio * dSeed
-!               dBSW =  Nsupplyratio * dBSW
-!               ! Return NSC for grasses
-!               cc%nsc = cc%NSC + cc%C_growth - dBR - dBL -dSeed - dBSW
-!            endif
-            N_demand = N_supply
+        IF(cc%N_growth < N_demand)THEN
+            ! a new method, Weng, 2019-05-21
+            ! same ratio reduction for leaf, root, and seed if(cc%N_growth < N_demand)
+            Nsupplyratio = MAX(0.0, MIN(1.0, cc%N_growth/N_demand))
+            !r_N_SD = (cc%N_growth-cc%C_growth/sp%CNsw0)/(N_demand-cc%C_growth/sp%CNsw0) ! fixed wood CN
+            r_N_SD = cc%N_growth/N_demand ! = Nsupplyratio
+            if(sp%lifeform > 0 )then ! for trees
+               if(r_N_SD<=1.0 .and. r_N_SD>0.0)then
+                dBSW =  dBSW + (1.0-r_N_SD) * (dBL+dBR+dSeed)
+                dBR  =  r_N_SD * dBR
+                dBL  =  r_N_SD * dBL
+                dSeed=  r_N_SD * dSeed
+               elseif(r_N_SD <= 0.0)then
+                dBSW = cc%N_growth/sp%CNsw0
+                dBR  =  0.0
+                dBL  =  0.0
+                dSeed=  0.0
+               endif
+            else ! for grasses
+               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
+               dBR  =  Nsupplyratio * dBR
+               dBL  =  Nsupplyratio * dBL
+               dSeed=  Nsupplyratio * dSeed
+            endif
         ENDIF
 !       update biomass pools
         cc%bl     = cc%bl    + dBL
         cc%br     = cc%br    + dBR
         cc%bsw    = cc%bsw   + dBSW
         cc%seedC  = cc%seedC + dSeed
-        cc%nsc    = cc%NSC  - dBR - dBL -dSeed - dBSW
-        cc%resg = 0.5 * (dBR + dBL + dSeed + dBSW) !  daily
-!!      update nitrogen pools, Nitrogen allocation
+        cc%NSC    = cc%NSC  - dBR - dBL -dSeed - dBSW
+        cc%resg = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
 
+!!      update nitrogen pools, Nitrogen allocation
         cc%leafN = cc%leafN + dBL   /sp%CNleaf0
         cc%rootN = cc%rootN + dBR   /sp%CNroot0
         cc%seedN = cc%seedN + dSeed /sp%CNseed0
-        cc%sapwN = cc%sapwN + N_supply - (dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0)
-        cc%NSN   = cc%NSN   - N_supply
-!       Return excessiive Nitrogen in SW back to NSN
-        extrasapwN = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
-        cc%NSN     = cc%NSN   + extrasapwN !
-        cc%sapwN   = cc%sapwN - extrasapwN !
+        cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
+                   (cc%N_growth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
+        !extraN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
+        extraN   = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
+        cc%sapwN = cc%sapwN - extraN
+        cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - cc%N_growth !! update NSN
+        cc%N_growth = 0.0
 
 
 !       accumulated C allocated to leaf, root, and wood
@@ -632,7 +647,7 @@ subroutine fetch_CN_for_growth(cc)
         cc%NPPwood = cc%NPPwood + dBSW
 
 !       update breast height diameter given increase of bsw
-        dDBH   = dBSW / (sp%thetaBM * sp%alphaBM * cc%DBH**(sp%thetaBM-1))
+        dDBH   = dBSW / (sp%thetaBM * sp%alphaBM * cc%DBH**(sp%thetaBM-1.0))
         dHeight= sp%thetaHT * sp%alphaHT * cc%DBH**(sp%thetaHT-1) * dDBH
         dCA    = sp%thetaCA * sp%alphaCA * cc%DBH**(sp%thetaCA-1) * dDBH
 !       update plant architecture
@@ -689,6 +704,20 @@ subroutine fetch_CN_for_growth(cc)
   end associate ! F2003
   enddo
   cc => null()
+
+  ! Update tree and grass cover
+  !vegn%treecover = 0.0
+  !vegn%grasscover = 0.0
+  !do i = 1, vegn%n_cohorts
+  !   cc => vegn%cohorts(i)
+  !   associate ( sp => spdata(cc%species))
+  !   if(sp%lifeform==0) then
+  !       if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+  !   elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+  !       vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+  !   endif
+  !   end associate
+  !enddo
 
 end subroutine vegn_growth_EW ! daily
 
@@ -994,7 +1023,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   Ignition_W0 = 0.025 !0.05
   r_BK0  = -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
   D_BK0  = 5.9/1000.0 ! half survival bark thickness, m
-  m0_w_fire = 0.85 !1.0
+  m0_w_fire = 0.95 ! 1.0
   m0_g_fire = 0.2
 
   !f_HT0  = 10.0   ! for bark resistance
@@ -1027,7 +1056,8 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   r_fire=rand(0)
   fire_prob = 1.0 - (1.0 - grass_flmb*envi_fire_prb)*(1.0 - tree_flmb*envi_fire_prb)
   vegn%fire_occurrence = r_fire < fire_prob ! (grass_flmb*envi_fire_prb)
-  write(*,*)vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
+  write(*,*)"fire, treecover, grasscover,r_fire, fire_prob", &
+            vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
 
   ! Grass fire and tree fire: grass fire burns all grasses and kill trees based on grass cover and tree resistense
   ! Tree fire induces grass fire and kills trees at a much higher mortality rate than grass fire does
@@ -1045,9 +1075,9 @@ subroutine vegn_fire_disturbance (vegn, deltat)
          cc%D_bark = 0.1105 * cc%dbh ! bark thickness,
          bark_r = 1.0 - exp(r_BK0*cc%D_bark)
          !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
-         write(*,*)'bark, bark_r',cc%D_bark,bark_r
-         if(r_fire < tree_flmb*envi_fire_prb)then  ! tree canopy fire
-             deathrate = 0.9 * f_tree   ! tree canopy fire
+         !write(*,*)'bark, bark_r',cc%D_bark,bark_r
+         if(r_fire < tree_flmb*envi_fire_prb)then
+             deathrate = m0_w_fire * f_tree   ! tree canopy fire
          else ! grass fire
              deathrate = m0_w_fire * (1.0 - bark_r) * max(0.0, 1.0-vegn%treecover)
          endif
@@ -1687,7 +1717,8 @@ subroutine vegn_N_uptake(vegn, tsoil)
         associate (sp => spdata(cc%species))
 !!       A scheme for deciduous to get enough N:
         cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0) !5.0 * (cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)) !
-        if(cc%NSN < cc%NSNmax) N_Roots = N_Roots + cc%br * cc%nindivs
+        if(cc%NSN < cc%NSNmax) &
+          N_Roots = N_Roots + cc%br * cc%nindivs
 
         end associate
      enddo
@@ -1815,7 +1846,7 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
                   + fast_N_free + slow_N_free  &
                   + micr_C_loss/CNm
 
-! Check if soil C/N is above CN0
+! Check if soil C/N is lower than CN0
   fast_N_free = MAX(0., vegn%metabolicN  - vegn%metabolicL/CN0metabolicL)
   slow_N_free = MAX(0., vegn%structuralN - vegn%structuralL/CN0structuralL)
   vegn%metabolicN  = vegn%metabolicN  - fast_N_free
