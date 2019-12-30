@@ -28,31 +28,24 @@
 !
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for qeustions.
-!                      (02/03/2017)
+!
+!                      (Lase edited 12/30/2017)
 !
 !------------------------------------------------------------------------
 !
-! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
-! and reproduce the forest succession patterns. But, since it
-! does not include the models of photosynthesis, leaf stomatal
-! conductance, transpiration, soil water dynamics, and energy balance, it 
-! cannot simulate the ESS of allocation as reported in Weng et al. 2015 
-! Biogeosciences.
 !
 ! Processes included in this simulator are:
-!     photosynthesis, transpiration, plant respiration
-!     soil respraition,soil water dynamics
+!     Photosynthesis, transpiration, plant respiration
 !     Phenology
 !     Plant growth: Allometry and allocation
-!     Reproduction
-!     Mortality
+!     Demography: Reproduction, Mortality
 !     Population dynamics
 !     Soil C-N dynamics
+!     Soil respraition
+!     Soil water dynamics: soil surface evaporation, infiltration
+!                          runoff
 !
 !
-!----------------------------------------
-! Subroutine call structure:
-
 !----- END -----------------------------------------------------------
 !
 
