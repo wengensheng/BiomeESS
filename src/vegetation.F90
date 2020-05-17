@@ -611,10 +611,10 @@ subroutine fetch_CN_for_growth(cc)
                 dSeed=  0.0
                endif
             else ! for grasses
+               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
                dBR  =  Nsupplyratio * dBR
                dBL  =  Nsupplyratio * dBL
                dSeed=  Nsupplyratio * dSeed
-               dBSW =  Nsupplyratio * dBSW
             endif
         ENDIF
 !       update biomass pools
@@ -701,6 +701,20 @@ subroutine fetch_CN_for_growth(cc)
   end associate ! F2003
   enddo
   cc => null()
+
+  ! Update tree and grass cover
+  !vegn%treecover = 0.0
+  !vegn%grasscover = 0.0
+  !do i = 1, vegn%n_cohorts
+  !   cc => vegn%cohorts(i)
+  !   associate ( sp => spdata(cc%species))
+  !   if(sp%lifeform==0) then
+  !       if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+  !   elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+  !       vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+  !   endif
+  !   end associate
+  !enddo
 
 end subroutine vegn_growth_EW ! daily
 
@@ -1003,7 +1017,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   ! Vegetation flammability parameters
 
   Ignition_G0 = 1.0
-  Ignition_W0 = 0.05 !0.05
+  Ignition_W0 = 0.025 !0.05
   r_BK0  = -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
   D_BK0  = 5.9/1000.0 ! half survival bark thickness, m
   m0_w_fire = 0.85 !1.0
@@ -1039,7 +1053,8 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   r_fire=rand(0)
   fire_prob = 1.0 - (1.0 - grass_flmb*envi_fire_prb)*(1.0 - tree_flmb*envi_fire_prb)
   vegn%fire_occurrence = r_fire < fire_prob ! (grass_flmb*envi_fire_prb)
-  write(*,*)vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
+  write(*,*)"fire, treecover, grasscover,r_fire, fire_prob", &
+            vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
 
   ! Grass fire and tree fire: grass fire burns all grasses and kill trees based on grass cover and tree resistense
   ! Tree fire induces grass fire and kills trees at a much higher mortality rate than grass fire does
@@ -1057,7 +1072,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
          cc%D_bark = 0.1105 * cc%dbh ! bark thickness,
          bark_r = 1.0 - exp(r_BK0*cc%D_bark)
          !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
-         write(*,*)'bark, bark_r',cc%D_bark,bark_r
+         !write(*,*)'bark, bark_r',cc%D_bark,bark_r
          if(r_fire < tree_flmb*envi_fire_prb)then
              deathrate = 0.9 * f_tree   ! tree canopy fire
          else ! grass fire
@@ -1569,7 +1584,6 @@ subroutine relayer_cohorts (vegn)
      if (abs(layer_vegn_cover - frac)<tolerance) then
        L = L+1 ; frac = 0.0              ! start new layer
      endif
-!     write(*,*)i, new(i)%layer
      i = i+1
   enddo
   

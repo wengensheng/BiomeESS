@@ -53,6 +53,7 @@ program BiomeESS
    use datatypes
    use esdvm
    use soil_mod
+   use netcdf
    implicit none
    type(vegn_tile_type),  pointer :: vegn
    type(soil_tile_type),  pointer :: soil
@@ -82,18 +83,20 @@ program BiomeESS
    integer :: simu_steps,idata
    character(len=50) :: filepath_out,filesuffix
    character(len=50) :: parameterfile(10),chaSOM(10)
-   character(len=50) :: namelistfile = 'parameters_Konza-grass.nml' ! 'parameters_Konza-shrub.nml' 
+   character(len=50) :: runID
+   character(len=50) :: namelistfile  ! = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
-   ! 'parameters_CN.nml'
-   ! 'parameters_Allocation.nml' !
-   !
+
+   runID = 'Konza-shrub' !
+   namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
+    !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
    call itime(timeArray)     ! Get the current time
    i = rand ( timeArray(1)+timeArray(2)+timeArray(3) )
    ! create output files
    filepath_out='output/'
-   filesuffix  = 'test.csv' ! tag for simulation experiments
+   filesuffix  = trim(runID)//'.csv' ! tag for simulation experiments
    plantcohorts = trim(filepath_out)//'Annual_cohorts'//trim(filesuffix)
    plantCNpools = trim(filepath_out)//'Cohorts_daily'//trim(filesuffix)  ! daily
    soilCNpools  = trim(filepath_out)//'Ecosystem_daily'//trim(filesuffix)
@@ -414,7 +417,57 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   
 end subroutine read_NACPforcing
 
+!===========for netcdf IO ============================
+!=====================================================
+  subroutine nc_read_3D(FILE_NAME,field_idx,NX,NY,Ntime,DA)
 
+  ! This is the name of the data file we will create.
+  character (len = *), intent(in) :: FILE_NAME,field_idx
+  integer, intent(in) :: NX, NY, Ntime
+  real, intent(inout) :: DA(:,:,:)
+  !------local vars ----------------
+  ! When we create netCDF files, variables and dimensions, we get back
+  ! an ID for each one.
+  integer :: ncid, varid
+
+  ! Loop indexes, and error handling.
+  integer :: x, y, t
+
+  ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
+  ! the file.
+  call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
+  print *, 'ncid=',ncid
+  ! Get the varid of the data variable, based on its name.
+  call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
+  print *, 'varid=',varid
+  ! Read the data.
+  call check( nf90_get_var(ncid, varid, DA) )
+
+  ! Check the data.
+  !do x = 1, NX
+  !   do y = 1, NY
+  !      print *, "DA(", x, ", ", y, ") = ", DA(x,y,1)
+  !   end do
+  !end do
+
+  ! Close the file, freeing all resources.
+  call check( nf90_close(ncid) )
+
+  print *,"*** SUCCESS reading example file ", FILE_NAME, "! "
+
+  end subroutine nc_read_3D
+
+!=================================================================
+  subroutine check(status)
+    integer, intent ( in) :: status
+
+    if(status /= nf90_noerr) then
+      print *, trim(nf90_strerror(status))
+      stop "Stopped"
+    end if
+  end subroutine check
+
+!=================================================================
 !=====================================================
 end program BiomeESS
 
