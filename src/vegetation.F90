@@ -6,7 +6,8 @@ module esdvm
 
 ! ------ public subroutines ---------
 public :: initialize_cohort_from_biomass, initialize_vegn_tile
-public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
+public :: vegn_phenology,vegn_CNW_budget_fast, vegn_C_daily_input ! new daily input, 5/17/2020
+public :: vegn_growth_EW,update_layer_LAI
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_nat_mortality, vegn_fire_disturbance
 public :: vegn_migration, vegn_species_switch
@@ -48,8 +49,7 @@ public :: vegn_annual_starvation,Zero_diagnostics
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-     ! increment tha cohort age
-     cc%age = cc%age + dt_fast_yr
+
      ! Maintenance respiration
      call plant_respiration(cc,forcing%tair) ! get resp per tree per time step
      cc%resp = cc%resp + (cc%resg *step_seconds)/seconds_per_day ! put growth respiration to tot resp
@@ -70,6 +70,73 @@ public :: vegn_annual_starvation,Zero_diagnostics
    call vegn_N_uptake(vegn, forcing%tsoil)
 
 end subroutine vegn_CNW_budget_fast
+
+!================== for Data assimilation ==================
+!#ifndef DO_VEG_ONLY
+! ============================================================================
+subroutine vegn_C_daily_input(vegn)
+!@ Calculate daily net carbon gain per tree based on V and self-shading of leaves
+!@ It is used to generate daily NPP (photosynthesis-respiration)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !-------local var
+  type(cohort_type), pointer :: cc    ! current cohort
+  logical :: extra_light_in_lower_layers
+  real :: f_light(10)      ! light fraction of each layer
+  real :: V_annual     ! max V for each layer
+  real :: f_gap ! additional GPP for lower layer cohorts due to gaps
+  integer :: i, layer
+
+  f_gap = 0.2 ! 0.1
+! update accumulative LAI for each corwn layer
+  vegn%CAI      = 0.0
+  vegn%LAI      = 0.0
+  vegn%LAIlayer = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species) )
+     cc%leafarea=leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
+     cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
+     layer = Max (1, Min(cc%layer,9)) + 1 ! next layer
+     ! LAI above this layer: Layer1: 0; Layer2: LAI of Layer1 cohorts; ...
+     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + cc%leafarea * cc%nindivs
+     vegn%LAI = vegn%LAI + cc%leafarea  * cc%nindivs
+     vegn%CAI = vegn%CAI + cc%crownarea * cc%nindivs
+     END associate
+  enddo
+  ! Light fraction
+  f_light(1) = 1.0
+  do i =2, layer !MIN(int(vegn%CAI+1.0),9)
+      f_light(i) = f_light(i-1) * &
+                  (exp(-0.5*vegn%LAIlayer(i))*(1.-f_gap) + f_gap)
+  enddo
+! Assimilation of carbon for each cohort
+  vegn%npp = 0.
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     layer = Max (1, Min(cc%layer,9))
+     ! Photosynthesis can be calculated by a photosynthesis model
+     V_annual = f_light(layer) * spdata(cc%species)%Vannual
+     if(cc%status == LEAF_ON) then
+         ! Add temperature response function of photosynthesis
+         cc%npp = V_annual/0.5 * dt_fast_yr * cc%crownarea & ! kgC tree-1 time step-1
+                * (1.0 - exp(-0.5 * cc%LAI))     &
+                * exp(9000.0 * (1./298.16 - 1./vegn%tc_daily)) ! temperature response function
+     else
+         cc%npp = 0.0
+     endif
+     ! Update NSC
+     cc%nsc = cc%nsc + cc%npp
+     cc%nsn = 0.2 * cc%nsc ! Provide a high N supply
+     !write(*,*)cc%npp/cc%crownarea,cc%nsc
+     ! Update tile NPP
+     cc%annualNPP  = cc%annualNPP  + cc%npp/cc%crownarea ! * dt_fast_yr
+     ! accumulate tile-level GPP and NPP
+     vegn%npp = vegn%npp + cc%npp * cc%nindivs /dt_fast_yr ! kgC m-2 yr-1
+  enddo
+  vegn%annualNPP  = vegn%annualNPP  + vegn%npp * dt_fast_yr
+end subroutine vegn_C_daily_input
+!#endif
 
 ! ============= Plant physiology ========================================
 !========================================================================
@@ -693,6 +760,8 @@ subroutine fetch_CN_for_growth(cc)
      endif ! "cc%status == LEAF_ON"
      ! reset carbon acculmulation terms
      cc%C_growth = 0
+     ! update cohort age
+     cc%age = cc%age + 1.0/365
   end associate ! F2003
   enddo
   cc => null()

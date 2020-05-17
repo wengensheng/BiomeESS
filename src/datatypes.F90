@@ -1036,7 +1036,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
           write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
                 iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
                 cc%nindivs*10000, cc%layerfrac, cc%LAI, &
-                cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
+                cc%dailynpp,cc%dailyresp,cc%dailytrsp, &
                 cc%seedC,cc%NPPleaf,cc%NPProot,cc%NPPwood, &
                 cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
                 cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
@@ -1155,7 +1155,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     write(f2,'(1(I5,","),30(F9.4,","),6(F9.3,","),18(F10.4,","))') &
         iyears,       &
         vegn%CAI,vegn%LAI, vegn%treecover, vegn%grasscover, &
-        vegn%annualGPP, vegn%annualResp, vegn%annualRh, vegn%C_combusted, &
+        vegn%annualNPP, vegn%annualResp, vegn%annualRh, vegn%C_combusted, &
         vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
         plantC,soilC,plantN *1000, soilN * 1000, (plantN+soilN)*1000,&
         vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &

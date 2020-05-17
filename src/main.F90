@@ -47,7 +47,9 @@
 !
 !
 !----- END -----------------------------------------------------------
-!
+! With this flag (vegetation_only run), photosynthesis, respiration,
+! soil water, and decomposition will be skipped. For data assimilation.
+#define DO_VEG_ONLY
 
 program BiomeESS
    use datatypes
@@ -87,7 +89,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'Konza-shrub' !
+   runID = 'FACE_OR' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -111,7 +113,7 @@ program BiomeESS
    ! head
    write(fno1,'(5(a8,","),25(a12,","))')      &
         'year','doy','hour','rad',            &
-        'Tair','Prcp', 'GPP', 'Resp',         &
+        'Tair','Prcp', 'NPP', 'Resp',         &
         'Transp','Evap','Runoff','Soilwater', &
         'wcl','FLDCAP','WILTPT'
    write(fno2,'(3(a5,","),25(a9,","))')            &
@@ -139,7 +141,7 @@ program BiomeESS
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
         'CAI','LAI','treecover', 'grasscover', &
-        'GPP', 'Rauto',   'Rh', 'burned',          &
+        'NPP', 'Rauto',   'Rh', 'burned',          &
         'rain','SiolWater','Transp','Evap','Runoff',           &
         'plantC','soilC',    'plantN', 'soilN','totN',         &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC', &
@@ -187,15 +189,22 @@ program BiomeESS
              vegn%Tc_daily = vegn%Tc_daily + forcingData(idata)%Tair
              tsoil         = forcingData(idata)%tsoil
              simu_steps = simu_steps + 1
-
+#ifndef DO_VEG_ONLY
              !! fast-step calls, hourly or half-hourly
              call vegn_CNW_budget_fast(vegn,forcingData(idata))
              ! diagnostics
              call hourly_diagnostics(vegn,forcingData(idata),iyears,idoy,i,idays,fno1)
+#endif
         enddo ! hourly or half-hourly
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
         soil_theta    = vegn%thetaS
+
+#ifdef DO_VEG_ONLY
+        ! Calculate carbon input
+        dt_fast_yr = 1.0/365.0
+        call vegn_C_daily_input(vegn)
+#endif
         !write(*,*)idays,equi_days
         call daily_diagnostics(vegn,forcingData(idata),iyears,idoy,idays,fno3,fno4)
         !write(*,*)iyears,idoy
@@ -211,6 +220,9 @@ program BiomeESS
                 (idata == steps_per_day .and. simu_steps > datalines)) ! last line
         if(new_annual_cycle)then
 
+#ifdef DO_VEG_ONLY
+            write(*,*)'VEG_only run'
+#endif
             idoy = 0
             !call annual_calls(vegn)
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
