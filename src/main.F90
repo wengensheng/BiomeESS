@@ -73,8 +73,7 @@ program BiomeESS
    real    :: plantC,plantN, soilC, soilN
    real    :: dSlowSOM  ! for multiple tests only
    character(len=150) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
-   logical :: new_annual_cycle = .False.
-   logical :: switch = .True.
+   logical :: new_annual_cycle
    integer :: istat1,istat2,istat3
    integer :: year0, year1, iyears
    integer :: fno1,fno2,fno3,fno4,fno5 ! output files
@@ -223,7 +222,7 @@ program BiomeESS
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
 
-            ! Reproduction and Re-organize cohorts
+            ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             call kill_lowdensity_cohorts(vegn)

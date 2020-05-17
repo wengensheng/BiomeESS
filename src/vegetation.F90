@@ -145,8 +145,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
         ! recalculate the water supply to mol H20 per m2 of leaf per second
          water_supply = cc%W_supply/(cc%leafarea*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
-      
-        !call get_vegn_wet_frac (cohort, fw=fw, fs=fs)
+
         fw = 0.0
         fs = 0.0
         call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%lai, &
@@ -154,15 +153,13 @@ subroutine vegn_photosynthesis (forcing, vegn)
                     cana_co2, cc%extinct, fs+fw, cc%layer, &
              ! output:
                     psyn, resp,w_scale2,transp )
-        ! store the calculated photosynthesis, photorespiration, and transpiration for future use
-        ! in growth
+        ! put into cohort data structure for future use in growth
         cc%An_op  = psyn  ! molC s-1 m-2 of leaves
         cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
         cc%w_scale  = w_scale2
         cc%transp = transp * mol_h2o * cc%leafarea * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
         !if(isnan(cc%gpp))cc%gpp=0.0
-
         if(isnan(cc%gpp))stop '"gpp" is a NaN'
      else
         ! no leaves means no photosynthesis and no stomatal conductance either
@@ -241,7 +238,6 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   b=0.01;
   do1=0.09 ; ! kg/kg
   if (pft < 2) do1=0.15;
-
 
   ! Convert Solar influx from W/(m^2s) to mol_of_quanta/(m^2s) PAR,
   ! empirical relationship from McCree is light=rn*0.0000046
@@ -637,7 +633,6 @@ subroutine fetch_CN_for_growth(cc)
         cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - cc%N_growth !! update NSN
         cc%N_growth = 0.0
 
-
 !       accumulated C allocated to leaf, root, and wood
         cc%NPPleaf = cc%NPPleaf + dBL
         cc%NPProot = cc%NPProot + dBR
@@ -656,7 +651,7 @@ subroutine fetch_CN_for_growth(cc)
         vegn%LAI     = vegn%LAI + cc%leafarea  * cc%nindivs
         call rootarea_and_verticalprofile(cc)
 !       convert sapwood to heartwood for woody plants ! Nitrogen from sapwood to heart wood
-        if(sp%lifeform>0)then
+        if(sp%lifeform>0)then ! woody plants
            CSAsw  = cc%bl_max/sp%LMA * sp%phiCSA * cc%height ! with Plant hydraulics, Weng, 2016-11-30
            CSAtot = 0.25 * PI * cc%DBH**2
            CSAwd  = max(0.0, CSAtot - CSAsw)
