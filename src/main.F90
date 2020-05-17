@@ -1,11 +1,18 @@
 !========================================================================
-!==== Biome Ecological Strategy Simulator (BiomeESS) ====================
+!==== Biome Ecological strategy simulator (BiomeESS) ====================
 !============   Main program   ==========================================
-!=============== 10-21-2017 =============================================
+!=============== 12-30-2019 =============================================
 !========================================================================
 !
 ! This work was financially supported by US Forest Service and Princeton
-! Environment Institute. The technical details of this model are in:
+! Environment Institute. The technical details of this model can be found
+! in:
+!
+! Weng, E., Dybzinski, R., Farrior, C. E., and Pacala, S. W.: Competition 
+! alters predicted forest carbon cycle responses to nitrogen availability 
+! and elevated CO2: simulations using an explicitly competitive, game-
+! theoretic vegetation demographic model, Biogeosciences, 16, 4577–4599, 
+! https://doi.org/10.5194/bg-16-4577-2019, 2019.
 !
 ! Weng, E. S., Farrior, C. E., Dybzinski, R., Pacala, S. W., 2017.
 ! Predicting vegetation type through physiological and environmental 
@@ -21,31 +28,24 @@
 !
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for qeustions.
-!                      (02/03/2017)
+!
+!                      (Lase edited 12/30/2017)
 !
 !------------------------------------------------------------------------
 !
-! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
-! and reproduce the forest succession patterns. But, since it
-! does not include the models of photosynthesis, leaf stomatal
-! conductance, transpiration, soil water dynamics, and energy balance, it 
-! cannot simulate the ESS of allocation as reported in Weng et al. 2015 
-! Biogeosciences.
 !
 ! Processes included in this simulator are:
-!     photosynthesis, transpiration, plant respiration
-!     soil respraition,soil water dynamics
+!     Photosynthesis, transpiration, plant respiration
 !     Phenology
 !     Plant growth: Allometry and allocation
-!     Reproduction
-!     Mortality
+!     Demography: Reproduction, Mortality
 !     Population dynamics
 !     Soil C-N dynamics
+!     Soil respraition
+!     Soil water dynamics: soil surface evaporation, infiltration
+!                          runoff
 !
 !
-!----------------------------------------
-! Subroutine call structure:
-
 !----- END -----------------------------------------------------------
 !
 
