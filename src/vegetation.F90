@@ -7,7 +7,7 @@ module esdvm
 ! ------ public subroutines ---------
 public :: initialize_cohort_from_biomass, initialize_vegn_tile
 public :: vegn_phenology,vegn_CNW_budget_fast, vegn_C_daily_input ! new daily input, 5/17/2020
-public :: vegn_growth_EW,update_layer_LAI
+public :: vegn_growth_EW,update_layer_LAI, vegn_annual_growth
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_nat_mortality, vegn_fire_disturbance
 public :: vegn_migration, vegn_species_switch
@@ -136,6 +136,147 @@ subroutine vegn_C_daily_input(vegn)
   enddo
   vegn%annualNPP  = vegn%annualNPP  + vegn%npp * dt_fast_yr
 end subroutine vegn_C_daily_input
+
+! ============================================================================
+ subroutine vegn_annual_growth(vegn)
+! updates cohort biomass pools, LAI, and height using accumulated
+! C_growth and bHW_gain
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc    ! current cohort
+  real :: CSAtot ! total cross section area, m2
+  real :: CSAsw  ! Sapwood cross sectional area, m2
+  real :: CSAwd  ! Heartwood cross sectional area, m2
+  real :: DBHwd  ! diameter of heartwood at breast height, m
+  real :: BSWmax ! max sapwood biomass, kg C/individual
+  real :: dSeed ! allocation to seeds, Weng, 2016-11-26
+  real :: dBL, dBR, dBSW, dBHW ! tendencies of leaf and root biomass, kgC/individual
+  real :: dDBH, dHeight, dCA ! tendency of breast height diameter, m
+  real :: dNS    ! Nitrogen from SW to HW
+  real :: f_light(10)      ! light fraction of each layer
+  real :: V_annual     ! max V for each layer
+  real :: f_gap ! additional GPP for lower layer cohorts due to gaps
+  integer :: i,j,layer
+
+  f_gap = 0.2 ! 0.1
+! update accumulative LAI for each crown layer
+  vegn%CAI      = 0.0
+  vegn%LAI      = 0.0
+  vegn%LAIlayer = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species) )
+     cc%lai     = sp%LAImax/max(1,cc%layer)
+     layer = Max (1, Min(cc%layer,9)) + 1 ! next layer
+     ! LAI above this layer: Layer1: 0; Layer2: LAI of Layer1 cohorts; ...
+     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + cc%lai*cc%crownarea * cc%nindivs
+     vegn%LAI = vegn%LAI + cc%lai*cc%crownarea  * cc%nindivs
+     vegn%CAI = vegn%CAI + cc%crownarea * cc%nindivs
+     END associate
+  enddo
+  ! Light fraction
+  f_light(1) = 1.0
+  do i =2, layer !MIN(int(vegn%CAI+1.0),9)
+      f_light(i) = f_light(i-1) * &
+                  (exp(-0.5*vegn%LAIlayer(i))*(1.-f_gap) + f_gap)
+  enddo
+
+! Net carbon gain for each cohort (cc%npp)
+  vegn%npp = 0.
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     layer = Max (1, Min(cc%layer,9))
+     ! Photosynthesis can be calculated by a photosynthesis model
+     V_annual = f_light(layer) * spdata(cc%species)%Vannual
+     ! Add temperature response function of photosynthesis
+     cc%npp = V_annual/0.5 * cc%crownarea & ! kgC tree-1 time step-1
+            * (1.0 - exp(-0.5 * cc%LAI))
+
+     ! Update NSC
+     cc%nsc = cc%nsc + cc%npp
+     cc%nsn = 0.2 * cc%nsc ! Provide a high N supply
+     ! Update tile NPP
+     cc%annualNPP  = cc%annualNPP  + cc%npp/cc%crownarea ! * dt_fast_yr
+     ! accumulate tile-level GPP and NPP
+     vegn%npp = vegn%npp + cc%npp * cc%nindivs ! kgC m-2 yr-1
+  enddo
+  vegn%annualNPP  = vegn%npp
+
+  !Allocate C_gain to tissues
+  do i = 1, vegn%n_cohorts
+        cc => vegn%cohorts(i)
+        associate (sp => spdata(cc%species)) ! F2003
+        ! Allocate carbon to the plant pools
+        !(0.5 to stems and seeds, 0.5 to leaves and fine roots)
+        cc%C_growth = cc%nsc * 0.5
+        if(cc%layer>1)then
+           dBL  =  cc%C_growth * 0.2/(2*cc%layer)
+           dBR  =  cc%C_growth * 0.3/(2*cc%layer)
+           dSeed = cc%C_growth * (1.0-0.5/(2*cc%layer)) * sp%v_seed
+           dBSW  = cc%C_growth * (1.0-0.5/(2*cc%layer)) * (1.0-sp%v_seed)
+        else ! first layer
+           dBL  =  cc%C_growth * 0.25
+           dBR  =  cc%C_growth * 0.25
+           dSeed = cc%C_growth * 0.5 * sp%v_seed
+           dBSW  = cc%C_growth * 0.5 * (1.0-sp%v_seed)
+        endif
+
+!       update biomass pools
+        cc%bl     = cc%bl    + dBL
+        cc%br     = cc%br    + dBR
+        cc%bsw    = cc%bsw   + dBSW
+        cc%seedC  = cc%seedC + dSeed
+        cc%NSC    = cc%NSC  - dBR - dBL -dSeed - dBSW
+        cc%resg = 0.5 * (dBR+dBL+dSeed+dBSW)
+
+!!      update nitrogen pools, Nitrogen allocation
+        cc%leafN = cc%leafN + dBL   /sp%CNleaf0
+        cc%rootN = cc%rootN + dBR   /sp%CNroot0
+        cc%seedN = cc%seedN + dSeed /sp%CNseed0
+        cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
+                   (cc%N_growth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
+
+!       accumulated C allocated to leaf, root, and wood
+        cc%NPPleaf = cc%NPPleaf + dBL
+        cc%NPProot = cc%NPProot + dBR
+        cc%NPPwood = cc%NPPwood + dBSW
+
+!       update breast height diameter given increase of bsw
+        call init_cohort_allometry(cc) ! get dbh, height, and crown area from biomass
+        call rootarea_and_verticalprofile(cc)
+
+!       convert sapwood to heartwood for woody plants ! Nitrogen from sapwood to heart wood
+        CSAsw  = cc%bl_max/sp%LMA * sp%phiCSA * cc%height ! with Plant hydraulics, Weng, 2016-11-30
+        CSAtot = 0.25 * PI * cc%DBH**2
+        CSAwd  = max(0.0, CSAtot - CSAsw)
+        DBHwd  = 2*sqrt(CSAwd/PI)
+        BSWmax = sp%alphaBM * (cc%DBH**sp%thetaBM - DBHwd**sp%thetaBM)
+        dBHW   = max(cc%bsw - BSWmax, 0.0)
+        dNS    = dBHW/cc%bsw *cc%sapwN
+        ! update C and N of sapwood and wood
+        cc%bHW   = cc%bHW   + dBHW
+        cc%bsw   = cc%bsw   - dBHW
+        cc%sapwN = cc%sapwN - dNS
+        cc%woodN = cc%woodN + dNS
+        ! reset carbon acculmulation terms
+        cc%C_growth = 0
+        ! update cohort age
+        cc%age = cc%age + 1.0 ! /365
+
+     ! Turnover of leaves and fine roots
+        cc%bl     = cc%bl    * 0.5
+        cc%br     = cc%br    * 0.7
+        ! Update leaf area and tile veg LAI
+        cc%leafarea  = leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
+        vegn%LAI     = vegn%LAI + cc%leafarea * cc%nindivs
+  end associate ! F2003
+  enddo
+  cc => null()
+  ! Turnover of leaves and fine roots
+  !call vegn_tissue_turnover(vegn)
+
+end subroutine vegn_annual_growth
 !#endif
 
 ! ============= Plant physiology ========================================
@@ -560,9 +701,9 @@ subroutine fetch_CN_for_growth(cc)
         N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
                   Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-        C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+        C_push = cc%nsc/sp%tauNSC*dt_growth_yr
 
-        N_push = cc%NSN/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
+        N_push = cc%NSN/sp%tauNSC*dt_growth_yr ! 4.0 * C_push/sp%CNsw0  !
 
         cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull+N_push)
         cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull+C_push) ! Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
@@ -602,10 +743,7 @@ subroutine fetch_CN_for_growth(cc)
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: N_demand,Nsupplyratio,extraN
   real :: r_N_SD
-  logical :: do_editor_scheme = .False.
   integer :: i,j
-
-  do_editor_scheme = .False. ! .True.
 
   ! Turnover of leaves and fine roots
   call vegn_tissue_turnover(vegn)
@@ -1694,15 +1832,12 @@ end subroutine relayer_cohorts
      else
         alpha_S = 0.0
      endif
-     dBL    = cc%bl    *    alpha_L  /days_per_year
-     dNL    = cc%leafN *    alpha_L  /days_per_year
-
-     dBStem = cc%bsw   *    alpha_S  /days_per_year
-     dNStem = cc%sapwN *    alpha_S  /days_per_year
-
-     dBR    = cc%br    * sp%alpha_FR /days_per_year
-     dNR    = cc%rootN * sp%alpha_FR /days_per_year
-
+     dBL    = cc%bl    * (1.0 - exp(-alpha_L * dt_growth_yr))
+     dNL    = cc%leafN * (1.0 - exp(-alpha_L * dt_growth_yr)) !   alpha_L  * dt_growth_yr
+     dBStem = cc%bsw   * (1.0 - exp(-alpha_S * dt_growth_yr)) !   alpha_S  * dt_growth_yr
+     dNStem = cc%sapwN * (1.0 - exp(-alpha_S * dt_growth_yr)) !   alpha_S  * dt_growth_yr
+     dBR    = cc%br    * (1.0 - exp(-sp%alpha_FR* dt_growth_yr)) ! sp%alpha_FR * dt_growth_yr
+     dNR    = cc%rootN * (1.0 - exp(-sp%alpha_FR* dt_growth_yr)) ! sp%alpha_FR * dt_growth_yr
      dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
 
 !    Retranslocation to NSC and NSN

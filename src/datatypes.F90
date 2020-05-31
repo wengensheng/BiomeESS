@@ -23,7 +23,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
 
 !===============constants===============
  logical, public, parameter :: read_from_parameter_file = .TRUE.
- integer, public, parameter :: days_per_year  = 365
+ integer, public, parameter :: steps_per_year  = 365 ! for growth
  integer, public, parameter :: hours_per_year = 365 * 24  ! 8760
  real,    public, parameter :: seconds_per_year = 365. * 24. * 3600.
  real,    public, parameter :: seconds_per_day = 24. * 3600.
@@ -465,7 +465,7 @@ real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correcti
 real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
 real :: DBHtp      = 2.0 !  m, for canopy tree's mortality rate
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
-real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
+real :: c_LLS  = 20.0 ! 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 
 ! reduction of bl_max and br_max for the understory vegetation, unitless
 real :: understory_lai_factor = 0.25
@@ -623,7 +623,8 @@ real   :: init_Nmineral = 0.015  ! Mineral nitrogen pool, (kg N/m2)
 real   :: N_input    = 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
 
 !Model run control
-real      :: dt_fast_yr = 1.0 / (365.0 * 24.0) ! daily
+real      :: dt_fast_yr = 1.0 / (365.0 * 24.0) ! houly photosynthesis
+real      :: dt_growth_yr = 1.0/365.0 ! daily growth
 real      :: step_seconds = 3600.0
 
 character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
@@ -975,7 +976,6 @@ end subroutine summarize_tile
   type(cohort_type), pointer :: cc    ! current cohort
   integer :: i
 
-  vegn%age = vegn%age + dt_fast_yr
   ! Tile summary
   vegn%GPP    = 0.
   vegn%NPP    = 0.; vegn%Resp   = 0.
@@ -1155,7 +1155,7 @@ subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
     write(f2,'(1(I5,","),30(F9.4,","),6(F9.3,","),18(F10.4,","))') &
         iyears,       &
         vegn%CAI,vegn%LAI, vegn%treecover, vegn%grasscover, &
-        vegn%annualNPP, vegn%annualResp, vegn%annualRh, vegn%C_combusted, &
+        vegn%annualGPP, vegn%annualNPP, vegn%annualRh, vegn%C_combusted, &
         vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
         plantC,soilC,plantN *1000, soilN * 1000, (plantN+soilN)*1000,&
         vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &

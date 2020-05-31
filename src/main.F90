@@ -49,7 +49,12 @@
 !----- END -----------------------------------------------------------
 ! With this flag (vegetation_only run), photosynthesis, respiration,
 ! soil water, and decomposition will be skipped. For data assimilation.
-#define DO_VEG_ONLY
+
+! if DO_VEG_ONLY is defined, the model will skip all phsyiology, soil water,
+! and SOM decomposition subroutines
+
+!#define DO_VEG_DAILY
+#define DO_VEG_YEARLY
 
 program BiomeESS
    use datatypes
@@ -82,16 +87,16 @@ program BiomeESS
    integer :: totyears, totdays
    integer :: i, j, k, idays, idoy
    integer :: simu_steps,idata
-   character(len=50) :: filepath_out,filesuffix
+   character(len=50) :: filepath_out,filesuffix,forcing_type
    character(len=50) :: parameterfile(10),chaSOM(10)
    character(len=50) :: runID
    character(len=50) :: namelistfile  ! = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'FACE_OR' !
-   namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
-    !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
+   runID = 'WCr' !
+   forcing_type = 'NACPforcing' ! FACEforcing
+   namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_WCr.nml' ! 'parameters_CN.nml' !
    ! call random_seed()
    call itime(timeArray)     ! Get the current time
    i = rand ( timeArray(1)+timeArray(2)+timeArray(3) )
@@ -141,7 +146,7 @@ program BiomeESS
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
         'CAI','LAI','treecover', 'grasscover', &
-        'NPP', 'Rauto',   'Rh', 'burned',          &
+        'GPP', 'NPP',   'Rh', 'burned',          &
         'rain','SiolWater','Transp','Evap','Runoff',           &
         'plantC','soilC',    'plantN', 'soilN','totN',         &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC', &
@@ -161,9 +166,36 @@ program BiomeESS
    call relayer_cohorts(vegn)
    call Zero_diagnostics(vegn)
 
+!  Yearly vegetation only run
+#ifdef DO_VEG_YEARLY
+   totyears = model_run_years
+   dt_fast_yr = 1.0
+   dt_growth_yr = 1.0
+   do iyears = 1, totyears
+        write(*,*)'Yearly VEG_only run'
+        call vegn_annual_growth(vegn)
+        vegn%age = vegn%age + dt_fast_yr
+        ! mortality
+        call annual_diagnostics(vegn,iyears,fno2,fno5)
+        call vegn_nat_mortality(vegn, real(seconds_per_year))
+        ! Reproduction and Reorganize cohorts
+        call vegn_reproduction(vegn)
+        call kill_lowdensity_cohorts(vegn)
+        call relayer_cohorts(vegn)
+        call vegn_mergecohorts(vegn)
+        ! set annual variables zero
+        call Zero_diagnostics(vegn)
+    enddo ! yearly VEG_ONLY run
+#else
    ! Read in forcing data
-   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   if(forcing_type == 'FACEforcing')then
+       call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   elseif(forcing_type == 'NACPforcing')then
+       call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   else
+       write(*,*)'checke forcing data types'
+       stop
+   endif
    steps_per_day = int(24.0/timestep)
    dt_fast_yr = 1.0/(365.0 * steps_per_day)
    step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
@@ -189,22 +221,22 @@ program BiomeESS
              vegn%Tc_daily = vegn%Tc_daily + forcingData(idata)%Tair
              tsoil         = forcingData(idata)%tsoil
              simu_steps = simu_steps + 1
-#ifndef DO_VEG_ONLY
+!#ifndef DO_VEG_DAILY
              !! fast-step calls, hourly or half-hourly
              call vegn_CNW_budget_fast(vegn,forcingData(idata))
              ! diagnostics
              call hourly_diagnostics(vegn,forcingData(idata),iyears,idoy,i,idays,fno1)
-#endif
+             vegn%age = vegn%age + dt_fast_yr
+!#endif
         enddo ! hourly or half-hourly
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
         soil_theta    = vegn%thetaS
-
-#ifdef DO_VEG_ONLY
-        ! Calculate carbon input
-        dt_fast_yr = 1.0/365.0
-        call vegn_C_daily_input(vegn)
-#endif
+!#ifdef DO_VEG_DAILY
+!        ! Calculate carbon input
+!        dt_fast_yr = 1.0/365.0
+!        call vegn_C_daily_input(vegn)
+!#endif
         !write(*,*)idays,equi_days
         call daily_diagnostics(vegn,forcingData(idata),iyears,idoy,idays,fno3,fno4)
         !write(*,*)iyears,idoy
@@ -212,42 +244,34 @@ program BiomeESS
         call vegn_phenology(vegn,j)
         !call vegn_starvation(vegn)
         call vegn_growth_EW(vegn)
-
         !! annual calls
         idata = MOD(simu_steps+1, datalines)+1 !
         year1 = forcingData(idata)%year  ! Check if it is the last day of a year
         new_annual_cycle = ((year0 /= year1).OR. & ! new year
                 (idata == steps_per_day .and. simu_steps > datalines)) ! last line
         if(new_annual_cycle)then
-
-#ifdef DO_VEG_ONLY
-            write(*,*)'VEG_only run'
-#endif
-            idoy = 0
             !call annual_calls(vegn)
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
-
             ! mortality
-
             call annual_diagnostics(vegn,iyears,fno2,fno5)
             call vegn_annual_starvation(vegn) ! turned off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
-
             ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             call kill_lowdensity_cohorts(vegn)
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
-
             ! set annual variables zero
             call Zero_diagnostics(vegn)
-
             ! update the years of model run
             iyears = iyears + 1
+            idoy = 0
         endif
    enddo
+   deallocate(forcingData)
+#endif
 
    !deallocate(cc)
    close(91)
@@ -256,7 +280,6 @@ program BiomeESS
    close(103)
    close(104)
    deallocate(vegn%cohorts)
-   deallocate(forcingData)
 
   contains
 
