@@ -37,7 +37,9 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  integer, public, parameter :: LEAF_OFF = 0
  real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
- ! Soil water hydrualics
+! Plant hydraulics-mortality
+integer, public, parameter :: SapWoodMaxAge = 50 ! Maximum function years of xylems
+! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
  real, public, parameter ::  thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
  real, public, parameter :: psi_wilt  = -150.0  ! matric head at wilting
@@ -132,6 +134,10 @@ type spec_data_type
   real    :: rho_wood     ! woody density, kg C m-3 wood
   real    :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
   real    :: taperfactor
+  ! Plant hydraulics
+  real    :: kx0 ! xylem conductivity, kg m-1 s-1 MPa-1
+  real    :: WTC0 ! xylem water transfer capacity, m/lifetime
+  real    :: r_DF ! sensitivity of defunction due to water transport usage
 
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -209,6 +215,20 @@ type :: cohort_type
   real :: resr = 0.0 ! root respiration
   real :: resg = 0.0 ! growth respiration
   real :: NPPleaf,NPProot,NPPwood ! to record C allocated to leaf, root, and wood
+! for hydraulics-mortality
+  integer :: Year_sw_min = 1 ! Minimum sapwood ring age
+  integer :: Nrings = 0
+  real :: WTC0(SapWoodMaxAge) ! lifetime water transfer capacity
+  real :: Ktrunk ! trunk water conductance, m/(s kpa)
+  real :: Rring(SapWoodMaxAge) ! Radius to the outer edge
+  real :: Hring(SapWoodMaxAge) ! Length of xylem conduits
+  real :: Aring(SapWoodMaxAge) !
+  real :: Kx(SapWoodMaxAge)
+  real :: farea(SapWoodMaxAge) ! fraction of functional area, 1.0/(exp(r_DF*(1.0-Wtotal[j]/W0[j]))+1.0)
+  real :: Fd(SapWoodMaxAge) ! fraction of losing function in a year
+  real :: Wtotal(SapWoodMaxAge) ! total water transport, m
+
+! for diagnostics
   real :: dailyTrsp
   real :: dailyGPP   ! kgC/tree day-1
   real :: dailyNPP
@@ -539,6 +559,10 @@ real :: LNbase(0:MSPECIES)        = 0.8E-3 !functional nitrogen per unit leaf ar
 real :: CNleafsupport(0:MSPECIES) = 80.0 ! CN ratio of leaf supporting tissues
 real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
+real :: kx0(0:MSPECIES)           = 6000.0   ! m yr-1 MPa-1
+real :: WTC0(0:MSPECIES)          = 2000.0  ! m /lifetime
+real :: r_DF(0:MSPECIES)          = 100.0
+
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
 real :: tauNSC(0:MSPECIES)        = 3 ! 3 ! NSC residence time,years
@@ -574,6 +598,7 @@ namelist /vegn_parameters_nml/  &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
   mortrate_d_c, mortrate_d_u, A_mort, B_mort,DBHtp,     &
   phiRL, phiCSA, rho_wood, taperfactor, &
+  kx0, WTC0, r_DF, &
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0,  &
@@ -759,6 +784,9 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%mortrate_d_u = mortrate_d_u
   spdata%rho_wood     = rho_wood
   spdata%taperfactor  = taperfactor
+  spdata%kx0          = kx0
+  spdata%WTC0         = WTC0
+  spdata%r_DF         = r_DF
   spdata%LAImax       = LAImax
   spdata%underLAImax  = LAImax
   spdata%LAI_light    = LAI_light

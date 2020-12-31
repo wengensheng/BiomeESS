@@ -979,6 +979,84 @@ subroutine vegn_nat_mortality (vegn, deltat)
 
 end subroutine vegn_nat_mortality
 
+!------------------------Mortality------------------------------------
+subroutine vegn_hydraulics_mortality (vegn, deltat)
+! mortality rate as a function of xylem usage
+  type(vegn_tile_type), intent(inout) :: vegn
+  real, intent(in) :: deltat ! seconds since last mortality calculations, s
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc => null()
+  type(spec_data_type),   pointer :: sp
+  real :: Asap
+  real :: deathrate ! mortality rate, 1/year
+  real :: deadtrees ! number of trees that died over the time step
+  integer :: i, j, k
+
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+     ! mortality can be a function of growth rate, age, and environmental conditions.
+     cc%Nrings = cc%Nrings + 1
+     if(cc%Nrings>SapWoodMaxAge)then ! Move to the left
+        do j=1, SapWoodMaxAge - 1
+           cc%WTC0(j) = cc%WTC0(j+1)
+           cc%Rring(j) = cc%Rring(j+1)
+           cc%Hring(j) = cc%Hring(j+1)
+           cc%Aring(j) = cc%Aring(j+1)
+           cc%Kx(j) = cc%Kx(j+1)
+           cc%farea(j) = cc%farea(j+1)
+           cc%Fd(j) = cc%Fd(j+1)
+           cc%Wtotal(j) = cc%Wtotal(j+1)
+        enddo
+        cc%Year_sw_min = cc%Year_sw_min + 1
+     else
+        cc%Year_sw_min = 1
+     endif
+     ! Update cohort variables of the new ring
+     k = cc%Nrings - cc%Year_sw_min + 1
+     ! WTC0 and Kx represent scientific hypotheses
+     cc%WTC0(k) = sp%WTC0 * (cc%DBH/0.0025)**sp%thetaHT
+     cc%Kx(k)   = sp%kx0
+
+     ! Other cohort variables of the new ring
+     cc%Wtotal(k) = 0.0
+     cc%farea(k) = 1.0
+     cc%Rring(k) = cc%DBH/2.0
+     cc%Hring(k) = cc%height
+     if(k>1)then
+        cc%Aring(k) = PI * (cc%Rring(k)**2 - cc%Rring(k-1)**2)
+     else
+        cc%Aring(k) = PI * cc%Rring(k)**2
+     endif
+     ! update usage of all rings
+     Asap = 0.0
+     do j=cc%Year_sw_min, cc%Nrings !
+        k = j - cc%Year_sw_min + 1
+        Asap = Asap + cc%farea(k)*cc%Aring(k)
+     enddo
+     cc%Ktrunk = 0.0
+     do j=cc%Year_sw_min, cc%Nrings !
+        k = j - cc%Year_sw_min + 1
+        cc%Wtotal(k) = cc%Wtotal(k) + cc%annualTrsp/Asap
+        cc%Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%Wtotal(k)/cc%WTC0(k)))+1.0)
+        cc%farea(j) = (1.0 - cc%Fd(k))*cc%farea(k)
+        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Hring(k)
+     enddo
+
+!     Mortatliy rate
+!     Calculate live sapwood area and compare it with potential values
+!     deathrate =Max(0.0, 1.0 - Asap/cc%crownarea /sp%phiCSA)
+!     deadtrees = cc%nindivs * MIN(1.0,deathrate) ! individuals / m2
+!     ! Carbon and Nitrogen from dead plants to soil pools
+!     call plant2soil(vegn,cc,deadtrees)
+!     ! Update plant density
+!     cc%nindivs = cc%nindivs - deadtrees
+     end associate
+  enddo
+
+end subroutine vegn_hydraulics_mortality
+
 !============================================================================
 !----------------------- fire disturbance -----------------------------------
 subroutine vegn_fire_disturbance (vegn, deltat)
