@@ -1,11 +1,18 @@
 !========================================================================
-!==== Biome Ecological Strategy Simulator (BiomeESS) ====================
+!==== Biome Ecological strategy simulator (BiomeESS) ====================
 !============   Main program   ==========================================
-!=============== 10-21-2017 =============================================
+!=============== 12-30-2019 =============================================
 !========================================================================
 !
 ! This work was financially supported by US Forest Service and Princeton
-! Environment Institute. The technical details of this model are in:
+! Environment Institute. The technical details of this model can be found
+! in:
+!
+! Weng, E., Dybzinski, R., Farrior, C. E., and Pacala, S. W.: Competition 
+! alters predicted forest carbon cycle responses to nitrogen availability 
+! and elevated CO2: simulations using an explicitly competitive, game-
+! theoretic vegetation demographic model, Biogeosciences, 16, 4577–4599, 
+! https://doi.org/10.5194/bg-16-4577-2019, 2019.
 !
 ! Weng, E. S., Farrior, C. E., Dybzinski, R., Pacala, S. W., 2017.
 ! Predicting vegetation type through physiological and environmental 
@@ -21,31 +28,24 @@
 !
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for qeustions.
-!                      (02/03/2017)
+!
+!                      (Lase edited 12/30/2017)
 !
 !------------------------------------------------------------------------
 !
-! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
-! and reproduce the forest succession patterns. But, since it
-! does not include the models of photosynthesis, leaf stomatal
-! conductance, transpiration, soil water dynamics, and energy balance, it 
-! cannot simulate the ESS of allocation as reported in Weng et al. 2015 
-! Biogeosciences.
 !
 ! Processes included in this simulator are:
-!     photosynthesis, transpiration, plant respiration
-!     soil respraition,soil water dynamics
+!     Photosynthesis, transpiration, plant respiration
 !     Phenology
 !     Plant growth: Allometry and allocation
-!     Reproduction
-!     Mortality
+!     Demography: Reproduction, Mortality
 !     Population dynamics
 !     Soil C-N dynamics
+!     Soil respraition
+!     Soil water dynamics: soil surface evaporation, infiltration
+!                          runoff
 !
 !
-!----------------------------------------
-! Subroutine call structure:
-
 !----- END -----------------------------------------------------------
 !
 
@@ -53,6 +53,7 @@ program BiomeESS
    use datatypes
    use esdvm
    use soil_mod
+   use netcdf
    implicit none
    type(vegn_tile_type),  pointer :: vegn
    type(soil_tile_type),  pointer :: soil
@@ -72,8 +73,7 @@ program BiomeESS
    real    :: plantC,plantN, soilC, soilN
    real    :: dSlowSOM  ! for multiple tests only
    character(len=150) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
-   logical :: new_annual_cycle = .False.
-   logical :: switch = .True.
+   logical :: new_annual_cycle
    integer :: istat1,istat2,istat3
    integer :: year0, year1, iyears
    integer :: fno1,fno2,fno3,fno4,fno5 ! output files
@@ -169,7 +169,7 @@ program BiomeESS
    ! total years of model run
    totyears = model_run_years
    totdays  = INT(totyears/yr_data+1)*days_data
-   equi_days = totdays - days_data
+   equi_days = Max(0, totdays - days_data)
 
    ! ----- model run ---------- ! Model run starts here !!
    year0 = forcingData(1)%year
@@ -178,6 +178,7 @@ program BiomeESS
    simu_steps = 0
    do idays =1, totdays ! 1*days_data ! days for the model run
         idoy = idoy + 1
+        !write(*,*)idays,equi_days
         ! get daily mean temperature
         vegn%Tc_daily = 0.0
         tsoil         = 0.0
@@ -196,8 +197,8 @@ program BiomeESS
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
         soil_theta    = vegn%thetaS
-        !write(*,*)idays,equi_days
-        call daily_diagnostics(vegn,forcingData(idata),iyears,idoy,idays,fno3,fno4)
+
+        call daily_diagnostics(vegn,iyears,idoy,idays,fno3,fno4)
         !write(*,*)iyears,idoy
         ! daily calls
         call vegn_phenology(vegn,j)
@@ -222,7 +223,7 @@ program BiomeESS
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
 
-            ! Reproduction and Re-organize cohorts
+            ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             call kill_lowdensity_cohorts(vegn)
@@ -416,7 +417,57 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   
 end subroutine read_NACPforcing
 
+!===========for netcdf IO ============================
+!=====================================================
+  subroutine nc_read_3D(FILE_NAME,field_idx,NX,NY,Ntime,DA)
 
+  ! This is the name of the data file we will create.
+  character (len = *), intent(in) :: FILE_NAME,field_idx
+  integer, intent(in) :: NX, NY, Ntime
+  real, intent(inout) :: DA(:,:,:)
+  !------local vars ----------------
+  ! When we create netCDF files, variables and dimensions, we get back
+  ! an ID for each one.
+  integer :: ncid, varid
+
+  ! Loop indexes, and error handling.
+  integer :: x, y, t
+
+  ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
+  ! the file.
+  call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
+  print *, 'ncid=',ncid
+  ! Get the varid of the data variable, based on its name.
+  call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
+  print *, 'varid=',varid
+  ! Read the data.
+  call check( nf90_get_var(ncid, varid, DA) )
+
+  ! Check the data.
+  !do x = 1, NX
+  !   do y = 1, NY
+  !      print *, "DA(", x, ", ", y, ") = ", DA(x,y,1)
+  !   end do
+  !end do
+
+  ! Close the file, freeing all resources.
+  call check( nf90_close(ncid) )
+
+  print *,"*** SUCCESS reading example file ", FILE_NAME, "! "
+
+  end subroutine nc_read_3D
+
+!=================================================================
+  subroutine check(status)
+    integer, intent ( in) :: status
+
+    if(status /= nf90_noerr) then
+      print *, trim(nf90_strerror(status))
+      stop "Stopped"
+    end if
+  end subroutine check
+
+!=================================================================
 !=====================================================
 end program BiomeESS
 

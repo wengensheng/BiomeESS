@@ -145,8 +145,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
         ! recalculate the water supply to mol H20 per m2 of leaf per second
          water_supply = cc%W_supply/(cc%leafarea*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
-      
-        !call get_vegn_wet_frac (cohort, fw=fw, fs=fs)
+
         fw = 0.0
         fs = 0.0
         call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%lai, &
@@ -154,16 +153,18 @@ subroutine vegn_photosynthesis (forcing, vegn)
                     cana_co2, cc%extinct, fs+fw, cc%layer, &
              ! output:
                     psyn, resp,w_scale2,transp )
-        ! store the calculated photosynthesis, photorespiration, and transpiration for future use
-        ! in growth
+        ! put into cohort data structure for future use in growth
         cc%An_op  = psyn  ! molC s-1 m-2 of leaves
         cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
         cc%w_scale  = w_scale2
         cc%transp = transp * mol_h2o * cc%leafarea * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
         !if(isnan(cc%gpp))cc%gpp=0.0
-
         if(isnan(cc%gpp))stop '"gpp" is a NaN'
+        if(isnan(cc%transp))then
+           write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
+           stop '"transp" is a NaN'
+        endif
      else
         ! no leaves means no photosynthesis and no stomatal conductance either
         cc%An_op  = 0.0;  cc%An_cl  = 0.0
@@ -241,7 +242,6 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   b=0.01;
   do1=0.09 ; ! kg/kg
   if (pft < 2) do1=0.15;
-
 
   ! Convert Solar influx from W/(m^2s) to mol_of_quanta/(m^2s) PAR,
   ! empirical relationship from McCree is light=rn*0.0000046
@@ -367,26 +367,31 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   
   an_w=anbar;
   if (an_w > 0.) then
-     an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet);
+     an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet)
   endif
-  gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet); !Weng: 1.56 for H2O?
+  gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet) !Weng: 1.56 for H2O?
   if (gs_w > gs_lim) then
-      if(an_w > 0.) an_w = an_w*gs_lim/gs_w;
+      if(an_w > 0.) an_w = an_w*gs_lim/gs_w
       gs_w = gs_lim;
   endif
   ! find water availability diagnostic demand
   Ed = gs_w * ds*mol_air/mol_h2o ! ds*mol_air/mol_h2o is the humidity deficit in [mol_h2o/mol_air]
   ! the factor mol_air/mol_h2o makes units of gs_w and humidity deficit ds compatible:
   if (Ed>ws) then
-     w_scale=ws/Ed;
-     gs_w=w_scale*gs_w;
-     if(an_w > 0.0) an_w = an_w*w_scale;
-     if(an_w < 0.0.and.gs_w >b) gs_w=b;
+     w_scale=ws/Ed
+     gs_w=w_scale*gs_w
+     if(an_w > 0.0) an_w = an_w*w_scale
+     if(an_w < 0.0.and.gs_w >b) gs_w=b
   endif
   gs=gs_w
   apot=an_w
   acl=-Resp/lai
   transp = min(ws,Ed) ! mol H20/(m2 of leaf s)
+
+  if(isnan(transp))then
+    write(*,*)'ws,ed',ws,ed
+    stop '"transp" is a NaN'
+  endif
 ! just for reporting
   w_scale2=min(1.0,ws/Ed)
    ! finally, convert units of stomatal conductance to m/s from mol/(m2 s) by
@@ -475,7 +480,8 @@ subroutine fetch_CN_for_growth(cc)
     implicit none
     type(cohort_type), intent(inout) :: cc
     !------local var -----------
-    logical :: do_new_scheme
+    logical :: woody
+    logical :: dormant,growing
 
     real :: NSCtarget
     real :: C_push, C_pull, growthC
@@ -484,39 +490,30 @@ subroutine fetch_CN_for_growth(cc)
     real :: bl_max, br_max
     real :: resp_growth
 
-    do_new_scheme = .false. ! .true. !
+    ! make these two variables to PFT-specific parameters
+    LFR_rate =1.0 !  1.0/16.0 ! filling rate/day
     associate ( sp => spdata(cc%species) )
-
-     ! make these two variables to PFT-specific parameters
-     LFR_rate = 1.0/5.0 ! 1.0/16.0 ! filling rate/day
-     NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
-
-     ! Fetch C from labile C pool if it is in the growing season
-     if (cc%status == LEAF_ON) then ! growing season
+    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
+    ! Fetch C from labile C pool if it is in the growing season
+    if (cc%status == LEAF_ON) then ! growing season
         C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
                   Max(cc%br_max - cc%br,0.0))
 
         N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
                   Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-
+        C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
 
         N_push = cc%NSN/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
 
         cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull+N_push)
-        if(do_new_scheme)then
-           C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-           cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull+C_push) ! Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
-        else
-           C_push = max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC) ! cc%nsc/(days_per_year*sp%tauNSC) !
-           cc%C_growth = Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push)) ! Min(max(0.02*cc%NSC,0.0), C_pull+C_push) !
-        endif
-     else ! non-growing season
+        cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull+C_push) ! Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
+        !!! cc%NSC      = cc%NSC - cc%C_growth ! just an estimate, not out yet
+    else ! non-growing season
         cc%C_growth = 0.0
         cc%N_growth = 0.0
         cc%resg     = 0.0
-     endif
-
+    endif
     end associate
  end subroutine fetch_CN_for_growth
 
@@ -570,7 +567,7 @@ subroutine fetch_CN_for_growth(cc)
         FR_deficit = max(0.0, cc%br_max - cc%br)
         LFR_deficit = LF_deficit + FR_deficit
         G_LFR = max(min(LF_deficit + FR_deficit,  &
-                        f_LFR_max  * cc%C_growth), 0.0)
+                        f_LFR_max  * cc%C_growth), 0.0) ! (1.- Wood_fract_min)
         !! and distribute it between roots and leaves
         dBL  = min(G_LFR, max(0.0, &
           (G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/(cc%bl_max + cc%br_max) &
@@ -584,12 +581,17 @@ subroutine fetch_CN_for_growth(cc)
         if(cc%layer == 1 .AND. cc%age > sp%maturalage)then
             dSeed = sp%v_seed * (cc%C_growth - G_LFR)
             dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
-        elseif(cc%layer == 1)then
+        else
             dSeed= 0.0
             dBSW = cc%C_growth - G_LFR
-        elseif(sp%lifeform ==0 )then !  For grasses, temporary
-            dSeed = sp%v_seed*(cc%C_growth-G_LFR)
-            dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
+        endif
+
+!       For grasses, temporary
+        if(sp%lifeform ==0 )then
+            dSeed = dSeed + 0.15*G_LFR
+            G_LFR = 0.85 * G_LFR
+            dBR   = 0.85 * dBR
+            dBL   = 0.85 * dBL
         endif
 !!       Nitrogen adjustment on allocations between wood and leaves+roots
 !!       Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
@@ -640,7 +642,6 @@ subroutine fetch_CN_for_growth(cc)
         cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - cc%N_growth !! update NSN
         cc%N_growth = 0.0
 
-
 !       accumulated C allocated to leaf, root, and wood
         cc%NPPleaf = cc%NPPleaf + dBL
         cc%NPProot = cc%NPProot + dBR
@@ -659,7 +660,7 @@ subroutine fetch_CN_for_growth(cc)
         vegn%LAI     = vegn%LAI + cc%leafarea  * cc%nindivs
         call rootarea_and_verticalprofile(cc)
 !       convert sapwood to heartwood for woody plants ! Nitrogen from sapwood to heart wood
-        if(sp%lifeform>0)then
+        if(sp%lifeform>0)then ! woody plants
            CSAsw  = cc%bl_max/sp%LMA * sp%phiCSA * cc%height ! with Plant hydraulics, Weng, 2016-11-30
            CSAtot = 0.25 * PI * cc%DBH**2
            CSAwd  = max(0.0, CSAtot - CSAsw)
@@ -987,6 +988,84 @@ subroutine vegn_nat_mortality (vegn, deltat)
 
 end subroutine vegn_nat_mortality
 
+!------------------------Mortality------------------------------------
+subroutine vegn_hydraulics_mortality (vegn, deltat)
+! mortality rate as a function of xylem usage
+  type(vegn_tile_type), intent(inout) :: vegn
+  real, intent(in) :: deltat ! seconds since last mortality calculations, s
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc => null()
+  type(spec_data_type),   pointer :: sp
+  real :: Asap
+  real :: deathrate ! mortality rate, 1/year
+  real :: deadtrees ! number of trees that died over the time step
+  integer :: i, j, k
+
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+     ! mortality can be a function of growth rate, age, and environmental conditions.
+     cc%Nrings = cc%Nrings + 1
+     if(cc%Nrings>SapWoodMaxAge)then ! Move to the left
+        do j=1, SapWoodMaxAge - 1
+           cc%WTC0(j) = cc%WTC0(j+1)
+           cc%Rring(j) = cc%Rring(j+1)
+           cc%Hring(j) = cc%Hring(j+1)
+           cc%Aring(j) = cc%Aring(j+1)
+           cc%Kx(j) = cc%Kx(j+1)
+           cc%farea(j) = cc%farea(j+1)
+           cc%Fd(j) = cc%Fd(j+1)
+           cc%Wtotal(j) = cc%Wtotal(j+1)
+        enddo
+        cc%Year_sw_min = cc%Year_sw_min + 1
+     else
+        cc%Year_sw_min = 1
+     endif
+     ! Update cohort variables of the new ring
+     k = cc%Nrings - cc%Year_sw_min + 1
+     ! WTC0 and Kx represent scientific hypotheses
+     cc%WTC0(k) = sp%WTC0 * (cc%DBH/0.0025)**sp%thetaHT
+     cc%Kx(k)   = sp%kx0
+
+     ! Other cohort variables of the new ring
+     cc%Wtotal(k) = 0.0
+     cc%farea(k) = 1.0
+     cc%Rring(k) = cc%DBH/2.0
+     cc%Hring(k) = cc%height
+     if(k>1)then
+        cc%Aring(k) = PI * (cc%Rring(k)**2 - cc%Rring(k-1)**2)
+     else
+        cc%Aring(k) = PI * cc%Rring(k)**2
+     endif
+     ! update usage of all rings
+     Asap = 0.0
+     do j=cc%Year_sw_min, cc%Nrings !
+        k = j - cc%Year_sw_min + 1
+        Asap = Asap + cc%farea(k)*cc%Aring(k)
+     enddo
+     cc%Ktrunk = 0.0
+     do j=cc%Year_sw_min, cc%Nrings !
+        k = j - cc%Year_sw_min + 1
+        cc%Wtotal(k) = cc%Wtotal(k) + cc%annualTrsp/Asap
+        cc%Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%Wtotal(k)/cc%WTC0(k)))+1.0)
+        cc%farea(j) = (1.0 - cc%Fd(k))*cc%farea(k)
+        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Hring(k)
+     enddo
+
+!     Mortatliy rate
+!     Calculate live sapwood area and compare it with potential values
+!     deathrate =Max(0.0, 1.0 - Asap/cc%crownarea /sp%phiCSA)
+!     deadtrees = cc%nindivs * MIN(1.0,deathrate) ! individuals / m2
+!     ! Carbon and Nitrogen from dead plants to soil pools
+!     call plant2soil(vegn,cc,deadtrees)
+!     ! Update plant density
+!     cc%nindivs = cc%nindivs - deadtrees
+     end associate
+  enddo
+
+end subroutine vegn_hydraulics_mortality
+
 !============================================================================
 !----------------------- fire disturbance -----------------------------------
 subroutine vegn_fire_disturbance (vegn, deltat)
@@ -1023,7 +1102,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   Ignition_W0 = 0.025 !0.05
   r_BK0  = -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
   D_BK0  = 5.9/1000.0 ! half survival bark thickness, m
-  m0_w_fire = 0.95 ! 1.0
+  m0_w_fire = 0.85 !1.0
   m0_g_fire = 0.2
 
   !f_HT0  = 10.0   ! for bark resistance
@@ -1077,7 +1156,7 @@ subroutine vegn_fire_disturbance (vegn, deltat)
          !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
          !write(*,*)'bark, bark_r',cc%D_bark,bark_r
          if(r_fire < tree_flmb*envi_fire_prb)then
-             deathrate = m0_w_fire * f_tree   ! tree canopy fire
+             deathrate = 0.9 * f_tree   ! tree canopy fire
          else ! grass fire
              deathrate = m0_w_fire * (1.0 - bark_r) * max(0.0, 1.0-vegn%treecover)
          endif
@@ -1167,7 +1246,7 @@ subroutine vegn_annual_starvation (vegn)
     deathrate = 0.0
 !   if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
 !    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
-    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then
+    if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! annualNPP < 0 is for grasses only
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
          ! Carbon and Nitrogen from plants to soil pools
@@ -1587,7 +1666,6 @@ subroutine relayer_cohorts (vegn)
      if (abs(layer_vegn_cover - frac)<tolerance) then
        L = L+1 ; frac = 0.0              ! start new layer
      endif
-!     write(*,*)i, new(i)%layer
      i = i+1
   enddo
   
