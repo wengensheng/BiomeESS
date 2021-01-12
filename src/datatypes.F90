@@ -1026,9 +1026,9 @@ end subroutine summarize_tile
   If(outputhourly.and. iday>equi_days) &
     write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
       iyears, idoy, ihour,      &
-      forcingData%radiation,    &
-      forcingData%Tair,         &
-      forcingData%rain,         &
+      forcing%radiation,    &
+      forcing%Tair,         &
+      forcing%rain,         &
       vegn%GPP,vegn%resp,vegn%transp,  &
       vegn%evap,vegn%runoff,vegn%soilwater, &
       vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
@@ -1047,9 +1047,8 @@ end subroutine summarize_tile
 end subroutine hourly_diagnostics
 
 !============================================
-subroutine daily_diagnostics(vegn,forcing,iyears,idoy,iday,fno3,fno4)
+subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
   type(vegn_tile_type), intent(inout) :: vegn
-  type(climate_data_type),intent(in):: forcing
   integer, intent(in) :: iyears,idoy,iday,fno3,fno4
 
   !-------local var ------

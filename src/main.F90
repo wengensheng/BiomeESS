@@ -169,7 +169,7 @@ program BiomeESS
    ! total years of model run
    totyears = model_run_years
    totdays  = INT(totyears/yr_data+1)*days_data
-   equi_days = totdays - days_data
+   equi_days = Max(0, totdays - days_data)
 
    ! ----- model run ---------- ! Model run starts here !!
    year0 = forcingData(1)%year
@@ -178,6 +178,7 @@ program BiomeESS
    simu_steps = 0
    do idays =1, totdays ! 1*days_data ! days for the model run
         idoy = idoy + 1
+        !write(*,*)idays,equi_days
         ! get daily mean temperature
         vegn%Tc_daily = 0.0
         tsoil         = 0.0
@@ -196,8 +197,8 @@ program BiomeESS
         vegn%Tc_daily = vegn%Tc_daily/steps_per_day
         tsoil         = tsoil/steps_per_day
         soil_theta    = vegn%thetaS
-        !write(*,*)idays,equi_days
-        call daily_diagnostics(vegn,forcingData(idata),iyears,idoy,idays,fno3,fno4)
+
+        call daily_diagnostics(vegn,iyears,idoy,idays,fno3,fno4)
         !write(*,*)iyears,idoy
         ! daily calls
         call vegn_phenology(vegn,j)

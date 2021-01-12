@@ -161,6 +161,10 @@ subroutine vegn_photosynthesis (forcing, vegn)
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
         !if(isnan(cc%gpp))cc%gpp=0.0
         if(isnan(cc%gpp))stop '"gpp" is a NaN'
+        if(isnan(cc%transp))then
+           write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
+           stop '"transp" is a NaN'
+        endif
      else
         ! no leaves means no photosynthesis and no stomatal conductance either
         cc%An_op  = 0.0;  cc%An_cl  = 0.0
@@ -363,26 +367,31 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   
   an_w=anbar;
   if (an_w > 0.) then
-     an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet);
+     an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet)
   endif
-  gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet); !Weng: 1.56 for H2O?
+  gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet) !Weng: 1.56 for H2O?
   if (gs_w > gs_lim) then
-      if(an_w > 0.) an_w = an_w*gs_lim/gs_w;
+      if(an_w > 0.) an_w = an_w*gs_lim/gs_w
       gs_w = gs_lim;
   endif
   ! find water availability diagnostic demand
   Ed = gs_w * ds*mol_air/mol_h2o ! ds*mol_air/mol_h2o is the humidity deficit in [mol_h2o/mol_air]
   ! the factor mol_air/mol_h2o makes units of gs_w and humidity deficit ds compatible:
   if (Ed>ws) then
-     w_scale=ws/Ed;
-     gs_w=w_scale*gs_w;
-     if(an_w > 0.0) an_w = an_w*w_scale;
-     if(an_w < 0.0.and.gs_w >b) gs_w=b;
+     w_scale=ws/Ed
+     gs_w=w_scale*gs_w
+     if(an_w > 0.0) an_w = an_w*w_scale
+     if(an_w < 0.0.and.gs_w >b) gs_w=b
   endif
   gs=gs_w
   apot=an_w
   acl=-Resp/lai
   transp = min(ws,Ed) ! mol H20/(m2 of leaf s)
+
+  if(isnan(transp))then
+    write(*,*)'ws,ed',ws,ed
+    stop '"transp" is a NaN'
+  endif
 ! just for reporting
   w_scale2=min(1.0,ws/Ed)
    ! finally, convert units of stomatal conductance to m/s from mol/(m2 s) by
