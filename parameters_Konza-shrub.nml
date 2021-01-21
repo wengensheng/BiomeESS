@@ -1,0 +1,82 @@
+ &vegn_parameters_nml
+soiltype = 3,
+FLDCAP   = 0.4,
+WILTPT   = 0.05,
+K1 =  2.0,  ! turnover rate of fast SOM
+K2 =  0.1, ! turnover rate of slow SOM
+K_nitrogen = 0.0 ! 2.5 ! rate of a year, 2.5
+etaN       = 0.0 ! 0.025 ! loss rate with runoff
+MLmixRatio = 0.8 ! fraction of microbes to litter
+l_fract =0.0
+retransN = 0.0
+f_initialBSW = 0.005
+
+! Fire model parameters (Konza)
+envi_fire_prb = 0.2 ! 0.25 ! 0.33333 ! 0.125 ! 0.5 !   fire probability (per year) due to environment
+Ignition_G0 = 1.0
+Ignition_W0 = 0.025 !0.05
+r_BK0  = -240.0 ! -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
+m0_w_fire = 0.99 ! 1.0
+m0_g_fire = 0.2
+
+! PFT-specific parameters
+! PFT No.:      0        1         2         3         4     ! 0: Andropogon gerardii; 1: Panicum virgatum
+lifeform      = 0,       0,        1,        1,        1,    ! 0: Grass; 1 Woody
+phenotype     = 0,       0,        0,        1,        0,    ! 0: Deciduous; 1 Evergreen
+pt            = 1,       1,        0,        0,        0,    ! 0: C3; 1: C4
+seedlingsize  = 0.005,   0.005,    0.01,     0.01,     0.01  ! initial size of seedlings
+LMA           = 0.032,   0.022,    0.035,    0.175,    0.035,! Leaf mass per unit area
+LNbase        = 0.8E-3,  1.3E-3,   0.8E-3,   0.6E-3,   0.6E-3,
+phiRL         = 2.5,     2.5,      2.5,      2.5,      2.5,   ! Root:leaf area ratio
+rho_wood      = 80.0,    80.0,     300.0,    300.0,    300.0  ! Wood density, kgC/m3
+gdd_crit      = 300.0,   300.0,,   400.0,,   400.0,,   400.0, ! Critical growing degree days (for phenology)
+tc_crit       = 283.16,  283.16,   288.16,   288.16,   288.16 ! Critical temperature (for phenology)
+
+laimax        = 3.5,     3.5,      3.5,      3.5,      3.5,  ! maximum crown LAI
+LAI_light     = 3.5,     3.5,      3.5,      3.5,      3.5,  ! Light-limited crown LAI
+CNleafsupport = 40.,     40.,      40.,      40.,      40.,  ! C/N ratio of leaf support tissues
+Nfixrate0     = 0.0,     0.0,      0.0,      0.0,      0.0   ! 0.03 kgN kgRootC-1 yr-1
+NfixCost0     = 12.,     12.,      12.,      12.,      12.,  ! 12, 24 gC/gN
+gamma_LN      = 50.,     50.,      70.5,     70.5,     70.5,
+gamma_FR      = 1.5,     1.5,      1.5,      1.5,      1.5,
+gamma_SW      = 0.00025, 0.00025,  0.002,    0.002,    0.002
+phiCSA        = 1.25E-4, 1.25E-4,  0.25E-4,  0.25E-4,  0.25E-4,
+mortrate_d_c  = 0.02,    0.02,     0.02,     0.02,     0.02,    ! canopy tree mortality rate, year-1
+mortrate_d_u  = 0.2,     0.05,     0.05,     0.05,     0.08,    ! understory tree mortality rate, year-1
+maturalage    = 220,     220,      5,        5,        5,
+ /
+ 
+ &soil_data_nml
+ GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+ chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+ psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
+ k_sat_ref = 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2, ! mol/(s MPa m)
+ /
+
+ &initial_state_nml
+!!   plant initial cohorts (Konza)
+ init_n_cohorts      =  2,
+ init_cohort_species =  1,     2,
+ init_cohort_nindivs = 0.2,    0.02,
+ init_cohort_bsw     = 0.005,  0.2,
+ init_cohort_bHW     = 0.0,    0.0,
+ init_cohort_nsc     = 0.01,   0.5,
+
+!  Soil
+ init_fast_soil_C    = 0.9 !  ! kg C m-2
+ init_slow_soil_C    = 8.0 !  ! .1 ! 40.0 ! kg C m-2
+ init_Nmineral       = 520.5E-3, ! kg N m-2
+ N_input             = 0.0 ! 4.8E-3, ! kg N m-2 yr-1, N deposition: 0.8 g N m-2 yr-1
+                               ! high N input --> Deciduous
+                               ! low  N input --> Evergreen
+
+! Model run (Konza)
+ filepath_in = '/Users/eweng/BiomeE-Konza/input/' ! Change to your own path
+ climfile    =  'KNZ_amb.csv'  !'KNZ_irr.csv' !
+ model_run_years     = 600 ! 1000 ! 600
+ outputhourly        = .True. !  .False. ! .True. !
+ outputdaily         = .True. ! .False. ! .True.
+ do_U_shaped_mortality = .True.
+ update_annualLAImax = .False.
+ do_fire = .True. ! or ".FALSE.", no fire
+ /
