@@ -64,11 +64,9 @@ maturalage    = 220,     220,      5,        5,        5,
 
 !  Soil
  init_fast_soil_C    = 0.9 !  ! kg C m-2
- init_slow_soil_C    = 8.0 !  ! .1 ! 40.0 ! kg C m-2
- init_Nmineral       = 520.5E-3, ! kg N m-2
- N_input             = 0.0 ! 4.8E-3, ! kg N m-2 yr-1, N deposition: 0.8 g N m-2 yr-1
-                               ! high N input --> Deciduous
-                               ! low  N input --> Evergreen
+ init_slow_soil_C    = 8.0 !  ! kg C m-2
+ init_Nmineral       = 520.5E-3, ! kgN m-2
+ N_input             = 0.0 ! 0.8E-3, ! kg N m-2 yr-1, N deposition
 
 ! Model run (Konza)
  filepath_in = '/Users/eweng/BiomeE-Konza/input/' ! Change to your own path
