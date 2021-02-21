@@ -53,7 +53,10 @@ program BiomeESS
    use datatypes
    use esdvm
    use soil_mod
+#ifdef USE_NETCDF
    use netcdf
+#endif
+
    implicit none
    type(vegn_tile_type),  pointer :: vegn
    type(soil_tile_type),  pointer :: soil
@@ -418,6 +421,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
 end subroutine read_NACPforcing
 
 !===========for netcdf IO ============================
+#ifdef USE_NETCDF
 !=====================================================
   subroutine nc_read_3D(FILE_NAME,field_idx,NX,NY,Ntime,DA)
 
@@ -466,7 +470,7 @@ end subroutine read_NACPforcing
       stop "Stopped"
     end if
   end subroutine check
-
+#endif
 !=================================================================
 !=====================================================
 end program BiomeESS
