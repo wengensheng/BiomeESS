@@ -8,10 +8,11 @@ module esdvm
 public :: initialize_cohort_from_biomass, initialize_vegn_tile
 public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
-public :: vegn_starvation, vegn_nat_mortality, vegn_fire_disturbance
+public :: vegn_starvation, vegn_annual_starvation, vegn_fire_disturbance
+public :: vegn_nat_mortality, vegn_hydro_mortality
 public :: vegn_migration, vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
-public :: vegn_annual_starvation,Zero_diagnostics
+public :: Zero_diagnostics
  contains
 !=============== ESS subroutines ========================================
 !========================================================================
@@ -996,15 +997,18 @@ subroutine vegn_nat_mortality (vegn, deltat)
 end subroutine vegn_nat_mortality
 
 !------------------------Mortality------------------------------------
-subroutine vegn_hydraulics_mortality (vegn, deltat)
-! mortality rate as a function of xylem usage
+subroutine vegn_hydro_mortality (vegn, deltat)
+! mortality rate as a function of xylem usage.
+! Calculated yearly
+! Author: Ensheng Weng, 2021-03-15
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
-  real :: Asap
+  real :: Fd(Ysw_max)
+  real :: Transp_sap ! m, annual Transp per unit sap area
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, j, k
@@ -1012,58 +1016,66 @@ subroutine vegn_hydraulics_mortality (vegn, deltat)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
-     ! mortality can be a function of growth rate, age, and environmental conditions.
-     cc%Nrings = cc%Nrings + 1
-     if(cc%Nrings>SapWoodMaxAge)then ! Move to the left
-        do j=1, SapWoodMaxAge - 1
-           cc%WTC0(j) = cc%WTC0(j+1)
-           cc%Rring(j) = cc%Rring(j+1)
-           cc%Hring(j) = cc%Hring(j+1)
-           cc%Aring(j) = cc%Aring(j+1)
-           cc%Kx(j) = cc%Kx(j+1)
-           cc%farea(j) = cc%farea(j+1)
-           cc%Fd(j) = cc%Fd(j+1)
-           cc%Wtotal(j) = cc%Wtotal(j+1)
-        enddo
-        cc%Year_sw_min = cc%Year_sw_min + 1
-     else
-        cc%Year_sw_min = 1
-     endif
-     ! Update cohort variables of the new ring
-     k = cc%Nrings - cc%Year_sw_min + 1
-     ! WTC0 and Kx represent scientific hypotheses
-     cc%WTC0(k) = sp%WTC0 * (cc%DBH/0.0025)**sp%thetaHT
-     cc%Kx(k)   = sp%kx0
 
+     ! Set up the space for the new ring
+     if(cc%Nrings >= Ysw_max)then
+        do j=2, Ysw_max
+           cc%WTC0(j-1)  = cc%WTC0(j)
+           cc%Kx(j-1)    = cc%Kx(j)
+           cc%farea(j-1) = cc%farea(j)
+           cc%accH(j-1)  = cc%accH(j)
+           cc%totW(j-1)  = cc%totW(j)
+           cc%Rring(j-1) = cc%Rring(j)
+           cc%Lring(j-1) = cc%Lring(j)
+           cc%Aring(j-1) = cc%Aring(j)
+        enddo
+     endif
+
+     ! Setup the new ring formed in this year
+     cc%Nrings = cc%Nrings + 1 ! A new ring
+     k = MIN(cc%Nrings, Ysw_max)
+     ! WTC0 and Kx represent scientific hypotheses. They can be constant,
+     ! or functions of environmental conditions, growht rates, etc.
+     cc%WTC0(k) = sp%WTC0 * (cc%DBH/0.008)**sp%thetaHT
+     cc%Kx(k)   = sp%kx0
      ! Other cohort variables of the new ring
-     cc%Wtotal(k) = 0.0
      cc%farea(k) = 1.0
+     cc%accH(k)= 0.0
+     cc%totW(k)= 0.0
      cc%Rring(k) = cc%DBH/2.0
-     cc%Hring(k) = cc%height
+     cc%Lring(k) = cc%height
      if(k>1)then
         cc%Aring(k) = PI * (cc%Rring(k)**2 - cc%Rring(k-1)**2)
      else
         cc%Aring(k) = PI * cc%Rring(k)**2
      endif
-     ! update usage of all rings
-     Asap = 0.0
-     do j=cc%Year_sw_min, cc%Nrings !
-        k = j - cc%Year_sw_min + 1
-        Asap = Asap + cc%farea(k)*cc%Aring(k)
-     enddo
-     cc%Ktrunk = 0.0
-     do j=cc%Year_sw_min, cc%Nrings !
-        k = j - cc%Year_sw_min + 1
-        cc%Wtotal(k) = cc%Wtotal(k) + cc%annualTrsp/Asap
-        cc%Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%Wtotal(k)/cc%WTC0(k)))+1.0)
-        cc%farea(j) = (1.0 - cc%Fd(k))*cc%farea(k)
-        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Hring(k)
+
+     ! Functional area (i.e., sapwood area)
+     cc%Asap = 0.0
+     do k=1, MIN(cc%Nrings, Ysw_max)
+        cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
      enddo
 
-!     Mortatliy rate
+     ! Calculate life-time water transported and wear-out of xylem tissues
+     cc%Ktrunk = 0.0
+     do k=1, MIN(cc%Nrings, Ysw_max)
+        ! Lifetime water transported for finctional xylem conduits (m)
+        Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! new usage for functional conduits
+        cc%accH(k) = cc%accH(k) + Transp_sap ! m, for functional conduits only
+        cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k) ! m, for the whole ring
+        !Wear-out of xylem conduits
+        Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%accH(k)/cc%WTC0(k))) + 1.0)
+        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k)
+        ! Whole tree conductivity
+        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
+     enddo
+
+!     !--------- Mortatliy rate -----------!
+!     Mortality can be functions of growth rate, age, and environmental conditions.
 !     Calculate live sapwood area and compare it with potential values
-!     deathrate =Max(0.0, 1.0 - Asap/cc%crownarea /sp%phiCSA)
+!     deathrate =Max(0.0, 1.0 - cc%Asap/cc%crownarea /sp%phiCSA)
 !     deadtrees = cc%nindivs * MIN(1.0,deathrate) ! individuals / m2
+
 !     ! Carbon and Nitrogen from dead plants to soil pools
 !     call plant2soil(vegn,cc,deadtrees)
 !     ! Update plant density
@@ -1071,7 +1083,18 @@ subroutine vegn_hydraulics_mortality (vegn, deltat)
      end associate
   enddo
 
-end subroutine vegn_hydraulics_mortality
+  !----- Temporary output
+  !write(933,*)vegn%n_cohorts
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     write(933,'(2(I7,","),205(E12.4,","))')    &
+            cc%ccID,cc%species,                                  &
+            cc%nindivs*10000,cc%DBH,cc%height,cc%Asap,cc%Ktrunk,  &
+            !(cc%accH(k)/1000.,k=1,Ysw_max),               &
+            (cc%farea(k), k=1,Ysw_max)
+
+  enddo
+end subroutine vegn_hydro_mortality
 
 !============================================================================
 !----------------------- fire disturbance -----------------------------------
@@ -2268,6 +2291,8 @@ subroutine annual_calls(vegn)
     call vegn_annual_starvation(vegn)
     call vegn_reproduction(vegn)
     call vegn_nat_mortality(vegn, real(seconds_per_year))
+    ! No mortality yet, just check the calculation of variables
+    call vegn_hydro_mortality (vegn, real(seconds_per_year))
 
 
     ! Re-organize cohorts

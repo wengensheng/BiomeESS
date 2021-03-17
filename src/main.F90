@@ -48,6 +48,7 @@
 !
 !----- END -----------------------------------------------------------
 !
+#define Hydro_test
 
 program BiomeESS
    use datatypes
@@ -72,7 +73,8 @@ program BiomeESS
    real    :: dDBH ! yearly growth of DBH, mm
    real    :: plantC,plantN, soilC, soilN
    real    :: dSlowSOM  ! for multiple tests only
-   character(len=150) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
+   character(len=150) :: plantcohorts,plantCNpools
+   character(len=150) :: soilCNpools,allpools,faststepfluxes  ! output file names
    logical :: new_annual_cycle
    integer :: istat1,istat2,istat3
    integer :: year0, year1, iyears
@@ -87,7 +89,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'Konza-shrub' !
+   runID = 'FACE_hydro' ! 'Konza-shrub' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -217,8 +219,11 @@ program BiomeESS
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
             ! mortality
+            ! Calculations only, no mortality yet
+            call vegn_hydro_mortality(vegn, real(seconds_per_year))
 
             call annual_diagnostics(vegn,iyears,fno2,fno5)
+#ifndef Hydro_test
             call vegn_annual_starvation(vegn) ! turned off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
@@ -227,6 +232,7 @@ program BiomeESS
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             call kill_lowdensity_cohorts(vegn)
+#endif
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
 

@@ -38,7 +38,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
-integer, public, parameter :: SapWoodMaxAge = 50 ! Maximum function years of xylems
+integer, public, parameter :: Ysw_max = 100 ! Maximum function years of xylems
 ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
  real, public, parameter ::  thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
@@ -215,18 +215,19 @@ type :: cohort_type
   real :: resr = 0.0 ! root respiration
   real :: resg = 0.0 ! growth respiration
   real :: NPPleaf,NPProot,NPPwood ! to record C allocated to leaf, root, and wood
+  
 ! for hydraulics-mortality
-  integer :: Year_sw_min = 1 ! Minimum sapwood ring age
   integer :: Nrings = 0
-  real :: WTC0(SapWoodMaxAge) ! lifetime water transfer capacity
   real :: Ktrunk ! trunk water conductance, m/(s kpa)
-  real :: Rring(SapWoodMaxAge) ! Radius to the outer edge
-  real :: Hring(SapWoodMaxAge) ! Length of xylem conduits
-  real :: Aring(SapWoodMaxAge) !
-  real :: Kx(SapWoodMaxAge)
-  real :: farea(SapWoodMaxAge) ! fraction of functional area, 1.0/(exp(r_DF*(1.0-Wtotal[j]/W0[j]))+1.0)
-  real :: Fd(SapWoodMaxAge) ! fraction of losing function in a year
-  real :: Wtotal(SapWoodMaxAge) ! total water transport, m
+  real :: Asap ! Functional cross sectional area
+  real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
+  real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
+  real :: totW(Ysw_max) = 0.0 ! m, total water transport for each ring
+  real :: accH(Ysw_max) = 0.0 ! m, total water transport for functional conduits
+  real :: farea(Ysw_max) = -1.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
+  real :: Rring(Ysw_max) = 0.0 ! Radius to the outer edge
+  real :: Lring(Ysw_max) = 0.0 ! Length of xylem conduits
+  real :: Aring(Ysw_max) = 0.0 !
 
 ! for diagnostics
   real :: dailyTrsp
@@ -1144,13 +1145,13 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         froot = cc%NPProot/treeG
         fwood = cc%NPPwood/treeG
         dDBH = (cc%DBH   - cc%DBH_ys)*1000.
-        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),45(F12.4,","))')        &
+        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),45(F12.4,","))')    &
             cc%ccID,cc%species,cc%layer,                        &
             cc%nindivs*10000, cc%layerfrac,dDBH,                &
-            cc%dbh,cc%height,cc%crownarea,                      &
+            cc%dbh,cc%height,cc%crownarea,                     &
             cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                   &
-            treeG,fseed, fleaf, froot, fwood,                 &
-            cc%annualGPP,cc%annualNPP,                          &
+            treeG,fseed, fleaf, froot, fwood,                  &
+            cc%annualGPP,cc%annualNPP,                         &
             cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
         ! Screen output
