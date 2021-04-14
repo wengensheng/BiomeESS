@@ -1036,7 +1036,7 @@ subroutine vegn_hydro_mortality (vegn, deltat)
      k = MIN(cc%Nrings, Ysw_max)
      ! WTC0 and Kx represent scientific hypotheses. They can be constant,
      ! or functions of environmental conditions, growht rates, etc.
-     cc%WTC0(k) = sp%WTC0 * (cc%DBH/0.008)**sp%thetaHT
+     cc%WTC0(k) = sp%WTC0  + m0_dbh * cc%DBH ** sp%thetaHT
      cc%Kx(k)   = sp%kx0
      ! Other cohort variables of the new ring
      cc%farea(k) = 1.0

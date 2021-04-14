@@ -38,10 +38,11 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
+real, public, parameter    :: m0_dbh = 12000.0 !  DBH-WTC0 scaling factor
 integer, public, parameter :: Ysw_max = 100 ! Maximum function years of xylems
 ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
- real, public, parameter ::  thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
+ real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
  real, public, parameter :: psi_wilt  = -150.0  ! matric head at wilting
  real, public, parameter :: K_rel_min = 1.e-12
  real, public, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d drainage rate at FC
@@ -561,7 +562,7 @@ real :: CNleafsupport(0:MSPECIES) = 80.0 ! CN ratio of leaf supporting tissues
 real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
 real :: kx0(0:MSPECIES)           = 6000.0   ! m yr-1 MPa-1
-real :: WTC0(0:MSPECIES)          = 2000.0  ! m /lifetime
+real :: WTC0(0:MSPECIES)          = 1200.0  ! 2000, m /lifetime
 real :: r_DF(0:MSPECIES)          = 100.0
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
