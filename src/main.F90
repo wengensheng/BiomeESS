@@ -27,7 +27,7 @@
 ! competition. Biogeosciences, 12: 2655–2694, doi:10.5194/bg-12-2655-2015.
 !
 !
-! Contact Ensheng Weng (wengensheng@gmail.com) for qeustions.
+! Contact Ensheng Weng (wengensheng@gmail.com) for questions.
 !
 !                      (Lase edited 12/30/2017)
 !
@@ -41,15 +41,15 @@
 !     Demography: Reproduction, Mortality
 !     Population dynamics
 !     Soil C-N dynamics
-!     Soil respraition
+!     Soil respiration
 !     Soil water dynamics: soil surface evaporation, infiltration
 !                          runoff
 !
 !
 !----- END -----------------------------------------------------------
 !
-#define Hydro_test
-#define USE_NETCDF
+!#define Hydro_test
+!#define USE_NETCDF
 
 program BiomeESS
    use datatypes
@@ -93,7 +93,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'FACE_hydro' ! 'Konza-shrub' !
+   runID = 'Konza-shrub' ! 'FACE_OR' ! 'FACE_hydro' ! 
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -222,13 +222,14 @@ program BiomeESS
             !call annual_calls(vegn)
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
+            call annual_diagnostics(vegn,iyears,fno2,fno5)
+            
+#ifdef Hydro_test
             ! mortality
             ! Calculations only, no mortality yet
             call vegn_hydro_mortality(vegn, real(seconds_per_year))
-
-            call annual_diagnostics(vegn,iyears,fno2,fno5)
-#ifndef Hydro_test
-            call vegn_annual_starvation(vegn) ! turned off for grass run
+#else
+            call vegn_annual_starvation(vegn) ! turn it off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
 
