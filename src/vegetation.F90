@@ -714,18 +714,18 @@ subroutine fetch_CN_for_growth(cc)
   cc => null()
 
   ! Update tree and grass cover
-  !vegn%treecover = 0.0
-  !vegn%grasscover = 0.0
-  !do i = 1, vegn%n_cohorts
-  !   cc => vegn%cohorts(i)
-  !   associate ( sp => spdata(cc%species))
-  !   if(sp%lifeform==0) then
-  !       if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
-  !   elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-  !       vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
-  !   endif
-  !   end associate
-  !enddo
+  vegn%treecover = 0.0
+  vegn%grasscover = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+     if(sp%lifeform==0) then
+         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+     endif
+     end associate
+  enddo
 
 end subroutine vegn_growth_EW ! daily
 
@@ -774,31 +774,50 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   real    :: grassdensity   ! for grasses only
   real    :: BL_u,BL_c
   real    :: ccFR, ccNSC, ccRootN, ccNSN
+  real    :: Tc_off_crit, gdd_crit
+  real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
   logical :: cc_firstday = .false.
   logical :: growingseason
   logical :: TURN_ON_life, TURN_OFF_life
 
-  vegn%litter = 0   ! daily litter
-
-  ! update vegn GDD and tc_pheno
-  vegn%gdd      = vegn%gdd + max(0.0, vegn%tc_daily - 278.15)
+! -------------- update vegn GDD and tc_pheno ---------------
+  ! environmental factors for each cohort
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
+  do i = 1, vegn%n_cohorts
+     cc=>vegn%cohorts(i)
+     associate (sp => spdata(cc%species) )
+     cc%gdd = cc%gdd + max(0.0, vegn%tc_pheno - T0_gdd) ! GDD5
+     if(cc%status == LEAF_ON)then
+        cc%ncd = 0
+        cc%ndm = 0
+        cc%ngd = Min(366, cc%ngd + 1)
+        if(cc%ngd > 60)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
+     else  ! cc%status == LEAF_OFF
+        cc%ngd = 0
+        cc%ndm = cc%ndm + 1
+        if(vegn%tc_pheno<sp%tc_crit_off)then
+           cc%ncd = cc%ncd + 1
+        endif
+        if(cc%ndm < 60)cc%gdd  = 0.0 ! Keep gdd as zero in early chilling period
+     endif ! cc%status
 
+     end associate
+  enddo
+
+! --------- Change pheno status ----------------------------
 ! ON and OFF of phenology: change the indicator of growing season for deciduous
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
-     ! update GDD for each cohort
-     cc%gdd = cc%gdd + max(0.0, vegn%tc_daily - 278.15) ! GDD5
-     
      associate (sp => spdata(cc%species) )
 !    for evergreen
-     if(sp%phenotype==1 .and. cc%status==LEAF_OFF) cc%status=LEAF_ON
+     if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
 !    for deciduous and grasses
-     TURN_ON_life = (sp%phenotype == 0             .and. &
-                    cc%status    == LEAF_OFF       .and. &
-                    cc%gdd        > sp%gdd_crit    .and. &
-                    vegn%tc_pheno > sp%tc_crit_on) .and. &
-             (sp%lifeform .ne. 0 .OR.(sp%lifeform .eq. 0 .and.cc%layer==1))
+     gdd_crit = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
+     TURN_ON_life = (sp%phenotype == 0 .and. cc%status /= LEAF_ON .and. &
+        ! Temporary for grass
+        (sp%lifeform == 0 .OR.(sp%lifeform /= 0 .and. cc%layer==1)).and. &
+        ! Temperature conditions
+        cc%gdd > sp%gdd_crit .and. vegn%tc_pheno > sp%tc_crit_on)
 
      cc_firstday = .false.
      if(TURN_ON_life)then
@@ -839,16 +858,16 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
-     TURN_OFF_life = (sp%phenotype  == 0 .and.     &
-                    cc%status == LEAF_ON .and.     &
-                    cc%gdd > sp%gdd_crit+600. .and. &
-                    vegn%tc_pheno < sp%tc_crit)
+     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-90)))
+     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*max(-15.,real(cc%ngd-90)))
+     TURN_OFF_life = (cc%status==LEAF_ON .and. sp%phenotype == 0 .and. &
+                cc%ALT < -20. .and. &
+                vegn%tc_pheno < Tc_off_crit)
      end associate
 
      if(TURN_OFF_life )then
         cc%status = LEAF_OFF  ! Turn off a growing season
         cc%gdd   = 0.0        ! Start to counting a new cycle of GDD
-        vegn%gdd = 0.0
      endif
      ! leaf fall
      call Seasonal_fall(cc,vegn)

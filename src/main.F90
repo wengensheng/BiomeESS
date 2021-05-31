@@ -93,7 +93,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'Konza-shrub' ! 'FACE_OR' ! 'FACE_hydro' ! 
+   runID = 'FACE_OR' ! 'Konza-shrub' !  'FACE_hydro' ! 
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -182,6 +182,7 @@ program BiomeESS
    iyears = 1
    idoy   = 0
    simu_steps = 0
+   vegn%Tc_pheno = forcingData(1)%Tair
    do idays =1, totdays ! 1*days_data ! days for the model run
         idoy = idoy + 1
         !write(*,*)idays,equi_days

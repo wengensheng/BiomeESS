@@ -156,7 +156,7 @@ type spec_data_type
   real    :: CNwood0
   real    :: CNseed0
   ! phenology
-  real    :: tc_crit         ! K, for turning OFF a growth season
+  real    :: tc_crit_off     ! K, for turning OFF a growth season
   real    :: tc_crit_on      ! K, for turning ON a growth season
   real    :: gdd_crit        ! K, critical value of GDD5 for turning ON growth season
   !  vital rates
@@ -185,6 +185,10 @@ type :: cohort_type
   integer :: ccID    = 0   ! cohort ID
   integer :: species = 0   ! vegetation species
   real    :: gdd     = 0.0   ! for phenology
+  real    :: ALT     = 0.0  ! growing season accumulative cold temperature
+  integer :: Ngd     = 0   ! growing days
+  integer :: Ndm     = 0   ! dormant days
+  integer :: Ncd     = 0   ! number of cold days in non-growing season
   integer :: status  = 0   ! growth status of plant: 1 for ON, 0 for OFF
   integer :: layer   = 1   ! the layer of this cohort (numbered from top, top layer=1)
   integer :: firstlayer = 0 ! 0 = never been in the first layer; 1 = at least one year in first layer
@@ -305,7 +309,6 @@ type :: vegn_tile_type
    real :: root_distance(max_lev) ! characteristic half-distance between fine roots, m
    ! averaged quantities for PPA phenology
    real :: tc_daily = 0.0
-   real :: gdd      = 0.0 ! growing degree-days
    real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology
 
    ! litter and soil carbon pools
@@ -489,6 +492,14 @@ real :: DBHtp      = 2.0 !  m, for canopy tree's mortality rate
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 
+! Phenology parameters
+! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
+real :: T0_gdd   = 273.15 + 5.0 ! 5.d0
+real :: T0_chill = 273.15 + 10.0
+real :: gdd_par1 = 30.0   !50.d0   ! -68.d0
+real :: gdd_par2 = 800. ! 650.d0  !800.d0  ! 638.d0
+real :: gdd_par3 = -0.02 ! -0.01d0
+
 ! reduction of bl_max and br_max for the understory vegetation, unitless
 real :: understory_lai_factor = 0.25
 !real :: rdepth(0: max_lev) = 0.0
@@ -529,9 +540,9 @@ real :: gamma_L(0:MSPECIES)= 0.02 !
 real :: gamma_LN(0:MSPECIES)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
 real :: gamma_SW(0:MSPECIES)= 0.08 ! 5.0e-4 ! kgC m-2 Acambium yr-1
 real :: gamma_FR(0:MSPECIES)= 12.0 ! 15 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
-real :: tc_crit(0:MSPECIES)= 283.16 ! OFF
-real :: tc_crit_on(0:MSPECIES)= 280.16 ! ON
-real :: gdd_crit(0:MSPECIES)= 280.0 !
+real :: tc_crit_off(0:MSPECIES)= 273.15 + 15. ! 283.16 ! OFF
+real :: tc_crit_on(0:MSPECIES) = 273.15 + 10. ! 280.16 ! ON
+real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
 
 ! Allometry parameters
 real :: alphaHT(0:MSPECIES)      = 36.0
@@ -595,7 +606,8 @@ namelist /vegn_parameters_nml/  &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
   f_initialBSW, f_LFR_max,  &
-  gdd_crit,tc_crit, tc_crit_on, envi_fire_prb,  &
+  gdd_crit,tc_crit_off, tc_crit_on, envi_fire_prb,  &
+  T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,   & ! Weng, 2021-05-30
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
   mortrate_d_c, mortrate_d_u, A_mort, B_mort,DBHtp,     &
@@ -762,8 +774,9 @@ subroutine initialize_PFT_data(namelistfile)
 !  spdata%N_roots0  = N_roots0
 
   spdata%leaf_size = leaf_size
-  spdata%tc_crit   = tc_crit
-  spdata%gdd_crit  = gdd_crit
+  spdata%tc_crit_off   = tc_crit_off
+  spdata%tc_crit_on    = tc_crit_on
+  spdata%gdd_crit      = gdd_crit
 
 ! Plant traits
   spdata%LMA            = LMA      ! leaf mass per unit area, kg C/m2
@@ -847,9 +860,9 @@ subroutine initialize_PFT_data(namelistfile)
 !  Leaf life span as a function of LMA
    sp%leafLS = c_LLS * sp%LMA
    if(sp%leafLS>1.0)then
-      sp%phenotype = 1
+      sp%phenotype = 1 ! Everygreen
    else
-      sp%phenotype = 0
+      sp%phenotype = 0 ! Deciduous
    endif
 !  Leaf turnover rate, (leaf longevity as a function of LMA)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
@@ -1059,6 +1072,8 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
   ! Output and zero daily variables
       !!! daily !! cohorts output
+      if(outputdaily.and. iday>equi_days) &
+      write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
       do i = 1, vegn%n_cohorts
           cc => vegn%cohorts(i)
           if(outputdaily.and. iday>equi_days) &
@@ -1086,7 +1101,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
       if(outputdaily.and. iday>equi_days) then
          call summarize_tile(vegn)
          write(fno4,'(2(I5,","),60(F12.6,","))') iyears, idoy,  &
-            vegn%tc_daily, vegn%dailyPrcp, vegn%soilwater,      &
+            vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,      &
             vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,      &
             vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
             vegn%wcl(3)*thksl(3)*1000., &
