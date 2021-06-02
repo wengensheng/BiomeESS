@@ -6,10 +6,10 @@ module esdvm
 
 ! ------ public subroutines ---------
 public :: initialize_cohort_from_biomass, initialize_vegn_tile
-public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
+public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_annual_starvation, vegn_fire_disturbance
-public :: vegn_nat_mortality, vegn_hydro_mortality
+public :: vegn_nat_mortality, vegn_hydro_mortality,vegn_sum_tile
 public :: vegn_migration, vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 public :: Zero_diagnostics
@@ -96,34 +96,28 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: tempLAI,w_scale2, transp ! mol H20 per m2 of leaf per second
   real :: kappa  ! light extinction coefficient of corwn layers
   real :: f_light(10)=0.0      ! light fraction of each layer
-  real :: LAIlayer(10),f_gap ! additional GPP for lower layer cohorts due to gaps
   integer :: i, layer
 
   !! Water supply for photosynthesis, Layers
   call water_supply_layer(forcing, vegn)
 
 !! Light supply for photosynthesis
-! update accumulative LAI for each corwn layer
-  f_gap = 0.1 ! 0.1
-
-  LAIlayer = 0.0
+  vegn%kp = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      layer = Max (1, Min(cc%layer,9))
-     LAIlayer(layer) = LAIlayer(layer) + cc%leafarea * cc%nindivs !/(1.-f_gap)
+     ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
+     vegn%kp(layer) = vegn%kp(layer)  &  ! -0.75
+                    + cc%extinct * cc%crownarea * cc%nindivs
   enddo
-
-  ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
-  kappa = cc%extinct ! 0.75
 
   ! Light fraction
   f_light = 0.0
   f_light(1) = 1.0
   do i =2, layer !MIN(int(vegn%CAI+1.0),9)
-      f_light(i) = f_light(i-1) * (exp(0.0-kappa*LAIlayer(i-1)) + f_gap)
-      !f_light(i) = f_light(i-1) * (exp(0.0-kappa*3.5) + 0.1)
+      f_light(i) = f_light(i-1)  &
+           * (exp(0.-vegn%kp(i-1)*vegn%LAIlayer(i-1)) + vegn%f_gap(i-1))
   enddo
-  !f_light = 1.0 ! testing understory photosynthesis
 
   ! Photosynthesis
   do i = 1, vegn%n_cohorts
@@ -710,40 +704,80 @@ subroutine fetch_CN_for_growth(cc)
   enddo
   cc => null()
 
-  ! Update tree and grass cover
-  vegn%treecover = 0.0
-  vegn%grasscover = 0.0
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species))
-     if(sp%lifeform==0) then
-         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
-     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
-     endif
-     end associate
-  enddo
+  ! Update tile variables
+  call vegn_sum_tile(vegn)
 
 end subroutine vegn_growth_EW ! daily
 
 !=================================================
-! Weng, 2017-10-26
-subroutine update_layer_LAI(vegn)
+! Weng, 2021-06-02
+subroutine vegn_sum_tile(vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
   integer :: i, layer
 
-! update accumulative LAI for each corwn layer
-  vegn%LAI      = 0.0
+  vegn%NSC     = 0.0
+  vegn%SeedC   = 0.0
+  vegn%leafC   = 0.0
+  vegn%rootC   = 0.0
+  vegn%SapwoodC= 0.0
+  vegn%WoodC   = 0.0
+
+  vegn%NSN     = 0.0
+  vegn%SeedN   = 0.0
+  vegn%leafN   = 0.0
+  vegn%rootN   = 0.0
+  vegn%SapwoodN= 0.0
+  vegn%WoodN   = 0.0
+
+  vegn%LAI     = 0.0
+  vegn%CAI     = 0.0
+
   vegn%LAIlayer = 0.0
+  vegn%f_gap    = 0.0
+  vegn%treecover = 0.0
+  vegn%grasscover = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+
+     ! update accumulative LAI for each corwn layer
      layer = Max (1, Min(cc%layer,9)) ! between 1~9
      vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + cc%leafarea * cc%nindivs !/(1.0-sp%internal_gap_frac)
+     vegn%f_gap(layer)    = vegn%f_gap(layer)    + cc%crownarea * cc%nindivs &
+                                   * sp%internal_gap_frac
+
+    ! For reporting
+    ! Vegn C pools:
+     vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
+     vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
+     vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
+     vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
+     vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
+     vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
+     vegn%CAI     = vegn%CAI + cc%crownarea * cc%nindivs
+     vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
+    ! Vegn N pools
+     vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
+     vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
+     vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
+     vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
+     vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
+     vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
+
+     ! Update tree and grass cover
+     if(sp%lifeform==0) then
+         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+     endif
+
+     end associate
   enddo
- end subroutine update_layer_LAI
+
+end subroutine vegn_sum_tile
 
 !=================================================
 ! Weng: partioning root area into layers, 10-24-2017
@@ -2513,7 +2547,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%thetaS = 1.0
 
       ! tile
-      call summarize_tile(vegn)
+      call vegn_sum_tile(vegn)
       vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
                        vegn%rootN + vegn%SapwoodN + vegn%woodN + &
                        vegn%MicrobialN + vegn%metabolicN +       &
@@ -2554,7 +2588,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%previousN   = vegn%mineralN
 
       ! tile
-      call summarize_tile(vegn)
+      call vegn_sum_tile(vegn)
       vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
                        vegn%rootN + vegn%SapwoodN + vegn%woodN + &
                        vegn%MicrobialN + vegn%metabolicN +       &

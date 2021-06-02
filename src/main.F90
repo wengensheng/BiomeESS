@@ -143,7 +143,7 @@ program BiomeESS
         'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
         'McrbC', 'fastSOM',   'slowSOM',                   &
         'McrbN', 'fastSoilN', 'slowSoilN',                 &
-        'mineralN', 'N_uptk'
+        'mineralN', 'N_uptk','Kappa'
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
         'CAI','LAI','treecover', 'grasscover', &

@@ -304,7 +304,9 @@ type :: vegn_tile_type
    ! leaf area index
    real :: LAI  ! leaf area index
    real :: CAI  ! crown area index
-   real :: LAIlayer(0:10) = 0.0 ! LAI of each crown layer, max. 9
+   real :: LAIlayer(9) = 0.0 ! LAI of each crown layer, max. 9
+   real :: f_gap(9)    = 0.0 ! gap fraction of each crown layer
+   real :: kp(9)       = 0.0 ! light extinction coefficient fro each layer
    ! uptake-related variables
    real :: root_distance(max_lev) ! characteristic half-distance between fine roots, m
    ! averaged quantities for PPA phenology
@@ -961,53 +963,6 @@ subroutine Zero_diagnostics(vegn)
   enddo
 end subroutine Zero_diagnostics
 
-! ========================
-subroutine summarize_tile(vegn)
-! for annual update
-  type(vegn_tile_type), intent(inout) :: vegn
-  !-------local var
-  type(cohort_type),pointer :: cc
-  integer :: i
-
-  ! State variables
-  vegn%NSC     = 0.0
-  vegn%SeedC   = 0.0
-  vegn%leafC   = 0.0
-  vegn%rootC   = 0.0
-  vegn%SapwoodC= 0.0
-  vegn%WoodC   = 0.0
-
-  vegn%NSN     = 0.0
-  vegn%SeedN   = 0.0
-  vegn%leafN   = 0.0
-  vegn%rootN   = 0.0
-  vegn%SapwoodN= 0.0
-  vegn%WoodN   = 0.0
-
-  vegn%LAI     = 0.0
-  vegn%CAI     = 0.0
-  do i = 1, vegn%n_cohorts
-        cc => vegn%cohorts(i)
-        ! Vegn C pools:
-        vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
-        vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
-        vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
-        vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
-        vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
-        vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
-        vegn%CAI     = vegn%CAI + cc%crownarea * cc%nindivs
-        vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
-        ! Vegn N pools
-        vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
-        vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
-        vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
-        vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
-        vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
-        vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
-  enddo
-
-end subroutine summarize_tile
-
 !=========================================================================
 ! Hourly fluxes sum to daily
  subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday,fno1)
@@ -1102,8 +1057,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
       enddo
       !! Tile level, daily
       if(outputdaily.and. iday>equi_days) then
-         call summarize_tile(vegn)
-         write(fno4,'(2(I5,","),60(F12.6,","))') iyears, idoy,  &
+         write(fno4,'(2(I5,","),60(F12.4,","))') iyears, idoy,  &
             vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,      &
             vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,      &
             vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
@@ -1115,7 +1069,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             vegn%rootN*1000, vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
             vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
             vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
-            vegn%mineralN*1000,   vegn%dailyNup*1000
+            vegn%mineralN*1000,   vegn%dailyNup*1000,vegn%kp(1)
       endif
 
         !annual tile
@@ -1153,8 +1107,8 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     real :: plantC, plantN, soilC, soilN
     integer :: i
 
-    write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
-    write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts,vegn%annualN*1000
+    write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
+    write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
@@ -1174,20 +1128,19 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             cc%annualNup*1000,cc%annualfixedN*1000,             &
             spdata(cc%species)%laimax
         ! Screen output
-        write(*,'(1(I7,","),2(I4,","),1(F9.1,","),25(F9.2,","))')    &
-                    cc%ccID,cc%species,cc%layer,                     &
-                    cc%nindivs*10000, cc%layerfrac,dDBH,             &
-                    cc%dbh,cc%height,cc%crownarea,                   &
-                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                &
-                    fseed, fleaf, froot, fwood,                      &
-                    cc%annualGPP/cc%crownarea,                       &
-                    cc%annualNPP/cc%crownarea,                       &
-                    cc%annualNup*1000,cc%annualfixedN*1000,          &
-                    spdata(cc%species)%laimax
+        write(*,'(1(I6,","),2(I4,","),1(F7.1,","),25(F7.2,","))')    &
+                    cc%ccID,cc%species,cc%layer,              &
+                    cc%nindivs*10000, cc%layerfrac,dDBH,       &
+                    cc%dbh,cc%height,cc%crownarea,            &
+                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,          &
+                    fseed, fleaf, froot, fwood,               &
+                    cc%annualGPP/cc%crownarea,                &
+                    cc%annualNPP/cc%crownarea,                &
+                    cc%annualNup*1000,cc%annualfixedN*1000,    &
+                    vegn%kp(cc%layer) !,spdata(cc%species)%laimax
     enddo
 
     ! tile pools output
-    call summarize_tile(vegn)
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
         vegn%annualfixedN  = vegn%annualfixedN  + cc%annualfixedN * cc%nindivs
