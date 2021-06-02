@@ -496,6 +496,7 @@ real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
 real :: T0_gdd   = 273.15 + 5.0 ! 5.d0
 real :: T0_chill = 273.15 + 10.0
+integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc_crit
 real :: gdd_par1 = 30.0   !50.d0   ! -68.d0
 real :: gdd_par2 = 800. ! 650.d0  !800.d0  ! 638.d0
 real :: gdd_par3 = -0.02 ! -0.01d0
@@ -1077,14 +1078,16 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
       do i = 1, vegn%n_cohorts
           cc => vegn%cohorts(i)
           if(outputdaily.and. iday>equi_days) &
-          write(fno3,'(6(I5,","),1(F8.1,","),25(F12.4,","))')  &
+          write(fno3,'(9(I5,","),1(F8.1,","),40(F12.4,","))')  &
                 iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
+                cc%status, cc%ndm, cc%ncd,            &
                 cc%nindivs*10000, cc%layerfrac, cc%LAI, &
                 cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
-                cc%seedC,cc%NPPleaf,cc%NPProot,cc%NPPwood, &
+                cc%NPPleaf,cc%NPProot,cc%NPPwood, &
                 cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
                 cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
-                cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000
+                cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000, &
+                cc%gdd,cc%ALT
 
           ! annual sum
           cc%annualGPP = cc%annualGPP + cc%dailyGPP

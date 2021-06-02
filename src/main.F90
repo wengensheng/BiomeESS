@@ -93,7 +93,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'FACE_OR' ! 'Konza-shrub' !  'FACE_hydro' ! 
+   runID = 'OR_Pheno' ! 'Konza-shrub' !  'FACE_hydro' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -109,7 +109,7 @@ program BiomeESS
    faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics'//trim(filesuffix) ! hourly
 
    fno1=91; fno2=101; fno3=102; fno4=103; fno5=104
-   open(fno1, file=trim(faststepfluxes),ACTION='write', IOSTAT=istat1)
+   open(fno1,file=trim(faststepfluxes),ACTION='write', IOSTAT=istat1)
    open(fno2,file=trim(plantcohorts),   ACTION='write', IOSTAT=istat1)
    open(fno3,file=trim(plantCNpools),   ACTION='write', IOSTAT=istat2)
    open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
@@ -127,12 +127,14 @@ program BiomeESS
         'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
         'N_uptk','N_fix','maxLAI'
 
-   write(fno3,'(5(a5,","),25(a8,","))')              &
-        'year','doy','hour','cID','PFT',             &
-        'layer','density', 'f_layer', 'LAI',         &
-        'gpp','resp','transp',                       &
-        'NSC','seedC','leafC','rootC','SW-C','HW-C', &
-        'NSN','seedN','leafN','rootN','SW-N','HW-N'
+   write(fno3,'(9(a6,","),45(a8,","))')        &
+        'year','doy','hour','cID','PFT','layer',      &
+        'Pheno','ndm','ncd',        &
+        'density', 'f_layer', 'LAI',         &
+        'gpp','resp','transp','NPPL','NPPR','NPPW',   &
+        'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
+        'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+        'GDD','ALT'
 
    write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &
         'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &

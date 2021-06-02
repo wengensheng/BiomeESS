@@ -96,7 +96,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: tempLAI,w_scale2, transp ! mol H20 per m2 of leaf per second
   real :: kappa  ! light extinction coefficient of corwn layers
   real :: f_light(10)=0.0      ! light fraction of each layer
-  real :: LAIlayer(10),accuCAI,f_gap ! additional GPP for lower layer cohorts due to gaps
+  real :: LAIlayer(10),f_gap ! additional GPP for lower layer cohorts due to gaps
   integer :: i, layer
 
   !! Water supply for photosynthesis, Layers
@@ -105,15 +105,12 @@ subroutine vegn_photosynthesis (forcing, vegn)
 !! Light supply for photosynthesis
 ! update accumulative LAI for each corwn layer
   f_gap = 0.1 ! 0.1
-  accuCAI = 0.0
-  !vegn%LAI      = 0.0
+
   LAIlayer = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      layer = Max (1, Min(cc%layer,9))
-     !accuCAI = accuCAI + cc%crownarea * cc%nindivs/(1.0-f_gap)
-     !layer = ceiling(accuCAI)
-     LAIlayer(layer) = LAIlayer(layer) + cc%leafarea * cc%nindivs /(1.-f_gap)
+     LAIlayer(layer) = LAIlayer(layer) + cc%leafarea * cc%nindivs !/(1.-f_gap)
   enddo
 
   ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
@@ -126,17 +123,15 @@ subroutine vegn_photosynthesis (forcing, vegn)
       f_light(i) = f_light(i-1) * (exp(0.0-kappa*LAIlayer(i-1)) + f_gap)
       !f_light(i) = f_light(i-1) * (exp(0.0-kappa*3.5) + 0.1)
   enddo
+  !f_light = 1.0 ! testing understory photosynthesis
 
   ! Photosynthesis
-  accuCAI = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
      if(cc%status == LEAF_ON .and. cc%lai > 0.1) then
         ! Convert forcing data
          layer = Max (1, Min(cc%layer,9))
-         !accuCAI = accuCAI + cc%crownarea * cc%nindivs/(1.0-f_gap)
-         !layer = ceiling(accuCAI)
          rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
          rad_net = f_light(layer) * forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
          p_surf  = forcing%P_air  ! Pa
@@ -160,12 +155,14 @@ subroutine vegn_photosynthesis (forcing, vegn)
         cc%w_scale  = w_scale2
         cc%transp = transp * mol_h2o * cc%leafarea * step_seconds  ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
+
         !if(isnan(cc%gpp))cc%gpp=0.0
         if(isnan(cc%gpp))stop '"gpp" is a NaN'
         if(isnan(cc%transp))then
            write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
            stop '"transp" is a NaN'
         endif
+
      else
         ! no leaves means no photosynthesis and no stomatal conductance either
         cc%An_op  = 0.0
@@ -774,7 +771,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   real    :: grassdensity   ! for grasses only
   real    :: BL_u,BL_c
   real    :: ccFR, ccNSC, ccRootN, ccNSN
-  real    :: Tc_off_crit, gdd_crit
+  real    :: Tc_off_crit, GDD_adp
   real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
   logical :: cc_firstday = .false.
   logical :: growingseason
@@ -790,10 +787,12 @@ subroutine vegn_phenology(vegn,doy) ! daily step
      if(cc%status == LEAF_ON)then
         cc%ncd = 0
         cc%ndm = 0
+        cc%gdd = 0.0
         cc%ngd = Min(366, cc%ngd + 1)
         if(cc%ngd > 60)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
      else  ! cc%status == LEAF_OFF
         cc%ngd = 0
+        cc%ALT = 0.0
         cc%ndm = cc%ndm + 1
         if(vegn%tc_pheno<sp%tc_crit_off)then
            cc%ncd = cc%ncd + 1
@@ -812,10 +811,10 @@ subroutine vegn_phenology(vegn,doy) ! daily step
 !    for evergreen
      if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
 !    for deciduous and grasses
-     gdd_crit = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
+     GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
      TURN_ON_life = (sp%phenotype == 0 .and. cc%status /= LEAF_ON .and. &
-        ! Temporary for grass
-        (sp%lifeform == 0 .OR.(sp%lifeform /= 0 .and. cc%layer==1)).and. &
+        !! Temporary for grass
+        (sp%lifeform == 1 .OR.(sp%lifeform == 0 .and. cc%layer==1)).and. &
         ! Temperature conditions
         cc%gdd > sp%gdd_crit .and. vegn%tc_pheno > sp%tc_crit_on)
 
@@ -858,8 +857,8 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
-     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-90)))
-     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*max(-15.,real(cc%ngd-90)))
+     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-N0_GD)))
+     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      TURN_OFF_life = (cc%status==LEAF_ON .and. sp%phenotype == 0 .and. &
                 cc%ALT < -20. .and. &
                 vegn%tc_pheno < Tc_off_crit)
@@ -1358,7 +1357,7 @@ subroutine vegn_reproduction (vegn)
   real :: failed_seeds, N_failedseed !, prob_g, prob_e
   integer :: newcohorts, matchflag, nPFTs ! number of new cohorts to be created
   integer :: nCohorts, istat
-  integer :: i, j, k ! cohort indices
+  integer :: i, j, k, n ! cohort indices
 
 ! Looping through all reproducible cohorts and Check if reproduction happens
   reproPFTs = -999 ! the code of reproductive PFT
@@ -1410,12 +1409,19 @@ subroutine vegn_reproduction (vegn)
      ccnew(1:vegn%n_cohorts) = ccold(1:vegn%n_cohorts) ! copy old cohort information
      vegn%cohorts => ccnew
 
-     deallocate (ccold)
-
      ! set up new cohorts
      k = vegn%n_cohorts
      do i = 1, newcohorts
         k = k+1 ! increment new cohort index
+        ! Copy old information to new cohort, Weng, 2021-06-02
+        do n =1, vegn%n_cohorts ! go through old cohorts
+          if(reproPFTs(i) == ccold(n)%species)then
+            ccnew(k) = ccold(n)
+            exit
+          endif
+        enddo
+
+        ! Update new cohort information
         cc => vegn%cohorts(k)
         ! Give the new cohort an ID
         cc%ccID = MaxCohortID + i
@@ -1425,7 +1431,11 @@ subroutine vegn_reproduction (vegn)
         cc%nindivs = seedC(i)/sp%seedlingsize
 
         cc%species = reproPFTs(i)
-        cc%status  = LEAF_OFF
+        if(sp%phenotype == 0)then
+           cc%status = LEAF_OFF
+        else
+           cc%status = LEAF_ON
+        endif
         cc%firstlayer = 0
         cc%topyear = 0.0
         cc%age     = 0.0
@@ -1472,6 +1482,7 @@ subroutine vegn_reproduction (vegn)
 
         end associate   ! F2003
      enddo
+     deallocate (ccold)
      MaxCohortID = MaxCohortID + newcohorts
      vegn%n_cohorts = k
      ccnew => null()
