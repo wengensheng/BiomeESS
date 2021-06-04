@@ -653,8 +653,8 @@ subroutine fetch_CN_for_growth(cc)
         cc%DBH       = cc%DBH       + dDBH
         cc%height    = cc%height    + dHeight
         cc%crownarea = cc%crownarea + dCA
-        cc%leafarea  = leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
-        cc%lai       = cc%leafarea/cc%crownarea !(cc%crownarea *(1.0-sp%internal_gap_frac))
+        cc%leafarea  = Aleaf_BM(cc%bl,cc)
+        cc%lai       = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
         vegn%LAI     = vegn%LAI + cc%leafarea  * cc%nindivs
         call rootarea_and_verticalprofile(cc)
 !       convert sapwood to heartwood for woody plants ! Nitrogen from sapwood to heart wood
@@ -674,21 +674,18 @@ subroutine fetch_CN_for_growth(cc)
         endif
 
 !       update bl_max and br_max daily
-        BL_c = sp%LMA * sp%LAImax * cc%crownarea * &
-               (1.0-sp%internal_gap_frac) /max(1,cc%layer)
-        BL_u = sp%LMA*cc%crownarea*(1.0-sp%internal_gap_frac)* &
-                    sp%underLAImax
-        if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
-        if (cc%layer > 1 .and. cc%firstlayer == 0) then ! changed back, Weng 2014-01-23
-            cc%bl_max = BL_u
-!           Keep understory tree's root low and constant
-            cc%br_max = 1.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
-            !cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
+        BL_c = sp%LMA * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)
+        BL_u = BL_c/max(1,cc%layer) !sp%LMA*cc%crownarea*(1.0-sp%f_cGap)* sp%LAImax_u
 
+        if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
+        if (cc%layer > 1 .and. cc%firstlayer == 0) then ! updated, Weng 2014-01-23, 21-06-04
+            cc%bl_max = BL_u
+            !Keep understory tree's root low and constant
+            !cc%br_max = 1.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
         else
             cc%bl_max = BL_u + min(cc%topyear/5.0,1.0)*(BL_c - BL_u)
-            cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         endif
+        cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         ! Grasses have the same bl_max regardless of their layer position
         if(sp%lifeform == 0) then
            cc%bl_max = BL_c
@@ -708,6 +705,120 @@ subroutine fetch_CN_for_growth(cc)
   call vegn_sum_tile(vegn)
 
 end subroutine vegn_growth_EW ! daily
+
+!============================================================================
+! Updated by Weng, 06-04-2021
+subroutine vegn_phenology(vegn,doy) ! daily step
+  type(vegn_tile_type), intent(inout) :: vegn
+  integer, intent(in) :: doy
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc
+  integer :: i,j
+  integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
+  real    :: cold_thld = -20.  ! threshold of accumulative low temperature
+  real    :: GDD_adp, Tc_off_crit
+  real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
+  real    :: ccNSC, ccNSN
+  logical :: cc_firstday = .false.
+  logical :: PhenoON, PhenoOFF
+
+! -------------- update vegn GDD and tc_pheno ---------------
+  ! environmental factors for each cohort
+  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
+  do i = 1, vegn%n_cohorts
+     cc=>vegn%cohorts(i)
+     associate (sp => spdata(cc%species) )
+     !cc%gdd = cc%gdd + max(0.0, vegn%tc_pheno - T0_gdd) ! GDD5
+     if(cc%status == LEAF_ON)then
+        cc%ncd = 0
+        cc%ndm = 0
+        cc%gdd = 0.0
+        cc%ngd = Min(366, cc%ngd + 1)
+        if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
+     else  ! cc%status == LEAF_OFF
+        cc%ngd = 0
+        cc%ALT = 0.0
+        cc%ndm = cc%ndm + 1
+        if(vegn%tc_pheno<sp%tc_crit_off)then
+           cc%ncd = cc%ncd + 1
+        endif
+        ! Keep gdd as zero in early non-growing season when days < 60
+        if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
+     endif ! cc%status
+
+     end associate
+  enddo
+
+! --------- Change pheno status ----------------------------
+! ON and OFF of phenology: change the indicator of growing season for deciduous
+  do i = 1,vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate (sp => spdata(cc%species) )
+!    for evergreen
+     if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
+!    for deciduous and grasses
+     ! GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
+     PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)     &
+        ! Temperature conditions
+        .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on)  &
+        !!!  Woody plants            Grasses in the top layer   !!!
+        !.and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer==1))  &
+        )
+
+     cc_firstday = .false.
+     if(PhenoON)then
+         cc%status = LEAF_ON ! Turn on a growing season
+         cc_firstday = .True.
+     endif
+
+!    Reset grass density at the first day of a growing season
+     if(cc_firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
+!        reset grass density and size for perenials
+         ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
+         ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
+         ! reset
+         cc%nindivs = MIN(ccNSC /sp%seedlingsize, ccNSN/(sp%seedlingsize/sp%CNroot0))
+         cc%bsw = f_initialBSW *sp%seedlingsize  ! for setting up a initial size
+         cc%br    = 0.25 * cc%bsw
+         cc%bl    = 0.0
+         cc%bHW   = 0.0
+         cc%seedC = 0.0
+         cc%nsc   = ccNSC/cc%nindivs - (cc%bl+ cc%bsw+cc%bHW+cc%br+cc%seedC)
+         ! nitrogen pools
+         cc%sapwN = cc%bsw  /sp%CNsw0
+         cc%rootN = cc%br   /sp%CNroot0
+         cc%leafN = 0.0
+         cc%woodN = 0.0
+         cc%seedN = 0.0
+         cc%NSN   = ccNSN/cc%nindivs - (cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN)
+
+         call rootarea_and_verticalprofile(cc)
+         call init_cohort_allometry(cc)
+     endif
+     end associate
+  enddo
+
+  if(PhenoON) call relayer_cohorts(vegn)
+
+  ! OFF of a growing season
+  do i = 1,vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate (sp => spdata(cc%species) )
+     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-N0_GD)))
+     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
+     PhenoOFF = (cc%status==LEAF_ON .and. sp%phenotype == 0 .and. &
+                cc%ALT < cold_thld .and. vegn%tc_pheno < Tc_off_crit)
+     end associate
+
+     if(PhenoOFF )then
+        cc%status = LEAF_OFF  ! Turn off a growing season
+        cc%gdd    = 0.0        ! Start to counting a new cycle of GDD
+     endif
+     ! leaf fall
+     call Seasonal_fall(cc,vegn)
+  enddo
+end subroutine vegn_phenology
 
 !=================================================
 ! Weng, 2021-06-02
@@ -745,9 +856,10 @@ subroutine vegn_sum_tile(vegn)
 
      ! update accumulative LAI for each corwn layer
      layer = Max (1, Min(cc%layer,9)) ! between 1~9
-     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + cc%leafarea * cc%nindivs !/(1.0-sp%internal_gap_frac)
-     vegn%f_gap(layer)    = vegn%f_gap(layer)    + cc%crownarea * cc%nindivs &
-                                   * sp%internal_gap_frac
+     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
+                            cc%leafarea * cc%nindivs/(1.0-sp%f_cGap)
+     vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
+                            cc%crownarea * cc%nindivs * sp%f_cGap
 
     ! For reporting
     ! Vegn C pools:
@@ -794,119 +906,6 @@ subroutine rootarea_and_verticalprofile(cc)
   end associate
  end subroutine rootarea_and_verticalprofile
 
-!============================================================================
-subroutine vegn_phenology(vegn,doy) ! daily step
-  type(vegn_tile_type), intent(inout) :: vegn
-  integer, intent(in) :: doy
-
-  ! ---- local vars
-  type(cohort_type), pointer :: cc
-  integer :: i,j
-  real    :: grassdensity   ! for grasses only
-  real    :: BL_u,BL_c
-  real    :: ccFR, ccNSC, ccRootN, ccNSN
-  real    :: Tc_off_crit, GDD_adp
-  real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
-  logical :: cc_firstday = .false.
-  logical :: growingseason
-  logical :: TURN_ON_life, TURN_OFF_life
-
-! -------------- update vegn GDD and tc_pheno ---------------
-  ! environmental factors for each cohort
-  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
-  do i = 1, vegn%n_cohorts
-     cc=>vegn%cohorts(i)
-     associate (sp => spdata(cc%species) )
-     cc%gdd = cc%gdd + max(0.0, vegn%tc_pheno - T0_gdd) ! GDD5
-     if(cc%status == LEAF_ON)then
-        cc%ncd = 0
-        cc%ndm = 0
-        cc%gdd = 0.0
-        cc%ngd = Min(366, cc%ngd + 1)
-        if(cc%ngd > 60)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
-     else  ! cc%status == LEAF_OFF
-        cc%ngd = 0
-        cc%ALT = 0.0
-        cc%ndm = cc%ndm + 1
-        if(vegn%tc_pheno<sp%tc_crit_off)then
-           cc%ncd = cc%ncd + 1
-        endif
-        if(cc%ndm < 60)cc%gdd  = 0.0 ! Keep gdd as zero in early chilling period
-     endif ! cc%status
-
-     end associate
-  enddo
-
-! --------- Change pheno status ----------------------------
-! ON and OFF of phenology: change the indicator of growing season for deciduous
-  do i = 1,vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate (sp => spdata(cc%species) )
-!    for evergreen
-     if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
-!    for deciduous and grasses
-     GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
-     TURN_ON_life = (sp%phenotype == 0 .and. cc%status /= LEAF_ON .and. &
-        !! Temporary for grass
-        (sp%lifeform == 1 .OR.(sp%lifeform == 0 .and. cc%layer==1)).and. &
-        ! Temperature conditions
-        cc%gdd > sp%gdd_crit .and. vegn%tc_pheno > sp%tc_crit_on)
-
-     cc_firstday = .false.
-     if(TURN_ON_life)then
-         cc%status = LEAF_ON ! Turn on a growing season
-         cc_firstday = .True.
-     endif
-
-!    Reset grass density at the first day of a growing season
-     if(cc_firstday .and. sp%lifeform ==0 .and. cc%age>2.)then
-!        reset grass density and size for perenials
-         ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
-         ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
-         ! reset
-         cc%nindivs = MIN(ccNSC /sp%seedlingsize, ccNSN/(sp%seedlingsize/sp%CNroot0))
-         cc%bsw = f_initialBSW *sp%seedlingsize  ! for setting up a initial size
-         cc%br    = 0.25 * cc%bsw
-         cc%bl    = 0.0
-         cc%bHW   = 0.0
-         cc%seedC = 0.0
-         cc%nsc   = ccNSC/cc%nindivs - (cc%bl+ cc%bsw+cc%bHW+cc%br+cc%seedC)
-         ! nitrogen pools
-         cc%sapwN = cc%bsw  /sp%CNsw0
-         cc%rootN = cc%br   /sp%CNroot0
-         cc%leafN = 0.0
-         cc%woodN = 0.0
-         cc%seedN = 0.0
-         cc%NSN   = ccNSN/cc%nindivs - (cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN)
-
-         call rootarea_and_verticalprofile(cc)
-         call init_cohort_allometry(cc)
-     endif
-     end associate
-  enddo
-
-  if(TURN_ON_life) call relayer_cohorts(vegn)
-
-  ! OFF of a growing season
-  do i = 1,vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate (sp => spdata(cc%species) )
-     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-N0_GD)))
-     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
-     TURN_OFF_life = (cc%status==LEAF_ON .and. sp%phenotype == 0 .and. &
-                cc%ALT < -20. .and. &
-                vegn%tc_pheno < Tc_off_crit)
-     end associate
-
-     if(TURN_OFF_life )then
-        cc%status = LEAF_OFF  ! Turn off a growing season
-        cc%gdd   = 0.0        ! Start to counting a new cycle of GDD
-     endif
-     ! leaf fall
-     call Seasonal_fall(cc,vegn)
-  enddo
-end subroutine vegn_phenology
-
 !========= Leaf and stem fall ==========================
 subroutine Seasonal_fall(cc,vegn)
 !@sum leaf and stem fall for deciduous plants, including deciduous trees and grasses
@@ -945,7 +944,7 @@ subroutine Seasonal_fall(cc,vegn)
            dNR = 0.0
         endif
 
-        dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
+        dAleaf = Aleaf_BM(dBL,cc)
 
 !       Retranslocation to NSC and NSN
         cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
@@ -963,8 +962,8 @@ subroutine Seasonal_fall(cc,vegn)
         cc%NPPleaf = cc%NPPleaf - l_fract * dBL
         cc%NPProot = cc%NPProot - l_fract * dBR
         cc%NPPwood = cc%NPPwood - l_fract * dBStem
-        cc%leafarea= leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
-        cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
+        cc%leafarea= Aleaf_BM(cc%bl,cc)
+        cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
 
         ! Update plant size (for grasses)
         !call init_cohort_allometry(cc)
@@ -1823,7 +1822,7 @@ end subroutine relayer_cohorts
      dBR    = cc%br    * sp%alpha_FR /days_per_year
      dNR    = cc%rootN * sp%alpha_FR /days_per_year
 
-     dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
+     dAleaf = Aleaf_BM(dBL,cc)
 
 !    Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
@@ -1838,8 +1837,8 @@ end subroutine relayer_cohorts
      cc%rootN = cc%rootN - dNR
 
 !    update leaf area and LAI
-     cc%leafarea= leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
-     cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
+     cc%leafarea= Aleaf_BM(cc%bl,cc)
+     cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
 
 !    update NPP for leaves, fine roots, and wood
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
@@ -2281,7 +2280,7 @@ subroutine merge_cohorts(c1,c2)
      c2%NSN   = x1*c1%NSN   + x2*c2%NSN
 
   !  calculate the resulting dry heat capacity
-     c2%leafarea = leaf_area_from_biomass(c2%bl, c2%species, c2%layer, c2%firstlayer)
+     c2%leafarea = Aleaf_BM(c2%bl, c2)
   endif
 end subroutine merge_cohorts
 
@@ -2433,7 +2432,7 @@ subroutine vegn_annualLAImax_update(vegn)
       LAI_nitrogen = LAIfixedN + LAImineralN
 
       spdata(i)%LAImax = MAX(LAImin, MIN(LAI_nitrogen,sp%LAI_light))
-      spdata(i)%underLAImax = MIN(sp%LAImax,1.2)
+      spdata(i)%LAImax_u = MIN(sp%LAImax,1.2)
       end associate
   enddo
 
@@ -2463,18 +2462,17 @@ subroutine vegn_annualLAImax_update(vegn)
 end subroutine vegn_annualLAImax_update
 
 ! ============================================================================
-function leaf_area_from_biomass(bl,species,layer,firstlayer) result (area)
+! modified by Weng (2014-01-09), 07-18-2017, 06-04-2021
+function Aleaf_BM(bl,c) result (area)
   real :: area ! returned value
   real,    intent(in) :: bl      ! biomass of leaves, kg C/individual
-  integer, intent(in) :: species ! species
-  integer, intent(in) :: layer, firstlayer
+  type(cohort_type), intent(inout) :: c    ! cohort to update
 
-! modified by Weng (2014-01-09), 07-18-2017
-  area = bl/spdata(species)%LMA
-  !if(layer > 1.AND. firstlayer == 0)then
-  !   area = bl/(0.5*spdata(species)%LMA) ! half thickness for leaves in understory
+  area = bl/spdata(c%species)%LMA
+  !if(c%layer > 1.AND. c%firstlayer == 0)then
+  !   area = bl/(0.5*spdata(c%species)%LMA) ! half thickness for leaves in understory
   !else
-  !   area = bl/spdata(species)%LMA
+  !   area = bl/spdata(c%species)%LMA
   !endif
 end function
 ! ============================================================================

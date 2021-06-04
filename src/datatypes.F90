@@ -167,11 +167,11 @@ type spec_data_type
   real    :: mortrate_d_c     ! yearly mortality rate in canopy
   real    :: mortrate_d_u     ! yearly mortality rate in understory
   ! Population level variables
-  real    :: LAImax,underLAImax ! max. LAI
+  real    :: LAImax,LAImax_u ! max. LAI
   real    :: LAI_light        ! light controlled maximum LAI
   integer :: n_cc             ! for calculating LAImax via cc%LAImax derived from cc%NSN
   real    :: layerfrac        ! species layer fraction
-  real    :: internal_gap_frac ! fraction of internal gaps in the canopy
+  real    :: f_cGap ! fraction of internal gaps in the canopy
   ! "internal" gaps are the gaps that are created within the canopy by the
   ! branch fall processes.
 end type
@@ -593,7 +593,7 @@ real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 
 real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
 real :: NfixRate0(0:MSPECIES) = 0.0 !Reference N fixation rate (0.03 kgN kgC-1 root yr-1)
 real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC
-real :: internal_gap_frac(0:MSPECIES)= 0.1 ! The gaps between trees
+real :: f_cGap(0:MSPECIES)= 0.1 ! The gaps between trees
 
 namelist /vegn_parameters_nml/  &
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &
@@ -619,7 +619,7 @@ namelist /vegn_parameters_nml/  &
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0,  &
-  internal_gap_frac
+  f_cGap
 
 ! -------------------------------------------
 
@@ -806,7 +806,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%WTC0         = WTC0
   spdata%r_DF         = r_DF
   spdata%LAImax       = LAImax
-  spdata%underLAImax  = LAImax
+  spdata%LAImax_u     = 1.2 ! LAImax
   spdata%LAI_light    = LAI_light
   spdata%tauNSC       = tauNSC
   spdata%fNSNmax      = fNSNmax
@@ -825,7 +825,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%NfixRate0 = NfixRate0
   spdata%NfixCost0 = NfixCost0
 
-  spdata%internal_gap_frac = internal_gap_frac
+  spdata%f_cGap = f_cGap
   do i = 0, MSPECIES
      call init_derived_species_data(spdata(i))
   enddo
@@ -1109,6 +1109,11 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
+    write(*,'(1(a6,","),2(a4,","),25(a8,","))')    &
+            'cID','PFT','L',                       &
+            'n','f_CA','kappa','dDBH', 'DBH','Height','Acrown',   &
+            'B_wd', 'NSC', 'NSN', 'GPP','NPP', 'Nuptake','Laimax'
+
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
@@ -1118,26 +1123,23 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         froot = cc%NPProot/treeG
         fwood = cc%NPPwood/treeG
         dDBH = (cc%DBH   - cc%DBH_ys)*1000.
-        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),45(F12.4,","))')    &
+        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),45(E12.4,","))')    &
             cc%ccID,cc%species,cc%layer,                        &
             cc%nindivs*10000, cc%layerfrac,dDBH,                &
             cc%dbh,cc%height,cc%crownarea,                     &
-            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                   &
+            cc%bsw+cc%bHW,cc%nsc,cc%NSN,                       &
             treeG,fseed, fleaf, froot, fwood,                  &
             cc%annualGPP,cc%annualNPP,                         &
-            cc%annualNup*1000,cc%annualfixedN*1000,             &
+            cc%annualNup,cc%annualfixedN,                      &
             spdata(cc%species)%laimax
         ! Screen output
-        write(*,'(1(I6,","),2(I4,","),1(F7.1,","),25(F7.2,","))')    &
-                    cc%ccID,cc%species,cc%layer,              &
-                    cc%nindivs*10000, cc%layerfrac,dDBH,       &
-                    cc%dbh,cc%height,cc%crownarea,            &
-                    cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,          &
-                    fseed, fleaf, froot, fwood,               &
-                    cc%annualGPP/cc%crownarea,                &
-                    cc%annualNPP/cc%crownarea,                &
-                    cc%annualNup*1000,cc%annualfixedN*1000,    &
-                    vegn%kp(cc%layer) !,spdata(cc%species)%laimax
+        write(*,'(1(I6,","),2(I4,","),1(F8.1,","),25(F8.2,","))')    &
+            cc%ccID,cc%species,cc%layer,                       &
+            cc%nindivs*10000, cc%layerfrac,vegn%kp(cc%layer),  &
+            dDBH, cc%dbh,cc%height,cc%crownarea,               &
+            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                  &
+            cc%annualGPP, cc%annualNPP,cc%annualNup*1000,      &
+            spdata(cc%species)%laimax
     enddo
 
     ! tile pools output
