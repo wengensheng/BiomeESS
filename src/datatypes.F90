@@ -16,7 +16,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  public :: forcingData,spdata, soilpars
  ! parameters
  public :: MaxCohortID, &
-    K1, K2, K_nitrogen, etaN, MLmixRatio, &
+    K1, K2, K3, K_nitrogen, etaN, MLmixRatio, &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
     A_mort, B_mort,DBHtp, envi_fire_prb
@@ -318,6 +318,8 @@ type :: vegn_tile_type
    real :: MicrobialC  = 0  ! Microbes (kg C/m2)
    real :: metabolicL  = 0  ! fast soil carbon pool, (kg C/m2)
    real :: structuralL = 0  ! slow soil carbon pool, (kg C/m2)
+   real :: SOC(5) = 0.
+   real :: SON(5) = 0.
 
 !!  Nitrogen pools, Weng 2014-08-08
    real :: MicrobialN= 0
@@ -470,6 +472,7 @@ real   :: WILTPT = 0.05 ! vol/vol
 ! Carbon pools
 real :: K1 = 2 ! Fast soil C decomposition rate (yr-1)
 real :: K2 = 0.05 ! slow soil C decomposition rate (yr-1)
+real :: K3 = 2.5 ! Microbial C decomposition rate (yr-1)
 real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
 real :: MLmixRatio = 0.8     ! the ratio of C and N returned to litters from microbes
 real :: etaN       = 0.025    ! N loss through runoff (organic and mineral)
@@ -605,7 +608,7 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
-  K1,K2, K_nitrogen, etaN, MLmixRatio,    &
+  K1,K2,K3, K_nitrogen, etaN, MLmixRatio,    &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
   f_initialBSW, f_LFR_max,  &

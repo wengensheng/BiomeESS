@@ -93,7 +93,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'OR_Pheno' ! 'Konza-shrub' !  'FACE_hydro' !
+   runID = 'OR_GAPLUE' ! 'Konza-shrub' !  'FACE_hydro' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()

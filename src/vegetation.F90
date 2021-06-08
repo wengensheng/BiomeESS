@@ -1937,7 +1937,6 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
   real                , intent(in)    :: thetaS
 
   real :: CUE0=0.4  ! default microbial CUE
-  real :: phoMicrobial = 2.5 ! turnover rate of microbes (yr-1)
   real :: CUEfast,CUEslow
   real :: CNm = 10.0  ! Microbial C/N ratio
   real :: NforM, fNM=0.0  ! mineral N available for microbes
@@ -1945,7 +1944,7 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
   real :: runoff ! kg m-2 /step
   real :: N_loss
   real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
-  real :: fDON=0.0   ! 0.02     ! fractio of DON production in decomposition
+  real :: fDON = 0.0   ! 0.02     ! fractio of DON production in decomposition
   real :: fast_N_free 
   real :: slow_N_free 
   real :: CNfast, CNslow
@@ -1958,16 +1957,16 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
   CNslow = vegn%structuralL/vegn%structuralN
 
 !! C decomposition
-!  A=A_function(tsoil,thetaS)
-!  micr_C_loss = vegn%microbialC *A*phoMicrobial* dt_fast_yr
-!  fast_L_loss = vegn%metabolicL*A*K1           * dt_fast_yr
-!  slow_L_loss = vegn%structuralL*A*K2          * dt_fast_yr
+  A=A_function(tsoil,thetaS)
+  micr_C_loss = vegn%microbialC * A * K3 * dt_fast_yr
+  fast_L_loss = vegn%metabolicL * A * K1 * dt_fast_yr
+  slow_L_loss = vegn%structuralL* A * K2 * dt_fast_yr
 
 ! C decomposition
-  A=A_function(tsoil,thetaS)
-  micr_C_loss = vegn%microbialC * (1.0 - exp(-A*phoMicrobial* dt_fast_yr))
-  fast_L_loss = vegn%metabolicL * (1.0 - exp(-A*K1          * dt_fast_yr))
-  slow_L_loss = vegn%structuralL* (1.0 - exp(-A*K2          * dt_fast_yr))
+!  A=A_function(tsoil,thetaS)
+!  micr_C_loss = vegn%microbialC * (1.0 - exp(-A*K3 * dt_fast_yr))
+!  fast_L_loss = vegn%metabolicL * (1.0 - exp(-A*K1 * dt_fast_yr))
+!  slow_L_loss = vegn%structuralL* (1.0 - exp(-A*K2 * dt_fast_yr))
 
 ! Carbon use efficiencies of microbes
   NforM = fNM * vegn%mineralN
@@ -1984,8 +1983,7 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
 
 ! Find papers about soil DON losses
 ! DON loss, revised by Weng. 2016-03-03  ??
-  fDON        = 0.25 ! 0.25 ! * dt_fast_yr ! 0.05 !* dt_fast_yr
-  runoff      = 0.2 ! 0.2 ! mm day-1
+  runoff      = 0.0 ! 0.2 ! mm day-1
   ! Assume it is proportional to decomposition rates
   ! Find some papers!!
   DON_fast    = fDON * fast_L_loss/CNfast * (etaN*runoff)
