@@ -16,7 +16,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  public :: forcingData,spdata, soilpars
  ! parameters
  public :: MaxCohortID, &
-    K1, K2, K3, K_nitrogen, etaN, MLmixRatio, &
+    K1, K2, K3, K0SOM, K_nitrogen, etaN, f_M2SOM, &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
     A_mort, B_mort,DBHtp, envi_fire_prb
@@ -80,8 +80,13 @@ integer, public, parameter :: Ysw_max = 100 ! Maximum function years of xylems
  LU_SCND    = 4    ! secondary vegetation
 
  ! Soil SOM reference C/N ratios
- real, public, parameter :: CN0metabolicL  = 15.0 ! 25.0 ! 15.0
- real, public, parameter :: CN0structuralL = 40.0 ! 55.0 ! 35.0
+ integer, public, parameter :: N_SOM = 5
+ !  fineL, structuralL, microbial, fast, slow
+ real, public, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
+
+ ! Soil SOM reference C/N ratios
+ real, public, parameter :: CUEmax0 = 0.4 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
+ !real, public, parameter :: CN0slowSOC = 40.0 ! 55.0 ! 35.0
 
 ! Physical constants
 real, public, parameter :: TFREEZE = 273.16
@@ -318,6 +323,7 @@ type :: vegn_tile_type
    real :: MicrobialC  = 0  ! Microbes (kg C/m2)
    real :: metabolicL  = 0  ! fast soil carbon pool, (kg C/m2)
    real :: structuralL = 0  ! slow soil carbon pool, (kg C/m2)
+   real :: fastSOC, fastSON, slowSOC, slowSON
    real :: SOC(5) = 0.
    real :: SON(5) = 0.
 
@@ -473,8 +479,11 @@ real   :: WILTPT = 0.05 ! vol/vol
 real :: K1 = 2 ! Fast soil C decomposition rate (yr-1)
 real :: K2 = 0.05 ! slow soil C decomposition rate (yr-1)
 real :: K3 = 2.5 ! Microbial C decomposition rate (yr-1)
+!   fineL, structuralL, microbial, fast, slow
+real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
+
 real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
-real :: MLmixRatio = 0.8     ! the ratio of C and N returned to litters from microbes
+real :: f_M2SOM = 0.8     ! the ratio of C and N returned to litters from microbes
 real :: etaN       = 0.025    ! N loss through runoff (organic and mineral)
 real :: LMAmin     = 0.02    ! minimum LMA, boundary condition
 real :: fsc_fine   = 1.0     ! fraction of fast turnover carbon in fine biomass
@@ -608,7 +617,7 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
-  K1,K2,K3, K_nitrogen, etaN, MLmixRatio,    &
+  K1,K2,K3, K0SOM, K_nitrogen, etaN, f_M2SOM,    &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
   f_initialBSW, f_LFR_max,  &
@@ -718,7 +727,12 @@ subroutine initialize_soilpars(namelistfile)
 10   close (nml_unit)
      write (*, nml=soil_data_nml)
   endif
-  
+
+  ! Soil decomposition
+  ! Initialize parameters from namefile
+  K0SOM(3) = K3
+  K0SOM(4) = K1
+  K0SOM(5) = K2
   ! initialize soil parameters
   soilpars%GMD         = GMD ! geometric mean partice diameter, mm
   soilpars%GSD         = GSD ! geometric standard deviation of particle size
@@ -1027,7 +1041,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
-  integer :: i
+  integer :: i,j
 
   ! Output and zero daily variables
       !!! daily !! cohorts output
@@ -1070,9 +1084,8 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             vegn%SapwoodC, vegn%woodC,                     &
             vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,  &
             vegn%rootN*1000, vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
-            vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
-            vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
-            vegn%mineralN*1000,   vegn%dailyNup*1000,vegn%kp(1)
+            (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
+            vegn%mineralN*1000,vegn%dailyNup*1000,vegn%kp(1)
       endif
 
         !annual tile
@@ -1108,7 +1121,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     type(cohort_type), pointer :: cc
     real treeG, fseed, fleaf, froot,fwood,dDBH
     real :: plantC, plantN, soilC, soilN
-    integer :: i
+    integer :: i,j
 
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -1154,10 +1167,10 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             vegn%SapwoodC + vegn%woodC
     plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
             vegn%rootN + vegn%SapwoodN + vegn%woodN
-    soilC  = vegn%MicrobialC + vegn%metabolicL + vegn%structuralL
-    soilN  = vegn%MicrobialN + vegn%metabolicN + vegn%structuralN + vegn%mineralN
+    soilC  = sum(vegn%SOC(:))
+    soilN  = sum(vegn%SON(:))
     vegn%totN = plantN + soilN
-    write(f2,'(1(I5,","),30(F9.4,","),6(F9.3,","),18(F10.4,","))') &
+    write(f2,'(1(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))') &
         iyears,       &
         vegn%CAI,vegn%LAI, vegn%treecover, vegn%grasscover, &
         vegn%annualGPP, vegn%annualResp, vegn%annualRh, vegn%C_combusted, &
@@ -1167,8 +1180,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         vegn%SapwoodC, vegn%woodC,                     &
         vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000, vegn%rootN*1000, &
         vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
-        vegn%MicrobialC, vegn%metabolicL, vegn%structuralL, &
-        vegn%MicrobialN*1000, vegn%metabolicN*1000, vegn%structuralN*1000, &
+        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
         vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%annualNup*1000, &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000, &
         vegn%totseedC*1000,vegn%totseedN*1000,vegn%totNewCC*1000,vegn%totNewCN*1000

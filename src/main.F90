@@ -114,7 +114,7 @@ program BiomeESS
    open(fno3,file=trim(plantCNpools),   ACTION='write', IOSTAT=istat2)
    open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
    open(fno5,file=trim(allpools),       ACTION='write', IOSTAT=istat3)
-   ! head
+   ! header
    write(fno1,'(5(a8,","),25(a12,","))')      &
         'year','doy','hour','rad',            &
         'Tair','Prcp', 'GPP', 'Resp',         &
@@ -141,8 +141,8 @@ program BiomeESS
         'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
         'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
         'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
-        'McrbC', 'fastSOM',   'slowSOM',                   &
-        'McrbN', 'fastSoilN', 'slowSoilN',                 &
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
         'mineralN', 'N_uptk','Kappa'
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
@@ -152,8 +152,8 @@ program BiomeESS
         'plantC','soilC',    'plantN', 'soilN','totN',         &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC', &
         'NSN', 'SeedN', 'leafN', 'rootN', 'SapwoodN', 'WoodN', &
-        'McrbC','fastSOM',   'SlowSOM',                        &
-        'McrbN','fastSoilN', 'slowSoilN',                      &
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
         'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss', &
         'seedC','seedN','Seedling-C','Seedling-N'
 

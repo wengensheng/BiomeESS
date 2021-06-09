@@ -974,15 +974,13 @@ subroutine Seasonal_fall(cc,vegn)
         lossN_coarse = (1.-retransN)* cc%nindivs * (dNStem+dNL - dAleaf * sp%LNbase)
         lossN_fine   = (1.-retransN)* cc%nindivs * (dNR        + dAleaf * sp%LNbase)
 
-        vegn%metabolicL = vegn%metabolicL +  &
+        vegn%SOC(1) = vegn%SOC(1) +  &
                          fsc_fine * loss_fine + fsc_wood * loss_coarse
-        vegn%structuralL = vegn%structuralL +   &
+        vegn%SOC(2) = vegn%SOC(2) +   &
                          (1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse
-
-!       Nitrogen to soil SOMs
-        vegn%metabolicN  = vegn%metabolicN +    &
+        vegn%SON(1)  = vegn%SON(1) +    &
                           fsc_fine * lossN_fine + fsc_wood * lossN_coarse
-        vegn%structuralN = vegn%structuralN +   &
+        vegn%SON(2) = vegn%SON(2) +   &
                           (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
 !       annual N from plants to soil
@@ -1266,10 +1264,10 @@ subroutine vegn_fire_disturbance (vegn, deltat)
       end associate
     enddo
     ! Burned litter
-    vegn%C_combusted = vegn%C_combusted + 0.2 * vegn%metabolicL
-    vegn%mineralN    = vegn%mineralN    + 0.2 * vegn%metabolicN
-    vegn%metabolicL = vegn%metabolicL - 0.2 * vegn%metabolicL
-    vegn%metabolicN = vegn%metabolicN - 0.2 * vegn%metabolicN
+    vegn%C_combusted = vegn%C_combusted + 0.7*vegn%SOC(1) + 0.2*vegn%SOC(1)
+    vegn%mineralN    = vegn%mineralN    + 0.7*vegn%SON(1) + 0.2*vegn%SON(1)
+    vegn%SOC(1) = vegn%SOC(1) - 0.7*vegn%SOC(1) - 0.2*vegn%SOC(1)
+    vegn%SON(1) = vegn%SON(1) - 0.7*vegn%SON(1) - 0.2*vegn%SON(1)
   endif
 
 end subroutine vegn_fire_disturbance
@@ -1361,12 +1359,12 @@ subroutine plant2soil(vegn,cc,deadtrees)
      lossN_coarse = deadtrees * (cc%woodN+cc%sapwN + cc%leafN - cc%leafarea*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%leafarea*sp%LNbase)
 
-     vegn%metabolicL  = vegn%metabolicL + fsc_fine *loss_fine + fsc_wood *loss_coarse
-     vegn%structuralL = vegn%structuralL + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
+     vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + fsc_wood *loss_coarse
+     vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
 
-     vegn%metabolicN = vegn%metabolicN + &
+     vegn%SON(1) = vegn%SON(1) + &
                 fsc_fine *lossN_fine +    fsc_wood *lossN_coarse
-     vegn%structuralN = vegn%structuralN + &
+     vegn%SON(2) = vegn%SON(2) + &
                 (1.-fsc_fine)*lossN_fine +(1.-fsc_wood)*lossN_coarse
 
      ! annual N from plants to soil
@@ -1502,13 +1500,13 @@ subroutine vegn_reproduction (vegn)
 !        failed_seeds = 0.0 ! (1. - sp%prob_g*sp%prob_e) * seedC(i)!!
 
 !        vegn%litter = vegn%litter + failed_seeds
-!        vegn%metabolicL = vegn%metabolicL +        fsc_fine *failed_seeds
-!        vegn%structuralL = vegn%structuralL + (1.0 - fsc_fine)*failed_seeds
+!        vegn%SOC(1) = vegn%SOC(1) +        fsc_fine *failed_seeds
+!        vegn%SOC(2) = vegn%SOC(2) + (1.0 - fsc_fine)*failed_seeds
 
 !!      Nitrogen of seeds to soil SOMs
 !        N_failedseed= 0.0 ! (1.-sp%prob_g*sp%prob_e)   * seedN(i)
-!        vegn%metabolicN  = vegn%metabolicN   +        fsc_fine * N_failedseed
-!        vegn%structuralN = vegn%structuralN  + (1.0 - fsc_fine)* N_failedseed
+!        vegn%SON(1)  = vegn%SON(1)   +        fsc_fine * N_failedseed
+!        vegn%SON(2) = vegn%SON(2)  + (1.0 - fsc_fine)* N_failedseed
 
 !       annual N from plants to soil
 !       vegn%N_P2S_yr = vegn%N_P2S_yr + N_failedseed
@@ -1562,14 +1560,14 @@ end function
         lossN_coarse = cc%nindivs * (cc%leafN - cc%leafarea*sp%LNbase)
         lossN_fine   = cc%nindivs *  cc%leafarea*sp%LNbase
         ! Carbon to soil pools
-        vegn%metabolicL  = vegn%metabolicL  + fsc_fine *loss_fine + &
-                                              fsc_wood *loss_coarse
-        vegn%structuralL = vegn%structuralL + (1.0-fsc_fine)*loss_fine + &
-                                              (1.0-fsc_wood)*loss_coarse
+        vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + &
+                fsc_wood *loss_coarse
+        vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + &
+                (1.0-fsc_wood)*loss_coarse
         ! Nitrogen to soil pools
-        vegn%metabolicN = vegn%metabolicN + fsc_fine  *lossN_fine +   &
+        vegn%SON(1) = vegn%SON(1) + fsc_fine  *lossN_fine +   &
                                         fsc_wood *lossN_coarse
-        vegn%structuralN = vegn%structuralN +(1.-fsc_fine) *lossN_fine +   &
+        vegn%SON(2) = vegn%SON(2) +(1.-fsc_fine) *lossN_fine +   &
                                       (1.-fsc_wood)*lossN_coarse
         ! annual N from plants to soil
         vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
@@ -1700,8 +1698,8 @@ subroutine vegn_migration (vegn)
      ccnew => null()
      call zero_diagnostics(vegn)
      ! Make carbon and nitrogen balance
-     vegn%structuralL = vegn%structuralL - min(0.05*vegn%structuralL,addedC)
-     vegn%structuralN = vegn%structuralN - min(0.05*vegn%structuralN,addedN)
+     vegn%SOC(2) = vegn%SOC(2) - min(0.05*vegn%SOC(2),addedC)
+     vegn%SON(2) = vegn%SON(2) - min(0.05*vegn%SON(2),addedN)
   endif ! set up newly moved-in cohorts
 
 end subroutine vegn_migration
@@ -1851,15 +1849,13 @@ end subroutine relayer_cohorts
      lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNStem)
      lossN_fine   = (1.-retransN)* cc%nindivs * (dNR + dAleaf * sp%LNbase)
 
-     vegn%metabolicL = vegn%metabolicL   +  &
+     vegn%SOC(1) = vegn%SOC(1)   +  &
                         fsc_fine * loss_fine + fsc_wood * loss_coarse
-     vegn%structuralL = vegn%structuralL +  &
+     vegn%SOC(2) = vegn%SOC(2) +  &
                          ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
-
-!    Nitrogen to soil SOMs
-     vegn%metabolicN  = vegn%metabolicN +    &
+     vegn%SON(1)  = vegn%SON(1) +    &
                           fsc_fine * lossN_fine + fsc_wood * lossN_coarse
-     vegn%structuralN = vegn%structuralN + &
+     vegn%SON(2) = vegn%SON(2) + &
                           (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
 !    annual N from plants to soil
@@ -1929,110 +1925,109 @@ subroutine vegn_N_uptake(vegn, tsoil)
 end subroutine vegn_N_uptake
 ! ============================================================================
 ! Nitrogen mineralization and immoblization with microbial C & N pools
-! it's a new decomposition model with coupled C & N pools and variable 
+! it's a new decomposition model with coupled C & N pools and variable
 ! carbon use efficiency
 subroutine SOMdecomposition(vegn, tsoil, thetaS)
   type(vegn_tile_type), intent(inout) :: vegn
-  real                , intent(in)    :: tsoil ! soil temperature, deg K 
+  real                , intent(in)    :: tsoil ! soil temperature, deg K
   real                , intent(in)    :: thetaS
 
-  real :: CUE0=0.4  ! default microbial CUE
-  real :: CUEfast,CUEslow
   real :: CNm = 10.0  ! Microbial C/N ratio
   real :: NforM, fNM=0.0  ! mineral N available for microbes
-  real :: micr_C_loss, fast_L_loss, slow_L_loss
   real :: runoff ! kg m-2 /step
   real :: N_loss
+  real :: d_C(5), d_N(5), CN(5), CUE(5)
   real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
   real :: fDON = 0.0   ! 0.02     ! fractio of DON production in decomposition
-  real :: fast_N_free 
-  real :: slow_N_free 
-  real :: CNfast, CNslow
   real :: A  ! decomp rate reduction due to moisture and temperature
-  
+  integer :: i, j
+
+  ! Environmental scalar
+  A=A_function(tsoil,thetaS)
 !  runoff = vegn%Wrunoff * 365*24*3600 *dt_fast_yr !kgH2O m-2 s-1 ->kg m-2/time step
-  runoff = vegn%runoff  !* dt_fast_yr !kgH2O m-2 yr-1 ->kgH2O m-2/time step, weng 2017-10-15
-! CN ratios of soil C pools
-  CNfast = vegn%metabolicL/vegn%metabolicN
-  CNslow = vegn%structuralL/vegn%structuralN
+  runoff = 0.0 ! vegn%runoff  !* dt_fast_yr !kgH2O m-2 yr-1 ->kgH2O m-2/time step, weng 2017-10-15
+
+  ! Put litters into soil to start decomposition processes
+  CN = CN0SOM
+  CNm= CN0SOM(3)
+  do i=1, 2
+       d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
+       d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
+       vegn%SOC(i) = vegn%SOC(i) - d_C(i)
+       vegn%SON(i) = vegn%SON(i) - d_N(i)
+       vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
+       vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
+       CN(3+i)       = vegn%SOC(3+i) / vegn%SON(3+i)
+  enddo
 
 !! C decomposition
-  A=A_function(tsoil,thetaS)
-  micr_C_loss = vegn%microbialC * A * K3 * dt_fast_yr
-  fast_L_loss = vegn%metabolicL * A * K1 * dt_fast_yr
-  slow_L_loss = vegn%structuralL* A * K2 * dt_fast_yr
-
-! C decomposition
-!  A=A_function(tsoil,thetaS)
-!  micr_C_loss = vegn%microbialC * (1.0 - exp(-A*K3 * dt_fast_yr))
-!  fast_L_loss = vegn%metabolicL * (1.0 - exp(-A*K1 * dt_fast_yr))
-!  slow_L_loss = vegn%structuralL* (1.0 - exp(-A*K2 * dt_fast_yr))
+  do i=3, 5
+     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr
+     !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
+  enddo
 
 ! Carbon use efficiencies of microbes
   NforM = fNM * vegn%mineralN
-  CUEfast = MIN(CUE0,CNm*(fast_L_loss/CNfast + NforM)/fast_L_loss)
-  CUEslow = MIN(CUE0,CNm*(slow_L_loss/CNslow + NforM)/slow_L_loss)
+  CUE(4) = MIN(CUEmax0,CNm*(d_C(4)/CN(4) + NforM)/d_C(4))
+  CUE(5) = MIN(CUEmax0,CNm*(d_C(5)/CN(5) + NforM)/d_C(5))
 
 ! update C and N pools
 ! Carbon pools
-  vegn%microbialC  = vegn%microbialC - micr_C_loss &
-                    + fast_L_loss * CUEfast &
-                    + slow_L_loss * CUEslow
-  vegn%metabolicL = vegn%metabolicL - fast_L_loss
-  vegn%structuralL = vegn%structuralL - slow_L_loss
+  vegn%SOC(3)  = vegn%SOC(3) - d_C(3) &
+               + d_C(4) * CUE(4) + d_C(5) * CUE(5)
+  vegn%SOC(4) = vegn%SOC(4) - d_C(4)
+  vegn%SOC(5) = vegn%SOC(5) - d_C(5)
 
-! Find papers about soil DON losses
-! DON loss, revised by Weng. 2016-03-03  ??
-  runoff      = 0.0 ! 0.2 ! mm day-1
+  ! Organic and mineral nitrogen losses
   ! Assume it is proportional to decomposition rates
   ! Find some papers!!
-  DON_fast    = fDON * fast_L_loss/CNfast * (etaN*runoff)
-  DON_slow    = fDON * slow_L_loss/CNslow * (etaN*runoff)
+  DON_fast    = fDON * d_C(4)/CN(4) * (etaN*runoff)
+  DON_slow    = fDON * d_C(5)/CN(5) * (etaN*runoff)
   DON_loss    = DON_fast + DON_slow
-
-! Update Nitrogen pools
-  vegn%microbialN= vegn%microbialC/CNm
-  vegn%metabolicN  = vegn%metabolicN  - fast_L_loss/CNfast - DON_fast
-  vegn%structuralN = vegn%structuralN - slow_L_loss/CNslow - DON_slow
-
-! Mixing of microbes to litters
-  vegn%metabolicL   = vegn%metabolicL + MLmixRatio*fast_L_loss * CUEfast
-  vegn%metabolicN   = vegn%metabolicN + MLmixRatio*fast_L_loss * CUEfast/CNm
-
-  vegn%structuralL = vegn%structuralL + MLmixRatio*slow_L_loss * CUEslow
-  vegn%structuralN = vegn%structuralN + MLmixRatio*slow_L_loss * CUEslow/CNm
-
-  vegn%microbialC  = vegn%microbialC  - MLmixRatio*(fast_L_loss*CUEfast+slow_L_loss*CUEslow)
-  vegn%microbialN  = vegn%microbialC/CNm
-    
-! update mineral N pool (mineralN)
-  fast_N_free = MAX(0.0, fast_L_loss*(1./CNfast - CUEfast/CNm))
-  slow_N_free = MAX(0.0, slow_L_loss*(1./CNslow - CUEslow/CNm))
-
+  ! Mineral nitrogen loss
   N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
 !  N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
   N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
   vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
 
+! Update Nitrogen pools
+  vegn%SON(3) = vegn%SOC(3)/CNm
+  vegn%SON(4) = vegn%SON(4) - d_C(4)/CN(4) - DON_fast
+  vegn%SON(5) = vegn%SON(5) - d_C(5)/CN(5) - DON_slow
+
+! Mixing of microbes to litters
+  vegn%SOC(4)   = vegn%SOC(4) + f_M2SOM*d_C(4) * CUE(4)
+  vegn%SON(4)   = vegn%SON(4) + f_M2SOM*d_C(4) * CUE(4)/CNm
+
+  vegn%SOC(5) = vegn%SOC(5) + f_M2SOM*d_C(5) * CUE(5)
+  vegn%SON(5) = vegn%SON(5) + f_M2SOM*d_C(5) * CUE(5)/CNm
+
+  vegn%SOC(3)  = vegn%SOC(3)  - f_M2SOM*(d_C(4)*CUE(4)+d_C(5)*CUE(5))
+  vegn%SON(3)  = vegn%SOC(3)/CNm
+
+! update mineral N pool (mineralN)
+  d_N(4) = MAX(0.0, d_C(4)*(1./CN(4) - CUE(4)/CNm))
+  d_N(5) = MAX(0.0, d_C(5)*(1./CN(5) - CUE(5)/CNm))
+
   vegn%mineralN = vegn%mineralN - N_loss       &
                   + vegn%N_input * dt_fast_yr  &
-                  + fast_N_free + slow_N_free  &
-                  + micr_C_loss/CNm
+                  + d_N(4) + d_N(5)  &
+                  + d_C(3)/CNm
   vegn%annualN   = vegn%annualN - N_loss       &
                   + vegn%N_input * dt_fast_yr  &
-                  + fast_N_free + slow_N_free  &
-                  + micr_C_loss/CNm
+                  + d_N(4) + d_N(5)  &
+                  + d_C(3)/CNm
 
 ! Check if soil C/N is lower than CN0
-  fast_N_free = MAX(0., vegn%metabolicN  - vegn%metabolicL/CN0metabolicL)
-  slow_N_free = MAX(0., vegn%structuralN - vegn%structuralL/CN0structuralL)
-  vegn%metabolicN  = vegn%metabolicN  - fast_N_free
-  vegn%structuralN = vegn%structuralN - slow_N_free
-  vegn%mineralN    = vegn%mineralN + fast_N_free + slow_N_free
-  vegn%annualN     = vegn%annualN  + fast_N_free + slow_N_free
+  do i=4, 5
+     d_N(i)        = MAX(0., vegn%SON(i)  - vegn%SOC(i)/CN0SOM(i))
+     vegn%SON(i)   = vegn%SON(i)   - d_N(i)
+     vegn%mineralN = vegn%mineralN + d_N(i)
+     vegn%annualN  = vegn%annualN  + d_N(i)
+  enddo
 
 ! Heterotrophic respiration: decomposition of litters and SOM, kgC m-2 step-1
-  vegn%rh =  (micr_C_loss + fast_L_loss*(1.-CUEfast)+ slow_L_loss*(1.-CUEslow))
+  vegn%rh =  (d_C(3) + d_C(4)*(1.-CUE(4))+ d_C(5)*(1.-CUE(5)))
 
 end subroutine SOMdecomposition
 
@@ -2523,10 +2518,10 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       ! Sorting these cohorts
       call relayer_cohorts(vegn)
       ! Initial Soil pools and environmental conditions
-      vegn%metabolicL   = init_fast_soil_C ! kgC m-2
-      vegn%structuralL  = init_slow_soil_C ! slow soil carbon pool, (kg C/m2)
-      vegn%metabolicN   = vegn%metabolicL/CN0metabolicL  ! fast soil nitrogen pool, (kg N/m2)
-      vegn%structuralN  = vegn%structuralL/CN0structuralL  ! slow soil nitrogen pool, (kg N/m2)
+      vegn%SOC(4)  = init_fast_soil_C ! kgC m-2
+      vegn%SOC(5)  = init_slow_soil_C ! slow soil carbon pool, (kg C/m2)
+      vegn%SON(4)  = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
+      vegn%SON(5)  = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
       vegn%N_input      = N_input  ! kgN m-2 yr-1, N input to soil
       vegn%mineralN     = init_Nmineral  ! Mineral nitrogen pool, (kg N/m2)
       vegn%previousN    = vegn%mineralN
@@ -2546,8 +2541,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       call vegn_sum_tile(vegn)
       vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
                        vegn%rootN + vegn%SapwoodN + vegn%woodN + &
-                       vegn%MicrobialN + vegn%metabolicN +       &
-                       vegn%structuralN + vegn%mineralN
+                       sum(vegn%SON(:)) + vegn%mineralN
       vegn%totN =  vegn%initialN0
    else
      ! ------- Generate cohorts randomly --------
@@ -2575,10 +2569,10 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       enddo
       MaxCohortID = cp%ccID
       ! Initial Soil pools and environmental conditions
-      vegn%metabolicL  = 0.2 ! kgC m-2
-      vegn%structuralL = 7.0 ! slow soil carbon pool, (kg C/m2)
-      vegn%metabolicN  = vegn%metabolicL/CN0metabolicL  ! fast soil nitrogen pool, (kg N/m2)
-      vegn%structuralN = vegn%structuralL/CN0structuralL  ! slow soil nitrogen pool, (kg N/m2)
+      vegn%SOC(4) = 0.2 ! kgC m-2
+      vegn%SOC(5) = 7.0 ! slow soil carbon pool, (kg C/m2)
+      vegn%SON(4) = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
+      vegn%SON(5) = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
       vegn%N_input     = N_input  ! kgN m-2 yr-1, N input to soil
       vegn%mineralN    = 0.005  ! Mineral nitrogen pool, (kg N/m2)
       vegn%previousN   = vegn%mineralN
@@ -2587,8 +2581,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       call vegn_sum_tile(vegn)
       vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
                        vegn%rootN + vegn%SapwoodN + vegn%woodN + &
-                       vegn%MicrobialN + vegn%metabolicN +       &
-                       vegn%structuralN + vegn%mineralN
+                       sum(vegn%SON(:)) + vegn%mineralN
       vegn%totN =  vegn%initialN0
 
    endif  ! initialization: random or pre-described
