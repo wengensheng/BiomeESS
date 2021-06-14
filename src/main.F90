@@ -50,6 +50,7 @@
 !
 !#define Hydro_test
 !#define USE_NETCDF
+!#define CROWN_GAP_FILLING
 
 program BiomeESS
    use datatypes
@@ -241,6 +242,11 @@ program BiomeESS
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             call kill_lowdensity_cohorts(vegn)
 #endif
+
+#ifdef CROWN_GAP_FILLING
+            call vegn_gap_fraction_update(vegn)
+#endif
+
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
 

@@ -364,9 +364,9 @@ type :: vegn_tile_type
 
 !  fire disturbance
    logical :: fire_occurrence = .false.
-   real :: C_combusted ! Carbon released to atmosphere via fire
-   real :: treecover=0.0 ! tree CAI in the top layer, affecting fire spread in canopy
-   real :: grasscover=0.0 ! grass CAI, initial fire severity
+   real :: C_combusted = 0.0 ! Carbon released to atmosphere via fire
+   real :: treecover   = 0.0 ! tree CAI in the top layer, for fire spread
+   real :: grasscover  = 0.0 ! grass CAI, for the initial fire severity
    ! daily diagnostics
    real :: dailyGPP
    real :: dailyNPP
@@ -605,7 +605,7 @@ real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 
 real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
 real :: NfixRate0(0:MSPECIES) = 0.0 !Reference N fixation rate (0.03 kgN kgC-1 root yr-1)
 real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC
-real :: f_cGap(0:MSPECIES)= 0.1 ! The gaps between trees
+real :: f_cGap(0:MSPECIES)    = 0.1 ! The gaps between trees
 
 namelist /vegn_parameters_nml/  &
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &

@@ -13,6 +13,8 @@ public :: vegn_nat_mortality, vegn_hydro_mortality,vegn_sum_tile
 public :: vegn_migration, vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 public :: Zero_diagnostics
+! for Biodiversity test
+public :: vegn_gap_fraction_update
  contains
 !=============== ESS subroutines ========================================
 !========================================================================
@@ -890,6 +892,38 @@ subroutine vegn_sum_tile(vegn)
   enddo
 
 end subroutine vegn_sum_tile
+
+!================================================
+!Weng, 06-13-2021, Crown gap with biodiversity
+subroutine vegn_gap_fraction_update(vegn)
+
+  type(vegn_tile_type), intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real :: totCA, CA(0:MSPECIES), f_keep
+  integer :: i
+
+  ! Calculate totCA and each PFT's CA
+  totCA     = 0.0
+  CA(:)     = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     totCA = totCA + cc%crownarea * cc%nindivs
+     CA(cc%species) = CA(cc%species) + cc%crownarea * cc%nindivs
+  enddo
+  !Calculate f_keep
+  f_keep = 0.0
+  do i=0, MSPECIES-1
+    if(CA(i)>0.0)f_keep = f_keep + (CA(i)/totCA)**3
+  enddo
+  ! update f_cGap
+  do i=0, MSPECIES-1
+     if(CA(i)>0.0) spdata(i)%f_cGap = f_cGap(i) * f_keep
+  enddo
+  write(*,*)'PFT1_gap,PFT2_gap,f_keep',spdata(1)%f_cGap,spdata(2)%f_cGap,f_keep
+
+end subroutine vegn_gap_fraction_update
 
 !=================================================
 ! Weng: partioning root area into layers, 10-24-2017
