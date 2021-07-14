@@ -6,12 +6,15 @@ module esdvm
 
 ! ------ public subroutines ---------
 public :: initialize_cohort_from_biomass, initialize_vegn_tile
-public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW,update_layer_LAI
+public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
-public :: vegn_starvation, vegn_nat_mortality, vegn_fire_disturbance
+public :: vegn_starvation, vegn_annual_starvation, vegn_fire_disturbance
+public :: vegn_nat_mortality, vegn_hydro_mortality,vegn_sum_tile
 public :: vegn_migration, vegn_species_switch
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
-public :: vegn_annual_starvation,Zero_diagnostics
+public :: Zero_diagnostics
+! for Biodiversity test
+public :: vegn_gap_fraction_update
  contains
 !=============== ESS subroutines ========================================
 !========================================================================
@@ -85,62 +88,51 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: rad_top  ! downward radiation at the top of the canopy, W/m2
   real :: rad_net  ! net radiation absorbed by the canopy, W/m2
   real :: Tair, TairK     ! air temperature, degC and degK
-  real  :: cana_q   ! specific humidity in canopy air space, kg/kg
-  real  :: cana_co2 ! co2 concentration in canopy air space, mol CO2/mol dry air
-  real  :: p_surf   ! surface pressure, Pa
-  real  :: water_supply ! water supply per m2 of leaves
-  real  :: fw, fs ! wet and snow-covered fraction of leaves
-  real  :: psyn   ! net photosynthesis, mol C/(m2 of leaves s)
-  real  :: resp   ! leaf respiration, mol C/(m2 of leaves s)
-  real  :: tempLAI,w_scale2, transp ! mol H20 per m2 of leaf per second
-  real  :: kappa  ! light extinction coefficient of corwn layers
+  real :: cana_q   ! specific humidity in canopy air space, kg/kg
+  real :: cana_co2 ! co2 concentration in canopy air space, mol CO2/mol dry air
+  real :: p_surf   ! surface pressure, Pa
+  real :: water_supply ! water supply per m2 of leaves
+  real :: fw, fs ! wet and snow-covered fraction of leaves
+  real :: psyn   ! net photosynthesis, mol C/(m2 of leaves s)
+  real :: resp   ! leaf respiration, mol C/(m2 of leaves s)
+  real :: tempLAI,w_scale2, transp ! mol H20 per m2 of leaf per second
+  real :: kappa  ! light extinction coefficient of corwn layers
   real :: f_light(10)=0.0      ! light fraction of each layer
-  real :: LAIlayer(10),accuCAI,f_gap ! additional GPP for lower layer cohorts due to gaps
   integer :: i, layer
 
   !! Water supply for photosynthesis, Layers
   call water_supply_layer(forcing, vegn)
 
 !! Light supply for photosynthesis
-! update accumulative LAI for each corwn layer
-  f_gap = 0.1 ! 0.1
-  accuCAI = 0.0
-  !vegn%LAI      = 0.0
-  LAIlayer = 0.0
+  vegn%kp = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      layer = Max (1, Min(cc%layer,9))
-     !accuCAI = accuCAI + cc%crownarea * cc%nindivs/(1.0-f_gap)
-     !layer = ceiling(accuCAI)
-     LAIlayer(layer) = LAIlayer(layer) + cc%leafarea * cc%nindivs /(1.-f_gap)
-     !/(1.0-sp%internal_gap_frac)
-     !
+     ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
+     vegn%kp(layer) = vegn%kp(layer)  &  ! -0.75
+                    + cc%extinct * cc%crownarea * cc%nindivs
   enddo
 
-  ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
-  kappa = cc%extinct ! 0.75
   ! Light fraction
   f_light = 0.0
   f_light(1) = 1.0
   do i =2, layer !MIN(int(vegn%CAI+1.0),9)
-      f_light(i) = f_light(i-1) * (exp(0.0-kappa*LAIlayer(i-1)) + f_gap)
-      !f_light(i) = f_light(i-1) * (exp(0.0-kappa*3.5) + 0.1)
+      f_light(i) = f_light(i-1)  &
+           * (exp(0.-vegn%kp(i-1)*vegn%LAIlayer(i-1)) + vegn%f_gap(i-1))
   enddo
+
   ! Photosynthesis
-  accuCAI = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
      if(cc%status == LEAF_ON .and. cc%lai > 0.1) then
         ! Convert forcing data
          layer = Max (1, Min(cc%layer,9))
-         !accuCAI = accuCAI + cc%crownarea * cc%nindivs/(1.0-f_gap)
-         !layer = ceiling(accuCAI)
          rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
          rad_net = f_light(layer) * forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
          p_surf  = forcing%P_air  ! Pa
          TairK   = forcing%Tair ! K
-         Tair   = forcing%Tair - 273.16 ! degC
+         Tair    = forcing%Tair - 273.16 ! degC
          cana_q  = (esat(Tair)*forcing%RH*mol_h2o)/(p_surf*mol_air)  ! air specific humidity, kg/kg
          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
         ! recalculate the water supply to mol H20 per m2 of leaf per second
@@ -157,18 +149,22 @@ subroutine vegn_photosynthesis (forcing, vegn)
         cc%An_op  = psyn  ! molC s-1 m-2 of leaves
         cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
         cc%w_scale  = w_scale2
-        cc%transp = transp * mol_h2o * cc%leafarea * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
+        cc%transp = transp * mol_h2o * cc%leafarea * step_seconds  ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
         cc%gpp  = (psyn-resp) * mol_C * cc%leafarea * step_seconds ! kgC step-1 tree-1
+
         !if(isnan(cc%gpp))cc%gpp=0.0
         if(isnan(cc%gpp))stop '"gpp" is a NaN'
         if(isnan(cc%transp))then
            write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
            stop '"transp" is a NaN'
         endif
+
      else
         ! no leaves means no photosynthesis and no stomatal conductance either
-        cc%An_op  = 0.0;  cc%An_cl  = 0.0
-        cc%gpp    = 0.0;  cc%transp = 0.0
+        cc%An_op  = 0.0
+        cc%An_cl  = 0.0
+        cc%gpp    = 0.0
+        cc%transp = 0.0
         cc%w_scale  = -9999
      endif
      end associate
@@ -179,20 +175,20 @@ end subroutine vegn_photosynthesis
 subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
                    p_surf, ws, pft, pt, ca, kappa, leaf_wet, layer, &
                    apot, acl,w_scale2, transp)
-  real,    intent(in)    :: rad_top ! PAR dn on top of the canopy, w/m2
-  real,    intent(in)    :: rad_net ! PAR net on top of the canopy, w/m2
-  real,    intent(in)    :: tl   ! leaf temperature, degK
-  real,    intent(in)    :: ea   ! specific humidity in the canopy air, kg/kg
-  real,    intent(in)    :: lai  ! leaf area index
-  !real,    intent(in)    :: leaf_age ! age of leaf since budburst (deciduos), days
-  real,    intent(in)    :: p_surf ! surface pressure, Pa
-  real,    intent(in)    :: ws   ! water supply, mol H20/(m2 of leaf s)
-  integer, intent(in)    :: pft  ! species
-  integer, intent(in)    :: pt   ! physiology type (C3 or C4)
-  real,    intent(in)    :: ca   ! concentartion of CO2 in the canopy air space, mol CO2/mol dry air
-  real,    intent(in)    :: kappa! canopy extinction coefficient (move inside f(pft))
-  real,    intent(in)    :: leaf_wet ! fraction of leaf that's wet or snow-covered
-  integer, intent(in)    :: layer  ! the layer of this canopy
+  real,    intent(in)   :: rad_top ! PAR dn on top of the canopy, w/m2
+  real,    intent(in)   :: rad_net ! PAR net on top of the canopy, w/m2
+  real,    intent(in)   :: tl   ! leaf temperature, degK
+  real,    intent(in)   :: ea   ! specific humidity in the canopy air, kg/kg
+  real,    intent(in)   :: lai  ! leaf area index
+  !real,    intent(in)   :: leaf_age ! age of leaf since budburst (deciduos), days
+  real,    intent(in)   :: p_surf ! surface pressure, Pa
+  real,    intent(in)   :: ws   ! water supply, mol H20/(m2 of leaf s)
+  integer, intent(in)   :: pft  ! species
+  integer, intent(in)   :: pt   ! physiology type (C3 or C4)
+  real,    intent(in)   :: ca   ! concentartion of CO2 in the canopy air space, mol CO2/mol dry air
+  real,    intent(in)   :: kappa! canopy extinction coefficient (move inside f(pft))
+  real,    intent(in)   :: leaf_wet ! fraction of leaf that's wet or snow-covered
+  integer, intent(in)   :: layer  ! the layer of this canopy
   ! note that the output is per area of leaf; to get the quantities per area of
   ! land, multiply them by LAI
   !real,    intent(out)   :: gs   ! stomatal conductance, m/s
@@ -200,62 +196,60 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real,    intent(out)   :: acl  ! leaf respiration, mol C/(m2 s)
   real,    intent(out)   :: w_scale2,transp  ! transpiration, mol H20/(m2 of leaf s)
 
-  ! ---- local vars     
+  ! ---- local vars
   ! photosynthesis
-  real :: vm;
-  real :: kc,ko; ! Michaelis-Menten constants for CO2 and O2, respectively
-  real :: ci;
-  real :: capgam; ! CO2 compensation point
-  real :: f2,f3;
-  real :: coef0,coef1;
-
-  real :: Resp;
+  real :: vm
+  real :: kc,ko ! Michaelis-Menten constants for CO2 and O2, respectively
+  real :: ci
+  real :: capgam ! CO2 compensation point
+  real :: f2,f3
+  real :: coef0,coef1
+  real :: Resp
 
   ! conductance related
-  real :: gs;
-  real :: b;
-  real :: ds;  ! humidity deficit, kg/kg
-  real :: hl;  ! saturated specific humidity at the leaf temperature, kg/kg
-  real :: do1;
-  
+  real :: gs
+  real :: b
+  real :: ds  ! humidity deficit, kg/kg
+  real :: hl  ! saturated specific humidity at the leaf temperature, kg/kg
+  real :: do1
+
   ! misceleneous
-  real :: dum2;
-  real, parameter :: light_crit = 0;
-  real, parameter :: gs_lim = 0.25;
+  real :: dum2
+  real, parameter :: light_crit = 0
+  real, parameter :: gs_lim = 0.25
   real, parameter :: Rgas = 8.314 ! J mol-1 K-1, universal gas constant
   ! new average computations
   real :: lai_eq;
-  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta 
-  real :: light_top;
-  real :: par_net;
-  real :: Ag;
-  real :: An;
-  real :: Ag_l;
-  real :: Ag_rb;
-  real :: anbar;
-  real :: gsbar;
-  real :: w_scale;
+  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
+  real :: light_top
+  real :: par_net
+  real :: Ag
+  real :: An
+  real :: Ag_l
+  real :: Ag_rb
+  real :: anbar
+  real :: gsbar
+  real :: w_scale
   real, parameter :: p_sea = 1.0e5 ! sea level pressure, Pa
   ! soil water stress
-  real :: Ed,an_w,gs_w;
+  real :: Ed, an_w, gs_w
 
-  b=0.01;
-  do1=0.09 ; ! kg/kg
-  if (pft < 2) do1=0.15;
+  b=0.01
+  do1=0.09 ! kg/kg
+  if (pft < 2) do1=0.15
 
   ! Convert Solar influx from W/(m^2s) to mol_of_quanta/(m^2s) PAR,
   ! empirical relationship from McCree is light=rn*0.0000046
-  light_top = rad_top*rad_phot;
-  par_net   = rad_net*rad_phot;
-  
+  light_top = rad_top*rad_phot
+  par_net   = rad_net*rad_phot
+
   ! calculate humidity deficit, kg/kg
   call qscomp(tl, p_surf, hl)
   ds = max(hl - ea,0.0)
 
-
-!  ko=0.25   *exp(1400.0*(1.0/288.2-1.0/tl))*p_sea/p_surf;
-!  kc=0.00015*exp(6000.0*(1.0/288.2-1.0/tl))*p_sea/p_surf;
-!  vm=spdata(pft)%Vmax*exp(3000.0*(1.0/288.2-1.0/tl));
+!  ko=0.25   *exp(1400.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
+!  kc=0.00015*exp(6000.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
+!  vm=spdata(pft)%Vmax*exp(3000.0*(1.0/288.2-1.0/tl))
 
 ! corrected by Weng, 2013-01-17
 ! Weng, 2013-01-10
@@ -263,7 +257,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   kc=0.000404 * exp(59356/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
   vm=spdata(pft)%Vmax*exp(24920/Rgas*(1.0/298.2-1.0/tl)) ! / ((layer-1)*1.0+1.0) ! Ea = 33920
 
-  !decrease Vmax due to aging of temperate deciduous leaves 
+  !decrease Vmax due to aging of temperate deciduous leaves
   !(based on Wilson, Baldocchi and Hanson (2001)."Plant,Cell, and Environment", vol 24, 571-583)
 !! Turned off by Weng, 2013-02-01, since we can't trace new leaves
 !  if (spdata(pft)%leaf_age_tau>0 .and. leaf_age>spdata(pft)%leaf_age_onset) then
@@ -271,10 +265,10 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 !  endif
 
   ! capgam=0.209/(9000.0*exp(-5000.0*(1.0/288.2-1.0/tl))); - Foley formulation, 1986
-  capgam=0.5*kc/ko*0.21*0.209; ! Farquhar & Caemmerer 1982
+  capgam=0.5*kc/ko*0.21*0.209 ! Farquhar & Caemmerer 1982
 
   ! Find respiration for the whole canopy layer
-  
+
 !  Resp=spdata(pft)%gamma_resp*vm*lai /((layer-1)*1.0+1.0)  ! Weng, 2013-01-17 add '/ ((layer-1)*1.0+1.0)'
 
 ! 2014-09-03, for Nitrogen model: resp = D*(A + B*LMA)
@@ -288,47 +282,49 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 !  Resp=(spdata(pft)%gamma_LNbase*spdata(pft)%LNbase+spdata(pft)%gamma_LMA*spdata(pft)%LMA)  & ! basal rate, mol m-2 s-1
 !  Resp=spdata(pft)%gamma_LNbase*(2.5*spdata(pft)%LNA-1.5*spdata(pft)%LNbase)     & ! basal rate, mol m-2 s-1
   Resp= spdata(pft)%gamma_LN/seconds_per_year & ! per seconds, ! basal rate, mol m-2 s-1
-       * spdata(pft)%LNA * lai / mol_c    &     ! whole canopy, ! basal rate, mol m-2 s-1
+       * spdata(pft)%LNA * lai / mol_c        & ! whole canopy, ! basal rate, mol m-2 s-1
        * exp(24920/Rgas*(1.0/298.2-1.0/tl))     ! temperature scaled
-               !                                  &
+!             &
 !       /((layer-1)*1.0+1.0)
-! Temperature effects
-   Resp=Resp/((1.0+exp(0.4*(5.0-tl+TFREEZE)))*(1.0+exp(0.4*(tl-45.0-TFREEZE))));
-  
-  
-  ! ignore the difference in concentrations of CO2 near
-  !  the leaf and in the canopy air, rb=0.
-  Ag_l=0.;
-  Ag_rb=0.;
-  Ag=0.;
-  anbar=-Resp/lai;
-  gsbar=b;
+   ! Temperature effects
+   Resp = Resp/((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+        * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
+
+  ! ignore the difference in [CO2] near the leaf and in the canopy air, rb=0.
+
+  Ag_l = 0.
+  Ag_rb= 0.
+  Ag   = 0.
+  anbar= -Resp/lai
+  gsbar=b
   ! find the LAI level at which gross photosynthesis rates are equal
   ! only if PAR is positive
-  if ( light_top > light_crit ) then
-     if (pt==PT_C4) then ! C4 species
+  if(light_top > light_crit)then
+     if(pt==PT_C4) then ! C4 species
         coef0=(1+ds/do1)/spdata(pft)%m_cond;
         ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
         if (ci>capgam) then
-           f2=vm;
-           f3=18000.0*vm*ci; ! 18000 or 1800?
+           f2=vm
+           f3=18000.0*vm*ci ! 18000 or 1800?
            dum2=min(f2,f3)
-           
+
            ! find LAI level at which rubisco limited rate is equal to light limited rate
-           lai_eq = -log(dum2/(kappa*spdata(pft)%alpha_phot*light_top))/kappa;
+           lai_eq = -log(dum2/(kappa*spdata(pft)%alpha_phot*light_top))/kappa
            lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
 
            ! gross photosynthesis for light-limited part of the canopy
-           Ag_l   = spdata(pft)%alpha_phot * par_net &
-                * (exp(-lai_eq*kappa)-exp(-lai*kappa))/(1-exp(-lai*kappa))
+           Ag_l   = spdata(pft)%alpha_phot * par_net     &
+                  * (exp(-lai_eq*kappa)-exp(-lai*kappa)) &
+                  / (1-exp(-lai*kappa))
+
            ! gross photosynthesis for rubisco-limited part of the canopy
            Ag_rb  = dum2*lai_eq
-
            Ag=(Ag_l+Ag_rb)/ &
-             ((1.0+exp(0.4*(5.0-tl+TFREEZE)))*(1.0+exp(0.4*(tl-45.0-TFREEZE))));
-           An=Ag-Resp;
-           anbar=An/lai;
-     
+             ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+             *(1.0+exp(0.4*(tl-45.0-TFREEZE))))
+           An=Ag-Resp
+           anbar=An/lai
+
            if(anbar>0.0) then
                gsbar=anbar/(ci-capgam)/coef0;
            endif
@@ -343,36 +339,39 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
         if (ci>capgam) then
            ! find LAI level at which rubisco limited rate is equal to light limited rate
            lai_eq=-log(dum2*(ci+2.*capgam)/(ci-capgam)/ &
-                       (spdata(pft)%alpha_phot*light_top*kappa))/kappa;
+                       (spdata(pft)%alpha_phot*light_top*kappa))/kappa
            lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
 
            ! gross photosynthesis for light-limited part of the canopy
-           Ag_l   = spdata(pft)%alpha_phot * (ci-capgam)/(ci+2.*capgam) * par_net &
-                * (exp(-lai_eq*kappa)-exp(-lai*kappa))/(1.0-exp(-lai*kappa))
+           Ag_l   = spdata(pft)%alpha_phot              &
+                * (ci-capgam)/(ci+2.*capgam) * par_net   &
+                * (exp(-lai_eq*kappa)-exp(-lai*kappa))  &
+                / (1.0-exp(-lai*kappa))
            ! gross photosynthesis for rubisco-limited part of the canopy
            Ag_rb  = dum2*lai_eq
 
-           Ag=(Ag_l+Ag_rb) /((1.0+exp(0.4*(5.0-tl+TFREEZE)))*(1.0+exp(0.4*(tl-45.0-TFREEZE))));
-           An=Ag-Resp;
-           anbar=An/lai;
+           Ag = (Ag_l+Ag_rb) /((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+              * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
+           An = Ag - Resp
+           anbar = An/lai
 
            if(anbar>0.0) then
-               gsbar=anbar/(ci-capgam)/coef0;
+             gsbar=anbar/(ci-capgam)/coef0
            endif
         endif ! ci>capgam
      endif
   endif ! light is available for photosynthesis
   !write(898,'(1(I4,","),10(E10.4,","))') &
   !     layer, light_top, par_net, kappa, lai, lai_eq, ci, capgam, Ag_l, Ag_rb, Ag
-  
-  an_w=anbar;
+
+  an_w=anbar
   if (an_w > 0.) then
      an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet)
   endif
   gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet) !Weng: 1.56 for H2O?
   if (gs_w > gs_lim) then
       if(an_w > 0.) an_w = an_w*gs_lim/gs_w
-      gs_w = gs_lim;
+      gs_w = gs_lim
   endif
   ! find water availability diagnostic demand
   Ed = gs_w * ds*mol_air/mol_h2o ! ds*mol_air/mol_h2o is the humidity deficit in [mol_h2o/mol_air]
@@ -392,13 +391,14 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     write(*,*)'ws,ed',ws,ed
     stop '"transp" is a NaN'
   endif
-! just for reporting
+  ! for reporting
   w_scale2=min(1.0,ws/Ed)
-   ! finally, convert units of stomatal conductance to m/s from mol/(m2 s) by
-   ! multiplying it by a volume of a mole of gas
-   gs = gs * Rugas * Tl / p_surf
-   !write(899, '(25(E12.4,","))') rad_net,par_net,apot*3600*12,acl*3600*12,Ed
+  ! finally, convert units of stomatal conductance to m/s from mol/(m2 s) by
+  ! multiplying it by a volume of a mole of gas
+  gs = gs * Rugas * Tl / p_surf
+
 end subroutine gs_Leuning
+
 !============================================================================
  ! Weng, 05/24/2018
  subroutine calc_solarzen(td,latdegrees,cosz,solarelev,solarzen)
@@ -438,7 +438,7 @@ subroutine plant_respiration(cc, tairK)
   ! real :: LeafN     ! leaf nitrogen, kgN/Tree
   real :: fnsc,NSCtarget ! used to regulation respiration rate
   real :: r_Nfix    ! respiration due to N fixation
-  
+
   integer :: sp ! shorthand for cohort species
   sp = cc%species
   ! temperature response function
@@ -519,7 +519,7 @@ subroutine fetch_CN_for_growth(cc)
 
 ! ============================================================================
  subroutine vegn_growth_EW(vegn)
-! updates cohort biomass pools, LAI, and height using accumulated 
+! updates cohort biomass pools, LAI, and height using accumulated
 ! C_growth and bHW_gain
   type(vegn_tile_type), intent(inout) :: vegn
 
@@ -553,7 +553,7 @@ subroutine fetch_CN_for_growth(cc)
   call vegn_tissue_turnover(vegn)
 
   !Allocate C_gain to tissues
-  do i = 1, vegn%n_cohorts   
+  do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
  !    call biomass_allocation(cc)
      associate (sp => spdata(cc%species)) ! F2003
@@ -655,8 +655,8 @@ subroutine fetch_CN_for_growth(cc)
         cc%DBH       = cc%DBH       + dDBH
         cc%height    = cc%height    + dHeight
         cc%crownarea = cc%crownarea + dCA
-        cc%leafarea  = leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
-        cc%lai       = cc%leafarea/cc%crownarea !(cc%crownarea *(1.0-sp%internal_gap_frac))
+        cc%leafarea  = Aleaf_BM(cc%bl,cc)
+        cc%lai       = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
         vegn%LAI     = vegn%LAI + cc%leafarea  * cc%nindivs
         call rootarea_and_verticalprofile(cc)
 !       convert sapwood to heartwood for woody plants ! Nitrogen from sapwood to heart wood
@@ -676,21 +676,18 @@ subroutine fetch_CN_for_growth(cc)
         endif
 
 !       update bl_max and br_max daily
-        BL_c = sp%LMA * sp%LAImax * cc%crownarea * &
-               (1.0-sp%internal_gap_frac) /max(1,cc%layer)
-        BL_u = sp%LMA*cc%crownarea*(1.0-sp%internal_gap_frac)* &
-                    sp%underLAImax
-        if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
-        if (cc%layer > 1 .and. cc%firstlayer == 0) then ! changed back, Weng 2014-01-23
-            cc%bl_max = BL_u
-!           Keep understory tree's root low and constant
-            cc%br_max = 1.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
-            !cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
+        BL_c = sp%LMA * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)
+        BL_u = BL_c/max(1,cc%layer) !sp%LMA*cc%crownarea*(1.0-sp%f_cGap)* sp%LAImax_u
 
+        if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
+        if (cc%layer > 1 .and. cc%firstlayer == 0) then ! updated, Weng 2014-01-23, 21-06-04
+            cc%bl_max = BL_u
+            !Keep understory tree's root low and constant
+            !cc%br_max = 1.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
         else
             cc%bl_max = BL_u + min(cc%topyear/5.0,1.0)*(BL_c - BL_u)
-            cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         endif
+        cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         ! Grasses have the same bl_max regardless of their layer position
         if(sp%lifeform == 0) then
            cc%bl_max = BL_c
@@ -706,57 +703,13 @@ subroutine fetch_CN_for_growth(cc)
   enddo
   cc => null()
 
-  ! Update tree and grass cover
-  !vegn%treecover = 0.0
-  !vegn%grasscover = 0.0
-  !do i = 1, vegn%n_cohorts
-  !   cc => vegn%cohorts(i)
-  !   associate ( sp => spdata(cc%species))
-  !   if(sp%lifeform==0) then
-  !       if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
-  !   elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-  !       vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
-  !   endif
-  !   end associate
-  !enddo
+  ! Update tile variables
+  call vegn_sum_tile(vegn)
 
 end subroutine vegn_growth_EW ! daily
 
-!=================================================
-! Weng, 2017-10-26
-subroutine update_layer_LAI(vegn)
-  type(vegn_tile_type), intent(inout) :: vegn
-
-!----- local var --------------
-  type(cohort_type),pointer :: cc
-  integer :: i, layer
-
-! update accumulative LAI for each corwn layer
-  vegn%LAI      = 0.0
-  vegn%LAIlayer = 0.0
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     layer = Max (1, Min(cc%layer,9)) ! between 1~9
-     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + cc%leafarea * cc%nindivs !/(1.0-sp%internal_gap_frac)
-  enddo
- end subroutine update_layer_LAI
-
-!=================================================
-! Weng: partioning root area into layers, 10-24-2017
-subroutine rootarea_and_verticalprofile(cc)
-  type(cohort_type), intent(inout) :: cc
-  !----------local var ----------
-  integer :: j
-
-  associate (sp => spdata(cc%species) )
-  cc%rootarea  = cc%br * sp%SRA
-  do j=1,max_lev
-     cc%rootareaL(j) = cc%rootarea * sp%root_frac(j)
-  enddo
-  end associate
- end subroutine rootarea_and_verticalprofile
-
 !============================================================================
+! Updated by Weng, 06-04-2021
 subroutine vegn_phenology(vegn,doy) ! daily step
   type(vegn_tile_type), intent(inout) :: vegn
   integer, intent(in) :: doy
@@ -764,43 +717,65 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   ! ---- local vars
   type(cohort_type), pointer :: cc
   integer :: i,j
-  real    :: grassdensity   ! for grasses only
-  real    :: BL_u,BL_c
-  real    :: ccFR, ccNSC, ccRootN, ccNSN
+  integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
+  real    :: cold_thld = -20.  ! threshold of accumulative low temperature
+  real    :: GDD_adp, Tc_off_crit
+  real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
+  real    :: ccNSC, ccNSN
   logical :: cc_firstday = .false.
-  logical :: growingseason
-  logical :: TURN_ON_life, TURN_OFF_life
+  logical :: PhenoON, PhenoOFF
 
-  vegn%litter = 0   ! daily litter
-
-  ! update vegn GDD and tc_pheno
-  vegn%gdd      = vegn%gdd + max(0.0, vegn%tc_daily - 278.15)
+! -------------- update vegn GDD and tc_pheno ---------------
+  ! environmental factors for each cohort
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
+  do i = 1, vegn%n_cohorts
+     cc=>vegn%cohorts(i)
+     associate (sp => spdata(cc%species) )
+     !cc%gdd = cc%gdd + max(0.0, vegn%tc_pheno - T0_gdd) ! GDD5
+     if(cc%status == LEAF_ON)then
+        cc%ncd = 0
+        cc%ndm = 0
+        cc%gdd = 0.0
+        cc%ngd = Min(366, cc%ngd + 1)
+        if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
+     else  ! cc%status == LEAF_OFF
+        cc%ngd = 0
+        cc%ALT = 0.0
+        cc%ndm = cc%ndm + 1
+        if(vegn%tc_pheno<sp%tc_crit_off)then
+           cc%ncd = cc%ncd + 1
+        endif
+        ! Keep gdd as zero in early non-growing season when days < 60
+        if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
+     endif ! cc%status
 
+     end associate
+  enddo
+
+! --------- Change pheno status ----------------------------
 ! ON and OFF of phenology: change the indicator of growing season for deciduous
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
-     ! update GDD for each cohort
-     cc%gdd = cc%gdd + max(0.0, vegn%tc_daily - 278.15) ! GDD5
-     
      associate (sp => spdata(cc%species) )
 !    for evergreen
-     if(sp%phenotype==1 .and. cc%status==LEAF_OFF) cc%status=LEAF_ON
+     if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
 !    for deciduous and grasses
-     TURN_ON_life = (sp%phenotype == 0             .and. &
-                    cc%status    == LEAF_OFF       .and. &
-                    cc%gdd        > sp%gdd_crit    .and. &
-                    vegn%tc_pheno > sp%tc_crit_on) .and. &
-             (sp%lifeform .ne. 0 .OR.(sp%lifeform .eq. 0 .and.cc%layer==1))
+     ! GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
+     PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)     &
+        ! Temperature conditions
+        .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on)  &
+        !!!  Woody plants            Grasses in the top layer   !!!
+        !.and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer==1))  &
+        )
 
      cc_firstday = .false.
-     if(TURN_ON_life)then
+     if(PhenoON)then
          cc%status = LEAF_ON ! Turn on a growing season
          cc_firstday = .True.
      endif
 
 !    Reset grass density at the first day of a growing season
-     if(cc_firstday .and. sp%lifeform ==0 .and. cc%age>2.)then
+     if(cc_firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
 !        reset grass density and size for perenials
          ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
          ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
@@ -826,27 +801,144 @@ subroutine vegn_phenology(vegn,doy) ! daily step
      end associate
   enddo
 
-  if(TURN_ON_life) call relayer_cohorts(vegn)
+  if(PhenoON) call relayer_cohorts(vegn)
 
   ! OFF of a growing season
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
-     TURN_OFF_life = (sp%phenotype  == 0 .and.     &
-                    cc%status == LEAF_ON .and.     &
-                    cc%gdd > sp%gdd_crit+600. .and. &
-                    vegn%tc_pheno < sp%tc_crit)
+     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-N0_GD)))
+     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
+     PhenoOFF = (cc%status==LEAF_ON .and. sp%phenotype == 0 .and. &
+                cc%ALT < cold_thld .and. vegn%tc_pheno < Tc_off_crit)
      end associate
 
-     if(TURN_OFF_life )then
+     if(PhenoOFF )then
         cc%status = LEAF_OFF  ! Turn off a growing season
-        cc%gdd   = 0.0        ! Start to counting a new cycle of GDD
-        vegn%gdd = 0.0
+        cc%gdd    = 0.0        ! Start to counting a new cycle of GDD
      endif
      ! leaf fall
      call Seasonal_fall(cc,vegn)
   enddo
 end subroutine vegn_phenology
+
+!=================================================
+! Weng, 2021-06-02
+subroutine vegn_sum_tile(vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  integer :: i, layer
+
+  vegn%NSC     = 0.0
+  vegn%SeedC   = 0.0
+  vegn%leafC   = 0.0
+  vegn%rootC   = 0.0
+  vegn%SapwoodC= 0.0
+  vegn%WoodC   = 0.0
+
+  vegn%NSN     = 0.0
+  vegn%SeedN   = 0.0
+  vegn%leafN   = 0.0
+  vegn%rootN   = 0.0
+  vegn%SapwoodN= 0.0
+  vegn%WoodN   = 0.0
+
+  vegn%LAI     = 0.0
+  vegn%CAI     = 0.0
+
+  vegn%LAIlayer = 0.0
+  vegn%f_gap    = 0.0
+  vegn%treecover = 0.0
+  vegn%grasscover = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+
+     ! update accumulative LAI for each corwn layer
+     layer = Max (1, Min(cc%layer,9)) ! between 1~9
+     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
+                            cc%leafarea * cc%nindivs/(1.0-sp%f_cGap)
+     vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
+                            cc%crownarea * cc%nindivs * sp%f_cGap
+
+    ! For reporting
+    ! Vegn C pools:
+     vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
+     vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
+     vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
+     vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
+     vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
+     vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
+     vegn%CAI     = vegn%CAI + cc%crownarea * cc%nindivs
+     vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
+    ! Vegn N pools
+     vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
+     vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
+     vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
+     vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
+     vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
+     vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
+
+     ! Update tree and grass cover
+     if(sp%lifeform==0) then
+         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+     endif
+
+     end associate
+  enddo
+
+end subroutine vegn_sum_tile
+
+!================================================
+!Weng, 06-13-2021, Crown gap with biodiversity
+subroutine vegn_gap_fraction_update(vegn)
+
+  type(vegn_tile_type), intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real :: totCA, CA(0:MSPECIES), f_keep
+  integer :: i
+
+  ! Calculate totCA and each PFT's CA
+  totCA     = 0.0
+  CA(:)     = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     totCA = totCA + cc%crownarea * cc%nindivs
+     CA(cc%species) = CA(cc%species) + cc%crownarea * cc%nindivs
+  enddo
+  !Calculate f_keep
+  f_keep = 0.0
+  do i=0, MSPECIES-1
+    if(CA(i)>0.0)f_keep = f_keep + (CA(i)/totCA)**3
+  enddo
+  ! update f_cGap
+  do i=0, MSPECIES-1
+     if(CA(i)>0.0) spdata(i)%f_cGap = f_cGap(i) * f_keep
+  enddo
+  write(*,*)'PFT1_gap,PFT2_gap,f_keep',spdata(1)%f_cGap,spdata(2)%f_cGap,f_keep
+
+end subroutine vegn_gap_fraction_update
+
+!=================================================
+! Weng: partioning root area into layers, 10-24-2017
+subroutine rootarea_and_verticalprofile(cc)
+  type(cohort_type), intent(inout) :: cc
+  !----------local var ----------
+  integer :: j
+
+  associate (sp => spdata(cc%species) )
+  cc%rootarea  = cc%br * sp%SRA
+  do j=1,max_lev
+     cc%rootareaL(j) = cc%rootarea * sp%root_frac(j)
+  enddo
+  end associate
+ end subroutine rootarea_and_verticalprofile
 
 !========= Leaf and stem fall ==========================
 subroutine Seasonal_fall(cc,vegn)
@@ -861,7 +953,8 @@ subroutine Seasonal_fall(cc,vegn)
   real    :: dAleaf, dBL, dBR, dNL, dNR, dBStem, dNStem      ! per day
   real    :: leaf_fall_rate, root_mort_rate      ! per day
 
-  leaf_fall_rate = 0.05; root_mort_rate = 0.025
+  leaf_fall_rate = 0.05
+  root_mort_rate = 0.025
 !    End a growing season: leaves fall for deciduous
      associate (sp => spdata(cc%species) )
      if(cc%status == LEAF_OFF .AND. cc%bl > 0.0)then
@@ -885,7 +978,7 @@ subroutine Seasonal_fall(cc,vegn)
            dNR = 0.0
         endif
 
-        dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
+        dAleaf = Aleaf_BM(dBL,cc)
 
 !       Retranslocation to NSC and NSN
         cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
@@ -903,8 +996,8 @@ subroutine Seasonal_fall(cc,vegn)
         cc%NPPleaf = cc%NPPleaf - l_fract * dBL
         cc%NPProot = cc%NPProot - l_fract * dBR
         cc%NPPwood = cc%NPPwood - l_fract * dBStem
-        cc%leafarea= leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
-        cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
+        cc%leafarea= Aleaf_BM(cc%bl,cc)
+        cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
 
         ! Update plant size (for grasses)
         !call init_cohort_allometry(cc)
@@ -915,15 +1008,13 @@ subroutine Seasonal_fall(cc,vegn)
         lossN_coarse = (1.-retransN)* cc%nindivs * (dNStem+dNL - dAleaf * sp%LNbase)
         lossN_fine   = (1.-retransN)* cc%nindivs * (dNR        + dAleaf * sp%LNbase)
 
-        vegn%metabolicL = vegn%metabolicL +  &
+        vegn%SOC(1) = vegn%SOC(1) +  &
                          fsc_fine * loss_fine + fsc_wood * loss_coarse
-        vegn%structuralL = vegn%structuralL +   &
+        vegn%SOC(2) = vegn%SOC(2) +   &
                          (1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse
-
-!       Nitrogen to soil SOMs
-        vegn%metabolicN  = vegn%metabolicN +    &
+        vegn%SON(1)  = vegn%SON(1) +    &
                           fsc_fine * lossN_fine + fsc_wood * lossN_coarse
-        vegn%structuralN = vegn%structuralN +   &
+        vegn%SON(2) = vegn%SON(2) +   &
                           (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
 !       annual N from plants to soil
@@ -989,15 +1080,18 @@ subroutine vegn_nat_mortality (vegn, deltat)
 end subroutine vegn_nat_mortality
 
 !------------------------Mortality------------------------------------
-subroutine vegn_hydraulics_mortality (vegn, deltat)
-! mortality rate as a function of xylem usage
+subroutine vegn_hydro_mortality (vegn, deltat)
+! mortality rate as a function of xylem usage.
+! Calculated yearly
+! Author: Ensheng Weng, 2021-03-15
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
-  real :: Asap
+  real :: Fd(Ysw_max)
+  real :: Transp_sap ! m, annual Transp per unit sap area
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, j, k
@@ -1005,58 +1099,66 @@ subroutine vegn_hydraulics_mortality (vegn, deltat)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
-     ! mortality can be a function of growth rate, age, and environmental conditions.
-     cc%Nrings = cc%Nrings + 1
-     if(cc%Nrings>SapWoodMaxAge)then ! Move to the left
-        do j=1, SapWoodMaxAge - 1
-           cc%WTC0(j) = cc%WTC0(j+1)
-           cc%Rring(j) = cc%Rring(j+1)
-           cc%Hring(j) = cc%Hring(j+1)
-           cc%Aring(j) = cc%Aring(j+1)
-           cc%Kx(j) = cc%Kx(j+1)
-           cc%farea(j) = cc%farea(j+1)
-           cc%Fd(j) = cc%Fd(j+1)
-           cc%Wtotal(j) = cc%Wtotal(j+1)
-        enddo
-        cc%Year_sw_min = cc%Year_sw_min + 1
-     else
-        cc%Year_sw_min = 1
-     endif
-     ! Update cohort variables of the new ring
-     k = cc%Nrings - cc%Year_sw_min + 1
-     ! WTC0 and Kx represent scientific hypotheses
-     cc%WTC0(k) = sp%WTC0 * (cc%DBH/0.0025)**sp%thetaHT
-     cc%Kx(k)   = sp%kx0
 
+     ! Set up the space for the new ring
+     if(cc%Nrings >= Ysw_max)then
+        do j=2, Ysw_max
+           cc%WTC0(j-1)  = cc%WTC0(j)
+           cc%Kx(j-1)    = cc%Kx(j)
+           cc%farea(j-1) = cc%farea(j)
+           cc%accH(j-1)  = cc%accH(j)
+           cc%totW(j-1)  = cc%totW(j)
+           cc%Rring(j-1) = cc%Rring(j)
+           cc%Lring(j-1) = cc%Lring(j)
+           cc%Aring(j-1) = cc%Aring(j)
+        enddo
+     endif
+
+     ! Setup the new ring formed in this year
+     cc%Nrings = cc%Nrings + 1 ! A new ring
+     k = MIN(cc%Nrings, Ysw_max)
+     ! WTC0 and Kx represent scientific hypotheses. They can be constant,
+     ! or functions of environmental conditions, growht rates, etc.
+     cc%WTC0(k) = sp%WTC0  + m0_dbh * cc%DBH ** sp%thetaHT
+     cc%Kx(k)   = sp%kx0
      ! Other cohort variables of the new ring
-     cc%Wtotal(k) = 0.0
      cc%farea(k) = 1.0
+     cc%accH(k)= 0.0
+     cc%totW(k)= 0.0
      cc%Rring(k) = cc%DBH/2.0
-     cc%Hring(k) = cc%height
+     cc%Lring(k) = cc%height
      if(k>1)then
         cc%Aring(k) = PI * (cc%Rring(k)**2 - cc%Rring(k-1)**2)
      else
         cc%Aring(k) = PI * cc%Rring(k)**2
      endif
-     ! update usage of all rings
-     Asap = 0.0
-     do j=cc%Year_sw_min, cc%Nrings !
-        k = j - cc%Year_sw_min + 1
-        Asap = Asap + cc%farea(k)*cc%Aring(k)
-     enddo
-     cc%Ktrunk = 0.0
-     do j=cc%Year_sw_min, cc%Nrings !
-        k = j - cc%Year_sw_min + 1
-        cc%Wtotal(k) = cc%Wtotal(k) + cc%annualTrsp/Asap
-        cc%Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%Wtotal(k)/cc%WTC0(k)))+1.0)
-        cc%farea(j) = (1.0 - cc%Fd(k))*cc%farea(k)
-        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Hring(k)
+
+     ! Functional area (i.e., sapwood area)
+     cc%Asap = 0.0
+     do k=1, MIN(cc%Nrings, Ysw_max)
+        cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
      enddo
 
-!     Mortatliy rate
+     ! Calculate life-time water transported and wear-out of xylem tissues
+     cc%Ktrunk = 0.0
+     do k=1, MIN(cc%Nrings, Ysw_max)
+        ! Lifetime water transported for finctional xylem conduits (m)
+        Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! new usage for functional conduits
+        cc%accH(k) = cc%accH(k) + Transp_sap ! m, for functional conduits only
+        cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k) ! m, for the whole ring
+        !Wear-out of xylem conduits
+        Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%accH(k)/cc%WTC0(k))) + 1.0)
+        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k)
+        ! Whole tree conductivity
+        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
+     enddo
+
+!     !--------- Mortatliy rate -----------!
+!     Mortality can be functions of growth rate, age, and environmental conditions.
 !     Calculate live sapwood area and compare it with potential values
-!     deathrate =Max(0.0, 1.0 - Asap/cc%crownarea /sp%phiCSA)
+!     deathrate =Max(0.0, 1.0 - cc%Asap/cc%crownarea /sp%phiCSA)
 !     deadtrees = cc%nindivs * MIN(1.0,deathrate) ! individuals / m2
+
 !     ! Carbon and Nitrogen from dead plants to soil pools
 !     call plant2soil(vegn,cc,deadtrees)
 !     ! Update plant density
@@ -1064,7 +1166,18 @@ subroutine vegn_hydraulics_mortality (vegn, deltat)
      end associate
   enddo
 
-end subroutine vegn_hydraulics_mortality
+  !----- Temporary output
+  !write(933,*)vegn%n_cohorts
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     write(933,'(2(I7,","),205(E12.4,","))')    &
+            cc%ccID,cc%species,                                  &
+            cc%nindivs*10000,cc%DBH,cc%height,cc%Asap,cc%Ktrunk,  &
+            !(cc%accH(k)/1000.,k=1,Ysw_max),               &
+            (cc%farea(k), k=1,Ysw_max)
+
+  enddo
+end subroutine vegn_hydro_mortality
 
 !============================================================================
 !----------------------- fire disturbance (Konza) ---------------------------
@@ -1174,10 +1287,10 @@ subroutine vegn_fire_disturbance (vegn, deltat)
       end associate
     enddo
     ! Burned litter
-    vegn%C_combusted = vegn%C_combusted + 0.2 * vegn%metabolicL
-    vegn%mineralN    = vegn%mineralN    + 0.2 * vegn%metabolicN
-    vegn%metabolicL = vegn%metabolicL - 0.2 * vegn%metabolicL
-    vegn%metabolicN = vegn%metabolicN - 0.2 * vegn%metabolicN
+    vegn%C_combusted = vegn%C_combusted + 0.7*vegn%SOC(1) + 0.2*vegn%SOC(1)
+    vegn%mineralN    = vegn%mineralN    + 0.7*vegn%SON(1) + 0.2*vegn%SON(1)
+    vegn%SOC(1) = vegn%SOC(1) - 0.7*vegn%SOC(1) - 0.2*vegn%SOC(1)
+    vegn%SON(1) = vegn%SON(1) - 0.7*vegn%SON(1) - 0.2*vegn%SON(1)
   endif
 
 end subroutine vegn_fire_disturbance
@@ -1269,12 +1382,12 @@ subroutine plant2soil(vegn,cc,deadtrees)
      lossN_coarse = deadtrees * (cc%woodN+cc%sapwN + cc%leafN - cc%leafarea*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%leafarea*sp%LNbase)
 
-     vegn%metabolicL  = vegn%metabolicL + fsc_fine *loss_fine + fsc_wood *loss_coarse
-     vegn%structuralL = vegn%structuralL + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
+     vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + fsc_wood *loss_coarse
+     vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
 
-     vegn%metabolicN = vegn%metabolicN + &
+     vegn%SON(1) = vegn%SON(1) + &
                 fsc_fine *lossN_fine +    fsc_wood *lossN_coarse
-     vegn%structuralN = vegn%structuralN + &
+     vegn%SON(2) = vegn%SON(2) + &
                 (1.-fsc_fine)*lossN_fine +(1.-fsc_wood)*lossN_coarse
 
      ! annual N from plants to soil
@@ -1298,9 +1411,9 @@ subroutine vegn_reproduction (vegn)
   real :: failed_seeds, N_failedseed !, prob_g, prob_e
   integer :: newcohorts, matchflag, nPFTs ! number of new cohorts to be created
   integer :: nCohorts, istat
-  integer :: i, j, k ! cohort indices
+  integer :: i, j, k, n ! cohort indices
 
-! Looping through all reproductable cohorts and Check if reproduction happens
+! Looping through all reproducible cohorts and Check if reproduction happens
   reproPFTs = -999 ! the code of reproductive PFT
   vegn%totseedC = 0.0
   vegn%totseedN = 0.0
@@ -1350,12 +1463,19 @@ subroutine vegn_reproduction (vegn)
      ccnew(1:vegn%n_cohorts) = ccold(1:vegn%n_cohorts) ! copy old cohort information
      vegn%cohorts => ccnew
 
-     deallocate (ccold)
-
      ! set up new cohorts
      k = vegn%n_cohorts
      do i = 1, newcohorts
         k = k+1 ! increment new cohort index
+        ! Copy old information to new cohort, Weng, 2021-06-02
+        do n =1, vegn%n_cohorts ! go through old cohorts
+          if(reproPFTs(i) == ccold(n)%species)then
+            ccnew(k) = ccold(n)
+            exit
+          endif
+        enddo
+
+        ! Update new cohort information
         cc => vegn%cohorts(k)
         ! Give the new cohort an ID
         cc%ccID = MaxCohortID + i
@@ -1365,7 +1485,11 @@ subroutine vegn_reproduction (vegn)
         cc%nindivs = seedC(i)/sp%seedlingsize
 
         cc%species = reproPFTs(i)
-        cc%status  = LEAF_OFF
+        if(sp%phenotype == 0)then
+           cc%status = LEAF_OFF
+        else
+           cc%status = LEAF_ON
+        endif
         cc%firstlayer = 0
         cc%topyear = 0.0
         cc%age     = 0.0
@@ -1399,19 +1523,20 @@ subroutine vegn_reproduction (vegn)
 !        failed_seeds = 0.0 ! (1. - sp%prob_g*sp%prob_e) * seedC(i)!!
 
 !        vegn%litter = vegn%litter + failed_seeds
-!        vegn%metabolicL = vegn%metabolicL +        fsc_fine *failed_seeds
-!        vegn%structuralL = vegn%structuralL + (1.0 - fsc_fine)*failed_seeds
+!        vegn%SOC(1) = vegn%SOC(1) +        fsc_fine *failed_seeds
+!        vegn%SOC(2) = vegn%SOC(2) + (1.0 - fsc_fine)*failed_seeds
 
 !!      Nitrogen of seeds to soil SOMs
 !        N_failedseed= 0.0 ! (1.-sp%prob_g*sp%prob_e)   * seedN(i)
-!        vegn%metabolicN  = vegn%metabolicN   +        fsc_fine * N_failedseed
-!        vegn%structuralN = vegn%structuralN  + (1.0 - fsc_fine)* N_failedseed
+!        vegn%SON(1)  = vegn%SON(1)   +        fsc_fine * N_failedseed
+!        vegn%SON(2) = vegn%SON(2)  + (1.0 - fsc_fine)* N_failedseed
 
 !       annual N from plants to soil
- !   vegn%N_P2S_yr = vegn%N_P2S_yr + N_failedseed
+!       vegn%N_P2S_yr = vegn%N_P2S_yr + N_failedseed
 
         end associate   ! F2003
      enddo
+     deallocate (ccold)
      MaxCohortID = MaxCohortID + newcohorts
      vegn%n_cohorts = k
      ccnew => null()
@@ -1458,14 +1583,14 @@ end function
         lossN_coarse = cc%nindivs * (cc%leafN - cc%leafarea*sp%LNbase)
         lossN_fine   = cc%nindivs *  cc%leafarea*sp%LNbase
         ! Carbon to soil pools
-        vegn%metabolicL  = vegn%metabolicL  + fsc_fine *loss_fine + &
-                                              fsc_wood *loss_coarse
-        vegn%structuralL = vegn%structuralL + (1.0-fsc_fine)*loss_fine + &
-                                              (1.0-fsc_wood)*loss_coarse
+        vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + &
+                fsc_wood *loss_coarse
+        vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + &
+                (1.0-fsc_wood)*loss_coarse
         ! Nitrogen to soil pools
-        vegn%metabolicN = vegn%metabolicN + fsc_fine  *lossN_fine +   &
+        vegn%SON(1) = vegn%SON(1) + fsc_fine  *lossN_fine +   &
                                         fsc_wood *lossN_coarse
-        vegn%structuralN = vegn%structuralN +(1.-fsc_fine) *lossN_fine +   &
+        vegn%SON(2) = vegn%SON(2) +(1.-fsc_fine) *lossN_fine +   &
                                       (1.-fsc_wood)*lossN_coarse
         ! annual N from plants to soil
         vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
@@ -1596,8 +1721,8 @@ subroutine vegn_migration (vegn)
      ccnew => null()
      call zero_diagnostics(vegn)
      ! Make carbon and nitrogen balance
-     vegn%structuralL = vegn%structuralL - min(0.05*vegn%structuralL,addedC)
-     vegn%structuralN = vegn%structuralN - min(0.05*vegn%structuralN,addedN)
+     vegn%SOC(2) = vegn%SOC(2) - min(0.05*vegn%SOC(2),addedC)
+     vegn%SON(2) = vegn%SON(2) - min(0.05*vegn%SON(2),addedN)
   endif ! set up newly moved-in cohorts
 
 end subroutine vegn_migration
@@ -1609,35 +1734,40 @@ subroutine relayer_cohorts (vegn)
 
   ! ---- local constants
   real, parameter :: tolerance = 1e-4
-  real, parameter :: layer_vegn_cover = 1.0   
+  real, parameter :: layer_vegn_cover = 1.0
   ! ---- local vars
   integer :: idx(vegn%n_cohorts) ! indices of cohorts in decreasing height order
   integer :: i ! new cohort index
   integer :: k ! old cohort index
   integer :: L ! layer index (top-down)
-  integer :: N0,N1 ! initial and final number of cohorts 
+  integer :: N0,N1 ! initial and final number of cohorts
   real    :: frac ! fraction of the layer covered so far by the canopies
   type(cohort_type), pointer :: cc(:),new(:)
   real    :: nindivs
 
 !  rand_sorting = .TRUE. ! .False.
-  
-  ! rank cohorts in descending order by height. For now, assume that they are 
+
+  ! rank cohorts in descending order by height. For now, assume that they are
   ! in order
-  N0 = vegn%n_cohorts; cc=>vegn%cohorts
+  N0 = vegn%n_cohorts
+  cc=>vegn%cohorts
   call rank_descending(cc(1:N0)%height,idx)
-  
+
   ! calculate max possible number of new cohorts : it is equal to the number of
-  ! old cohorts, plus the number of layers -- since the number of full layers is 
-  ! equal to the maximum number of times an input cohort can be split by a layer 
+  ! old cohorts, plus the number of layers -- since the number of full layers is
+  ! equal to the maximum number of times an input cohort can be split by a layer
   ! boundary.
   N1 = vegn%n_cohorts + int(sum(cc(1:N0)%nindivs*cc(1:N0)%crownarea))
   allocate(new(N1))
 
-  ! copy cohort information to the new cohorts, splitting the old cohorts that 
+  ! copy cohort information to the new cohorts, splitting the old cohorts that
   ! stride the layer boundaries
-  i = 1 ; k = 1 ; L = 1 ; frac = 0.0 ; nindivs = cc(idx(k))%nindivs
-  do 
+  i = 1
+  k = 1
+  L = 1
+  frac = 0.0
+  nindivs = cc(idx(k))%nindivs
+  do
      new(i)         = cc(idx(k))
      new(i)%nindivs = min(nindivs,(layer_vegn_cover-frac)/cc(idx(k))%crownarea)
      new(i)%layer   = L
@@ -1645,22 +1775,25 @@ subroutine relayer_cohorts (vegn)
 !    if (L>1)  new(i)%firstlayer = 0  ! switch off "push-down effects"
      frac = frac+new(i)%nindivs*new(i)%crownarea
      nindivs = nindivs - new(i)%nindivs
-     
+
      if (abs(nindivs*cc(idx(k))%crownarea)<tolerance) then
        new(i)%nindivs = new(i)%nindivs + nindivs ! allocate the remainder of individuals to the last cohort
        if (k==N0) exit ! end of loop
-       k = k+1 ; nindivs = cc(idx(k))%nindivs  ! go to the next input cohort
+       k = k+1
+       nindivs = cc(idx(k))%nindivs  ! go to the next input cohort
      endif
-     
+
      if (abs(layer_vegn_cover - frac)<tolerance) then
-       L = L+1 ; frac = 0.0              ! start new layer
+       L = L+1
+       frac = 0.0              ! start new layer
      endif
      i = i+1
   enddo
-  
+
   ! replace the array of cohorts
   deallocate(vegn%cohorts)
-  vegn%cohorts => new ; vegn%n_cohorts = i
+  vegn%cohorts => new
+  vegn%n_cohorts = i
   ! update layer fraction for each cohort
   do i=1, vegn%n_cohorts
      vegn%cohorts(i)%layerfrac = vegn%cohorts(i)%nindivs * vegn%cohorts(i)%crownarea
@@ -1710,7 +1843,7 @@ end subroutine relayer_cohorts
      dBR    = cc%br    * sp%alpha_FR /days_per_year
      dNR    = cc%rootN * sp%alpha_FR /days_per_year
 
-     dAleaf = leaf_area_from_biomass(dBL,cc%species,cc%layer,cc%firstlayer)
+     dAleaf = Aleaf_BM(dBL,cc)
 
 !    Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
@@ -1725,8 +1858,8 @@ end subroutine relayer_cohorts
      cc%rootN = cc%rootN - dNR
 
 !    update leaf area and LAI
-     cc%leafarea= leaf_area_from_biomass(cc%bl,cc%species,cc%layer,cc%firstlayer)
-     cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%internal_gap_frac))
+     cc%leafarea= Aleaf_BM(cc%bl,cc)
+     cc%lai     = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
 
 !    update NPP for leaves, fine roots, and wood
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
@@ -1739,15 +1872,13 @@ end subroutine relayer_cohorts
      lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNStem)
      lossN_fine   = (1.-retransN)* cc%nindivs * (dNR + dAleaf * sp%LNbase)
 
-     vegn%metabolicL = vegn%metabolicL   +  &
+     vegn%SOC(1) = vegn%SOC(1)   +  &
                         fsc_fine * loss_fine + fsc_wood * loss_coarse
-     vegn%structuralL = vegn%structuralL +  &
+     vegn%SOC(2) = vegn%SOC(2) +  &
                          ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
-
-!    Nitrogen to soil SOMs
-     vegn%metabolicN  = vegn%metabolicN +    &
+     vegn%SON(1)  = vegn%SON(1) +    &
                           fsc_fine * lossN_fine + fsc_wood * lossN_coarse
-     vegn%structuralN = vegn%structuralN + &
+     vegn%SON(2) = vegn%SON(2) + &
                           (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
 !    annual N from plants to soil
@@ -1774,7 +1905,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
   integer :: i
 
 !! Nitrogen uptake parameter
-! It considers competition here. How much N one can absorp depends on 
+! It considers competition here. How much N one can absorp depends on
 ! how many roots it has and how many roots other individuals have.
   N_Roots  = 0.0
   vegn%N_uptake = 0.0
@@ -1817,112 +1948,109 @@ subroutine vegn_N_uptake(vegn, tsoil)
 end subroutine vegn_N_uptake
 ! ============================================================================
 ! Nitrogen mineralization and immoblization with microbial C & N pools
-! it's a new decomposition model with coupled C & N pools and variable 
+! it's a new decomposition model with coupled C & N pools and variable
 ! carbon use efficiency
 subroutine SOMdecomposition(vegn, tsoil, thetaS)
   type(vegn_tile_type), intent(inout) :: vegn
-  real                , intent(in)    :: tsoil ! soil temperature, deg K 
+  real                , intent(in)    :: tsoil ! soil temperature, deg K
   real                , intent(in)    :: thetaS
 
-  real :: CUE0=0.4  ! default microbial CUE
-  real :: phoMicrobial = 2.5 ! turnover rate of microbes (yr-1)
-  real :: CUEfast,CUEslow
   real :: CNm = 10.0  ! Microbial C/N ratio
   real :: NforM, fNM=0.0  ! mineral N available for microbes
-  real :: micr_C_loss, fast_L_loss, slow_L_loss
   real :: runoff ! kg m-2 /step
   real :: N_loss
+  real :: d_C(5), d_N(5), CN(5), CUE(5)
   real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
-  real :: fDON=0.0   ! 0.02     ! fractio of DON production in decomposition
-  real :: fast_N_free 
-  real :: slow_N_free 
-  real :: CNfast, CNslow
+  real :: fDON = 0.0   ! 0.02     ! fractio of DON production in decomposition
   real :: A  ! decomp rate reduction due to moisture and temperature
-  
+  integer :: i, j
+
+  ! Environmental scalar
+  A=A_function(tsoil,thetaS)
 !  runoff = vegn%Wrunoff * 365*24*3600 *dt_fast_yr !kgH2O m-2 s-1 ->kg m-2/time step
-  runoff = vegn%runoff  !* dt_fast_yr !kgH2O m-2 yr-1 ->kgH2O m-2/time step, weng 2017-10-15
-! CN ratios of soil C pools
-  CNfast = vegn%metabolicL/vegn%metabolicN
-  CNslow = vegn%structuralL/vegn%structuralN
+  runoff = 0.0 ! vegn%runoff  !* dt_fast_yr !kgH2O m-2 yr-1 ->kgH2O m-2/time step, weng 2017-10-15
+
+  ! Put litters into soil to start decomposition processes
+  CN = CN0SOM
+  CNm= CN0SOM(3)
+  do i=1, 2
+       d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
+       d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
+       vegn%SOC(i) = vegn%SOC(i) - d_C(i)
+       vegn%SON(i) = vegn%SON(i) - d_N(i)
+       vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
+       vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
+       CN(3+i)       = vegn%SOC(3+i) / vegn%SON(3+i)
+  enddo
 
 !! C decomposition
-!  A=A_function(tsoil,thetaS)
-!  micr_C_loss = vegn%microbialC *A*phoMicrobial* dt_fast_yr
-!  fast_L_loss = vegn%metabolicL*A*K1           * dt_fast_yr
-!  slow_L_loss = vegn%structuralL*A*K2          * dt_fast_yr
-
-! C decomposition
-  A=A_function(tsoil,thetaS)
-  micr_C_loss = vegn%microbialC * (1.0 - exp(-A*phoMicrobial* dt_fast_yr))
-  fast_L_loss = vegn%metabolicL * (1.0 - exp(-A*K1          * dt_fast_yr))
-  slow_L_loss = vegn%structuralL* (1.0 - exp(-A*K2          * dt_fast_yr))
+  do i=3, 5
+     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr
+     !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
+  enddo
 
 ! Carbon use efficiencies of microbes
   NforM = fNM * vegn%mineralN
-  CUEfast = MIN(CUE0,CNm*(fast_L_loss/CNfast + NforM)/fast_L_loss)
-  CUEslow = MIN(CUE0,CNm*(slow_L_loss/CNslow + NforM)/slow_L_loss)
+  CUE(4) = MIN(CUEmax0,CNm*(d_C(4)/CN(4) + NforM)/d_C(4))
+  CUE(5) = MIN(CUEmax0,CNm*(d_C(5)/CN(5) + NforM)/d_C(5))
 
 ! update C and N pools
 ! Carbon pools
-  vegn%microbialC  = vegn%microbialC - micr_C_loss &
-                    + fast_L_loss * CUEfast &
-                    + slow_L_loss * CUEslow
-  vegn%metabolicL = vegn%metabolicL - fast_L_loss
-  vegn%structuralL = vegn%structuralL - slow_L_loss
+  vegn%SOC(3)  = vegn%SOC(3) - d_C(3) &
+               + d_C(4) * CUE(4) + d_C(5) * CUE(5)
+  vegn%SOC(4) = vegn%SOC(4) - d_C(4)
+  vegn%SOC(5) = vegn%SOC(5) - d_C(5)
 
-! Find papers about soil DON losses
-! DON loss, revised by Weng. 2016-03-03  ??
-  fDON        = 0.25 ! 0.25 ! * dt_fast_yr ! 0.05 !* dt_fast_yr
-  runoff      = 0.2 ! 0.2 ! mm day-1
+  ! Organic and mineral nitrogen losses
   ! Assume it is proportional to decomposition rates
   ! Find some papers!!
-  DON_fast    = fDON * fast_L_loss/CNfast * (etaN*runoff)
-  DON_slow    = fDON * slow_L_loss/CNslow * (etaN*runoff)
+  DON_fast    = fDON * d_C(4)/CN(4) * (etaN*runoff)
+  DON_slow    = fDON * d_C(5)/CN(5) * (etaN*runoff)
   DON_loss    = DON_fast + DON_slow
-
-! Update Nitrogen pools
-  vegn%microbialN= vegn%microbialC/CNm
-  vegn%metabolicN  = vegn%metabolicN  - fast_L_loss/CNfast - DON_fast
-  vegn%structuralN = vegn%structuralN - slow_L_loss/CNslow - DON_slow
-
-! Mixing of microbes to litters
-  vegn%metabolicL   = vegn%metabolicL + MLmixRatio*fast_L_loss * CUEfast
-  vegn%metabolicN   = vegn%metabolicN + MLmixRatio*fast_L_loss * CUEfast/CNm
-
-  vegn%structuralL = vegn%structuralL + MLmixRatio*slow_L_loss * CUEslow
-  vegn%structuralN = vegn%structuralN + MLmixRatio*slow_L_loss * CUEslow/CNm
-
-  vegn%microbialC  = vegn%microbialC  - MLmixRatio*(fast_L_loss*CUEfast+slow_L_loss*CUEslow)
-  vegn%microbialN  = vegn%microbialC/CNm
-    
-! update mineral N pool (mineralN)
-  fast_N_free = MAX(0.0, fast_L_loss*(1./CNfast - CUEfast/CNm))
-  slow_N_free = MAX(0.0, slow_L_loss*(1./CNslow - CUEslow/CNm))
-
+  ! Mineral nitrogen loss
   N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
 !  N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
   N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
   vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
 
+! Update Nitrogen pools
+  vegn%SON(3) = vegn%SOC(3)/CNm
+  vegn%SON(4) = vegn%SON(4) - d_C(4)/CN(4) - DON_fast
+  vegn%SON(5) = vegn%SON(5) - d_C(5)/CN(5) - DON_slow
+
+! Mixing of microbes to litters
+  vegn%SOC(4)   = vegn%SOC(4) + f_M2SOM*d_C(4) * CUE(4)
+  vegn%SON(4)   = vegn%SON(4) + f_M2SOM*d_C(4) * CUE(4)/CNm
+
+  vegn%SOC(5) = vegn%SOC(5) + f_M2SOM*d_C(5) * CUE(5)
+  vegn%SON(5) = vegn%SON(5) + f_M2SOM*d_C(5) * CUE(5)/CNm
+
+  vegn%SOC(3)  = vegn%SOC(3)  - f_M2SOM*(d_C(4)*CUE(4)+d_C(5)*CUE(5))
+  vegn%SON(3)  = vegn%SOC(3)/CNm
+
+! update mineral N pool (mineralN)
+  d_N(4) = MAX(0.0, d_C(4)*(1./CN(4) - CUE(4)/CNm))
+  d_N(5) = MAX(0.0, d_C(5)*(1./CN(5) - CUE(5)/CNm))
+
   vegn%mineralN = vegn%mineralN - N_loss       &
                   + vegn%N_input * dt_fast_yr  &
-                  + fast_N_free + slow_N_free  &
-                  + micr_C_loss/CNm
+                  + d_N(4) + d_N(5)  &
+                  + d_C(3)/CNm
   vegn%annualN   = vegn%annualN - N_loss       &
                   + vegn%N_input * dt_fast_yr  &
-                  + fast_N_free + slow_N_free  &
-                  + micr_C_loss/CNm
+                  + d_N(4) + d_N(5)  &
+                  + d_C(3)/CNm
 
 ! Check if soil C/N is lower than CN0
-  fast_N_free = MAX(0., vegn%metabolicN  - vegn%metabolicL/CN0metabolicL)
-  slow_N_free = MAX(0., vegn%structuralN - vegn%structuralL/CN0structuralL)
-  vegn%metabolicN  = vegn%metabolicN  - fast_N_free
-  vegn%structuralN = vegn%structuralN - slow_N_free
-  vegn%mineralN    = vegn%mineralN + fast_N_free + slow_N_free
-  vegn%annualN     = vegn%annualN  + fast_N_free + slow_N_free
+  do i=4, 5
+     d_N(i)        = MAX(0., vegn%SON(i)  - vegn%SOC(i)/CN0SOM(i))
+     vegn%SON(i)   = vegn%SON(i)   - d_N(i)
+     vegn%mineralN = vegn%mineralN + d_N(i)
+     vegn%annualN  = vegn%annualN  + d_N(i)
+  enddo
 
 ! Heterotrophic respiration: decomposition of litters and SOM, kgC m-2 step-1
-  vegn%rh =  (micr_C_loss + fast_L_loss*(1.-CUEfast)+ slow_L_loss*(1.-CUEslow))
+  vegn%rh =  (d_C(3) + d_C(4)*(1.-CUE(4))+ d_C(5)*(1.-CUE(5)))
 
 end subroutine SOMdecomposition
 
@@ -1945,29 +2073,29 @@ function A_function(tsoil, thetaS) result(A)
   soil_temp = tsoil-273.16
 
   ! EFFECT OF TEMPERATURE , ! from Bolker's century code
-  Tmax=45.0 
-  if (soil_temp > Tmax) soil_temp = Tmax 
-  Topt=35.0 
-  tshr=0.2 
-  tshl=2.63 
-  t1=(Tmax-soil_temp)/(Tmax-Topt) 
-  t2=exp((tshr/tshl)*(1.-t1**tshl)) 
-  Td=t1**tshr*t2 
+  Tmax=45.0
+  if (soil_temp > Tmax) soil_temp = Tmax
+  Topt=35.0
+  tshr=0.2
+  tshl=2.63
+  t1=(Tmax-soil_temp)/(Tmax-Topt)
+  t2=exp((tshr/tshl)*(1.-t1**tshl))
+  Td=t1**tshr*t2
 
-  if (soil_temp > -10) Td=Td+0.05 
-  if (Td > 1.) Td=1. 
+  if (soil_temp > -10) Td=Td+0.05
+  if (Td > 1.) Td=1.
 
   ! EFFECT OF MOISTURE
   ! Linn and Doran, 1984, Soil Sci. Amer. J. 48:1267-1272
   ! This differs from the Century Wd
-  ! was modified by slm/ens based on the figures from the above paper 
+  ! was modified by slm/ens based on the figures from the above paper
   !     (not the reported function)
 
   if(thetaS <= 0.3) then
-     Wd = 0.2 
+     Wd = 0.2
   else if(thetaS <= 0.6) then
      Wd = 0.2+0.8*(thetaS-0.3)/0.3
-  else 
+  else
      Wd = 1.0 ! exp(2.3*(0.6-thetaS)); ! Weng, 2016-11-26
   endif
 
@@ -1987,16 +2115,16 @@ subroutine rank_descending(x,idx)
    integer, intent(out) :: idx(:)
    integer :: i,n
    integer, allocatable :: t(:)
-   
+
    n = size(x)
    do i = 1,n
       idx(i) = i
    enddo
-   
+
    allocate(t((n+1)/2))
    call mergerank(x,idx,n,t)
    deallocate(t)
-end subroutine 
+end subroutine
 
 ! =====================================================================
 ! based on:
@@ -2007,9 +2135,9 @@ subroutine merge(x,a,na,b,nb,c,nc)
    integer, intent(in)    :: a(na)    ! B overlays C(NA+1:NC)
    integer, intent(in)    :: b(nb)
    integer, intent(inout) :: c(nc)
- 
+
    integer :: i,j,k
- 
+
    i = 1; j = 1; k = 1;
    do while(i <= na .and. j <= nb)
       if (x(a(i)) >= x(b(j))) then
@@ -2023,7 +2151,7 @@ subroutine merge(x,a,na,b,nb,c,nc)
       c(k) = a(i) ; i = i + 1 ; k = k + 1
    enddo
 end subroutine merge
- 
+
 recursive subroutine mergerank(x,a,n,t)
   integer, intent(in) :: n
   real,    intent(in) :: x(*)
@@ -2039,7 +2167,7 @@ recursive subroutine mergerank(x,a,n,t)
         v = a(1) ; a(1) = a(2) ; a(2) = v
      endif
      return
-  endif      
+  endif
   na=(n+1)/2
   nb=n-na
 
@@ -2064,8 +2192,9 @@ subroutine vegn_mergecohorts(vegn)
   integer :: i,j,k
 
   allocate(cc(vegn%n_cohorts))
-  merged(:)=.FALSE. ; k = 0
-  do i = 1, vegn%n_cohorts 
+  merged(:) = .FALSE.
+  k = 0
+  do i = 1, vegn%n_cohorts
      if(merged(i)) cycle ! skip cohorts that were already merged
      k = k+1
      cc(k) = vegn%cohorts(i)
@@ -2131,7 +2260,7 @@ end subroutine kill_lowdensity_cohorts
 subroutine merge_cohorts(c1,c2)
   type(cohort_type), intent(in) :: c1
   type(cohort_type), intent(inout) :: c2
-  
+
   real :: x1, x2 ! normalized relative weights
 
   if(c1%nindivs > 0.0 .or. c2%nindivs > 0.0)then
@@ -2167,7 +2296,7 @@ subroutine merge_cohorts(c1,c2)
      c2%NSN   = x1*c1%NSN   + x2*c2%NSN
 
   !  calculate the resulting dry heat capacity
-     c2%leafarea = leaf_area_from_biomass(c2%bl, c2%species, c2%layer, c2%firstlayer)
+     c2%leafarea = Aleaf_BM(c2%bl, c2)
   endif
 end subroutine merge_cohorts
 
@@ -2191,7 +2320,7 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (spdata(c2%species)%lifeform ==0) .and. &
                  ((c1%DBH == c2%DBH).and.c1%age> 2. .and. c2%age>2.)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
-   lowDensity  = .FALSE. ! c1%nindivs < mindensity 
+   lowDensity  = .FALSE. ! c1%nindivs < mindensity
                          ! Weng, 2014-01-27, turned off
    cohorts_can_be_merged = sameSpecies .and. sameLayer .and. sameSize
 end function
@@ -2241,6 +2370,8 @@ subroutine annual_calls(vegn)
     call vegn_annual_starvation(vegn)
     call vegn_reproduction(vegn)
     call vegn_nat_mortality(vegn, real(seconds_per_year))
+    ! No mortality yet, just check the calculation of variables
+    call vegn_hydro_mortality (vegn, real(seconds_per_year))
 
 
     ! Re-organize cohorts
@@ -2268,7 +2399,7 @@ subroutine init_cohort_allometry(cc)
      cc%crownarea  = sp%alphaCA * cc%dbh ** sp%thetaCA
 
      ! calculations of bl_max and br_max are here only for the sake of the
-     ! diagnostics, because otherwise those fields are inherited from the 
+     ! diagnostics, because otherwise those fields are inherited from the
      ! parent cohort and produce spike in the output, even though these spurious
      ! values are not used by the model
      cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/layer
@@ -2317,7 +2448,7 @@ subroutine vegn_annualLAImax_update(vegn)
       LAI_nitrogen = LAIfixedN + LAImineralN
 
       spdata(i)%LAImax = MAX(LAImin, MIN(LAI_nitrogen,sp%LAI_light))
-      spdata(i)%underLAImax = MIN(sp%LAImax,1.2)
+      spdata(i)%LAImax_u = MIN(sp%LAImax,1.2)
       end associate
   enddo
 
@@ -2347,18 +2478,17 @@ subroutine vegn_annualLAImax_update(vegn)
 end subroutine vegn_annualLAImax_update
 
 ! ============================================================================
-function leaf_area_from_biomass(bl,species,layer,firstlayer) result (area)
+! modified by Weng (2014-01-09), 07-18-2017, 06-04-2021
+function Aleaf_BM(bl,c) result (area)
   real :: area ! returned value
   real,    intent(in) :: bl      ! biomass of leaves, kg C/individual
-  integer, intent(in) :: species ! species
-  integer, intent(in) :: layer, firstlayer
+  type(cohort_type), intent(inout) :: c    ! cohort to update
 
-! modified by Weng (2014-01-09), 07-18-2017
-  area = bl/spdata(species)%LMA
-  !if(layer > 1.AND. firstlayer == 0)then
-  !   area = bl/(0.5*spdata(species)%LMA) ! half thickness for leaves in understory
+  area = bl/spdata(c%species)%LMA
+  !if(c%layer > 1.AND. c%firstlayer == 0)then
+  !   area = bl/(0.5*spdata(c%species)%LMA) ! half thickness for leaves in understory
   !else
-  !   area = bl/spdata(species)%LMA
+  !   area = bl/spdata(c%species)%LMA
   !endif
 end function
 ! ============================================================================
@@ -2411,10 +2541,10 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       ! Sorting these cohorts
       call relayer_cohorts(vegn)
       ! Initial Soil pools and environmental conditions
-      vegn%metabolicL   = init_fast_soil_C ! kgC m-2
-      vegn%structuralL  = init_slow_soil_C ! slow soil carbon pool, (kg C/m2)
-      vegn%metabolicN   = vegn%metabolicL/CN0metabolicL  ! fast soil nitrogen pool, (kg N/m2)
-      vegn%structuralN  = vegn%structuralL/CN0structuralL  ! slow soil nitrogen pool, (kg N/m2)
+      vegn%SOC(4)  = init_fast_soil_C ! kgC m-2
+      vegn%SOC(5)  = init_slow_soil_C ! slow soil carbon pool, (kg C/m2)
+      vegn%SON(4)  = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
+      vegn%SON(5)  = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
       vegn%N_input      = N_input  ! kgN m-2 yr-1, N input to soil
       vegn%mineralN     = init_Nmineral  ! Mineral nitrogen pool, (kg N/m2)
       vegn%previousN    = vegn%mineralN
@@ -2431,11 +2561,10 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%thetaS = 1.0
 
       ! tile
-      call summarize_tile(vegn)
+      call vegn_sum_tile(vegn)
       vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
                        vegn%rootN + vegn%SapwoodN + vegn%woodN + &
-                       vegn%MicrobialN + vegn%metabolicN +       &
-                       vegn%structuralN + vegn%mineralN
+                       sum(vegn%SON(:)) + vegn%mineralN
       vegn%totN =  vegn%initialN0
    else
      ! ------- Generate cohorts randomly --------
@@ -2463,20 +2592,19 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       enddo
       MaxCohortID = cp%ccID
       ! Initial Soil pools and environmental conditions
-      vegn%metabolicL  = 0.2 ! kgC m-2
-      vegn%structuralL = 7.0 ! slow soil carbon pool, (kg C/m2)
-      vegn%metabolicN  = vegn%metabolicL/CN0metabolicL  ! fast soil nitrogen pool, (kg N/m2)
-      vegn%structuralN = vegn%structuralL/CN0structuralL  ! slow soil nitrogen pool, (kg N/m2)
+      vegn%SOC(4) = 0.2 ! kgC m-2
+      vegn%SOC(5) = 7.0 ! slow soil carbon pool, (kg C/m2)
+      vegn%SON(4) = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
+      vegn%SON(5) = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
       vegn%N_input     = N_input  ! kgN m-2 yr-1, N input to soil
       vegn%mineralN    = 0.005  ! Mineral nitrogen pool, (kg N/m2)
       vegn%previousN   = vegn%mineralN
 
       ! tile
-      call summarize_tile(vegn)
+      call vegn_sum_tile(vegn)
       vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
                        vegn%rootN + vegn%SapwoodN + vegn%woodN + &
-                       vegn%MicrobialN + vegn%metabolicN +       &
-                       vegn%structuralN + vegn%mineralN
+                       sum(vegn%SON(:)) + vegn%mineralN
       vegn%totN =  vegn%initialN0
 
    endif  ! initialization: random or pre-described
@@ -2501,14 +2629,14 @@ subroutine vegn_biogeography(vegn)
   ! ---- local vars
   integer :: i
 
-  do i = 1, vegn%n_cohorts   
+  do i = 1, vegn%n_cohorts
      call update_species(vegn%cohorts(i), vegn%t_ann, vegn%t_cold, &
           vegn%p_ann*seconds_per_year, vegn%ncm, vegn%landuse)
   enddo
 end subroutine
 
 ! ============================================================================
-! given a cohort, climatology, and land use type, determines and updates 
+! given a cohort, climatology, and land use type, determines and updates
 ! physiology type, phenology type, and species of the cohort
 subroutine update_species(c, t_ann, t_cold, p_ann, cm, landuse)
   type(cohort_type), intent(inout) :: c    ! cohort to update
@@ -2522,9 +2650,9 @@ subroutine update_species(c, t_ann, t_cold, p_ann, cm, landuse)
 
   c%pt    = c3c4(c,t_ann,p_ann)
   c%phenotype = phenology_type(cm)
-  
+
   if(landuse == LU_CROP) c%phenotype = 0  ! crops can't be evergreen
-  
+
   if(c%pt==PT_C4) then
      spp=SP_C4GRASS  ! c4 grass
   elseif(c%phenotype==1) then
@@ -2533,7 +2661,7 @@ subroutine update_species(c, t_ann, t_cold, p_ann, cm, landuse)
      spp=SP_C3GRASS  ! c3 grass
   elseif ( t_cold > 278.16 ) then  ! ens,slm Jun 21 2003 to prohibit tropical forest in coastal cells
      spp=SP_TROPICAL ! tropical deciduous non-grass
-  else 
+  else
      spp=SP_TEMPDEC  ! temperate deciduous non-grass
   endif
 
@@ -2547,7 +2675,7 @@ end subroutine
 function btotal(c)
   real :: btotal ! returned value
   type(cohort_type), intent(in) :: c
-  
+
   btotal = c%NSC + c%seedC + c%bl + c%br + c%bsw + c%bHW
 end function
 
@@ -2559,20 +2687,20 @@ function c3c4(c, temp, precip) result (pt)
   real,              intent(in) :: precip ! precipitation, ???
 
   real :: pc4
-  
+
   ! Rule based on analysis of ED global output; equations from JPC, 2/02
   if(btotal(c) < tg_c4_thresh) then
-    pc4=exp(-0.0421*(273.16+25.56-temp)-(0.000048*(273.16+25.5-temp)*precip));
+    pc4=exp(-0.0421*(273.16+25.56-temp)-(0.000048*(273.16+25.5-temp)*precip))
   else
-    pc4=0.0;
+    pc4=0.0
   endif
-  
-  if(pc4>0.5) then 
+
+  if(pc4>0.5) then
     pt=PT_C4
-  else 
+  else
     pt=PT_C3
   endif
-  
+
 end function
 
 ! ============================================================================
@@ -2580,13 +2708,13 @@ end function
 function phenology_type(cm) ! result(phenology_type)
   integer :: phenology_type ! returned value
   real, intent(in) :: cm ! number of cold months
-   
+
   real :: pe  ! prob evergreen
-   
+
   ! GCH, Rule based on analysis of ED global output; equations from JPC, 2/02
   ! GCH, Parameters updated 2/9/02 from JPC
-  pe = 1.0/(1.0+((1.0/0.00144)*exp(-0.7491*cm)));
-  
+  pe = 1.0/(1.0+((1.0/0.00144)*exp(-0.7491*cm)))
+
   if(pe>phen_ev1 .and. pe<phen_ev2) then
      phenology_type = PHEN_EVERGREEN ! its evergreen
   else

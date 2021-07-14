@@ -8,28 +8,28 @@
 ! Environment Institute. The technical details of this model can be found
 ! in:
 !
-! Weng, E., Dybzinski, R., Farrior, C. E., and Pacala, S. W.: Competition 
-! alters predicted forest carbon cycle responses to nitrogen availability 
+! Weng, E., Dybzinski, R., Farrior, C. E., and Pacala, S. W.: Competition
+! alters predicted forest carbon cycle responses to nitrogen availability
 ! and elevated CO2: simulations using an explicitly competitive, game-
-! theoretic vegetation demographic model, Biogeosciences, 16, 4577–4599, 
+! theoretic vegetation demographic model, Biogeosciences, 16, 4577–4599,
 ! https://doi.org/10.5194/bg-16-4577-2019, 2019.
 !
 ! Weng, E. S., Farrior, C. E., Dybzinski, R., Pacala, S. W., 2017.
-! Predicting vegetation type through physiological and environmental 
-! interactions with leaf traits: evergreen and deciduous forests in an 
-! earth system modeling framework. Global Change Biology, 
+! Predicting vegetation type through physiological and environmental
+! interactions with leaf traits: evergreen and deciduous forests in an
+! earth system modeling framework. Global Change Biology,
 ! doi: 10.1111/gcb.13542.
 !
-! Weng, E. S., Malyshev, S., Lichstein, J. W., Farrior, C. E., 
-! Dybzinski, R., Zhang, T., Shevliakova, E., Pacala, S. W., 2015. 
-! Scaling from individual trees to forests in an Earth system modeling 
-! framework using a mathematically tractable model of height-structured 
+! Weng, E. S., Malyshev, S., Lichstein, J. W., Farrior, C. E.,
+! Dybzinski, R., Zhang, T., Shevliakova, E., Pacala, S. W., 2015.
+! Scaling from individual trees to forests in an Earth system modeling
+! framework using a mathematically tractable model of height-structured
 ! competition. Biogeosciences, 12: 2655–2694, doi:10.5194/bg-12-2655-2015.
 !
 !
-! Contact Ensheng Weng (wengensheng@gmail.com) for qeustions.
+! Contact Ensheng Weng (wengensheng@gmail.com) for questions.
 !
-!            (Lase edited 01/20/2021, 12/30/2017)
+!                      (Lase edited 12/30/2017)
 !
 !------------------------------------------------------------------------
 !
@@ -41,13 +41,16 @@
 !     Demography: Reproduction, Mortality
 !     Population dynamics
 !     Soil C-N dynamics
-!     Soil respraition
+!     Soil respiration
 !     Soil water dynamics: soil surface evaporation, infiltration
 !                          runoff
 !
 !
 !----- END -----------------------------------------------------------
 !
+!#define Hydro_test
+!#define USE_NETCDF
+!#define CROWN_GAP_FILLING
 
 program BiomeESS
    use datatypes
@@ -75,7 +78,8 @@ program BiomeESS
    real    :: dDBH ! yearly growth of DBH, mm
    real    :: plantC,plantN, soilC, soilN
    real    :: dSlowSOM  ! for multiple tests only
-   character(len=150) :: plantcohorts,plantCNpools,soilCNpools,allpools,faststepfluxes  ! output file names
+   character(len=150) :: plantcohorts,plantCNpools
+   character(len=150) :: soilCNpools,allpools,faststepfluxes  ! output file names
    logical :: new_annual_cycle
    integer :: istat1,istat2,istat3
    integer :: year0, year1, iyears
@@ -90,7 +94,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'Konza-shrub' !
+   runID = 'Konza-shrub' !  'Konza2' ! 'OR_GAPLUE' !  'FACE_hydro' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -106,12 +110,12 @@ program BiomeESS
    faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics'//trim(filesuffix) ! hourly
 
    fno1=91; fno2=101; fno3=102; fno4=103; fno5=104
-   open(fno1, file=trim(faststepfluxes),ACTION='write', IOSTAT=istat1)
+   open(fno1,file=trim(faststepfluxes),ACTION='write', IOSTAT=istat1)
    open(fno2,file=trim(plantcohorts),   ACTION='write', IOSTAT=istat1)
    open(fno3,file=trim(plantCNpools),   ACTION='write', IOSTAT=istat2)
    open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
    open(fno5,file=trim(allpools),       ACTION='write', IOSTAT=istat3)
-   ! head
+   ! header
    write(fno1,'(5(a8,","),25(a12,","))')      &
         'year','doy','hour','rad',            &
         'Tair','Prcp', 'GPP', 'Resp',         &
@@ -124,21 +128,23 @@ program BiomeESS
         'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
         'N_uptk','N_fix','maxLAI'
 
-   write(fno3,'(5(a5,","),25(a8,","))')              &
-        'year','doy','hour','cID','PFT',             &
-        'layer','density', 'f_layer', 'LAI',         &
-        'gpp','resp','transp',                       &
-        'NSC','seedC','leafC','rootC','SW-C','HW-C', &
-        'NSN','seedN','leafN','rootN','SW-N','HW-N'
+   write(fno3,'(9(a6,","),45(a8,","))')        &
+        'year','doy','hour','cID','PFT','layer',      &
+        'Pheno','ndm','ncd',        &
+        'density', 'f_layer', 'LAI',         &
+        'gpp','resp','transp','NPPL','NPPR','NPPW',   &
+        'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
+        'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+        'GDD','ALT'
 
    write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &
         'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &
         'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
         'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
         'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
-        'McrbC', 'fastSOM',   'slowSOM',                   &
-        'McrbN', 'fastSoilN', 'slowSoilN',                 &
-        'mineralN', 'N_uptk'
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
+        'mineralN', 'N_uptk','Kappa'
 
    write(fno5,'(1(a5,","),80(a12,","))')  'year',              &
         'CAI','LAI','treecover', 'grasscover', &
@@ -147,8 +153,8 @@ program BiomeESS
         'plantC','soilC',    'plantN', 'soilN','totN',         &
         'NSC', 'SeedC', 'leafC', 'rootC', 'SapwoodC', 'WoodC', &
         'NSN', 'SeedN', 'leafN', 'rootN', 'SapwoodN', 'WoodN', &
-        'McrbC','fastSOM',   'SlowSOM',                        &
-        'McrbN','fastSoilN', 'slowSoilN',                      &
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
         'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss', &
         'seedC','seedN','Seedling-C','Seedling-N'
 
@@ -179,6 +185,7 @@ program BiomeESS
    iyears = 1
    idoy   = 0
    simu_steps = 0
+   vegn%Tc_pheno = forcingData(1)%Tair
    do idays =1, totdays ! 1*days_data ! days for the model run
         idoy = idoy + 1
         !write(*,*)idays,equi_days
@@ -219,10 +226,14 @@ program BiomeESS
             !call annual_calls(vegn)
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
-            ! mortality
-
             call annual_diagnostics(vegn,iyears,fno2,fno5)
-            call vegn_annual_starvation(vegn) ! turned off for grass run
+
+#ifdef Hydro_test
+            ! mortality
+            ! Calculations only, no mortality yet
+            call vegn_hydro_mortality(vegn, real(seconds_per_year))
+#else
+            call vegn_annual_starvation(vegn) ! turn it off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
 
@@ -230,6 +241,12 @@ program BiomeESS
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             call kill_lowdensity_cohorts(vegn)
+#endif
+
+#ifdef CROWN_GAP_FILLING
+            call vegn_gap_fraction_update(vegn)
+#endif
+
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
 
@@ -308,7 +325,7 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
       stop
   endif
   close(11)    ! close forcing file
-! Put the data into forcing 
+! Put the data into forcing
   datalines = m - 1
   days_data = idays
   yr_data  = year_data(datalines-1) - year_data(1) + 1
@@ -393,7 +410,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
       stop
   endif
   close(11)    ! close forcing file
-! Put the data into forcing 
+! Put the data into forcing
   datalines = m - 1
   days_data = idays
   yr_data  = year_data(datalines-1) - year_data(1) + 1
@@ -417,7 +434,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   enddo
   forcingData => climateData
   write(*,*)"forcing", datalines,days_data,yr_data
-  
+
 end subroutine read_NACPforcing
 
 !===========for netcdf IO ============================
