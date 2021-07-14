@@ -366,7 +366,6 @@ type :: vegn_tile_type
    real :: rh  =0 ! soil carbon lost to the atmosphere
 
 !  fire disturbance
-   logical :: fire_occurrence = .false.
    real :: C_combusted = 0.0 ! Carbon released to atmosphere via fire
    real :: treecover   = 0.0 ! tree CAI in the top layer, for fire spread
    real :: grasscover  = 0.0 ! grass CAI, for the initial fire severity
