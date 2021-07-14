@@ -1191,16 +1191,15 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   ! -- fire effects variables --
   real :: fire_prob, r_fire
   real :: BM_grass
-  real :: bark_r ! bark resistence to fire
-  real :: bark_s ! bark sensitivity: max 1.0, min 0.0
+  real :: r_bk ! bark resistence to fire
+  real :: s_fire ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
   real :: grass_flmb,tree_flmb
-  real :: f_tree  ! canopy tree spread probability
-  real :: f_grass ! fire coverage of grasses (= grass coverage)
+  real :: f_grass, f_tree  ! grasses and canopy tree spread probabilities
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
-!  ! Parameters (defined and valued in datatypes.F90 and read in from the namelist file)
+!  ! Parameters (defined in datatypes.F90 and read in from the namelist file):
 !  envi_fire_prb: Environmental fire occurrence probability, a function of environmental
 !  conditions that can result in fire if fuel is available
 !  (i.e., (match-dropping probability). It should be function of environmental conditions
@@ -1208,7 +1207,8 @@ subroutine vegn_fire_disturbance (vegn, deltat)
 ! for grasses and woody plants once environmental conditions meet envi_fire_prb
 !  For grasses: Ignition_G0 = 1.0; For woody plants: Ignition_W0 = 0.025
 !  m0_w_fire, m0_g_fire: mortality rates of trees and grasses due to fire
-!  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
+!  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
+!                                  120 --> 0.006 m of bark 0.5 survival
 !  For an old scheme
 !  f_HT0: shape parameter fire resistence (due to growth of bark) as a function of height
 !  h0_escape: tree height that escapes direct burning of grass fires
@@ -1222,55 +1222,53 @@ subroutine vegn_fire_disturbance (vegn, deltat)
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
      if(sp%lifeform==0) then
-         BM_grass = BM_grass + (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC) * cc%nindivs
-         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+        BM_grass = BM_grass + (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC) * cc%nindivs
+        if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
      elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+        vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
      endif
 
      end associate
   enddo
-  f_grass   = min(1.0,vegn%grasscover)
+  ! Fire spread parameters for grasses and trees
+  f_grass  = min(1.0, vegn%grasscover)
   f_tree   = min(1.0, vegn%treecover)
-
+  ! Flammability
   grass_flmb = Ignition_G0 * f_grass
-  tree_flmb  = Ignition_W0 * (1.0 - f_grass)
+  tree_flmb  = Ignition_W0 * (1. - f_grass)
 
   !CALL RANDOM_NUMBER(r_fire)
-  r_fire=rand(0)
-  fire_prob = 1.0 - (1.0 - grass_flmb*envi_fire_prb)*(1.0 - tree_flmb*envi_fire_prb)
-  vegn%fire_occurrence = r_fire < fire_prob ! (grass_flmb*envi_fire_prb)
-  write(*,*)"fire, treecover, grasscover,r_fire, fire_prob", &
-            vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
-
+  r_fire    = rand(0)
+  fire_prob = 1. - (1. - grass_flmb*envi_fire_prb) &
+                 *  (1. - tree_flmb*envi_fire_prb)
   ! fire effects on vegetation and soil
   vegn%C_combusted = 0.0
-   if(vegn%fire_occurrence)then
+  if(r_fire < fire_prob)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
       if(sp%lifeform==0) then
          deathrate = m0_g_fire  ! for grasses
       else                 ! for trees
-         ! Hoffmann et 2012: Y=1.105*X^1.083 for shrubs; Y=0.31*X^1.276 for trees (Y:mm, X:cm)
-         cc%D_bark = 0.1105 * cc%dbh ! bark thickness,
-         bark_s = exp(r_BK0*cc%D_bark) ! this is the key equation for survival from fire
-         !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
-         !write(*,*)'bark, bark_r',cc%D_bark,bark_r
          if(r_fire < tree_flmb*envi_fire_prb)then
-             deathrate = 0.99 * f_tree   ! tree canopy fire
+            deathrate = 0.99 * f_tree   ! tree canopy fire
          else ! grass fire
-             deathrate = m0_w_fire * bark_s * max(0.0, 1.0-vegn%treecover)
+            ! Hoffmann et 2012: Y=1.105*X^1.083 for shrubs;
+            ! Y=0.31*X^1.276 for trees (Y:mm, X:cm)
+            cc%D_bark = 0.1105 * cc%dbh    ! bark thickness,
+            s_fire = exp(r_BK0*cc%D_bark)
+            !s_fire = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
+            deathrate = m0_w_fire * s_fire * max(0., 1.-vegn%treecover)
          endif
 
          !!!!----- Old scheme -------- !!!!!!
-         ! bark_r = cc%height / (cc%height + f_HT0)
+         ! s_fire = 1.0 - cc%height/(cc%height+f_HT0)
          !if(cc%height < h0_escape) then ! Short trees
-         !   deathrate = m0_w_fire * (1.0 - bark_r) * f_grass
+         !   deathrate = m0_w_fire * s_fire * f_grass
          !   ! Didn't consider the probability of protection of big trees over small trees
          !   ! by excluding grasses and it leads to heterogeinity.
          !else  ! Tall trees
-         !   deathrate = m0_w_fire * (1.0 - bark_r) * f_tree
+         !   deathrate = m0_w_fire * s_fire * f_tree
          !endif
       endif
 
@@ -1291,6 +1289,9 @@ subroutine vegn_fire_disturbance (vegn, deltat)
     vegn%mineralN    = vegn%mineralN    + 0.7*vegn%SON(1) + 0.2*vegn%SON(1)
     vegn%SOC(1) = vegn%SOC(1) - 0.7*vegn%SOC(1) - 0.2*vegn%SOC(1)
     vegn%SON(1) = vegn%SON(1) - 0.7*vegn%SON(1) - 0.2*vegn%SON(1)
+
+    write(*,*)"fire, treecover, grasscover", &
+        r_fire < fire_prob, vegn%treecover, vegn%grasscover
   endif
 
 end subroutine vegn_fire_disturbance
