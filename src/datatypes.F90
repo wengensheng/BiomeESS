@@ -19,7 +19,10 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
     K1, K2, K3, K0SOM, K_nitrogen, etaN, f_M2SOM, &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
-    A_mort, B_mort,DBHtp, envi_fire_prb
+    A_mort, B_mort,DBHtp,  &
+    envi_fire_prb,  Ignition_G0, Ignition_W0 ,  &
+    m0_w_fire, m0_g_fire, r_BK0, &
+    f_HT0 , h0_escape, D_BK0 ! These three parameters are for an old scheme
 
 !===============constants===============
  logical, public, parameter :: read_from_parameter_file = .TRUE.
@@ -496,6 +499,15 @@ real :: f_N_add = 0.02 ! re-fill of N for sapwood
 
 ! Fire disturbance
 real :: envi_fire_prb = 0.5 ! fire probability due to environment
+real :: Ignition_G0 = 1.0 ! Ignition probability for woody plants once meets envi_fire_prb
+real :: Ignition_W0 = 0.025 ! Ignition probability for grasses and woody plants once meets envi_fire_prb
+real :: m0_g_fire = 0.2  ! mortality rates of grasses due to fire
+real :: m0_w_fire = 0.99 ! mortality rates of trees adue to fire
+real :: r_BK0 = -240.0 ! -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark
+! An old scheme
+real :: f_HT0 = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
+real :: h0_escape = 5.0 ! tree height that escapes direct burning of grass fires
+real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
 
 ! Ensheng's growth parameters:
 real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_min = 0.15 ! for understory mortality rate is calculated as:
@@ -630,8 +642,11 @@ namelist /vegn_parameters_nml/  &
   kx0, WTC0, r_DF, &
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
-  NfixRate0, NfixCost0,  &
-  f_cGap
+  NfixRate0, NfixCost0, f_cGap, &
+  ! Fire model parameters, Weng, 01/13/2021
+  envi_fire_prb, Ignition_G0, Ignition_W0 ,  &
+  m0_w_fire, m0_g_fire, r_BK0, &
+  f_HT0 , h0_escape, D_BK0 ! These three parameters are for an old scheme
 
 ! -------------------------------------------
 

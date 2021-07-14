@@ -1180,24 +1180,19 @@ subroutine vegn_hydro_mortality (vegn, deltat)
 end subroutine vegn_hydro_mortality
 
 !============================================================================
-!----------------------- fire disturbance -----------------------------------
+!----------------------- fire disturbance (Konza) ---------------------------
 subroutine vegn_fire_disturbance (vegn, deltat)
-! TODO: update background mortality rate as a function of wood density (Weng, Jan. 07 2017)
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
-  type(spec_data_type),   pointer :: sp
-
-  real :: m0_w_fire, m0_g_fire ! mortality rates of trees and grasses due to fire
-  real :: f_HT0 ! shape parameter fire resistence (due to growth of bark) as a function of height
-  real :: h0_escape ! tree height that escapes direct burning of grass fires
-  real :: r_BK0, D_BK0 ! D_BK0: Bark thickness at half survival rate; r_BK0: shape parameter
-
-  real :: fire_prob, r_fire ! envi_fire_prb
-  real :: Ignition_G0, Ignition_W0 ! Ignition probability once meets envi_fire_prb
-  real :: BM_grass,bark_r ! bark resistence to fire
+  type(spec_data_type), pointer :: sp
+  ! -- fire effects variables --
+  real :: fire_prob, r_fire
+  real :: BM_grass
+  real :: bark_r ! bark resistence to fire
+  real :: bark_s ! bark sensitivity: max 1.0, min 0.0
   real :: grass_flmb,tree_flmb
   real :: f_tree  ! canopy tree spread probability
   real :: f_grass ! fire coverage of grasses (= grass coverage)
@@ -1205,21 +1200,20 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
+!  ! Parameters (defined and valued in datatypes.F90 and read in from the namelist file)
+!  envi_fire_prb: Environmental fire occurrence probability, a function of environmental
+!  conditions that can result in fire if fuel is available
+!  (i.e., (match-dropping probability). It should be function of environmental conditions
+! Vegetation flammability parameters, Ignition_G0, Ignition_W0: Ignition probability
+! for grasses and woody plants once environmental conditions meet envi_fire_prb
+!  For grasses: Ignition_G0 = 1.0; For woody plants: Ignition_W0 = 0.025
+!  m0_w_fire, m0_g_fire: mortality rates of trees and grasses due to fire
+!  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
+!  For an old scheme
+!  f_HT0: shape parameter fire resistence (due to growth of bark) as a function of height
+!  h0_escape: tree height that escapes direct burning of grass fires
+!  D_BK0: Bark thickness at half survival rate.
 
-  ! Environmental fire occurrence probability (match-dropping probability)
-  ! envi_fire_prb = 0.2 ! it should be function of environmental conditions
-
-  ! Vegetation flammability parameters
-
-  Ignition_G0 = 1.0
-  Ignition_W0 = 0.025 !0.05
-  r_BK0  = -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark 0.5 survival
-  D_BK0  = 5.9/1000.0 ! half survival bark thickness, m
-  m0_w_fire = 0.85 !1.0
-  m0_g_fire = 0.2
-
-  !f_HT0  = 10.0   ! for bark resistance
-  !h0_escape = 5.0 ! meter
   ! Calculation starts here
   BM_grass  = 0.0
   vegn%treecover = 0.0
@@ -1237,12 +1231,10 @@ subroutine vegn_fire_disturbance (vegn, deltat)
      end associate
   enddo
   f_grass   = min(1.0,vegn%grasscover)
-  !f_tree   = min(1.0,4.0*vegn%treecover*vegn%treecover)
-  f_tree   = min(1.0, vegn%treecover) ! vegn%treecover/(0.2+vegn%treecover) ! min(1.0,2.0*vegn%treecover)
+  f_tree   = min(1.0, vegn%treecover)
 
   grass_flmb = Ignition_G0 * f_grass
   tree_flmb  = Ignition_W0 * (1.0 - f_grass)
-
 
   !CALL RANDOM_NUMBER(r_fire)
   r_fire=rand(0)
@@ -1250,9 +1242,6 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   vegn%fire_occurrence = r_fire < fire_prob ! (grass_flmb*envi_fire_prb)
   write(*,*)"fire, treecover, grasscover,r_fire, fire_prob", &
             vegn%fire_occurrence, vegn%treecover, vegn%grasscover,r_fire, fire_prob
-
-  ! Grass fire and tree fire: grass fire burns all grasses and kill trees based on grass cover and tree resistense
-  ! Tree fire induces grass fire and kills trees at a much higher mortality rate than grass fire does
 
   ! fire effects on vegetation and soil
   vegn%C_combusted = 0.0
@@ -1265,13 +1254,13 @@ subroutine vegn_fire_disturbance (vegn, deltat)
       else                 ! for trees
          ! Hoffmann et 2012: Y=1.105*X^1.083 for shrubs; Y=0.31*X^1.276 for trees (Y:mm, X:cm)
          cc%D_bark = 0.1105 * cc%dbh ! bark thickness,
-         bark_r = 1.0 - exp(r_BK0*cc%D_bark)
+         bark_s = exp(r_BK0*cc%D_bark) ! this is the key equation for survival from fire
          !bark_r = cc%D_bark / (cc%D_bark + D_BK0)
          !write(*,*)'bark, bark_r',cc%D_bark,bark_r
          if(r_fire < tree_flmb*envi_fire_prb)then
-             deathrate = 0.9 * f_tree   ! tree canopy fire
+             deathrate = 0.99 * f_tree   ! tree canopy fire
          else ! grass fire
-             deathrate = m0_w_fire * (1.0 - bark_r) * max(0.0, 1.0-vegn%treecover)
+             deathrate = m0_w_fire * bark_s * max(0.0, 1.0-vegn%treecover)
          endif
 
          !!!!----- Old scheme -------- !!!!!!
