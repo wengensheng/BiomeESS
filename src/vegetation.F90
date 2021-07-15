@@ -1190,12 +1190,11 @@ subroutine vegn_fire_disturbance (vegn, deltat)
   type(spec_data_type), pointer :: sp
   ! -- fire effects variables --
   real :: fire_prob, r_fire
-  real :: BM_grass
-  real :: r_bk ! bark resistence to fire
+  real :: f_bk, r_bk ! coefficient of bark thickness, bark resistance to fire
   real :: s_fire ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
-  real :: grass_flmb,tree_flmb
-  real :: f_grass, f_tree  ! grasses and canopy tree spread probabilities
-  real :: deathrate ! mortality rate, 1/year
+  real :: flmb_G,flmb_W
+  real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
+  real :: mu_fire ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
@@ -1210,86 +1209,79 @@ subroutine vegn_fire_disturbance (vegn, deltat)
 !  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
 !                                  120 --> 0.006 m of bark 0.5 survival
 !  For an old scheme
-!  f_HT0: shape parameter fire resistence (due to growth of bark) as a function of height
+!  f_HT0: shape parameter fire resistance (due to growth of bark) as a function of height
 !  h0_escape: tree height that escapes direct burning of grass fires
 !  D_BK0: Bark thickness at half survival rate.
 
-  ! Calculation starts here
-  BM_grass  = 0.0
+  ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
+  f_bk  = 0.1105
   vegn%treecover = 0.0
   vegn%grasscover = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
-     if(sp%lifeform==0) then
-        BM_grass = BM_grass + (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC) * cc%nindivs
-        if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
-     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-        vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+     if(cc%layer == 1)then
+       if(sp%lifeform==0) &
+          vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+       if(sp%lifeform==1) &
+          vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
      endif
-
      end associate
   enddo
   ! Fire spread parameters for grasses and trees
   f_grass  = min(1.0, vegn%grasscover)
-  f_tree   = min(1.0, vegn%treecover)
+  f_wood   = min(1.0, vegn%treecover)
   ! Flammability
-  grass_flmb = Ignition_G0 * f_grass
-  tree_flmb  = Ignition_W0 * (1. - f_grass)
-
-  !CALL RANDOM_NUMBER(r_fire)
-  r_fire    = rand(0)
-  fire_prob = 1. - (1. - grass_flmb*envi_fire_prb) &
-                 *  (1. - tree_flmb*envi_fire_prb)
+  flmb_G = Ignition_G0 * f_grass
+  flmb_W = Ignition_W0 * f_wood
+  fire_prob = 1.-(1.-flmb_G*envi_fire_prb)*(1.-flmb_W*envi_fire_prb)
   ! fire effects on vegetation and soil
+  r_fire    = rand(0) !CALL RANDOM_NUMBER(r_fire)
   vegn%C_combusted = 0.0
   if(r_fire < fire_prob)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
-      if(sp%lifeform==0) then
-         deathrate = m0_g_fire  ! for grasses
-      else                 ! for trees
-         if(r_fire < tree_flmb*envi_fire_prb)then
-            deathrate = 0.99 * f_tree   ! tree canopy fire
+      if(sp%lifeform==0) then  ! grasses
+         mu_fire = m0_g_fire
+      else                     ! trees
+         if(r_fire < flmb_W*envi_fire_prb)then
+            mu_fire = 0.99 * f_wood   ! tree canopy fire
          else ! grass fire
-            ! Hoffmann et 2012: Y=1.105*X^1.083 for shrubs;
-            ! Y=0.31*X^1.276 for trees (Y:mm, X:cm)
-            cc%D_bark = 0.1105 * cc%dbh    ! bark thickness,
+            cc%D_bark = f_bk * cc%dbh    ! bark thickness,
             s_fire = exp(r_BK0*cc%D_bark)
             !s_fire = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
-            deathrate = m0_w_fire * s_fire * max(0., 1.-vegn%treecover)
+            mu_fire = m0_w_fire * s_fire * (1.0-f_wood)
          endif
 
          !!!!----- Old scheme -------- !!!!!!
          ! s_fire = 1.0 - cc%height/(cc%height+f_HT0)
          !if(cc%height < h0_escape) then ! Short trees
-         !   deathrate = m0_w_fire * s_fire * f_grass
+         !   mu_fire = m0_w_fire * s_fire * f_grass
          !   ! Didn't consider the probability of protection of big trees over small trees
          !   ! by excluding grasses and it leads to heterogeinity.
          !else  ! Tall trees
-         !   deathrate = m0_w_fire * s_fire * f_tree
+         !   mu_fire = m0_w_fire * s_fire * f_wood
          !endif
       endif
 
-      ! Effects on vegetation and soils
-      deadtrees = cc%nindivs * MIN(1.0,deathrate * deltat/seconds_per_year) ! individuals / m2
+      ! Burned vegetation and soils
+      deadtrees = cc%nindivs * MIN(1.0,mu_fire * deltat/seconds_per_year) ! individuals / m2
       ! Carbon and Nitrogen release by burning
       vegn%C_combusted = vegn%C_combusted + &
-                  (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC)*deadtrees
+            (cc%NSC+cc%bl+cc%bsw+cc%bHW+cc%br+cc%seedC)*deadtrees
       vegn%mineralN = vegn%mineralN + &
-             (cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN + cc%seedN)*deadtrees
+            (cc%NSN+cc%leafN+cc%rootN+cc%sapwN+cc%woodN+cc%seedN)*deadtrees
 
       ! Update plant density
       cc%nindivs = cc%nindivs - deadtrees
       end associate
     enddo
-    ! Burned litter
-    vegn%C_combusted = vegn%C_combusted + 0.7*vegn%SOC(1) + 0.2*vegn%SOC(1)
-    vegn%mineralN    = vegn%mineralN    + 0.7*vegn%SON(1) + 0.2*vegn%SON(1)
-    vegn%SOC(1) = vegn%SOC(1) - 0.7*vegn%SOC(1) - 0.2*vegn%SOC(1)
-    vegn%SON(1) = vegn%SON(1) - 0.7*vegn%SON(1) - 0.2*vegn%SON(1)
-
+    ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
+    vegn%C_combusted = vegn%C_combusted + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2)
+    vegn%mineralN    = vegn%mineralN    + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
+    vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1); vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2)
+    vegn%SON(1) = (1.0-0.7)*vegn%SON(1); vegn%SON(2) = (1.0-0.2)*vegn%SON(2)
     write(*,*)"fire, treecover, grasscover", &
         r_fire < fire_prob, vegn%treecover, vegn%grasscover
   endif
