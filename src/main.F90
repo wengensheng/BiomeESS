@@ -227,6 +227,9 @@ program BiomeESS
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
             call annual_diagnostics(vegn,iyears,fno2,fno5)
+
+            ! N is losing after changing the soil pool structure. Hack !!!!!
+            ! if(do_closedN_run) call Recover_N_balance(vegn)
             
 #ifdef Hydro_test
             ! mortality

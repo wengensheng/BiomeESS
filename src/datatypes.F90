@@ -614,9 +614,9 @@ real :: CNsw0(0:MSPECIES)     = 350.0 ! C/N ratios for woody biomass
 real :: CNwood0(0:MSPECIES)   = 350.0 ! C/N ratios for woody biomass
 real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
 real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
-real :: NfixRate0(0:MSPECIES) = 0.0 !Reference N fixation rate (0.03 kgN kgC-1 root yr-1)
+real :: NfixRate0(0:MSPECIES) = 0.0  ! Reference N fixation rate (0.03 kgN kgC-1 root yr-1)
 real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC
-real :: f_cGap(0:MSPECIES)    = 0.1 ! The gaps between trees
+real :: f_cGap(0:MSPECIES)    = 0.1  ! The gaps between trees
 
 namelist /vegn_parameters_nml/  &
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &
@@ -1182,7 +1182,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
             vegn%rootN + vegn%SapwoodN + vegn%woodN
     soilC  = sum(vegn%SOC(:))
-    soilN  = sum(vegn%SON(:))
+    soilN  = sum(vegn%SON(:)) + vegn%mineralN
     vegn%totN = plantN + soilN
     write(f2,'(1(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))') &
         iyears,       &
@@ -1198,20 +1198,9 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%annualNup*1000, &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000, &
         vegn%totseedC*1000,vegn%totseedN*1000,vegn%totNewCC*1000,vegn%totNewCN*1000
-    ! I cannot figure out why N losing. Hack!
-   if(do_closedN_run) call Recover_N_balance(vegn)
 
  end subroutine annual_diagnostics
 
- ! Hack !!!!!
- subroutine Recover_N_balance(vegn)
-   type(vegn_tile_type), intent(inout) :: vegn
-      if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
-         vegn%structuralN = vegn%structuralN - vegn%totN + vegn%initialN0
-         vegn%totN =  vegn%initialN0
-      endif
-
- end subroutine
 !================================================
 end module datatypes
 

@@ -10,7 +10,7 @@ public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_annual_starvation, vegn_fire_disturbance
 public :: vegn_nat_mortality, vegn_hydro_mortality,vegn_sum_tile
-public :: vegn_migration, vegn_species_switch
+public :: vegn_migration, vegn_species_switch, Recover_N_balance
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 public :: Zero_diagnostics
 ! for Biodiversity test
@@ -2047,6 +2047,16 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
 
 end subroutine SOMdecomposition
 
+!==========================================================================
+ ! Hack !!!!!
+ subroutine Recover_N_balance(vegn)
+   type(vegn_tile_type), intent(inout) :: vegn
+      if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
+         vegn%structuralN = vegn%structuralN - vegn%totN + vegn%initialN0
+         vegn%totN =  vegn%initialN0
+      endif
+
+ end subroutine
 ! ============================================================================
 ! The combined reduction in decomposition rate as a funciton of TEMP and MOIST
 ! Based on CENTURY Parton et al 1993 GBC 7(4):785-809 and Bolker's copy of
