@@ -16,10 +16,12 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  public :: forcingData,spdata, soilpars
  ! parameters
  public :: MaxCohortID, &
-    K1, K2, K3, K0SOM, K_nitrogen, etaN, f_M2SOM, &
+    K1, K2, K3, K0SOM, f_M2SOM, &
+    K_nitrogen, rho_SON, etaN,  &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
     A_mort, B_mort,DBHtp,  &
+    ! fire model
     envi_fire_prb,  Ignition_G0, Ignition_W0 ,  &
     m0_w_fire, m0_g_fire, r_BK0, &
     f_HT0 , h0_escape, D_BK0 ! These three parameters are for an old scheme
@@ -248,7 +250,6 @@ type :: cohort_type
   real :: dailyNPP
   real :: dailyResp
   real :: dailyNup
-  real :: dailyfixedN
   real :: annualTrsp
   real :: annualGPP ! C flux/tree
   real :: annualNPP
@@ -265,6 +266,7 @@ type :: cohort_type
   real    :: N_uptake = 0.
   real    :: annualNup  = 0.0
   real    :: fixedN ! fixed N at each stem per tree
+  real    :: dailyfixedN
   real    :: annualfixedN = 0.0 ! annual N fixation per unit crown area
 
   ! TODO: see if we can make bl_max, br_max local variables
@@ -323,21 +325,22 @@ type :: vegn_tile_type
 
    ! litter and soil carbon pools
    real :: litter = 0.0 ! litter flux
-   real :: MicrobialC  = 0  ! Microbes (kg C/m2)
-   real :: metabolicL  = 0  ! fast soil carbon pool, (kg C/m2)
-   real :: structuralL = 0  ! slow soil carbon pool, (kg C/m2)
+   !real :: MicrobialC  = 0  ! Microbes (kg C/m2)
+   !real :: metabolicL  = 0  ! fast soil carbon pool, (kg C/m2)
+   !real :: structuralL = 0  ! slow soil carbon pool, (kg C/m2)
    real :: fastSOC, fastSON, slowSOC, slowSON
-   real :: SOC(5) = 0.
+   real :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
    real :: SON(5) = 0.
 
 !!  Nitrogen pools, Weng 2014-08-08
-   real :: MicrobialN= 0
-   real :: metabolicN = 0  ! fast soil nitrogen pool, (kg N/m2)
-   real :: structuralN = 0  ! slow soil nitrogen pool, (kg N/m2)
+   !real :: MicrobialN= 0
+   !real :: metabolicN = 0  ! fast soil nitrogen pool, (kg N/m2)
+   !real :: structuralN = 0  ! slow soil nitrogen pool, (kg N/m2)
    real :: mineralN = 0.  ! Mineral nitrogen pool, (kg N/m2)
    real :: totN = 0.
    real :: N_input        ! annual N input (kgN m-2 yr-1)
-   real :: N_uptake  = 0.  ! kg N m-2 hour-1
+   real :: N_uptake= 0.0  ! kg N m-2 hour-1
+   real :: fixedN  = 0.0  ! kg N/step
    real :: annualN = 0.0  ! annual available N in a year
    real :: Nloss_yr= 0.0  ! annual N loss
    real :: N_P2S_yr= 0.0  ! annual N from plants to soil
@@ -345,7 +348,7 @@ type :: vegn_tile_type
    real :: initialN0
 
 ! Soil water
-   integer :: soiltype       ! lookup table for soil hydrologic parameters
+   integer :: soiltype    ! lookup table for soil hydrologic parameters
    real :: FLDCAP,WILTPT  ! soil property: field capacity and wilting point (0.xx)
    real :: evap           ! kg m-2 per unit fast time step (mm/hour)
    real :: transp         ! kg m-2 hour-1
@@ -485,15 +488,16 @@ real :: K3 = 2.5 ! Microbial C decomposition rate (yr-1)
 real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
 
 real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
-real :: f_M2SOM = 0.8     ! the ratio of C and N returned to litters from microbes
-real :: etaN       = 0.025    ! N loss through runoff (organic and mineral)
+real :: rho_SON    = 0.05    ! SON release rate
+real :: f_M2SOM    = 0.8     ! the ratio of C and N returned to litters from microbes
+real :: etaN       = 0.025   ! N loss through runoff (organic and mineral)
 real :: LMAmin     = 0.02    ! minimum LMA, boundary condition
 real :: fsc_fine   = 1.0     ! fraction of fast turnover carbon in fine biomass
 real :: fsc_wood   = 0.0     ! fraction of fast turnover carbon in wood biomass
 real :: GR_factor  = 0.33 ! growth respiration factor
 real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
 real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
-real :: f_initialBSW = 0.2 !0.01
+real :: f_initialBSW = 0.005  !0.01, 0.2
 real :: f_N_add = 0.02 ! re-fill of N for sapwood
 
 ! Fire disturbance
@@ -614,8 +618,8 @@ real :: CNsw0(0:MSPECIES)     = 350.0 ! C/N ratios for woody biomass
 real :: CNwood0(0:MSPECIES)   = 350.0 ! C/N ratios for woody biomass
 real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
 real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
-real :: NfixRate0(0:MSPECIES) = 0.0  ! Reference N fixation rate (0.03 kgN kgC-1 root yr-1)
-real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC
+real :: NfixRate0(0:MSPECIES) = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
+real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
 real :: f_cGap(0:MSPECIES)    = 0.1  ! The gaps between trees
 
 namelist /vegn_parameters_nml/  &
@@ -628,7 +632,7 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
-  K1,K2,K3, K0SOM, K_nitrogen, etaN, f_M2SOM,    &
+  K1,K2,K3, K0SOM, f_M2SOM, K_nitrogen, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
   f_initialBSW, f_LFR_max,  &
@@ -1007,7 +1011,7 @@ end subroutine Zero_diagnostics
 
   vegn%age = vegn%age + dt_fast_yr
   ! Tile summary
-  vegn%GPP    = 0.
+  vegn%GPP    = 0.; vegn%fixedN = 0.
   vegn%NPP    = 0.; vegn%Resp   = 0.
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -1016,11 +1020,13 @@ end subroutine Zero_diagnostics
      cc%dailyGPP  = cc%dailygpp  + cc%gpp ! kg day-1
      cc%dailyNPP  = cc%dailyNpp  + cc%Npp ! kg day-1
      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
+     cc%dailyfixedN  = cc%dailyfixedN  + cc%fixedN ! kg day-1
 
      ! Tile hourly
      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
      vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
      vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs
+     vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
   enddo
   ! NEP is equal to NNP minus soil respiration
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
@@ -1045,6 +1051,7 @@ end subroutine Zero_diagnostics
   vegn%dailyEvap = vegn%dailyEvap + vegn%evap
   vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
   vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
+  vegn%dailyfixedN  = vegn%dailyfixedN  + vegn%fixedN
 
 end subroutine hourly_diagnostics
 
@@ -1080,11 +1087,13 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
           cc%annualNPP = cc%annualNPP + cc%dailyNPP
           cc%annualResp = cc%annualResp + cc%dailyResp
           cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
+          cc%annualfixedN = cc%annualfixedN + cc%dailyfixedN
           ! Zero Daily variables
           cc%dailyTrsp = 0.0
           cc%dailyGPP = 0.0
           cc%dailyNPP = 0.0
           cc%dailyResp = 0.0
+          cc%dailyfixedN = 0.0
       enddo
       !! Tile level, daily
       if(outputdaily.and. iday>equi_days) then
@@ -1113,6 +1122,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
         vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
         vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
+        vegn%annualfixedN  = vegn%annualfixedN  + vegn%dailyfixedN
 
        ! zero:
        vegn%dailyNup  = 0.0
@@ -1124,6 +1134,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
        vegn%dailyTrsp = 0.0
        vegn%dailyEvap = 0.0
        vegn%dailyRoff = 0.0
+       vegn%dailyfixedN = 0.0
  end subroutine daily_diagnostics
 
 !======================================================
@@ -1173,10 +1184,10 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     enddo
 
     ! tile pools output
-    do i = 1, vegn%n_cohorts
-        cc => vegn%cohorts(i)
-        vegn%annualfixedN  = vegn%annualfixedN  + cc%annualfixedN * cc%nindivs
-    enddo
+    !do i = 1, vegn%n_cohorts
+    !    cc => vegn%cohorts(i)
+    !    vegn%annualfixedN  = vegn%annualfixedN  + cc%annualfixedN * cc%nindivs
+    !enddo
     plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
             vegn%SapwoodC + vegn%woodC
     plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &

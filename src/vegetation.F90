@@ -44,6 +44,7 @@ public :: vegn_gap_fraction_update
 
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
+
   ! Update soil water
   call SoilWaterDynamicsLayer(forcing,vegn)
 
@@ -1954,14 +1955,13 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
   real :: N_loss
   real :: d_C(5), d_N(5), CN(5), CUE(5)
   real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
-  real :: fDON = 0.0   ! 0.02     ! fractio of DON production in decomposition
+  real :: fDON = 0.02     ! fraction of DON production in decomposition
   real :: A  ! decomp rate reduction due to moisture and temperature
   integer :: i, j
 
   ! Environmental scalar
   A=A_function(tsoil,thetaS)
-!  runoff = vegn%Wrunoff * 365*24*3600 *dt_fast_yr !kgH2O m-2 s-1 ->kg m-2/time step
-  runoff = 0.0 ! vegn%runoff  !* dt_fast_yr !kgH2O m-2 yr-1 ->kgH2O m-2/time step, weng 2017-10-15
+  runoff = vegn%runoff  !mm/step, weng 2017-10-15
 
   ! Put litters into soil to start decomposition processes
   CN = CN0SOM
@@ -1996,13 +1996,13 @@ subroutine SOMdecomposition(vegn, tsoil, thetaS)
 
   ! Organic and mineral nitrogen losses
   ! Assume it is proportional to decomposition rates
-  ! Find some papers!!
-  DON_fast    = fDON * d_C(4)/CN(4) * (etaN*runoff)
-  DON_slow    = fDON * d_C(5)/CN(5) * (etaN*runoff)
+  ! Find papers about hese processes!!
+  DON_fast    = fDON * d_C(4)/CN(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr
+  DON_slow    = fDON * d_C(5)/CN(5) * (etaN*runoff) + vegn%SON(5) * rho_SON * A * dt_fast_yr
   DON_loss    = DON_fast + DON_slow
   ! Mineral nitrogen loss
-  N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
-!  N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
+  !N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
+  !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
   N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
   vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
 
@@ -2052,7 +2052,7 @@ end subroutine SOMdecomposition
  subroutine Recover_N_balance(vegn)
    type(vegn_tile_type), intent(inout) :: vegn
       if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
-         vegn%structuralN = vegn%structuralN - vegn%totN + vegn%initialN0
+         vegn%SON(5) = vegn%SON(5) - vegn%totN + vegn%initialN0
          vegn%totN =  vegn%initialN0
       endif
 

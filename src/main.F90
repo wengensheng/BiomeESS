@@ -94,7 +94,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'Konza2' ! 'Konza-shrub' !  'OR_GAPLUE' !  'FACE_hydro' !
+   runID = 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub' !  'OR_GAPLUE' !  'FACE_hydro' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -243,6 +243,7 @@ program BiomeESS
             ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
+            call vegn_migration(vegn) ! for nitrogen fixation competition
             call kill_lowdensity_cohorts(vegn)
 #endif
 
