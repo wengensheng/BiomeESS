@@ -2234,25 +2234,28 @@ subroutine kill_lowdensity_cohorts(vegn)
   do i = 1, vegn%n_cohorts
      if (vegn%cohorts(i)%nindivs > mindensity) k=k+1
   enddo
-  if (k==0) write(*,*)'kill_lowdensity_cohorts: ','All cohorts have died'
+  if (k==0)then
+     write(*,*)'in kill_lowdensity_cohorts: All cohorts will be killed! Stopped!'
+     stop
+  endif
 
   ! exclude cohorts that have low individuals
-  if (k < vegn%n_cohorts) then
+  if (k < vegn%n_cohorts .and. k>0) then
      allocate(cc(k))
-     k=0
+     j=0
      do i = 1,vegn%n_cohorts
         cp =>vegn%cohorts(i)
         associate(sp=>spdata(cp%species))
         if (cp%nindivs > mindensity) then
-           k=k+1
-           cc(k) = cp
+           j=j+1
+           cc(j) = cp
         else
            ! Carbon and Nitrogen from plants to soil pools
            call plant2soil(vegn,cp,cp%nindivs)
         endif
         end associate
      enddo
-     vegn%n_cohorts = k
+     vegn%n_cohorts = j
      deallocate (vegn%cohorts)
      vegn%cohorts=>cc
   endif
