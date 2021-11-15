@@ -547,12 +547,13 @@ real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
 real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
-real    :: root_zeta(0:MSPECIES) = 0.29 !
+real :: root_zeta(0:MSPECIES) = 0.29 !
 real :: Kw_root(0:MSPECIES)= 6.3E-8 * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Mpa) ! 6.3±3.1×10−8 m s−1 MPa−1
 !(/1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5/)
    ! fine root membrane permeability per unit membrane area, kg/(m3 s).
    ! Root membrane permeability is "high" for the value from Siqueira et al., 2008,
-! Water Resource Research Vol. 44, W01432, converted to mass units
+   ! Water Resource Research Vol. 44, W01432, converted to mass units
+
 !real :: rho_N_up0(0:MSPECIES) = 0.5 ! fraction of mineral N per hour
 !real :: N_roots0(0:MSPECIES) = 0.3 ! kgC m-2
 
@@ -701,6 +702,7 @@ real      :: step_seconds = 3600.0
 character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer   :: model_run_years = 100
+real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
 integer   :: equi_days       = 0 ! 100 * 365
 logical   :: outputhourly = .False.
 logical   :: outputdaily  = .True.
@@ -719,7 +721,7 @@ namelist /initial_state_nml/ &
     filepath_in,climfile, model_run_years, &
     outputhourly, outputdaily, equi_days, &
     do_U_shaped_mortality,update_annualLAImax, &
-    do_fire, do_migration, &
+    do_fire, do_migration, Sc_prcp, &
     do_closedN_run
 !---------------------------------
 

@@ -1609,7 +1609,8 @@ subroutine vegn_migration (vegn)
   integer,dimension(16) :: initialPFTs, currPFTs, missingPFTs
   real :: addedC, addedN ! seed pool of productible PFTs
   integer :: newcohorts, matchflag
-  integer :: n_initialPFTs, nPFTs ! number of new cohorts to be created
+  integer :: nPFT0 ! number of initial PFTs
+  integer :: nPFTs ! number of new cohorts to be created
   integer :: nCohorts, istat
   integer :: i, j, k, n ! cohort indices
 
@@ -1630,34 +1631,34 @@ subroutine vegn_migration (vegn)
         currPFTs(nPFTs) = cc%species ! PFT number
      endif
   enddo ! k, vegn%n_cohorts
-  write(*,*)'current cc',currPFTs(1),currPFTs(2)
+  write(*,'(A12,16(I4,","))')'current cc',currPFTs(1:nPFTs)
 
 ! Looping through all initial cohorts and get the initial PFTs
   initialPFTs = -999 ! the code of initial PFT
-  n_initialPFTs = 0
+  nPFT0 = 0
   do k=1, vegn%n_initialCC
      cc => vegn%initialCC(k)
      !initialPFTs(k) = cc%species
-     !n_initialPFTs = n_initialPFTs + 1
+     !nPFT0 = nPFT0 + 1
      matchflag = 0
-     do i=1,n_initialPFTs
+     do i=1,nPFT0
         if(cc%species == initialPFTs(i))then
             matchflag = 1
             exit
         endif
      enddo
      if(matchflag==0)then ! when it is a new PFT, put it to the next place
-        n_initialPFTs      = n_initialPFTs + 1 ! update the number of existing PFTs
-        initialPFTs(n_initialPFTs) = cc%species ! PFT number
+        nPFT0      = nPFT0 + 1 ! update the number of existing PFTs
+        initialPFTs(nPFT0) = cc%species ! PFT number
      endif
   enddo ! k, vegn%n_initialCC
-  write(*,*)'initial cc',initialPFTs(1:2)
+  write(*,'(A12,16(I4,","))')'initial cc',initialPFTs(1:nPFT0)
 
   ! Get missing PFT(s)
   missingPFTs = -999
   n = 0
-  if(nPFTs < n_initialPFTs)then
-      do i=1, n_initialPFTs
+  if(nPFTs < nPFT0)then
+      do i=1, nPFT0
          matchflag = 0
          do j=1, nPFTs ! go through all current PFTs
             if(initialPFTs(i)==currPFTs(j))then
@@ -2235,12 +2236,12 @@ subroutine kill_lowdensity_cohorts(vegn)
      if (vegn%cohorts(i)%nindivs > mindensity) k=k+1
   enddo
   if (k==0)then
-     write(*,*)'in kill_lowdensity_cohorts: All cohorts will be killed! Stopped!'
-     stop
+     write(*,*)'in kill_lowdensity_cohorts: All cohorts < mindensity, No action!'
+     !stop
   endif
 
   ! exclude cohorts that have low individuals
-  if (k < vegn%n_cohorts .and. k>0) then
+  if (k>0 .and. k<vegn%n_cohorts)then
      allocate(cc(k))
      j=0
      do i = 1,vegn%n_cohorts

@@ -94,7 +94,7 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-   runID = 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub' !  'OR_GAPLUE' !  'FACE_hydro' !
+   runID = 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub' !  'OR_GAPLUE' !  'FACE_hydro' !
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
@@ -180,6 +180,9 @@ program BiomeESS
    totdays  = INT(totyears/yr_data+1)*days_data
    equi_days = Max(0, totdays - days_data)
 
+   ! Set up rainfall scenario for phiRL test runs
+   forcingData%rain = forcingData%rain * Sc_prcp
+
    ! ----- model run ---------- ! Model run starts here !!
    year0 = forcingData(1)%year
    iyears = 1
@@ -243,7 +246,8 @@ program BiomeESS
             ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
-            call vegn_migration(vegn) ! for nitrogen fixation competition
+            if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
+
             call kill_lowdensity_cohorts(vegn)
 #endif
 
