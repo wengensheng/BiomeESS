@@ -44,7 +44,7 @@ subroutine water_supply_layer(forcing, vegn)
   real :: totWsup(max_lev) ! potential water uptake, mol s-1 m-2
   real :: psi_soil, psi_leaf, psi_stem, psi_root ! Pa, water potentials from soil to leaf
   real :: thetaS(max_lev) ! soil moisture index (0~1)
-  real :: dpsiSR(max_lev) ! pressure difference between soil water and root water, Pa
+  real :: dpsiSR(max_lev) ! pressure difference between soil water and root water, MPa
   integer :: i,j, layer
 
 !! Plant hydraulics
@@ -56,13 +56,13 @@ subroutine water_supply_layer(forcing, vegn)
      !Soil water pressure
      psi_soil = soilpars(vegn%soiltype)%psi_sat_ref * &  ! Pa
             ((FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
-     dpsiSR(i) = 1.5 *1.0e6 * thetaS(i)**2 ! Pa
+     dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
      ! Layer allocation, water uptake capacity
      totWsup(i) = 0.0 ! Potential water uptake per layer by all cohorts
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         associate ( sp => spdata(cc%species) )
-        cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i) * (step_seconds*mol_h2o) ! kg H2O tree-1 step-1
+        cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i)*step_seconds ! kg H2O tree-1 step-1
         totWsup(i) = totWsup(i) + cc%WupL(i) * cc%nindivs ! water uptake per layer by all cohorts
         end associate
      enddo

@@ -135,7 +135,7 @@ type spec_data_type
   real    :: SRL          ! specific root lenght
   real    :: gamma_FR     ! Fine root respiration rate, kgC kgC-1 yr-1
   real    :: alpha_FR     ! Turnover rate of Fine roots, fraction yr-1
-  real    :: Kw_root      ! fine root water donductivity mol m m-2 s−1 MPa−1 ! 
+  real    :: Kw_root      ! fine root water donductivity mol m m-2 s−1 Pa−1 !
   real    :: root_perm
 !  real    :: rho_N_up0   ! maximum N uptake rate
 !  real    :: N_roots0    ! root biomass at half of max. N-uptake rate
@@ -548,7 +548,8 @@ real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.29 !
-real :: Kw_root(0:MSPECIES)= 6.3E-8 * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Mpa) ! 6.3±3.1×10−8 m s−1 MPa−1
+real :: Kw_root(0:MSPECIES)= 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
+! * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Pa)
 !Ref added by Weng, 2021-11-15
 ! Sutka et al. 2011 Natural Variation of Root Hydraulics in Arabidopsis Grown in Normal and Salt-Stressed Conditions.
 ! Plant Physiol. 155(3): 1264–1276. doi: 10.1104/pp.110.163113
