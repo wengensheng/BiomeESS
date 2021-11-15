@@ -549,6 +549,12 @@ real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.29 !
 real :: Kw_root(0:MSPECIES)= 6.3E-8 * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Mpa) ! 6.3±3.1×10−8 m s−1 MPa−1
+!Ref added by Weng, 2021-11-15
+! Sutka et al. 2011 Natural Variation of Root Hydraulics in Arabidopsis Grown in Normal and Salt-Stressed Conditions.
+! Plant Physiol. 155(3): 1264–1276. doi: 10.1104/pp.110.163113
+! Miyamoto et al. 2001. Hydraulic conductivity of rice roots. J. Exp. Bot., 52: 1835–1846,
+! doi: 10.1093/jexbot/52.362.1835
+
 !(/1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5/)
    ! fine root membrane permeability per unit membrane area, kg/(m3 s).
    ! Root membrane permeability is "high" for the value from Siqueira et al., 2008,
