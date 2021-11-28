@@ -68,7 +68,7 @@ public :: vegn_gap_fraction_update
   enddo ! all cohorts
 
   ! update soil carbon
-   call SOMdecomposition(vegn, forcing%tsoil, thetaS)
+   call Soil_BGC(vegn, forcing%tsoil, thetaS)
 
 !! Nitrogen uptake
    call vegn_N_uptake(vegn, forcing%tsoil)
@@ -1945,108 +1945,95 @@ end subroutine vegn_N_uptake
 ! Nitrogen mineralization and immoblization with microbial C & N pools
 ! it's a new decomposition model with coupled C & N pools and variable
 ! carbon use efficiency
-subroutine SOMdecomposition(vegn, tsoil, thetaS)
+subroutine Soil_BGC (vegn, tsoil, thetaS)
   type(vegn_tile_type), intent(inout) :: vegn
   real                , intent(in)    :: tsoil ! soil temperature, deg K
   real                , intent(in)    :: thetaS
 
-  real :: CNm = 10.0  ! Microbial C/N ratio
-  real :: NforM, fNM=0.0  ! mineral N available for microbes
+  !---- local var -------------
+  real :: d_C(5), d_N(5), newM(5)
+  real :: CUEf0, CUEs0
+  real :: extraN, N_m    ! Mineralized nitrogen
+  real :: N_loss ! Mineral Nitrogen loss, kg N m-2 step-1
   real :: runoff ! kg m-2 /step
-  real :: N_loss
-  real :: d_C(5), d_N(5), CN(5), CUE(5)
   real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
-  real :: fDON = 0.02     ! fraction of DON production in decomposition
   real :: A  ! decomp rate reduction due to moisture and temperature
-  integer :: i, j
+  integer :: i
+
+  ! Default microbial CUE for fast and slow SOM
+  CUEf0 = CUEmax0       ! 0.4
+  CUEs0 = CUEmax0 * 0.5 ! 0.2
 
   ! Environmental scalar
   A=A_function(tsoil,thetaS)
   runoff = vegn%runoff  !mm/step, weng 2017-10-15
 
   ! Put litters into soil to start decomposition processes
-  CN = CN0SOM
-  CNm= CN0SOM(3)
   do i=1, 2
        d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
        d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
-       vegn%SOC(i) = vegn%SOC(i) - d_C(i)
-       vegn%SON(i) = vegn%SON(i) - d_N(i)
+       vegn%SOC(i)  = vegn%SOC(i) - d_C(i)
+       vegn%SON(i)  = vegn%SON(i) - d_N(i)
        vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
        vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
-       CN(3+i)       = vegn%SOC(3+i) / vegn%SON(3+i)
   enddo
 
-!! C decomposition
+  ! Turnover in SOM4 and SOM5
   do i=3, 5
-     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr
      !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
+     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr
+     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr
   enddo
 
-! Carbon use efficiencies of microbes
-  NforM = fNM * vegn%mineralN
-  CUE(4) = MIN(CUEmax0,CNm*(d_C(4)/CN(4) + NforM)/d_C(4))
-  CUE(5) = MIN(CUEmax0,CNm*(d_C(5)/CN(5) + NforM)/d_C(5))
+  ! New microbes grown from SOM decomposition
+  newM(4) = Min(CUEf0*d_C(4), d_N(4)/CN0SOM(3))
+  newM(5) = Min(CUEs0*d_C(5), d_N(5)/CN0SOM(3))
+  newM(3) = (newM(4)+newM(5)) * (1.-f_M2SOM)
 
-! update C and N pools
-! Carbon pools
-  vegn%SOC(3)  = vegn%SOC(3) - d_C(3) &
-               + d_C(4) * CUE(4) + d_C(5) * CUE(5)
-  vegn%SOC(4) = vegn%SOC(4) - d_C(4)
-  vegn%SOC(5) = vegn%SOC(5) - d_C(5)
+  ! Update C and N pools
+  vegn%SOC(3) = vegn%SOC(3) - d_C(3) + newM(3)
+  vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM
+  vegn%SOC(5) = vegn%SOC(5) - d_C(5) + newM(5) * f_M2SOM
 
-  ! Organic and mineral nitrogen losses
-  ! Assume it is proportional to decomposition rates
-  ! Find papers about hese processes!!
-  DON_fast    = fDON * d_C(4)/CN(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr
-  DON_slow    = fDON * d_C(5)/CN(5) * (etaN*runoff) + vegn%SON(5) * rho_SON * A * dt_fast_yr
-  DON_loss    = DON_fast + DON_slow
+  vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3) / CN0SOM(3)
+  vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4) * f_M2SOM/CN0SOM(3)
+  vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5) * f_M2SOM/CN0SOM(3)
+
+  ! Mineralized nitrogen and Heterotrophic respiration, kg m-2 step-1
+  vegn%rh = d_C(3) + d_C(4) + d_C(5) - newM(4) - newM(5) !
+  N_m = d_N(3)+d_N(4)+d_N(5) - (newM(4)+newM(5))/CN0SOM(3)
+
+  ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
+  ! Find papers about these processes!! Experimental!
+  DON_fast = fDON * d_N(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr
+  DON_slow = fDON * d_N(5) * (etaN*runoff) + vegn%SON(5) * rho_SON * A * dt_fast_yr
+  DON_loss = DON_fast + DON_slow
+  vegn%SON(4) = vegn%SON(4) - DON_fast
+  vegn%SON(5) = vegn%SON(5) - DON_slow
+
   ! Mineral nitrogen loss
   !N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
   !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
   N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
   vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
 
-! Update Nitrogen pools
-  vegn%SON(3) = vegn%SOC(3)/CNm
-  vegn%SON(4) = vegn%SON(4) - d_C(4)/CN(4) - DON_fast
-  vegn%SON(5) = vegn%SON(5) - d_C(5)/CN(5) - DON_slow
+  ! Update mineral N pool (mineralN)
+  vegn%mineralN = vegn%mineralN + vegn%N_input * dt_fast_yr    &
+                + N_m - N_loss
+  vegn%annualN  = vegn%annualN  + vegn%N_input * dt_fast_yr    &
+                + N_m - N_loss
 
-! Mixing of microbes to litters
-  vegn%SOC(4)   = vegn%SOC(4) + f_M2SOM*d_C(4) * CUE(4)
-  vegn%SON(4)   = vegn%SON(4) + f_M2SOM*d_C(4) * CUE(4)/CNm
-
-  vegn%SOC(5) = vegn%SOC(5) + f_M2SOM*d_C(5) * CUE(5)
-  vegn%SON(5) = vegn%SON(5) + f_M2SOM*d_C(5) * CUE(5)/CNm
-
-  vegn%SOC(3)  = vegn%SOC(3)  - f_M2SOM*(d_C(4)*CUE(4)+d_C(5)*CUE(5))
-  vegn%SON(3)  = vegn%SOC(3)/CNm
-
-! update mineral N pool (mineralN)
-  d_N(4) = MAX(0.0, d_C(4)*(1./CN(4) - CUE(4)/CNm))
-  d_N(5) = MAX(0.0, d_C(5)*(1./CN(5) - CUE(5)/CNm))
-
-  vegn%mineralN = vegn%mineralN - N_loss       &
-                  + vegn%N_input * dt_fast_yr  &
-                  + d_N(4) + d_N(5)  &
-                  + d_C(3)/CNm
-  vegn%annualN   = vegn%annualN - N_loss       &
-                  + vegn%N_input * dt_fast_yr  &
-                  + d_N(4) + d_N(5)  &
-                  + d_C(3)/CNm
-
-! Check if soil C/N is lower than CN0
+ ! Check if soil C/N is lower than CN0
   do i=4, 5
-     d_N(i)        = MAX(0., vegn%SON(i)  - vegn%SOC(i)/CN0SOM(i))
-     vegn%SON(i)   = vegn%SON(i)   - d_N(i)
-     vegn%mineralN = vegn%mineralN + d_N(i)
-     vegn%annualN  = vegn%annualN  + d_N(i)
+     extraN = vegn%SON(i) - vegn%SOC(i)/CN0SOM(i)
+     if (extraN > 0.0)then
+        vegn%SON(i)   = vegn%SON(i)   - dextraN
+        vegn%mineralN = vegn%mineralN + extraN
+        vegn%annualN  = vegn%annualN  + extraN
+     endif
   enddo
 
-! Heterotrophic respiration: decomposition of litters and SOM, kgC m-2 step-1
-  vegn%rh =  (d_C(3) + d_C(4)*(1.-CUE(4))+ d_C(5)*(1.-CUE(5)))
-
-end subroutine SOMdecomposition
+end subroutine Soil_BGC
 
 !==========================================================================
  ! Hack !!!!!

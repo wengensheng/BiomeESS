@@ -17,7 +17,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  ! parameters
  public :: MaxCohortID, &
     K1, K2, K3, K0SOM, f_M2SOM, &
-    K_nitrogen, rho_SON, etaN,  &
+    K_nitrogen, fDON, rho_SON, etaN,  &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
     A_mort, B_mort,DBHtp,  &
@@ -488,6 +488,7 @@ real :: K3 = 2.5 ! Microbial C decomposition rate (yr-1)
 real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
 
 real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
+real :: fDON       = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON    = 0.05    ! SON release rate
 real :: f_M2SOM    = 0.8     ! the ratio of C and N returned to litters from microbes
 real :: etaN       = 0.025   ! N loss through runoff (organic and mineral)
@@ -640,7 +641,8 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
-  K1,K2,K3, K0SOM, f_M2SOM, K_nitrogen, rho_SON, etaN,     &
+  K1,K2,K3, K0SOM, f_M2SOM,  &
+  K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
   f_initialBSW, f_LFR_max,  &
