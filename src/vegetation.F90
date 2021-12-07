@@ -1101,7 +1101,7 @@ subroutine vegn_hydro_mortality (vegn, deltat)
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
 
-     ! Set up the space for the new ring
+     ! Set up the space for the new ring : moving previous years' states inward
      if(cc%Nrings >= Ysw_max)then
         do j=2, Ysw_max
            cc%WTC0(j-1)  = cc%WTC0(j)
@@ -2027,7 +2027,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   do i=4, 5
      extraN = vegn%SON(i) - vegn%SOC(i)/CN0SOM(i)
      if (extraN > 0.0)then
-        vegn%SON(i)   = vegn%SON(i)   - dextraN
+        vegn%SON(i)   = vegn%SON(i)   - extraN
         vegn%mineralN = vegn%mineralN + extraN
         vegn%annualN  = vegn%annualN  + extraN
      endif

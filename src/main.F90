@@ -94,7 +94,12 @@ program BiomeESS
                                        !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
+#ifdef Hydro_test
+   runID = 'FACE_hydro' !
+#else
    runID = 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub' !  'OR_GAPLUE' !  'FACE_hydro' !
+#endif
+
    namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
