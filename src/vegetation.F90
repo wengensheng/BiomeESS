@@ -1,3 +1,5 @@
+#define Hydro_test
+!---------------
 module esdvm
  use datatypes
  use soil_mod
@@ -9,7 +11,7 @@ public :: initialize_cohort_from_biomass, initialize_vegn_tile
 public :: vegn_phenology,vegn_CNW_budget_fast, vegn_growth_EW
 public :: vegn_reproduction, vegn_annualLAImax_update, annual_calls
 public :: vegn_starvation, vegn_annual_starvation, vegn_fire_disturbance
-public :: vegn_nat_mortality, vegn_hydro_mortality,vegn_sum_tile
+public :: vegn_nat_mortality,vegn_hydraulic_states,vegn_sum_tile
 public :: vegn_migration, vegn_species_switch, Recover_N_balance
 public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
 public :: Zero_diagnostics
@@ -1025,6 +1027,45 @@ subroutine Seasonal_fall(cc,vegn)
  end subroutine Seasonal_fall
 
 !============================================================================
+real*8 function mortality_rate(cc) result(mu) ! per year
+!@sum calculate cohort mortality/year, Ensheng Weng, 12/07/2021
+! Mortality rate should be a function of growth rate, age, and environmental
+! conditions. Here, we only used used a couple of parameters to calculate
+! mortality as functions of social status, seedling size, and adult size.
+! Grass is saprately defined.
+    type(cohort_type),intent(in) :: cc
+    !-------local var -------------
+    real :: f_L, f_S, f_D, expD
+    real :: m_S ! Mortality multifactor for size effects
+    real :: A_D ! Sensitivity to dbh
+    real :: mu_hydro ! Mortality prob. due to hydraulic failure
+    !---------------------
+    associate ( sp => spdata(cc%species))
+    if(do_U_shaped_mortality)then
+       m_S = 5.0
+    else
+       m_S = 0.0
+    endif
+    A_D = 4.0
+#ifdef Hydro_test
+    mu_hydro = 0.0 ! Max(0.0, 1.0 - cc%Asap/cc%crownarea /sp%phiCSA)
+#else
+    mu_hydro = 0.0
+#endif
+
+    expD = exp(A_D * (cc%dbh - sp%D0mu))
+    f_L  =  SQRT(cc%layer - 1.0) ! Layer effects (0~ infinite)
+    f_S  = sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
+    f_D  = 1. +m_S * expD / (1. + expD) ! Size effects (big D)
+    if(sp%lifeform==0)then  ! for grasses
+       mu = Min(0.5, sp%mortrate_d_c*(1.0+3.0*f_L))
+    else                    ! for trees
+       mu = Min(0.5,sp%mortrate_d_c * (1.d0+f_L*f_S)*f_D) ! per year
+       mu = mu + mu_hydro - mu * mu_hydro
+    endif
+    end associate
+end function mortality_rate
+
 !------------------------Mortality------------------------------------
 subroutine vegn_nat_mortality (vegn, deltat)
 ! TODO: update background mortality rate as a function of wood density (Weng, Jan. 07 2017)
@@ -1034,57 +1075,27 @@ subroutine vegn_nat_mortality (vegn, deltat)
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
-  real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species))
-     ! mortality rate can be a function of growth rate, age, and environmental
-     ! conditions. Here, we only used two constants for canopy layer and under-
-     ! story layer (mortrate_d_c and mortrate_d_u)
-     if(sp%lifeform==0)then  ! for grasses
-         if(cc%layer > 1) then
-             deathrate = sp%mortrate_d_u
-         else
-             deathrate = sp%mortrate_d_c
-         endif
-     else                    ! for trees
-         if(cc%layer > 1) then ! Understory layer mortality
-!            deathrate = sp%mortrate_d_u
-            deathrate = sp%mortrate_d_u * &
-                     (1.0 + A_mort*exp(B_mort*cc%dbh))/ &
-                     (1.0 +        exp(B_mort*cc%dbh))
 
-         else  ! First layer mortality
-            if(do_U_shaped_mortality)then
-                deathrate = sp%mortrate_d_c *                 &
-                           (1. + 5.*exp(4.*(cc%dbh-DBHtp))/  &
-                           (1. + exp(4.*(cc%dbh-DBHtp))))
-            else
-                deathrate = sp%mortrate_d_c
-            endif
-         endif
-     endif
-     !deadtrees = cc%nindivs*(1.0-exp(0.0-deathrate*deltat/seconds_per_year)) ! individuals / m2
-     deadtrees = cc%nindivs * MIN(1.0,deathrate*deltat/seconds_per_year) ! individuals / m2
+     cc%mu = mortality_rate(cc)
+     !deadtrees = cc%nindivs*(1.0-exp(0.0-cc%mu*deltat/seconds_per_year)) ! individuals / m2
+     deadtrees = cc%nindivs * cc%mu * deltat/seconds_per_year ! individuals / m2
      ! Carbon and Nitrogen from dead plants to soil pools
      call plant2soil(vegn,cc,deadtrees)
      ! Update plant density
      cc%nindivs = cc%nindivs - deadtrees
-     end associate
   enddo
-  ! Remove the cohorts with 0 individuals
-  !call kill_lowdensity_cohorts(vegn)
 
 end subroutine vegn_nat_mortality
 
 !------------------------Mortality------------------------------------
-subroutine vegn_hydro_mortality (vegn, deltat)
-! mortality rate as a function of xylem usage.
-! Calculated yearly
-! Author: Ensheng Weng, 2021-03-15
+subroutine vegn_hydraulic_states(vegn, deltat)
+! mortality rate as a function of xylem usage. Calculated yearly
+! Author: Ensheng Weng, 2021-03-15, updated 2021-12-8
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
@@ -1100,7 +1111,17 @@ subroutine vegn_hydro_mortality (vegn, deltat)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
-
+     ! Set up the first year seedling
+     if(cc%Nrings == 1)then
+        cc%WTC0(1) = sp%WTC0 + m0_dbh * cc%DBH ** sp%thetaHT
+        cc%Kx(1)   = sp%kx0
+        cc%farea(1) = 1.0
+        cc%accH(1)  = 0.0
+        cc%totW(1)  = 0.0
+        cc%Rring(1) = cc%DBH/2.0
+        cc%Lring(1) = cc%height ! Lenght of the tubes is the height of this year
+        cc%Aring(1) = PI * cc%Rring(1)**2
+     endif
      ! Set up the space for the new ring : moving previous years' states inward
      if(cc%Nrings >= Ysw_max)then
         do j=2, Ysw_max
@@ -1127,9 +1148,10 @@ subroutine vegn_hydro_mortality (vegn, deltat)
      cc%accH(k)= 0.0
      cc%totW(k)= 0.0
      cc%Rring(k) = cc%DBH/2.0
-     cc%Lring(k) = cc%height
+     cc%Lring(k) = cc%height ! Lenght of the tubes is the height of this year
      if(k>1)then
-        cc%Aring(k) = PI * (cc%Rring(k)**2 - cc%Rring(k-1)**2)
+        !cc%Aring(k) = PI * Max(0.0,cc%Rring(k)**2 - cc%Rring(k-1)**2)
+        cc%Aring(k) = PI * Max(0.0,cc%Rring(k)**2 - (cc%DBH_ys/2.)**2)
      else
         cc%Aring(k) = PI * cc%Rring(k)**2
      endif
@@ -1140,16 +1162,15 @@ subroutine vegn_hydro_mortality (vegn, deltat)
         cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
      enddo
 
-     ! Calculate life-time water transported and wear-out of xylem tissues
+     ! Calculate life-time water transported and xylem fatigue
      cc%Ktrunk = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)
-        ! Lifetime water transported for finctional xylem conduits (m)
+        ! Lifetime water transported for functional xylem conduits (m)
         Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! new usage for functional conduits
         cc%accH(k) = cc%accH(k) + Transp_sap ! m, for functional conduits only
-        cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k) ! m, for the whole ring
-        !Wear-out of xylem conduits
-        Fd(k) = 1.0/(exp(sp%r_DF*(1.0-cc%accH(k)/cc%WTC0(k))) + 1.0)
-        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k)
+        cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k)*cc%Aring(k) ! m3, for the whole ring
+        Fd(k) = 1./(1.+exp(sp%r_DF*(1.-cc%accH(k)/cc%WTC0(k)))) ! Wear-out of xylem conduits
+        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
         ! Whole tree conductivity
         cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
      enddo
@@ -1169,16 +1190,16 @@ subroutine vegn_hydro_mortality (vegn, deltat)
 
   !----- Temporary output
   !write(933,*)vegn%n_cohorts
-  do i = 1, vegn%n_cohorts
+  !do i = 1, vegn%n_cohorts
+     i=1
      cc => vegn%cohorts(i)
      write(933,'(2(I7,","),205(E12.4,","))')    &
             cc%ccID,cc%species,                                  &
             cc%nindivs*10000,cc%DBH,cc%height,cc%Asap,cc%Ktrunk,  &
             !(cc%accH(k)/1000.,k=1,Ysw_max),               &
             (cc%farea(k), k=1,Ysw_max)
-
-  enddo
-end subroutine vegn_hydro_mortality
+  !enddo
+end subroutine vegn_hydraulic_states
 
 !============================================================================
 !----------------------- fire disturbance (Konza) ---------------------------
@@ -1487,6 +1508,18 @@ subroutine vegn_reproduction (vegn)
         cc%firstlayer = 0
         cc%topyear = 0.0
         cc%age     = 0.0
+        ! Hydraulic states
+        cc%Nrings  = 1
+        cc%Asap   = 0.0
+        cc%Ktrunk = 0.0
+        cc%WTC0  = 0.0
+        cc%Kx    = 0.0
+        cc%farea = 0.0
+        cc%accH  = 0.0
+        cc%totW  = 0.0
+        cc%Rring = 0.0
+        cc%Lring = 0.0
+        cc%Aring = 0.0
 
         ! Carbon pools
         cc%bl      = 0.0 * sp%seedlingsize
@@ -2180,7 +2213,7 @@ subroutine vegn_mergecohorts(vegn)
   type(cohort_type), pointer :: cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
   real, parameter :: mindensity = 1.0E-6
-  integer :: i,j,k
+  integer :: i,j,k,m
 
   allocate(cc(vegn%n_cohorts))
   merged(:) = .FALSE.
@@ -2195,6 +2228,7 @@ subroutine vegn_mergecohorts(vegn)
         if (cohorts_can_be_merged(vegn%cohorts(j),cc(k))) then
            call merge_cohorts(vegn%cohorts(j),cc(k))
            merged(j) = .TRUE.
+
         endif
      enddo
   enddo
@@ -2363,10 +2397,8 @@ subroutine annual_calls(vegn)
     !call vegn_starvation(vegn)  ! called daily
     call vegn_annual_starvation(vegn)
     call vegn_reproduction(vegn)
-    call vegn_nat_mortality(vegn, real(seconds_per_year))
-    ! No mortality yet, just check the calculation of variables
-    call vegn_hydro_mortality (vegn, real(seconds_per_year))
-
+    call vegn_hydraulic_states(vegn,real(seconds_per_year))
+    call vegn_nat_mortality (vegn,real(seconds_per_year))
 
     ! Re-organize cohorts
     call relayer_cohorts(vegn)

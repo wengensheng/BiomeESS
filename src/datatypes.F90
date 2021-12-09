@@ -20,7 +20,6 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
     K_nitrogen, fDON, rho_SON, etaN,  &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
-    A_mort, B_mort,DBHtp,  &
     ! fire model
     envi_fire_prb,  Ignition_G0, Ignition_W0 ,  &
     m0_w_fire, m0_g_fire, r_BK0, &
@@ -44,7 +43,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
 real, public, parameter    :: m0_dbh = 12000.0 !  DBH-WTC0 scaling factor
-integer, public, parameter :: Ysw_max = 100 ! Maximum function years of xylems
+integer, public, parameter :: Ysw_max = 50 ! Maximum function years of xylems
 ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
  real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
@@ -176,6 +175,9 @@ type spec_data_type
   real    :: prob_g,prob_e    ! germination and establishment probabilities
   real    :: mortrate_d_c     ! yearly mortality rate in canopy
   real    :: mortrate_d_u     ! yearly mortality rate in understory
+  real    :: D0mu
+  real    :: A_sd
+  real    :: B_sd
   ! Population level variables
   real    :: LAImax,LAImax_u ! max. LAI
   real    :: LAI_light        ! light controlled maximum LAI
@@ -207,6 +209,7 @@ type :: cohort_type
   
 ! for populatin structure
   real    :: nindivs   = 1.0 ! density of vegetation, individuals/m2
+  real    :: mu        = 0.02 ! Cohort mortality rate
   real    :: age       = 0.0 ! age of cohort, years
   real    :: dbh       = 0.0 ! diameter at breast height, m
   real    :: height    = 0.0 ! vegetation height, m
@@ -232,14 +235,14 @@ type :: cohort_type
   real :: NPPleaf,NPProot,NPPwood ! to record C allocated to leaf, root, and wood
   
 ! for hydraulics-mortality
-  integer :: Nrings = 0
+  integer :: Nrings = 1
   real :: Ktrunk ! trunk water conductance, m/(s kpa)
   real :: Asap ! Functional cross sectional area
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
   real :: totW(Ysw_max) = 0.0 ! m, total water transport for each ring
   real :: accH(Ysw_max) = 0.0 ! m, total water transport for functional conduits
-  real :: farea(Ysw_max) = -1.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
+  real :: farea(Ysw_max) = 0.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
   real :: Rring(Ysw_max) = 0.0 ! Radius to the outer edge
   real :: Lring(Ysw_max) = 0.0 ! Length of xylem conduits
   real :: Aring(Ysw_max) = 0.0 !
@@ -516,9 +519,10 @@ real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
 ! Ensheng's growth parameters:
 real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_min = 0.15 ! for understory mortality rate is calculated as:
 ! deathrate = mortrate_d_u * (1+A*exp(B*DBH))/(1+exp(B*DBH))
-real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correction, 1/year
-real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
-real :: DBHtp      = 2.0 !  m, for canopy tree's mortality rate
+!real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correction, 1/year
+!real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
+!real :: DBHtp      = 2.0 !  m, for canopy tree's mortality rate
+
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 
@@ -601,6 +605,9 @@ real :: prob_e(0:MSPECIES)       = 1.0
 ! Mortality
 real :: mortrate_d_c(0:MSPECIES) = 0.01 ! yearly
 real :: mortrate_d_u(0:MSPECIES) = 0.075
+real :: D0mu(0:MSPECIES)         = 2.0     ! m, Mortality curve parameter
+real :: A_sd(0:MSPECIES)         = 9.0     ! Max multiplier
+real :: B_sd(0:MSPECIES)         = -20.    ! Mortality sensitivity for seedlings
 
 ! Leaf parameters
 real :: LMA(0:MSPECIES)          = 0.035  !  leaf mass per unit area, kg C/m2
@@ -650,7 +657,7 @@ namelist /vegn_parameters_nml/  &
   T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,   & ! Weng, 2021-05-30
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
   maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
-  mortrate_d_c, mortrate_d_u, A_mort, B_mort,DBHtp,     &
+  mortrate_d_c, mortrate_d_u, D0mu, A_sd, B_sd,         &
   phiRL, phiCSA, rho_wood, taperfactor, &
   kx0, WTC0, r_DF, &
   tauNSC, fNSNmax, understory_lai_factor, &
@@ -846,6 +853,9 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%prob_e       = prob_e
   spdata%mortrate_d_c = mortrate_d_c
   spdata%mortrate_d_u = mortrate_d_u
+  spdata%D0mu         = D0mu
+  spdata%A_sd         = A_sd
+  spdata%B_sd         = B_sd
   spdata%rho_wood     = rho_wood
   spdata%taperfactor  = taperfactor
   spdata%kx0          = kx0
@@ -1162,9 +1172,9 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*,'(1(a6,","),2(a4,","),25(a8,","))')    &
-            'cID','PFT','L',                       &
-            'n','f_CA','kappa','dDBH', 'DBH','Height','Acrown',   &
-            'B_wd', 'NSC', 'NSN', 'GPP','NPP', 'Nuptake','Laimax'
+            'cID','PFT','L', 'n',                    &
+            'f_CA','dDBH', 'DBH','Height','Acrown',  &
+            'NSC', 'NSN', 'GPP','NPP', 'mu','Asap','Ktree'
 
     ! Cohotrs ouput
     do i = 1, vegn%n_cohorts
@@ -1175,7 +1185,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         froot = cc%NPProot/treeG
         fwood = cc%NPPwood/treeG
         dDBH = (cc%DBH   - cc%DBH_ys)*1000.
-        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),45(E12.4,","))')    &
+        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),50(E12.4,","))')    &
             cc%ccID,cc%species,cc%layer,                        &
             cc%nindivs*10000, cc%layerfrac,dDBH,                &
             cc%dbh,cc%height,cc%crownarea,                     &
@@ -1183,15 +1193,15 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             treeG,fseed, fleaf, froot, fwood,                  &
             cc%annualGPP,cc%annualNPP,                         &
             cc%annualNup,cc%annualfixedN,                      &
-            spdata(cc%species)%laimax
+            cc%mu,cc%Asap,cc%Ktrunk
         ! Screen output
         write(*,'(1(I6,","),2(I4,","),1(F8.1,","),25(F8.2,","))')    &
             cc%ccID,cc%species,cc%layer,                       &
-            cc%nindivs*10000, cc%layerfrac,vegn%kp(cc%layer),  &
+            cc%nindivs*10000, cc%layerfrac,  &
             dDBH, cc%dbh,cc%height,cc%crownarea,               &
-            cc%bsw+cc%bHW,cc%nsc,cc%NSN*1000,                  &
-            cc%annualGPP, cc%annualNPP,cc%annualNup*1000,      &
-            spdata(cc%species)%laimax
+            cc%nsc,cc%NSN*1000,                  &
+            cc%annualGPP, cc%annualNPP,    &
+            cc%mu,cc%Asap,cc%Ktrunk
     enddo
 
     ! tile pools output

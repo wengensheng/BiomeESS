@@ -48,7 +48,7 @@
 !
 !----- END -----------------------------------------------------------
 !
-!#define Hydro_test
+#define Hydro_test
 !#define USE_NETCDF
 !#define CROWN_GAP_FILLING
 
@@ -126,12 +126,12 @@ program BiomeESS
         'Tair','Prcp', 'GPP', 'Resp',         &
         'Transp','Evap','Runoff','Soilwater', &
         'wcl','FLDCAP','WILTPT'
-   write(fno2,'(3(a5,","),25(a9,","))')            &
+   write(fno2,'(3(a5,","),30(a9,","))')            &
         'cID','PFT','layer','density', 'f_layer',  &
         'dDBH','dbh','height','Acrown',            &
         'wood','nsc', 'NSN','NPPtr','seed',        &
         'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
-        'N_uptk','N_fix','maxLAI'
+        'N_uptk','N_fix','mu','Asap','Ktree'
 
    write(fno3,'(9(a6,","),45(a8,","))')        &
         'year','doy','hour','cID','PFT','layer',      &
@@ -232,18 +232,14 @@ program BiomeESS
 
             idoy = 0
             !call annual_calls(vegn)
-            if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
-
+            ! Update plant hydraulic states, for the last year
+            call vegn_hydraulic_states(vegn,real(seconds_per_year))
             call annual_diagnostics(vegn,iyears,fno2,fno5)
 
+            ! For the incoming year
+            if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
             ! N is losing after changing the soil pool structure. Hack !!!!!
             ! if(do_closedN_run) call Recover_N_balance(vegn)
-            
-#ifdef Hydro_test
-            ! mortality
-            ! Calculations only, no mortality yet
-            call vegn_hydro_mortality(vegn, real(seconds_per_year))
-#else
             call vegn_annual_starvation(vegn) ! turn it off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
             if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
@@ -254,7 +250,6 @@ program BiomeESS
             if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
 
             call kill_lowdensity_cohorts(vegn)
-#endif
 
 #ifdef CROWN_GAP_FILLING
             call vegn_gap_fraction_update(vegn)
