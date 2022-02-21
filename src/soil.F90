@@ -1,7 +1,7 @@
 ! The subroutines are from LM3PPA, the version used in Weng et al. 2016.
 ! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
 ! and reproduce the forest succession patterns shown in Weng et al.,
-! 2016 Global Change Biology along the graidient of temperature. 
+! 2016 Global Change Biology along the graidient of temperature.
 
 module soil_mod
  use datatypes
@@ -206,10 +206,10 @@ subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(out) :: soil_beta(:) ! relative water availability, used only in VEGN_PHOT_SIMPLE treatment
   real, intent(out) :: soil_water_supply(:) ! max rate of water supply to roots, kg/(indiv s)
-  real, intent(out) :: soil_uptake_T(:) ! an estimate of temperature of the water 
+  real, intent(out) :: soil_uptake_T(:) ! an estimate of temperature of the water
              ! taken up by transpiration. In case of 'linear' uptake it is an exact
              ! value; in case of 'darcy*' treatments the actual uptake profile
-             ! is calculated only in step 2, so the value returned is an estimate  
+             ! is calculated only in step 2, so the value returned is an estimate
 
   ! ---- local vars
   integer :: k, l
@@ -241,15 +241,15 @@ subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
                                  cc%K_r, cc%r_r)
      VRL(:) = VRL(:)+cc%root_length(1:num_l)*cc%nindivs
   enddo
-  
+
   ! calculate characteristic half-distance between roots, m
   where (VRL(:) > 0)
      vegn%root_distance(1:num_l) = 1.0/sqrt(PI*VRL(:))
   elsewhere
-     vegn%root_distance(1:num_l) = 1.0 ! the value doesn't matter since uptake is 0 anyway 
+     vegn%root_distance(1:num_l) = 1.0 ! the value doesn't matter since uptake is 0 anyway
   end where
 
-  do k = 1, vegn%n_cohorts 
+  do k = 1, vegn%n_cohorts
      cc=>vegn%cohorts(k)
      call cohort_uptake_profile (cc, dz(1:num_l), uptake_frac_max, vegn_uptake_term )
 
@@ -284,7 +284,7 @@ subroutine darcy2d_uptake_lin ( soil, psi_x0, R, VRL, K_r, r_r,uptake_oneway, &
        K_r,       & ! permeability of the root membrane per unit area, kg/(m3 s)
        r_r          ! radius of fine roots, m
   logical, intent(in) :: &
-       uptake_oneway, & ! if true, then the roots can only take up water, but 
+       uptake_oneway, & ! if true, then the roots can only take up water, but
                    ! never loose it to the soil
        uptake_from_sat   ! if false, uptake from saturated soil is prohibited
   real, intent(out) :: &
@@ -296,7 +296,7 @@ subroutine darcy2d_uptake_lin ( soil, psi_x0, R, VRL, K_r, r_r,uptake_oneway, &
   real :: psi_soil  ! water potential of soil, m
   real :: psi_sat   ! saturation soil water potential, m
   real :: K_sat     ! hydraulic conductivity of saturated soil, kg/(m2 s)
-  
+
   real :: psi_root  ! water potential at the root/soil interface, m
   real :: psi_root0 ! initial guess of psi_root, m
 
@@ -321,7 +321,7 @@ subroutine darcy2d_uptake_lin ( soil, psi_x0, R, VRL, K_r, r_r,uptake_oneway, &
      call darcy2d_flow_lin (psi_x, psi_soil, psi_root0, K_sat, psi_sat, soil%pars%chb, &
           K_r, r_r, R(k), u(k), du(k), psi_root)
 
-     ! scale by volumetric root length and thickness of layer to get total 
+     ! scale by volumetric root length and thickness of layer to get total
      ! uptake from the current soil layer
      u(k)  = VRL(k)*dz(k)*u(k)
      du(k) = VRL(k)*dz(k)*du(k)
@@ -424,11 +424,11 @@ subroutine cohort_uptake_profile(cohort, dz, uptake_frac_max, vegn_uptake_term)
   real, intent(out) :: vegn_uptake_term(:)
 
   real, parameter :: res_scaler = mol_air/mol_h2o  ! scaling factor for water supply
-  ! NOTE: there is an inconsistency there between the 
+  ! NOTE: there is an inconsistency there between the
   ! units of stomatal conductance [mol/(m2 s)], and the units of humidity deficit [kg/kg],
-  ! in the calculations of water demand. Since the uptake options other than LINEAR can't 
+  ! in the calculations of water demand. Since the uptake options other than LINEAR can't
   ! use res_scaler, in this code the units of humidity deficit are converted to mol/mol,
-  ! and the additional factor is introduced in res_scaler to ensure that the LINEAR uptake 
+  ! and the additional factor is introduced in res_scaler to ensure that the LINEAR uptake
   ! gives the same results.
 
   integer :: l
@@ -443,22 +443,19 @@ subroutine cohort_uptake_profile(cohort, dz, uptake_frac_max, vegn_uptake_term)
                 max( uptake_frac_max(l), 0.0)
         z = z + dz(l)
      enddo
-  
+
   sum_rf = sum(uptake_frac_max)
   if(sum_rf>0) &
        uptake_frac_max(:) = uptake_frac_max(:)/sum_rf
-  
+
   if (cohort%br <= 0) then
      vegn_uptake_term(:) = 0.0
-  else   
+  else
      vegn_uptake_term(:) = uptake_frac_max(:) * &
           res_scaler * spdata(cohort%species)%root_r * cohort%br
   endif
 
-end subroutine 
+end subroutine
 ! ================================================
 
 end module soil_mod
-
-
-

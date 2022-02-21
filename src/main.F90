@@ -8,22 +8,22 @@
 ! Environment Institute. The technical details of this model can be found
 ! in:
 !
-! Weng, E., Dybzinski, R., Farrior, C. E., and Pacala, S. W.: Competition 
-! alters predicted forest carbon cycle responses to nitrogen availability 
+! Weng, E., Dybzinski, R., Farrior, C. E., and Pacala, S. W.: Competition
+! alters predicted forest carbon cycle responses to nitrogen availability
 ! and elevated CO2: simulations using an explicitly competitive, game-
-! theoretic vegetation demographic model, Biogeosciences, 16, 4577–4599, 
+! theoretic vegetation demographic model, Biogeosciences, 16, 4577–4599,
 ! https://doi.org/10.5194/bg-16-4577-2019, 2019.
 !
 ! Weng, E. S., Farrior, C. E., Dybzinski, R., Pacala, S. W., 2017.
-! Predicting vegetation type through physiological and environmental 
-! interactions with leaf traits: evergreen and deciduous forests in an 
-! earth system modeling framework. Global Change Biology, 
+! Predicting vegetation type through physiological and environmental
+! interactions with leaf traits: evergreen and deciduous forests in an
+! earth system modeling framework. Global Change Biology,
 ! doi: 10.1111/gcb.13542.
 !
-! Weng, E. S., Malyshev, S., Lichstein, J. W., Farrior, C. E., 
-! Dybzinski, R., Zhang, T., Shevliakova, E., Pacala, S. W., 2015. 
-! Scaling from individual trees to forests in an Earth system modeling 
-! framework using a mathematically tractable model of height-structured 
+! Weng, E. S., Malyshev, S., Lichstein, J. W., Farrior, C. E.,
+! Dybzinski, R., Zhang, T., Shevliakova, E., Pacala, S. W., 2015.
+! Scaling from individual trees to forests in an Earth system modeling
+! framework using a mathematically tractable model of height-structured
 ! competition. Biogeosciences, 12: 2655–2694, doi:10.5194/bg-12-2655-2015.
 !
 !
@@ -115,7 +115,7 @@ program BiomeESS
    faststepfluxes = trim(filepath_out)//'PhotosynthesisDynamics'//trim(filesuffix) ! hourly
 
    fno1=91; fno2=101; fno3=102; fno4=103; fno5=104
-   open(fno1,file=trim(faststepfluxes),ACTION='write', IOSTAT=istat1)
+   open(fno1,file=trim(faststepfluxes), ACTION='write', IOSTAT=istat1)
    open(fno2,file=trim(plantcohorts),   ACTION='write', IOSTAT=istat1)
    open(fno3,file=trim(plantCNpools),   ACTION='write', IOSTAT=istat2)
    open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
@@ -235,7 +235,7 @@ program BiomeESS
             ! Update plant hydraulic states, for the last year
             call vegn_hydraulic_states(vegn,real(seconds_per_year))
             call annual_diagnostics(vegn,iyears,fno2,fno5)
-
+!#ifndef Hydro_test
             ! For the incoming year
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
             ! N is losing after changing the soil pool structure. Hack !!!!!
@@ -248,6 +248,7 @@ program BiomeESS
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
+!#endif
 
             call kill_lowdensity_cohorts(vegn)
 
@@ -333,7 +334,7 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
       stop
   endif
   close(11)    ! close forcing file
-! Put the data into forcing 
+! Put the data into forcing
   datalines = m - 1
   days_data = idays
   yr_data  = year_data(datalines-1) - year_data(1) + 1
@@ -418,7 +419,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
       stop
   endif
   close(11)    ! close forcing file
-! Put the data into forcing 
+! Put the data into forcing
   datalines = m - 1
   days_data = idays
   yr_data  = year_data(datalines-1) - year_data(1) + 1
@@ -442,7 +443,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   enddo
   forcingData => climateData
   write(*,*)"forcing", datalines,days_data,yr_data
-  
+
 end subroutine read_NACPforcing
 
 !===========for netcdf IO ============================
@@ -499,6 +500,3 @@ end subroutine read_NACPforcing
 !=================================================================
 !=====================================================
 end program BiomeESS
-
-
-
