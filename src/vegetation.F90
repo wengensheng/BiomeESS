@@ -103,11 +103,13 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: f_light(10)=0.0      ! light fraction of each layer
   integer :: i, layer
 
-  !! Water supply for photosynthesis, Layers
-  !call water_supply_layer(forcing, vegn) ! No conductance and water potential changes
-
+#ifdef Hydro_test
   ! Dynamic tree trunk conductivity and water potential
   call Trunk_water_flux(forcing, vegn)
+#else
+  ! Water supply for photosynthesis from soil layers
+  call water_supply_layer(forcing, vegn)
+#endif
 
 !! Light supply for photosynthesis
   vegn%kp = 0.0
@@ -551,7 +553,7 @@ subroutine fetch_CN_for_growth(cc)
   real :: N_demand,Nsupplyratio,extraN
   real :: r_N_SD
   logical :: do_editor_scheme = .False.
-  integer :: i,j
+  integer :: i,j,k
 
   do_editor_scheme = .False. ! .True.
 
@@ -668,7 +670,10 @@ subroutine fetch_CN_for_growth(cc)
         call rootarea_and_verticalprofile(cc)
 
         ! Update Ktrunk with new sapwood
-        cc%Ktrunk = cc%Ktrunk+0.25*PI*(cc%DBH**2-(cc%DBH-dDBH)**2)*sp%kx0/cc%height
+        k = Max(MIN(cc%Nrings, Ysw_max),1)
+        cc%Kx(k)   = NewWoodKx(cc)
+        cc%Ktrunk = cc%Ktrunk+ &
+              0.25*PI*(cc%DBH**2-(cc%DBH-dDBH)**2)*cc%Kx(k)/cc%height
 
 #ifndef Hydro_test
         !Convert C and N from sapwood to heartwood
@@ -1060,8 +1065,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      associate ( sp => spdata(cc%species))
      ! Set up the first year seedling
      if(cc%Nrings == 1)then
-        cc%WTC0(1) = sp%WTC0 + m0_dbh * cc%DBH ** sp%thetaHT
-        cc%Kx(1)   = sp%kx0
+        cc%WTC0(1) = NewWoodWTC(cc)
+        cc%Kx(1)   = NewWoodKx(cc)
         cc%farea(1) = 1.0
         cc%accH(1)  = 0.0
         cc%totW(1)  = 0.0
@@ -1088,8 +1093,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      k = MIN(cc%Nrings, Ysw_max)
      ! WTC0 and Kx represent scientific hypotheses. They can be constant,
      ! or functions of environmental conditions, growht rates, etc.
-     cc%WTC0(k) = sp%WTC0  + m0_dbh * cc%DBH ** sp%thetaHT
-     cc%Kx(k)   = sp%kx0
+     cc%WTC0(k) = NewWoodWTC(cc)
+     cc%Kx(k)   = NewWoodKx(cc)
      ! Other cohort variables of the new ring
      cc%farea(k) = 1.0
      cc%accH(k)  = 0.0
@@ -1104,10 +1109,12 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         cc%Aring(k) = PI * cc%Rring(k)**2
      endif
 
-     ! Functional area (i.e., sapwood area)
+     ! Heartwood D and Functional area (i.e., sapwood area)
      cc%Asap = 0.0
+     D_hw  = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)
         cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
+        if(cc%farea(k)<0.5) D_hw = cc%Rring(k) * 2.0
      enddo
 
      ! Calculate life-time water transported and xylem fatigue
@@ -1117,7 +1124,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! new usage for functional conduits
         cc%accH(k) = cc%accH(k) + Transp_sap ! m, for functional conduits only
         cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k)*cc%Aring(k) ! m3, for the whole ring
-        Fd(k) = 1./(1.+exp(sp%r_DF*(1.-cc%accH(k)/cc%WTC0(k)))) ! Wear-out of xylem conduits
+        Fd(k) = 1./(1.+exp(sp%r_DF*(1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
         cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
         ! Whole tree conductivity
         cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
@@ -1126,20 +1133,13 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      end associate
   enddo
 
+#ifdef Hydro_test
   !Convert sapwood to heartwood
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
 
      if(sp%lifeform>0)then ! woody plants
-        D_hw  = 0.0
-        do k=1, MIN(cc%Nrings, Ysw_max)
-          if(cc%farea(k)<0.5)then
-            D_hw = cc%Rring(k) * 2.0
-          else
-            exit
-          endif
-        enddo
         ! update C and N of sapwood and wood
         woodC  = cc%bsw   + cc%bHW
         woodN  = cc%sapwN + cc%woodN
@@ -1163,6 +1163,8 @@ enddo
             !(cc%accH(k)/1000.,k=1,Ysw_max),               &
             (cc%farea(k), k=1,Ysw_max)
   !enddo
+#endif
+
 end subroutine vegn_hydraulic_states
 !========================================================================
 ! Weng 2022-02-16 ! Compute water flux via tree trunk (i.e., soil-trunk-leaves)
@@ -1181,7 +1183,7 @@ subroutine Trunk_water_flux(forcing, vegn)
   real :: K_tree ! The conductance of the whole tree (roots + trunk)
   integer :: i,j, layer
 
-!! Leaf water potential, should be a function of VPD and teperature
+!! Leaf water potential, should be a function of VPD, teperature, and stomata conductance
    psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
 
 !! Water supply from each soil layer
@@ -1229,6 +1231,30 @@ subroutine Trunk_water_flux(forcing, vegn)
      cc%W_supply = sum(cc%WupL(:))
   enddo
 end subroutine Trunk_water_flux
+
+!============================================================================
+real*8 function NewWoodWTC(cc) result(WTC)
+!@sum calculate wood water transport capacity (WTC0), Ensheng Weng, 02/23/2022
+    type(cohort_type),intent(in) :: cc
+
+    !---------------------
+    associate ( sp => spdata(cc%species))
+      WTC = sp%WTC0  + m0_dbh * cc%DBH ** sp%thetaHT
+
+    end associate
+end function NewWoodWTC
+
+!============================================================================
+real*8 function NewWoodKx(cc) result(Kx)
+!@sum calculate wood water conductivity (Kx), Ensheng Weng, 02/23/2022
+    type(cohort_type),intent(in) :: cc
+
+    !---------------------
+    associate ( sp => spdata(cc%species))
+      Kx = sp%Kx0  ! + m0_dbh * cc%DBH ** sp%thetaHT
+
+    end associate
+end function NewWoodKx
 
 !============================================================================
 real*8 function mortality_rate(cc) result(mu) ! per year
@@ -2530,10 +2556,10 @@ subroutine init_cohort_allometry(cc)
      ! Cohort hydraulic properties
      ! Set up the first year seedling
      if(cc%Nrings <= 1)then
-        cc%WTC0(1) = sp%WTC0 + m0_dbh * cc%DBH ** sp%thetaHT
-        cc%Kx(1)   = sp%kx0
+        cc%WTC0(1) = NewWoodWTC(cc)
+        cc%Kx(1)   = NewWoodKx(cc)
         cc%Aring(1) = PI * 0.25*cc%DBH**2
-        cc%Ktrunk = PI * 0.25*cc%DBH**2 * sp%kx0/cc%height
+        cc%Ktrunk = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.02)
      endif
 
   end associate

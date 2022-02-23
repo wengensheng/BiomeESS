@@ -43,7 +43,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
 real, public, parameter    :: m0_dbh = 12000.0 !  DBH-WTC0 scaling factor
-integer, public, parameter :: Ysw_max = 50 ! Maximum function years of xylems
+integer, public, parameter :: Ysw_max = 80 ! Maximum function years of xylems
 ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
  real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
@@ -206,7 +206,7 @@ type :: cohort_type
   integer :: firstlayer = 0 ! 0 = never been in the first layer; 1 = at least one year in first layer
   real    :: layerfrac  = 0.0 ! fraction of layer area occupied by this cohort
   real    :: leaf_age     ! leaf age (year)
-  
+
 ! for populatin structure
   real    :: nindivs   = 1.0 ! density of vegetation, individuals/m2
   real    :: mu        = 0.02 ! Cohort mortality rate
@@ -233,7 +233,7 @@ type :: cohort_type
   real :: resr = 0.0 ! root respiration
   real :: resg = 0.0 ! growth respiration
   real :: NPPleaf,NPProot,NPPwood ! to record C allocated to leaf, root, and wood
-  
+
 ! for hydraulics-mortality
   integer :: Nrings = 1
   real :: Ktrunk ! trunk water conductance, m/(s kpa)
@@ -475,7 +475,7 @@ integer :: MaxCohortID = 0
 
 ! Constants:
 ! Climate and vegetation types
-real :: phen_ev1 = 0.5, phen_ev2 = 0.9 ! thresholds for evergreen/decidious 
+real :: phen_ev1 = 0.5, phen_ev2 = 0.9 ! thresholds for evergreen/decidious
       ! differentiation (see phenology_type in cohort.F90)
 real :: tg_c3_thresh = 1.5 ! threshold biomass between tree and grass for C3 plants
 real :: tg_c4_thresh = 2.0 ! threshold biomass between tree and grass for C4 plants
@@ -732,7 +732,7 @@ namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
     init_cohort_bl, init_cohort_br, init_cohort_bsw, &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc, &
-    init_fast_soil_C, init_slow_soil_C,    & 
+    init_fast_soil_C, init_slow_soil_C,    &
     init_Nmineral, N_input,  &
     filepath_in,climfile, model_run_years, &
     outputhourly, outputdaily, equi_days, &
@@ -1235,6 +1235,3 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
 !================================================
 end module datatypes
-
-
-
