@@ -669,6 +669,14 @@ subroutine fetch_CN_for_growth(cc)
         vegn%LAI     = vegn%LAI + cc%leafarea  * cc%nindivs
         call rootarea_and_verticalprofile(cc)
 
+!       Update plant hydraulic states
+        cc%V_leaf = cc%leafarea * 0.0001
+        cc%V_stem = (cc%bsw+cc%bhw)/sp%rho_wood
+        cc%Wmax_l = sp%w0L_max * cc%bl
+        cc%Wmax_s = sp%w0S_max * (cc%bsw+cc%bhw)
+        cc%H_leaf = sp%H0_leaf * cc%V_leaf
+        cc%H_stem = sp%H0_stem * cc%V_stem
+
         ! Update Ktrunk with new sapwood
         k = Max(MIN(cc%Nrings, Ysw_max),1)
         cc%Kx(k)   = NewWoodKx(cc)
@@ -1166,6 +1174,7 @@ enddo
 #endif
 
 end subroutine vegn_hydraulic_states
+
 !========================================================================
 ! Weng 2022-02-16 ! Compute water flux via tree trunk (i.e., soil-trunk-leaves)
 subroutine Trunk_water_flux(forcing, vegn)
@@ -1176,26 +1185,33 @@ subroutine Trunk_water_flux(forcing, vegn)
   type(cohort_type),pointer :: cc
   real :: fWup(max_lev)      ! fraction to the actual soil water
   real :: freewater(max_lev)
-  real :: LayerTot(max_lev) ! potential water uptake, mol s-1 m-2
-  real :: psi_soil, psi_leaf, psi_stem, psi_root ! Pa, water potentials from soil to leaf
+  real :: LayerTot(max_lev) ! potential water uptake, kg H2O s-1 m-2
+  real :: psi_ht            ! Gravitational water pressure, MPa
+  real :: psi_soil(max_lev),K_soil(max_lev)
   real :: thetaS(max_lev) ! soil moisture index (0~1)
-  real :: dpsiSL(max_lev),dpsiSR(max_lev) ! pressure difference between soil water and root water, MPa
+  real :: dpsiRL(max_lev) ! pressure difference between root and leaf, MPa
+  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
   real :: K_tree ! The conductance of the whole tree (roots + trunk)
+  real :: chb
   integer :: i,j, layer
 
 !! Leaf water potential, should be a function of VPD, teperature, and stomata conductance
-   psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
+   !psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
+
 
 !! Water supply from each soil layer
   do i=1, max_lev ! Calculate water uptake potential layer by layer
      freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT) * thksl(i) * 1000.0))
      thetaS(i)    = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
      !Soil water pressure
-     psi_soil = soilpars(vegn%soiltype)%psi_sat_ref * &  ! Pa
-            ((FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
+     chb = soilpars(vegn%soiltype)%chb
+     psi_soil(i)  = soilpars(vegn%soiltype)%psi_sat_ref/1.0e6 * &  ! MPa
+            ((FLDCAP/vegn%wcl(i))**chb)! water retention curve
+     K_soil(i) = soilpars(vegn%soiltype)%k_sat_ref * 18./1000. * &
+                 (vegn%wcl(i)/FLDCAP)**(2*chb+3)
      ! The difference of water potential between roots and soil
      dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
-     dpsiSL(i) = 3.0 * dpsiSR(i) ! MPa
+
      ! Layer allocation, water uptake capacity
      LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
      do j = 1, vegn%n_cohorts
@@ -1204,10 +1220,18 @@ subroutine Trunk_water_flux(forcing, vegn)
         ! With assumped conductivity and presure difference
         !cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i)*step_seconds ! kg H2O tree-1 step-1
 
+        ! Calculate plant tissue water potentials ! Hack
+        psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
+        cc%psi_stem = psi_soil(i) - dpsiSR(i)
+        cc%psi_leaf = cc%psi_stem - dpsiSR(i) - psi_ht
+
         ! Add the new algorithm here: Trunk conductivity and actual pressure difference
-        !cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i)*step_seconds
+        ! dpsiSR(i) = psi_soil(i) - cc%psi_stem
+        ! cc%WupL(i) = sp%root_frac(i) * cc%rootarea*sp%Kw_root * dpsiSR(i) * step_seconds
+
+        dpsiRL(i) = dpsiSR(i) ! cc%psi_stem - cc%psi_leaf
         K_tree = 1.0/(1.0/(cc%rootarea*sp%Kw_root) + 1.0/cc%Ktrunk)
-        cc%WupL(i) = sp%root_frac(i) * dpsiSR(i)*K_tree  * step_seconds
+        cc%WupL(i) = sp%root_frac(i) * dpsiRL(i)*K_tree  * step_seconds
                      ! kg H2O tree-1 step-1
 
         ! ------------------

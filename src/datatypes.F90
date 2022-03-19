@@ -149,6 +149,13 @@ type spec_data_type
   real    :: WTC0 ! xylem water transfer capacity, m/lifetime
   real    :: r_DF ! sensitivity of defunction due to water transport usage
 
+  real    :: H0_leaf ! Leaf capacitance, kgH2O m-3 MPa-1
+  real    :: H0_stem ! Stem/wood capacitance, kgH2O m-3 MPa-1
+  real    :: w0L_max ! leaf maximum water/carbon ratio
+  real    :: w0L_min ! leaf minimum water/carbon ratio
+  real    :: w0S_max ! stem maximum water/carbon ratio
+  real    :: w0S_min ! stem minimum water/carbon ratio
+
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
   real    :: alphaCA, thetaCA ! crown area = alphaCA * DBH ** thetaCA
@@ -236,7 +243,18 @@ type :: cohort_type
 
 ! for hydraulics-mortality
   integer :: Nrings = 1
-  real :: Ktrunk ! trunk water conductance, m/(s kpa)
+  real :: psi_leaf ! MPa, leaf water potential
+  real :: psi_stem ! MPa, stem water potential
+  real :: H_leaf ! Leaf capacitance, kgH2O MPa-1 (per tree)
+  real :: H_stem ! Stem/wood capacitance, kgH2O MPa-1 (per tree)
+  real :: W_leaf ! Leaf water content, kgH2O (per tree)
+  real :: W_stem ! Stem water content, kgH2O (per tree)
+  real :: Wmax_l ! Leaf max water content, kgH2O (per tree)
+  real :: Wmax_s ! Stem max water content, kgH2O (per tree)
+  real :: V_stem ! Volumn of stems (including trunk)
+  real :: V_leaf ! Volumn of leaves
+
+  real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
@@ -621,6 +639,12 @@ real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tr
 real :: kx0(0:MSPECIES)           = 6000.0   ! m yr-1 MPa-1
 real :: WTC0(0:MSPECIES)          = 1200.0  ! 2000, m /lifetime
 real :: r_DF(0:MSPECIES)          = 100.0
+real :: H0_leaf(0:MSPECIES)       = 400.0 ! Leaf capacitance, kgH2O m-3 MPa-1
+real :: H0_stem(0:MSPECIES)       = 40.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
+real :: w0L_max(0:MSPECIES)       = 20.0  ! leaf maximum water/carbon ratio
+real :: w0L_min(0:MSPECIES)       = 15.0  ! leaf minimum water/carbon ratio
+real :: w0S_max(0:MSPECIES)       = 2.0   ! stem maximum water/carbon ratio
+real :: w0S_min(0:MSPECIES)       = 1.5   ! stem minimum water/carbon ratio
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
@@ -660,6 +684,7 @@ namelist /vegn_parameters_nml/  &
   mortrate_d_c, mortrate_d_u, D0mu, A_sd, B_sd,         &
   phiRL, phiCSA, rho_wood, taperfactor, &
   kx0, WTC0, r_DF, &
+  H0_leaf, H0_stem, w0L_max, w0L_min, w0S_max, w0S_min, &
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0, f_cGap, &
@@ -861,6 +886,14 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%kx0          = kx0
   spdata%WTC0         = WTC0
   spdata%r_DF         = r_DF
+  spdata%H0_leaf      = H0_leaf
+  spdata%H0_stem      = H0_stem
+  spdata%w0L_max      = w0L_max
+  spdata%w0L_min      = w0L_min
+  spdata%w0S_max      = w0S_max
+  spdata%w0S_min      = w0S_min
+
+
   spdata%LAImax       = LAImax
   spdata%LAImax_u     = 1.2 ! LAImax
   spdata%LAI_light    = LAI_light
