@@ -16,7 +16,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  public :: forcingData,spdata, soilpars
  ! parameters
  public :: MaxCohortID, &
-    K1, K2, K3, K0SOM, f_M2SOM, &
+    K0SOM, f_M2SOM, &
     K_nitrogen, fDON, rho_SON, etaN,  &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
@@ -118,6 +118,7 @@ type spec_data_type
   real    :: LNbase       ! basal leaf Nitrogen per unit area, kg N/m2, (Rubisco)
   real    :: CNleafsupport! leaf structural tissues, 175
   real    :: leaf_size    ! characteristic leaf size
+  real    :: leafTK      ! leaf thickness, m
   real    :: alpha_phot   ! photosynthesis efficiency
   real    :: m_cond       ! factor of stomatal conductance
   real    :: Vmax         ! max rubisco rate, mol m-2 s-1
@@ -145,7 +146,7 @@ type spec_data_type
   real    :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
   real    :: taperfactor
   ! Plant hydraulics
-  real    :: kx0 ! xylem conductivity, kg m-1 s-1 MPa-1
+  real    :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
   real    :: WTC0 ! xylem water transfer capacity, m/lifetime
   real    :: r_DF ! sensitivity of defunction due to water transport usage
 
@@ -199,6 +200,7 @@ end type
 type :: cohort_type
   ! for climate-vegetation type
   integer :: phenotype    ! phenology type: 0 for deciduous, 1 for evergreen
+  logical :: firstday     ! First day of a growing season
   integer :: pt           ! photosynthetic physiology of species
   ! ---- biological prognostic variables
   integer :: ccID    = 0   ! cohort ID
@@ -246,13 +248,15 @@ type :: cohort_type
   real :: psi_leaf ! MPa, leaf water potential
   real :: psi_stem ! MPa, stem water potential
   real :: H_leaf ! Leaf capacitance, kgH2O MPa-1 (per tree)
-  real :: H_stem ! Stem/wood capacitance, kgH2O MPa-1 (per tree)
+  real :: H_stem ! Stem capacitance, kgH2O MPa-1 (per tree)
   real :: W_leaf ! Leaf water content, kgH2O (per tree)
   real :: W_stem ! Stem water content, kgH2O (per tree)
   real :: Wmax_l ! Leaf max water content, kgH2O (per tree)
   real :: Wmax_s ! Stem max water content, kgH2O (per tree)
   real :: V_stem ! Volumn of stems (including trunk)
   real :: V_leaf ! Volumn of leaves
+  real :: Q_stem ! water flux to stems (kg/tree/step)
+  real :: Q_leaf ! water flux to leaves (kg/tree/step)
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
@@ -376,6 +380,8 @@ type :: vegn_tile_type
    real :: runoff        ! Water runoff of the veg tile, unit?
    real :: thetaS     ! moisture index (ws - wiltpt)/(fldcap - wiltpt)
    real :: wcl(max_lev)   ! volumetric soil water content for each layer
+   real :: psi_soil(max_lev) ! MPa
+   real :: K_soil(max_lev)   ! Kg H2O/(m2 s MPa)
    real :: soilWater      ! kg m-2 in root zone
 ! ---- water uptake-related variables
   real    :: RAI ! root area index
@@ -501,10 +507,7 @@ real :: tg_c4_thresh = 2.0 ! threshold biomass between tree and grass for C4 pla
 real   :: soiltype = SandyLoam  ! 1 Sand; 2
 real   :: FLDCAP = 0.4  ! vol/vol
 real   :: WILTPT = 0.05 ! vol/vol
-! Carbon pools
-real :: K1 = 2 ! Fast soil C decomposition rate (yr-1)
-real :: K2 = 0.05 ! slow soil C decomposition rate (yr-1)
-real :: K3 = 2.5 ! Microbial C decomposition rate (yr-1)
+
 !   fineL, structuralL, microbial, fast, slow
 real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
 
@@ -636,7 +639,7 @@ real :: LNbase(0:MSPECIES)        = 0.8E-3 !functional nitrogen per unit leaf ar
 real :: CNleafsupport(0:MSPECIES) = 80.0 ! CN ratio of leaf supporting tissues
 real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
 real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
-real :: kx0(0:MSPECIES)           = 6000.0   ! m yr-1 MPa-1
+real :: kx0(0:MSPECIES)           = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
 real :: WTC0(0:MSPECIES)          = 1200.0  ! 2000, m /lifetime
 real :: r_DF(0:MSPECIES)          = 100.0
 real :: H0_leaf(0:MSPECIES)       = 400.0 ! Leaf capacitance, kgH2O m-3 MPa-1
@@ -664,7 +667,7 @@ real :: f_cGap(0:MSPECIES)    = 0.1  ! The gaps between trees
 
 namelist /vegn_parameters_nml/  &
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &
-  soiltype, FLDCAP, WILTPT, &
+  FLDCAP, WILTPT, &
   pt, phenotype, lifeform, &
   Vmax, m_cond, Vannual,wet_leaf_dreg,   &
   gamma_L, gamma_LN, gamma_SW, gamma_FR,  &
@@ -672,7 +675,7 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
-  K1,K2,K3, K0SOM, f_M2SOM,  &
+  K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
@@ -695,7 +698,6 @@ namelist /vegn_parameters_nml/  &
 
 ! -------------------------------------------
 
-
 ! soil parameters
 ! Coarse  Medium   Fine    CM     CF     MF    CMF    Peat    MCM
   real :: GMD(n_dim_soil_types) = & ! geometric mean partice diameter, mm
@@ -715,7 +717,7 @@ namelist /vegn_parameters_nml/  &
   real :: heat_capacity_dry(n_dim_soil_types) = &
   (/ 1.2e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.4e6,   1.0   /)
 
-namelist /soil_data_nml/ &
+namelist /soil_data_nml/ soiltype,             &
      GMD, GSD, vwc_sat,k_sat_ref, psi_sat_ref, &
      chb, alphaSoil,heat_capacity_dry
 
@@ -789,11 +791,6 @@ subroutine initialize_soilpars(namelistfile)
      write (*, nml=soil_data_nml)
   endif
 
-  ! Soil decomposition
-  ! Initialize parameters from namefile
-  K0SOM(3) = K3
-  K0SOM(4) = K1
-  K0SOM(5) = K2
   ! initialize soil parameters
   soilpars%GMD         = GMD ! geometric mean partice diameter, mm
   soilpars%GSD         = GSD ! geometric standard deviation of particle size
@@ -833,7 +830,8 @@ subroutine initialize_PFT_data(namelistfile)
       read (nml_unit, nml=vegn_parameters_nml, iostat=io, end=10)
 10    close (nml_unit)
    endif
-      write(*,nml=vegn_parameters_nml)
+   write(*,nml=vegn_parameters_nml)
+
   ! initialize vegetation data structure
   spdata%pt         = pt
   spdata%phenotype  = phenotype
@@ -958,6 +956,8 @@ subroutine initialize_PFT_data(namelistfile)
    endif
 !  Leaf turnover rate, (leaf longevity as a function of LMA)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
+   ! Leaf thickness, m
+   sp%leafTK = 1.0e-4 * SQRT(sp%LMA/0.02)
 
  end subroutine init_derived_species_data
 
@@ -1085,15 +1085,17 @@ end subroutine Zero_diagnostics
   ! NEP is equal to NNP minus soil respiration
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
   !! Output horly diagnostics
-  If(outputhourly.and. iday>equi_days) &
-    write(fno1,'(3(I5,","),25(E11.4,","),25(F8.2,","))')  &
+  If(outputhourly .and. iday>equi_days .and. ihour==12) & ! .and. iday<equi_days+366 
+    write(fno1,'(3(I5,","),30(E11.4,","),25(F8.2,","))')  &
       iyears, idoy, ihour,      &
       forcing%radiation,    &
       forcing%Tair,         &
       forcing%rain,         &
       vegn%GPP,vegn%resp,vegn%transp,  &
       vegn%evap,vegn%runoff,vegn%soilwater, &
-      vegn%wcl(1),vegn%FLDCAP,vegn%WILTPT
+      vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2), &
+      vegn%cohorts(1)%psi_leaf,vegn%cohorts(1)%psi_stem, & !vegn%FLDCAP,vegn%WILTPT
+      vegn%cohorts(1)%W_leaf,vegn%cohorts(1)%W_stem
 
   ! Daily summary:
   vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake

@@ -1,9 +1,5 @@
 &vegn_parameters_nml
-soiltype = 3,
-FLDCAP   = 0.4,
-WILTPT   = 0.05,
-K1 =  2.0,   ! turnover rate of fast SOM
-K2 =  0.05,  ! turnover rate of slow SOM
+K0SOM  = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
 K_nitrogen = 2.4  ! 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.02 ! organic nitrogen release rate
 etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
@@ -30,24 +26,26 @@ maturalage    = 0,       5,       5,       5,       5,       5
 /
 
 &soil_data_nml
+soiltype = 3,
 GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
 chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
 psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
-k_sat_ref = 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2, ! mol/(s MPa m)
+k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
+vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &initial_state_nml
 !!   plant
 init_n_cohorts      = 1, ! total 9
 init_cohort_species = 1,    2,    3,    4,    5,    6,    7,    8,    9,    10
-init_cohort_nindivs = 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
+init_cohort_nindivs = 0.002, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
 init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,
 
 !  Soil
-init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2    !C/N = 15
-init_slow_soil_C    = 40.0   ! .1 ! 40.0 ! kg C m-2 !C/N = 40
+init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_soil_C    = 40.0   ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
 init_Nmineral       = 5.0E-3 ! 402.5E-3, ! kg N m-2
 N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
                               ! high N input --> Deciduous
@@ -59,11 +57,11 @@ climfile    = 'ORNL_forcing.txt'  ! 'US-Ha1forcing.txt' ! 'US-WCrforcing.txt' ! 
               ! 'CA-Manforcing.txt'   !  'US-WBWforcing.txt'
               ! 'US-Dk1forcing.txt' ! CA-Obsforcing.txt
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
-model_run_years     =  600, ! 1600, ! 4800, 2400, 1200
+model_run_years     =  200, ! 1600, ! 4800, 2400, 1200
 equi_days           =  0,
-outputhourly        =  .False. ! .True. !
+outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
-do_U_shaped_mortality = .True. ! .False. ! 
+do_U_shaped_mortality = .True. ! .False. !
 update_annualLAImax =  .False. ! .True. !
 do_closedN_run = .False. ! .True. !
 do_fire = .FALSE. ! .True.

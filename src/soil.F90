@@ -51,11 +51,11 @@ subroutine water_supply_layer(forcing, vegn)
    psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
 !! Water supply from each layer
   do i=1, max_lev ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT) * thksl(i) * 1000.0))
-     thetaS(i)    = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0))
+     thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
      !Soil water pressure
      psi_soil = soilpars(vegn%soiltype)%psi_sat_ref * &  ! Pa
-            ((FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
+            ((vegn%FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
      dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
      ! Layer allocation, water uptake capacity
      totWsup(i) = 0.0 ! Potential water uptake per layer by all cohorts
@@ -151,7 +151,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
       slope = (esat(Tair+0.1)-esat(Tair))/0.1
       psyc=forcing%P_air*cpair*mol_air/(H2OLv*mol_h2o)
       Cmolar=forcing%P_air/(Rugas*TairK) ! mole density of air (mol/m3)
-      rsoil = exp(8.206-4.255*fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
+      rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
       !Rsoil=3.0E+10 * (FILDCP-vegn%wcl(1))**16 ! Kondo et al. 1990
       !rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
       raero=50./(forcing%windU + 0.2)
@@ -162,7 +162,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 !     &     (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))
       Esoil=(slope*Rsoilabs + rhocp*Dair/raero)/ &
             (slope + psyc*(1.0+rsoil/raero)) *   &
-            max(vegn%wcl(1),0.0)/FLDCAP ! (vegn%wcl(1)-ws0)/(FLDCAP-ws0)
+            max(vegn%wcl(1),0.0)/vegn%FLDCAP ! (vegn%wcl(1)-ws0)/(vegn%FLDCAP-ws0)
 !     sensible heat flux into air from soil
 !      Hsoil = Rsoilabs - Esoil - Hgrownd
 
@@ -176,7 +176,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   rainwater =  forcing%rain * step_seconds
   if(rainwater > 0.0)then
      do i=1, max_lev
-        W_deficit(i) = (FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
+        W_deficit(i) = (vegn%FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
         W_add(i) = min(rainwater, W_deficit(i))
         rainwater = rainwater - W_add(i)
         !vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)

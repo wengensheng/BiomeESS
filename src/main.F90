@@ -125,7 +125,8 @@ program BiomeESS
         'year','doy','hour','rad',            &
         'Tair','Prcp', 'GPP', 'Resp',         &
         'Transp','Evap','Runoff','Soilwater', &
-        'wcl','FLDCAP','WILTPT'
+        'wcl', 'psi_soil','k_soil',           &
+        'Psi_L','Psi_W','W_leaf','W_stem'
    write(fno2,'(3(a5,","),30(a9,","))')            &
         'cID','PFT','layer','density', 'f_layer',  &
         'dDBH','dbh','height','Acrown',            &
@@ -164,8 +165,10 @@ program BiomeESS
         'seedC','seedN','Seedling-C','Seedling-N'
 
 
-   ! Parameter initialization: Initialize PFT parameters
+   ! Parameter initialization: Initialize soil and PFT parameters
+   call initialize_soilpars(namelistfile)
    call initialize_PFT_data(namelistfile)
+
    ! Initialize vegetation tile and plant cohorts
    allocate(vegn)
    call initialize_vegn_tile(vegn,nCohorts,namelistfile)
@@ -235,7 +238,7 @@ program BiomeESS
             ! Update plant hydraulic states, for the last year
             call vegn_hydraulic_states(vegn,real(seconds_per_year))
             call annual_diagnostics(vegn,iyears,fno2,fno5)
-!#ifndef Hydro_test
+#ifndef Hydro_test
             ! For the incoming year
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
             ! N is losing after changing the soil pool structure. Hack !!!!!
@@ -248,7 +251,7 @@ program BiomeESS
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
-!#endif
+#endif
 
             call kill_lowdensity_cohorts(vegn)
 

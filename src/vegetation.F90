@@ -42,7 +42,16 @@ public :: vegn_gap_fraction_update
   ! Climatic variable
   tair   = forcing%Tair -273.16   ! degC
   tsoil  = forcing%tsoil -273.16  ! degC
-  thetaS = (vegn%wcl(2)-WILTPT)/(FLDCAP-WILTPT)
+  thetaS = (vegn%wcl(2)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT)
+
+  ! Water supply for leaves
+#ifdef Hydro_test
+    ! Dynamic tree trunk conductivity and water potential
+    call Plant_water_dynamics(forcing, vegn)
+#else
+    ! Water supply for photosynthesis from soil layers
+    call water_supply_layer(forcing, vegn)
+#endif
 
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
@@ -103,14 +112,6 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: f_light(10)=0.0      ! light fraction of each layer
   integer :: i, layer
 
-#ifdef Hydro_test
-  ! Dynamic tree trunk conductivity and water potential
-  call Trunk_water_flux(forcing, vegn)
-#else
-  ! Water supply for photosynthesis from soil layers
-  call water_supply_layer(forcing, vegn)
-#endif
-
 !! Light supply for photosynthesis
   vegn%kp = 0.0
   do i = 1, vegn%n_cohorts
@@ -133,7 +134,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-     if(cc%status == LEAF_ON .and. cc%lai > 0.1) then
+     if(cc%status == LEAF_ON .and. cc%lai > 0.01) then
         ! Convert forcing data
          layer = Max (1, Min(cc%layer,9))
          rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
@@ -664,18 +665,14 @@ subroutine fetch_CN_for_growth(cc)
         cc%DBH       = cc%DBH       + dDBH
         cc%height    = cc%height    + dHeight
         cc%crownarea = cc%crownarea + dCA
-        cc%leafarea  = Aleaf_BM(cc%bl,cc)
-        cc%lai       = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
-        vegn%LAI     = vegn%LAI + cc%leafarea  * cc%nindivs
-        call rootarea_and_verticalprofile(cc)
 
-!       Update plant hydraulic states
-        cc%V_leaf = cc%leafarea * 0.0001
-        cc%V_stem = (cc%bsw+cc%bhw)/sp%rho_wood
-        cc%Wmax_l = sp%w0L_max * cc%bl
-        cc%Wmax_s = sp%w0S_max * (cc%bsw+cc%bhw)
-        cc%H_leaf = sp%H0_leaf * cc%V_leaf
-        cc%H_stem = sp%H0_stem * cc%V_stem
+!       Update secondary plant states
+        call update_plant_vars(cc)
+        if(cc%firstday)then
+          cc%W_leaf = cc%Wmax_l
+          cc%W_stem = cc%Wmax_s
+        endif
+        vegn%LAI = vegn%LAI + cc%leafarea  * cc%nindivs
 
         ! Update Ktrunk with new sapwood
         k = Max(MIN(cc%Nrings, Ysw_max),1)
@@ -749,7 +746,6 @@ subroutine vegn_phenology(vegn,doy) ! daily step
   real    :: GDD_adp, Tc_off_crit
   real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
   real    :: ccNSC, ccNSN
-  logical :: cc_firstday = .false.
   logical :: PhenoON, PhenoOFF
 
 ! -------------- update vegn GDD and tc_pheno ---------------
@@ -795,14 +791,14 @@ subroutine vegn_phenology(vegn,doy) ! daily step
         !.and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer==1))  &
         )
 
-     cc_firstday = .false.
+     cc%firstday = .false.
      if(PhenoON)then
          cc%status = LEAF_ON ! Turn on a growing season
-         cc_firstday = .True.
+         cc%firstday = .True.
      endif
 
 !    Reset grass density at the first day of a growing season
-     if(cc_firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
+     if(cc%firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
 !        reset grass density and size for perenials
          ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
          ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
@@ -821,8 +817,6 @@ subroutine vegn_phenology(vegn,doy) ! daily step
          cc%woodN = 0.0
          cc%seedN = 0.0
          cc%NSN   = ccNSN/cc%nindivs - (cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN)
-
-         call rootarea_and_verticalprofile(cc)
          call init_cohort_allometry(cc)
      endif
      end associate
@@ -954,18 +948,28 @@ end subroutine vegn_gap_fraction_update
 
 !=================================================
 ! Weng: partioning root area into layers, 10-24-2017
-subroutine rootarea_and_verticalprofile(cc)
+subroutine update_plant_vars(cc)
   type(cohort_type), intent(inout) :: cc
   !----------local var ----------
   integer :: j
 
   associate (sp => spdata(cc%species) )
-  cc%rootarea  = cc%br * sp%SRA
-  do j=1,max_lev
-     cc%rootareaL(j) = cc%rootarea * sp%root_frac(j)
-  enddo
+    cc%leafarea  = Aleaf_BM(cc%bl,cc)
+    cc%lai       = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
+    cc%rootarea  = cc%br * sp%SRA
+    do j=1,max_lev
+       cc%rootareaL(j) = cc%rootarea * sp%root_frac(j)
+    enddo
+    ! Plant hydraulics-related variables
+    cc%V_leaf = cc%leafarea * sp%leafTK ! area * thicknees
+    cc%V_stem = (cc%bsw+cc%bhw)/sp%rho_wood
+    cc%Wmax_l = sp%w0L_max * cc%bl           ! max leaf water content
+    cc%Wmax_s = sp%w0S_max * (cc%bsw+cc%bhw) ! max stem water content
+    cc%H_leaf = sp%H0_leaf * cc%V_leaf ! Leaf Capacitance
+    cc%H_stem = sp%H0_stem * cc%V_stem ! Stem capacitance
+
   end associate
- end subroutine rootarea_and_verticalprofile
+ end subroutine update_plant_vars
 
 !========= Leaf and stem fall ==========================
 subroutine Seasonal_fall(cc,vegn)
@@ -1177,7 +1181,7 @@ end subroutine vegn_hydraulic_states
 
 !========================================================================
 ! Weng 2022-02-16 ! Compute water flux via tree trunk (i.e., soil-trunk-leaves)
-subroutine Trunk_water_flux(forcing, vegn)
+subroutine Plant_water_dynamics(forcing, vegn)
   type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
 
@@ -1187,52 +1191,35 @@ subroutine Trunk_water_flux(forcing, vegn)
   real :: freewater(max_lev)
   real :: LayerTot(max_lev) ! potential water uptake, kg H2O s-1 m-2
   real :: psi_ht            ! Gravitational water pressure, MPa
-  real :: psi_soil(max_lev),K_soil(max_lev)
+  real :: psi_leaf,psi_stem
+  real :: psi_soil(max_lev),K_soil(max_lev),Q_soil(max_lev)
   real :: thetaS(max_lev) ! soil moisture index (0~1)
   real :: dpsiRL(max_lev) ! pressure difference between root and leaf, MPa
   real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
   real :: K_tree ! The conductance of the whole tree (roots + trunk)
-  real :: chb
+  real :: transp  ! mm/s
   integer :: i,j, layer
+  logical :: do_static_plant_water = .True.
 
-!! Leaf water potential, should be a function of VPD, teperature, and stomata conductance
-   !psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
+  ! Soil water parameters (psi and conductivity for each layer)
+  call soil_water_psi_K(vegn)
 
-
-!! Water supply from each soil layer
+  ! Old scheme: calculating soil water availability for transpiration in next step
   do i=1, max_lev ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-WILTPT) * thksl(i) * 1000.0))
-     thetaS(i)    = max(0.0, (vegn%wcl(i)-WILTPT)/(FLDCAP-WILTPT))
-     !Soil water pressure
-     chb = soilpars(vegn%soiltype)%chb
-     psi_soil(i)  = soilpars(vegn%soiltype)%psi_sat_ref/1.0e6 * &  ! MPa
-            ((FLDCAP/vegn%wcl(i))**chb)! water retention curve
-     K_soil(i) = soilpars(vegn%soiltype)%k_sat_ref * 18./1000. * &
-                 (vegn%wcl(i)/FLDCAP)**(2*chb+3)
+     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
+     thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
+
      ! The difference of water potential between roots and soil
      dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
 
-     ! Layer allocation, water uptake capacity
+     ! Water uptake capacity
      LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         associate ( sp => spdata(cc%species) )
         ! With assumped conductivity and presure difference
         !cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i)*step_seconds ! kg H2O tree-1 step-1
-
-        ! Calculate plant tissue water potentials ! Hack
-        psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
-        cc%psi_stem = psi_soil(i) - dpsiSR(i)
-        cc%psi_leaf = cc%psi_stem - dpsiSR(i) - psi_ht
-
-        ! Add the new algorithm here: Trunk conductivity and actual pressure difference
-        ! dpsiSR(i) = psi_soil(i) - cc%psi_stem
-        ! cc%WupL(i) = sp%root_frac(i) * cc%rootarea*sp%Kw_root * dpsiSR(i) * step_seconds
-
-        dpsiRL(i) = dpsiSR(i) ! cc%psi_stem - cc%psi_leaf
-        K_tree = 1.0/(1.0/(cc%rootarea*sp%Kw_root) + 1.0/cc%Ktrunk)
-        cc%WupL(i) = sp%root_frac(i) * dpsiRL(i)*K_tree  * step_seconds
-                     ! kg H2O tree-1 step-1
+        cc%WupL(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
 
         ! ------------------
         ! Potential water uptake per soil layer by all cohorts
@@ -1244,20 +1231,195 @@ subroutine Trunk_water_flux(forcing, vegn)
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         if(LayerTot(i)>0.0) &
-            fWup(i) = Min(0.25 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
+            fWup(i) = Min(0.2 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
         cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
      enddo ! cohort for each layer
   enddo    ! all layers
 
-! total water suplly for leaves in each tree
+! total water suplly for next step's transpiration
   do j = 1, vegn%n_cohorts
      cc => vegn%cohorts(j)
      cc%W_supply = sum(cc%WupL(:))
   enddo
-end subroutine Trunk_water_flux
 
+!---------new scheme-------------------
+! Now, it is a parallel world!
+! Thise section calculates plant water potentials, water fluxes and content
+! according to last step's transpiration rate.
+
+  ! Equilibrium plant water potentials
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     ! Calculate plant tissue water potentials ! Hack
+     transp = cc%transp/step_seconds ! per step -> per second
+     call plant_water_potential_equi(vegn,cc,transp,psi_leaf,psi_stem)
+     !call plant_water_potential_dynm(vegn,cc,transp,psi_leaf,psi_stem)
+     cc%psi_stem = psi_stem
+     cc%psi_leaf = psi_leaf
+  enddo
+
+  ! Stem-Leaf water flux
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
+     cc%Q_leaf = (cc%psi_stem - cc%psi_leaf - psi_ht) * cc%Ktrunk * step_seconds
+     cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
+     cc%W_stem = cc%W_stem - cc%Q_leaf
+  enddo
+
+  ! Water fluxes from soil layers to stem base (and between soil layers via roots)
+
+  do j = 1, vegn%n_cohorts
+     cc => vegn%cohorts(j)
+     do i=1, max_lev ! Calculate water uptake potential layer by layer
+        dpsiSR(i) = vegn%psi_soil(i) - cc%psi_stem
+        Q_soil(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
+        cc%W_stem = cc%W_stem + Q_soil(i)
+        !cc%WupL(i) = Q_soil(i)
+     enddo
+  enddo
+
+   ! Water supply for the next step photosynthesis
+   do j = 1, vegn%n_cohorts
+      cc => vegn%cohorts(j)
+      associate ( sp => spdata(cc%species) )
+        !cc%W_supply = Max(cc%W_leaf-0.5*cc%Wmax_l,0.0) + 0.2 * Max(cc%W_stem -0.9*cc%Wmax_s,0.0)
+      end associate
+   enddo
+
+end subroutine Plant_water_dynamics
+
+!====================================
+subroutine soil_water_psi_K(vegn)
+!@sum leaf and stem equilibrium water potential
+!@+   Weng, 03/20/2022
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !------local var -----------
+  real :: psi_sat_ref,k_sat_ref,v_sat,chb
+  integer :: i
+
+!! Soil Water psi and K
+  psi_sat_ref = soilpars(vegn%soiltype)%psi_sat_ref
+  k_sat_ref   = soilpars(vegn%soiltype)%k_sat_ref
+  v_sat       = soilpars(vegn%soiltype)%vwc_sat
+  chb         = soilpars(vegn%soiltype)%chb
+  do i=1, max_lev
+     vegn%psi_soil(i) = calc_soil_psi(psi_sat_ref,chb,v_sat,vegn%wcl(i))
+     vegn%K_soil(i)   = calc_soil_K  (k_sat_ref,  chb,v_sat,vegn%wcl(i))
+  enddo
+
+end subroutine soil_water_psi_K
+
+!====================================
+subroutine plant_water_potential_equi(vegn,cc,Q_plant,psi_leaf,psi_stem)
+!@sum leaf and stem equilibrium water potential
+!@+   Weng, 03/20/2022
+  implicit none
+  type(vegn_tile_type), intent(in) :: vegn
+  type(cohort_type),    intent(in) :: cc
+  real,                 intent(in) :: Q_plant    ! mm/s/tree
+  real,                 intent(out):: psi_leaf  !
+  real,                 intent(out):: psi_stem
+
+  !------local var -----------
+  real :: psi_ht          ! Gravitational water pressure, MPa
+  real :: RAI(max_lev)    ! root area index
+  real :: k_rs(max_lev)   ! root-soil layer conductance
+  real :: sumK,sumPK
+  integer :: i
+
+!! Water supply from each soil layer
+  associate ( sp => spdata(cc%species) )
+    sumK  = 0.0
+    sumPK = 0.0
+    do i=1, max_lev
+      ! RAI(i) = cc%rootareaL(i)/cc%crownarea
+      ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
+      k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
+      sumK = sumK + k_rs(i)
+      sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
+    enddo
+    psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
+    psi_stem = (sumPK - Q_plant) / sumK
+    psi_leaf = psi_stem - Q_plant/cc%Ktrunk - psi_ht ! Ktrunk: (mm/s)/(MPa/m)
+
+  end associate
+end subroutine plant_water_potential_equi
+
+!====================================
+subroutine plant_water_potential_dynm(vegn,cc,Q_plant,psi_leaf,psi_stem)
+!@sum leaf and stem equilibrium water potential
+!@+   Weng, 03/20/2022
+  implicit none
+  type(vegn_tile_type), intent(in) :: vegn
+  type(cohort_type),    intent(in) :: cc
+  real,                 intent(in) :: Q_plant    ! mm/s/tree
+  real,                 intent(out):: psi_leaf  !
+  real,                 intent(out):: psi_stem
+
+  !------local var -----------
+  real :: psi_ht          ! Gravitational water pressure, MPa
+  real :: RAI(max_lev)    ! root area index
+  real :: k_rs(max_lev)   ! root-soil layer conductance
+  real :: f_L,f_S         ! scalars for water potential changes (0~1)
+  real :: psi_s0          ! base stem  water potential when net water flux is zero
+  real :: psi_stem_min = -1.0 ! MPa
+  real :: psi_leaf_min = -2.5 ! MPa
+  real :: sumK,sumPK
+  integer :: i
+
+!! Calculate plant water potential
+  associate ( sp => spdata(cc%species) )
+    psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
+    sumK  = 0.0
+    sumPK = 0.0
+    do i=1, max_lev
+      ! RAI(i) = cc%rootareaL(i)/cc%crownarea
+      ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
+      k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
+      sumK = sumK + k_rs(i)
+      sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
+    enddo
+    psi_s0   = sumPK / sumK
+    ! Stem and Leaf water potential
+    f_S = Min(5.0*Max(cc%Wmax_s - cc%W_stem,0.0)/cc%Wmax_s, 1.0)
+    f_L = Min(2.0*Max(cc%Wmax_l - cc%W_leaf,0.0)/cc%Wmax_l, 1.0)
+    psi_stem = psi_s0   + f_S * psi_stem_min
+    psi_leaf = psi_stem + f_L * psi_leaf_min - psi_ht
+
+  end associate
+end subroutine plant_water_potential_dynm
+
+!==========================================
+! Weng, 03/21/2022
+real function calc_soil_psi(psi_sat_ref,chb,V_sat,Vwc) result(psi)
+  !Calculate soil water potential (psi, MPa)
+    real,intent(in):: psi_sat_ref
+    real,intent(in):: chb          ! Parameter for scaling
+    real,intent(in):: V_sat        ! Field capacity
+    real,intent(in):: Vwc          ! Soil water content
+    !---------------------
+    psi = psi_sat_ref*1.0e-6 * ((V_sat/Vwc)**chb)    ! MPa
+
+end function calc_soil_psi
+
+!==========================================
+! Weng, 03/21/2022
+real function calc_soil_K(k_sat_ref,chb,V_sat,Vwc) result(K)
+  !Calculate soil water conductivity (K, kg H2O/(m2 MPa s))
+    real,intent(in):: k_sat_ref
+    real,intent(in):: chb          ! Parameter for scaling
+    real,intent(in):: V_sat        ! Field capacity
+    real,intent(in):: Vwc          ! Soil water content
+    !---------------------
+    k = k_sat_ref * 18./1000. * & ! kg H2O/(m2 MPa s)
+       (Vwc/V_sat)**(2*chb+3)
+
+end function calc_soil_K
 !============================================================================
-real*8 function NewWoodWTC(cc) result(WTC)
+real function NewWoodWTC(cc) result(WTC)
 !@sum calculate wood water transport capacity (WTC0), Ensheng Weng, 02/23/2022
     type(cohort_type),intent(in) :: cc
 
@@ -1269,19 +1431,21 @@ real*8 function NewWoodWTC(cc) result(WTC)
 end function NewWoodWTC
 
 !============================================================================
-real*8 function NewWoodKx(cc) result(Kx)
+real function NewWoodKx(cc) result(Kx)
 !@sum calculate wood water conductivity (Kx), Ensheng Weng, 02/23/2022
     type(cohort_type),intent(in) :: cc
 
     !---------------------
     associate ( sp => spdata(cc%species))
-      Kx = sp%Kx0  ! + m0_dbh * cc%DBH ** sp%thetaHT
+      ! It has a big issue here: Kx should be scaling with tree height to
+      ! keep psi_leaf independent of tree height
+      Kx = sp%Kx0 * (0.2 + cc%height)  ! (mm/s)/(MPa/m)
 
     end associate
 end function NewWoodKx
 
 !============================================================================
-real*8 function mortality_rate(cc) result(mu) ! per year
+real function mortality_rate(cc) result(mu) ! per year
 !@sum calculate cohort mortality/year, Ensheng Weng, 12/07/2021
 ! Mortality rate should be a function of growth rate, age, and environmental
 ! conditions. Here, we only used used a couple of parameters to calculate
@@ -1665,6 +1829,7 @@ subroutine vegn_reproduction (vegn)
         cc%Rring = 0.0
         cc%Lring = 0.0
         cc%Aring = 0.0
+        cc%transp = 0.0
 
         ! Carbon pools
         cc%bl      = 0.0 * sp%seedlingsize
@@ -1673,9 +1838,8 @@ subroutine vegn_reproduction (vegn)
         cc%bHW     = 0.0 * sp%seedlingsize
         cc%seedC   = 0.0
         cc%nsc     = sp%seedlingsize - cc%bsw -cc%br !
-        call rootarea_and_verticalprofile(cc)
 
-!!      Nitrogen pools
+        ! Nitrogen pools
         cc%leafN  = cc%bl/sp%CNleaf0
         cc%rootN  = cc%br/sp%CNroot0
         cc%sapwN  = cc%bsw/sp%CNsw0
@@ -1684,11 +1848,15 @@ subroutine vegn_reproduction (vegn)
         if(cc%nindivs>0.0) &
            cc%NSN    = sp%seedlingsize * seedN(i) / seedC(i) -  &
                     (cc%leafN + cc%rootN + cc%sapwN + cc%woodN)
+        ! Secondary variables
+        call init_cohort_allometry(cc)
+        cc%W_leaf = cc%Wmax_l
+        cc%W_stem = cc%Wmax_s
 
         vegn%totNewCC = vegn%totNewCC + cc%nindivs*(cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc)
         vegn%totNewCN = vegn%totNewCN + cc%nindivs*(cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN)
 
-        call init_cohort_allometry(cc)
+
 !!        !! seeds fail
         !cc%nindivs = cc%nindivs * sp%prob_g * sp%prob_e
 !!       put failed seeds to soil carbon pools
@@ -1878,11 +2046,9 @@ subroutine vegn_migration (vegn)
                ! update new cohort parameters
                cc = vegn%initialCC(n)
                cc%nindivs = 0.01 ! a small number of individuals
-               call rootarea_and_verticalprofile(cc)
                exit
             endif
         enddo
-
         addedC = addedC + cc%nindivs*(cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc)
         addedN = addedN + cc%nindivs*(cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN)
 
@@ -2518,7 +2684,10 @@ subroutine initialize_cohort_from_biomass(cc,btot)
      cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
      cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
      cc%seedC  = 0.0
-     call rootarea_and_verticalprofile(cc)
+     call update_plant_vars(cc)
+     cc%W_leaf = cc%Wmax_l
+     cc%W_stem = cc%Wmax_s
+
 !    N pools
      cc%NSN    = 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
      cc%leafN  = cc%bl/sp%CNleaf0
@@ -2578,12 +2747,15 @@ subroutine init_cohort_allometry(cc)
      cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
 
      ! Cohort hydraulic properties
+     call update_plant_vars(cc)
+     cc%W_leaf = cc%Wmax_l
+     cc%W_stem = cc%Wmax_s
      ! Set up the first year seedling
      if(cc%Nrings <= 1)then
         cc%WTC0(1) = NewWoodWTC(cc)
         cc%Kx(1)   = NewWoodKx(cc)
         cc%Aring(1) = PI * 0.25*cc%DBH**2
-        cc%Ktrunk = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.02)
+        cc%Ktrunk = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
      endif
 
   end associate
