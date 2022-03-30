@@ -121,12 +121,12 @@ program BiomeESS
    open(fno4,file=trim(soilCNpools),    ACTION='write', IOSTAT=istat3)
    open(fno5,file=trim(allpools),       ACTION='write', IOSTAT=istat3)
    ! header
-   write(fno1,'(5(a8,","),25(a12,","))')      &
+   write(fno1,'(5(a8,","),30(a12,","))')      &
         'year','doy','hour','rad',            &
         'Tair','Prcp', 'GPP', 'Resp',         &
         'Transp','Evap','Runoff','Soilwater', &
         'wcl', 'psi_soil','k_soil',           &
-        'Psi_L','Psi_W','W_leaf','W_stem'
+        'bl','Psi_L','Psi_W','W_leaf','W_stem','Transp'
    write(fno2,'(3(a5,","),30(a9,","))')            &
         'cID','PFT','layer','density', 'f_layer',  &
         'dDBH','dbh','height','Acrown',            &

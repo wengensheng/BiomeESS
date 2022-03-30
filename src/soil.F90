@@ -109,7 +109,8 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   real    :: rsoil  ! s m-1
   real    :: raero
   real    :: rLAI
-  real    :: transp,fsupply ! fraction of transpiration from a soil layer
+  real    :: transp
+  real    :: fsupply ! fraction of transpiration from a soil layer
   real    :: WaterBudgetL(max_lev)
   integer :: i,j,k
 

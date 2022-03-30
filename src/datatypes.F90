@@ -43,6 +43,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
 real, public, parameter    :: m0_dbh = 12000.0 !  DBH-WTC0 scaling factor
+real, public, parameter    :: rho_cellwall = 1500.0 ! kg m-3, Kellogg & Wangaard 1969
 integer, public, parameter :: Ysw_max = 80 ! Maximum function years of xylems
 ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
@@ -153,9 +154,11 @@ type spec_data_type
   real    :: H0_leaf ! Leaf capacitance, kgH2O m-3 MPa-1
   real    :: H0_stem ! Stem/wood capacitance, kgH2O m-3 MPa-1
   real    :: w0L_max ! leaf maximum water/carbon ratio
-  real    :: w0L_min ! leaf minimum water/carbon ratio
   real    :: w0S_max ! stem maximum water/carbon ratio
+  real    :: w0L_min ! leaf minimum water/carbon ratio
   real    :: w0S_min ! stem minimum water/carbon ratio
+  real    :: psi0_leaf ! minimum leaf water potential
+  real    :: psi0_stem ! minimum stem wood potential
 
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -253,10 +256,14 @@ type :: cohort_type
   real :: W_stem ! Stem water content, kgH2O (per tree)
   real :: Wmax_l ! Leaf max water content, kgH2O (per tree)
   real :: Wmax_s ! Stem max water content, kgH2O (per tree)
+  real :: Wmin_l ! Leaf min water content, kgH2O (per tree)
+  real :: Wmin_s ! Stem min water content, kgH2O (per tree)
   real :: V_stem ! Volumn of stems (including trunk)
   real :: V_leaf ! Volumn of leaves
-  real :: Q_stem ! water flux to stems (kg/tree/step)
-  real :: Q_leaf ! water flux to leaves (kg/tree/step)
+  real :: Q_stem ! water flux from soil to stems (kg/tree/step)
+  real :: Q_leaf ! water flux from stems to leaves (kg/tree/step)
+  real :: weighted_gw_rate  = 0.d0 ! soil water flux rate from this plant's view
+  real :: weighted_gw_cond  = 0.d0 ! soil cond from this plant's view
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
@@ -380,6 +387,7 @@ type :: vegn_tile_type
    real :: runoff        ! Water runoff of the veg tile, unit?
    real :: thetaS     ! moisture index (ws - wiltpt)/(fldcap - wiltpt)
    real :: wcl(max_lev)   ! volumetric soil water content for each layer
+   real :: freewater(max_lev) ! Available water in each layer
    real :: psi_soil(max_lev) ! MPa
    real :: K_soil(max_lev)   ! Kg H2O/(m2 s MPa)
    real :: soilWater      ! kg m-2 in root zone
@@ -642,12 +650,12 @@ real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tr
 real :: kx0(0:MSPECIES)           = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
 real :: WTC0(0:MSPECIES)          = 1200.0  ! 2000, m /lifetime
 real :: r_DF(0:MSPECIES)          = 100.0
-real :: H0_leaf(0:MSPECIES)       = 400.0 ! Leaf capacitance, kgH2O m-3 MPa-1
-real :: H0_stem(0:MSPECIES)       = 40.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
-real :: w0L_max(0:MSPECIES)       = 20.0  ! leaf maximum water/carbon ratio
-real :: w0L_min(0:MSPECIES)       = 15.0  ! leaf minimum water/carbon ratio
+real :: H0_leaf(0:MSPECIES)       = 200.0 ! Leaf capacitance, kgH2O m-3 MPa-1
+real :: H0_stem(0:MSPECIES)       = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
+real :: w0L_max(0:MSPECIES)       = 18.0  ! leaf maximum water/carbon ratio ()
 real :: w0S_max(0:MSPECIES)       = 2.0   ! stem maximum water/carbon ratio
-real :: w0S_min(0:MSPECIES)       = 1.5   ! stem minimum water/carbon ratio
+real :: psi0_leaf(0:MSPECIES)     = -3.0  ! MPa
+real :: psi0_stem(0:MSPECIES)     = -1.5  ! MPa
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
@@ -687,7 +695,7 @@ namelist /vegn_parameters_nml/  &
   mortrate_d_c, mortrate_d_u, D0mu, A_sd, B_sd,         &
   phiRL, phiCSA, rho_wood, taperfactor, &
   kx0, WTC0, r_DF, &
-  H0_leaf, H0_stem, w0L_max, w0L_min, w0S_max, w0S_min, &
+  H0_leaf,H0_stem,w0L_max,w0S_max,psi0_leaf, psi0_stem, &
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0, f_cGap, &
@@ -887,10 +895,9 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%H0_leaf      = H0_leaf
   spdata%H0_stem      = H0_stem
   spdata%w0L_max      = w0L_max
-  spdata%w0L_min      = w0L_min
   spdata%w0S_max      = w0S_max
-  spdata%w0S_min      = w0S_min
-
+  spdata%psi0_leaf    = psi0_leaf
+  spdata%psi0_stem    = psi0_stem
 
   spdata%LAImax       = LAImax
   spdata%LAImax_u     = 1.2 ! LAImax
@@ -957,7 +964,7 @@ subroutine initialize_PFT_data(namelistfile)
 !  Leaf turnover rate, (leaf longevity as a function of LMA)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
    ! Leaf thickness, m
-   sp%leafTK = 1.0e-4 * SQRT(sp%LMA/0.02)
+   sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
 
  end subroutine init_derived_species_data
 
@@ -1085,7 +1092,7 @@ end subroutine Zero_diagnostics
   ! NEP is equal to NNP minus soil respiration
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
   !! Output horly diagnostics
-  If(outputhourly .and. iday>equi_days .and. ihour==12) & ! .and. iday<equi_days+366 
+  If(outputhourly .and. iday>equi_days .and. ihour==12) & ! .and. iday<equi_days+366
     write(fno1,'(3(I5,","),30(E11.4,","),25(F8.2,","))')  &
       iyears, idoy, ihour,      &
       forcing%radiation,    &
@@ -1094,8 +1101,8 @@ end subroutine Zero_diagnostics
       vegn%GPP,vegn%resp,vegn%transp,  &
       vegn%evap,vegn%runoff,vegn%soilwater, &
       vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2), &
-      vegn%cohorts(1)%psi_leaf,vegn%cohorts(1)%psi_stem, & !vegn%FLDCAP,vegn%WILTPT
-      vegn%cohorts(1)%W_leaf,vegn%cohorts(1)%W_stem
+      vegn%cohorts(1)%bl,vegn%cohorts(1)%psi_leaf,vegn%cohorts(1)%psi_stem, & !vegn%FLDCAP,vegn%WILTPT
+      vegn%cohorts(1)%W_leaf,vegn%cohorts(1)%W_stem,vegn%cohorts(1)%transp
 
   ! Daily summary:
   vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
