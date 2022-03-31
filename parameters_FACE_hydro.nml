@@ -9,11 +9,12 @@ retransN   = 0.0,
 
 ! species       0        1        2        3        4        5
 lifeform      = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
-phenotype     = 0,       0,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
+phenotype     = 0,       1,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
 pt            = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
 seedlingsize  = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
-LMA           = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    ! Leaf mass per unit area
+LMA           = 0.02,    0.14,    0.02,    0.02,    0.02,    0.02,    ! Leaf mass per unit area
 phiRL         = 0.7,     0.8,     0.9,     1.0,     1.1,     1.2,     ! Root/Leaf area ratio
+w0L_max       = 18.,     8.0,     18.,     18.,     18.,     18.,
 LNbase        = 0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 laimax        = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
 LAI_light     = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limited crown LAI

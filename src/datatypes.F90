@@ -262,8 +262,8 @@ type :: cohort_type
   real :: V_leaf ! Volumn of leaves
   real :: Q_stem ! water flux from soil to stems (kg/tree/step)
   real :: Q_leaf ! water flux from stems to leaves (kg/tree/step)
-  real :: weighted_gw_rate  = 0.d0 ! soil water flux rate from this plant's view
-  real :: weighted_gw_cond  = 0.d0 ! soil cond from this plant's view
+  real :: dW_leaf  = 0.d0 ! water demand due to leaf growth
+  real :: dW_stem  = 0.d0 ! water demand due to stem growth
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
