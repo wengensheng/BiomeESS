@@ -250,6 +250,7 @@ type :: cohort_type
 
 ! for hydraulics-mortality
   integer :: Nrings = 1
+  real :: psi_s0   ! Equilibrium stem base water potential (soil-stem flux=0)
   real :: psi_leaf ! MPa, leaf water potential
   real :: psi_stem ! MPa, stem water potential
   real :: H_leaf ! Leaf capacitance, kgH2O MPa-1 (per tree)
@@ -766,6 +767,7 @@ logical   :: update_annualLAImax = .False.
 logical   :: do_migration = .False.
 logical   :: do_fire = .False.
 logical   :: do_closedN_run = .True. !.False.
+logical   :: do_constant_kx = .True. ! trunk new xylem has the same kx or not
 
 namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
@@ -777,7 +779,7 @@ namelist /initial_state_nml/ &
     outputhourly, outputdaily, equi_days, &
     do_U_shaped_mortality,update_annualLAImax, &
     do_fire, do_migration, Sc_prcp, &
-    do_closedN_run
+    do_closedN_run,do_constant_kx
 !---------------------------------
 
  contains

@@ -64,8 +64,8 @@ outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
 do_U_shaped_mortality = .True. ! .False. !
 update_annualLAImax =  .False. ! .True. !
-do_closedN_run = .False. ! .True. !
 do_fire = .FALSE. ! .True.
 do_migration = .FALSE. ! .True.
+do_constant_kx = .False. ! .True. ! 
 Sc_prcp = 1.0 ! 0.5 ! 0.25, ! 1/4 rainfall
 /

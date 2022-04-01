@@ -47,10 +47,10 @@ public :: vegn_gap_fraction_update
   ! Water supply for leaves
 #ifdef Hydro_test
     ! Dynamic tree trunk conductivity and water potential
-    !call soil_water_uptake_supply(vegn)
-    !call plant_water_dynamics_equi(vegn)
-    call Plant_water_dynamics_linear(vegn)
-    !call plant_water_dynamics_Xiangtao(vegn)
+    !call soil_water_uptake_supply(vegn)     ! Soil water availability only
+    !call plant_water_dynamics_equi(vegn)    ! Equilibrium water flow
+    !call Plant_water_dynamics_linear(vegn)  ! A linearized calculation of psi and k
+    call plant_water_dynamics_Xiangtao(vegn) ! Xiangtao's model
 #else
     ! Water supply for photosynthesis from soil layers
     call water_supply_layer(forcing, vegn)
@@ -1226,6 +1226,83 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
    enddo
 
 end subroutine Plant_water_dynamics_equi
+!========================================================================
+! Weng 2022-03-29 !
+subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
+  !type(climate_data_type),intent(in):: forcing
+  type(vegn_tile_type), intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real :: psi_ht            ! Gravitational water pressure, MPa
+  real :: psi_leaf,psi_stem
+  real :: Q_soil(max_lev) ! Soil to roots water flux (kg H2O/tree/step)
+  real :: k_rs(max_lev)   ! soil-root water conductance by soil layer
+  real :: dpsiRL(max_lev) ! pressure difference between root and leaf, MPa
+  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
+  real :: k_stem          ! The conductance of the tree at current conditions
+  real :: Q_plant  ! mm/s
+  real :: sumK, sumPK
+  integer :: i,j, layer
+  logical :: do_static_plant_water = .True.
+
+  ! Soil water parameters (psi and conductivity for each layer)
+  call soil_water_psi_K(vegn)
+
+  ! Updates plant water potentials, water fluxes and content
+  do j = 1, vegn%n_cohorts
+     cc => vegn%cohorts(j)
+     associate ( sp => spdata(cc%species) )
+     ! Calculate ! Water flux from stems to leaves
+     if(cc%leafarea <= 0.00001)then
+       cc%W_leaf = 0.0
+       cycle
+     endif
+
+     ! When cc%leafarea > 0
+     Q_plant = cc%transp   ! /step_seconds
+     k_stem  = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+     psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
+
+     psi_leaf = ((cc%psi_stem-psi_ht)*k_stem*step_seconds - Q_plant + cc%H_leaf*cc%psi_leaf)/ &
+                (            k_stem*step_seconds + cc%H_leaf)
+     cc%Q_leaf = (cc%psi_stem - psi_leaf - psi_ht) * k_stem * step_seconds
+     cc%W_leaf = cc%W_leaf + cc%Q_leaf - Q_plant
+     cc%W_stem = cc%W_stem - cc%Q_leaf
+     cc%psi_leaf = psi_leaf
+
+     ! Water fluxes from soil layers to stem base (and between soil layers via roots)
+     sumK  = 0.0
+     sumPK = 0.0
+     do i=1, max_lev
+       ! RAI(i) = cc%rootareaL(i)/cc%crownarea
+       ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
+       k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
+       !if(vegn%psi_soil(i)<cc%psi_stem) k_rs(i)=0.0
+       sumK = sumK + k_rs(i)
+       sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
+     enddo
+     psi_stem = (sumPK*step_seconds - cc%Q_leaf + cc%psi_stem*cc%H_stem)/ &
+                (sumK *step_seconds + cc%H_stem)
+
+     do i=1, max_lev ! Calculate water uptake layer by layer
+        Q_soil(i) =  k_rs(i) * (vegn%psi_soil(i) - psi_stem) * step_seconds
+        cc%W_stem = cc%W_stem + Q_soil(i)
+        cc%WupL(i) = Q_soil(i)
+     enddo
+     cc%psi_stem = psi_stem
+
+     !call Plant_water2psi(cc)
+
+     ! Water supply for the next step photosynthesis
+     !cc%W_supply = 0.05*sum(vegn%freewater(:))
+     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+     cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
+                 + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
+     end associate
+  enddo
+
+end subroutine Plant_water_dynamics_linear
 
 !====================================
 subroutine plant_water_dynamics_Xiangtao(vegn)
@@ -1388,88 +1465,11 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
     !            + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
     cc%W_supply = 0.05 * sum(vegn%freewater(:))*cc%crownarea
+
     end associate
   enddo
 
 end subroutine plant_water_dynamics_Xiangtao
-
-!========================================================================
-! Weng 2022-03-29 !
-subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
-  !type(climate_data_type),intent(in):: forcing
-  type(vegn_tile_type), intent(inout) :: vegn
-
-!----- local var --------------
-  type(cohort_type),pointer :: cc
-  real :: psi_ht            ! Gravitational water pressure, MPa
-  real :: psi_leaf,psi_stem
-  real :: Q_soil(max_lev) ! Soil to roots water flux (kg H2O/tree/step)
-  real :: k_rs(max_lev)   ! soil-root water conductance by soil layer
-  real :: dpsiRL(max_lev) ! pressure difference between root and leaf, MPa
-  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
-  real :: k_stem          ! The conductance of the tree at current conditions
-  real :: Q_plant  ! mm/s
-  real :: sumK, sumPK
-  integer :: i,j, layer
-  logical :: do_static_plant_water = .True.
-
-  ! Soil water parameters (psi and conductivity for each layer)
-  call soil_water_psi_K(vegn)
-
-  ! Updates plant water potentials, water fluxes and content
-  do j = 1, vegn%n_cohorts
-     cc => vegn%cohorts(j)
-     associate ( sp => spdata(cc%species) )
-     ! Calculate ! Water flux from stems to leaves
-     if(cc%leafarea <= 0.00001)then
-       cc%W_leaf = 0.0
-       cycle
-     endif
-
-     ! When cc%leafarea > 0
-     Q_plant = cc%transp   ! /step_seconds
-     k_stem  = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
-     psi_ht = 1000.0 * 9.8 * cc%height * 1.0e-6 ! MPa
-
-     psi_leaf = ((cc%psi_stem-psi_ht)*k_stem*step_seconds - Q_plant + cc%H_leaf*cc%psi_leaf)/ &
-                (            k_stem*step_seconds + cc%H_leaf)
-     cc%Q_leaf = (cc%psi_stem - psi_leaf - psi_ht) * k_stem * step_seconds
-     cc%W_leaf = cc%W_leaf + cc%Q_leaf - Q_plant
-     cc%W_stem = cc%W_stem - cc%Q_leaf
-     cc%psi_leaf = psi_leaf
-
-     ! Water fluxes from soil layers to stem base (and between soil layers via roots)
-     sumK  = 0.0
-     sumPK = 0.0
-     do i=1, max_lev
-       ! RAI(i) = cc%rootareaL(i)/cc%crownarea
-       ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
-       k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
-       !if(vegn%psi_soil(i)<cc%psi_stem) k_rs(i)=0.0
-       sumK = sumK + k_rs(i)
-       sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
-     enddo
-     psi_stem = (sumPK*step_seconds - cc%Q_leaf + cc%psi_stem*cc%H_stem)/ &
-                (sumK *step_seconds + cc%H_stem)
-
-     do i=1, max_lev ! Calculate water uptake layer by layer
-        Q_soil(i) =  k_rs(i) * (vegn%psi_soil(i) - psi_stem) * step_seconds
-        cc%W_stem = cc%W_stem + Q_soil(i)
-        cc%WupL(i) = Q_soil(i)
-     enddo
-     cc%psi_stem = psi_stem
-
-     !call Plant_water2psi(cc)
-
-     ! Water supply for the next step photosynthesis
-     !cc%W_supply = 0.05*sum(vegn%freewater(:))
-     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
-     cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
-                 + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
-     end associate
-  enddo
-
-end subroutine Plant_water_dynamics_linear
 
 !======================================================================
 subroutine soil_water_psi_K(vegn)
@@ -1678,12 +1678,15 @@ end function NewWoodWTC
 real function NewWoodKx(cc) result(Kx)
 !@sum calculate wood water conductivity (Kx), Ensheng Weng, 02/23/2022
     type(cohort_type),intent(in) :: cc
-
     !---------------------
     associate ( sp => spdata(cc%species))
       ! It has a big issue here: Kx should be scaling with tree height to
       ! keep psi_leaf independent of tree height
-      Kx = sp%Kx0 * (0.2 + cc%height)  ! (mm/s)/(MPa/m)
+      if (do_constant_kx)then
+        Kx = sp%Kx0
+      else
+        Kx = sp%Kx0 * (0.02 + cc%height)  ! (mm/s)/(MPa/m)
+      endif
 
     end associate
 end function NewWoodKx
