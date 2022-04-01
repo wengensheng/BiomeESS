@@ -159,6 +159,8 @@ type spec_data_type
   real    :: w0S_min ! stem minimum water/carbon ratio
   real    :: psi0_leaf ! minimum leaf water potential
   real    :: psi0_stem ! minimum stem wood potential
+  real    :: wood_psi50 !wood potential at which 50% conductivity lost, MPa
+  real    :: wood_Kexp  ! exponent of the PLC curve
 
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -254,6 +256,7 @@ type :: cohort_type
   real :: H_stem ! Stem capacitance, kgH2O MPa-1 (per tree)
   real :: W_leaf ! Leaf water content, kgH2O (per tree)
   real :: W_stem ! Stem water content, kgH2O (per tree)
+  real :: W_dead ! water storage in heartwood, just for balance counting.
   real :: Wmax_l ! Leaf max water content, kgH2O (per tree)
   real :: Wmax_s ! Stem max water content, kgH2O (per tree)
   real :: Wmin_l ! Leaf min water content, kgH2O (per tree)
@@ -357,17 +360,10 @@ type :: vegn_tile_type
 
    ! litter and soil carbon pools
    real :: litter = 0.0 ! litter flux
-   !real :: MicrobialC  = 0  ! Microbes (kg C/m2)
-   !real :: metabolicL  = 0  ! fast soil carbon pool, (kg C/m2)
-   !real :: structuralL = 0  ! slow soil carbon pool, (kg C/m2)
-   real :: fastSOC, fastSON, slowSOC, slowSON
    real :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
    real :: SON(5) = 0.
 
 !!  Nitrogen pools, Weng 2014-08-08
-   !real :: MicrobialN= 0
-   !real :: metabolicN = 0  ! fast soil nitrogen pool, (kg N/m2)
-   !real :: structuralN = 0  ! slow soil nitrogen pool, (kg N/m2)
    real :: mineralN = 0.  ! Mineral nitrogen pool, (kg N/m2)
    real :: totN = 0.
    real :: N_input        ! annual N input (kgN m-2 yr-1)
@@ -391,6 +387,12 @@ type :: vegn_tile_type
    real :: psi_soil(max_lev) ! MPa
    real :: K_soil(max_lev)   ! Kg H2O/(m2 s MPa)
    real :: soilWater      ! kg m-2 in root zone
+
+   ! Vegetation water
+   real :: W_stem
+   real :: W_dead
+   real :: W_leaf
+
 ! ---- water uptake-related variables
   real    :: RAI ! root area index
   real    :: RAIL(max_lev) = 0.0 ! Root length per layer, m of root/m
@@ -656,6 +658,8 @@ real :: w0L_max(0:MSPECIES)       = 18.0  ! leaf maximum water/carbon ratio ()
 real :: w0S_max(0:MSPECIES)       = 2.0   ! stem maximum water/carbon ratio
 real :: psi0_leaf(0:MSPECIES)     = -3.0  ! MPa
 real :: psi0_stem(0:MSPECIES)     = -1.5  ! MPa
+real :: wood_psi50(0:MSPECIES)    = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
+real :: wood_Kexp(0:MSPECIES)     = 2.0
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
@@ -898,6 +902,8 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%w0S_max      = w0S_max
   spdata%psi0_leaf    = psi0_leaf
   spdata%psi0_stem    = psi0_stem
+  spdata%wood_psi50   = wood_psi50
+  spdata%wood_Kexp    = wood_Kexp
 
   spdata%LAImax       = LAImax
   spdata%LAImax_u     = 1.2 ! LAImax
@@ -965,6 +971,9 @@ subroutine initialize_PFT_data(namelistfile)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
    ! Leaf thickness, m
    sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
+
+   ! wood_psi50
+   sp%wood_psi50 = 0.0 - 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
 
  end subroutine init_derived_species_data
 
