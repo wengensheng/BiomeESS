@@ -180,9 +180,10 @@ program BiomeESS
    call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
    !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    steps_per_day = int(24.0/timestep)
-   dt_fast_yr = 1.0/(365.0 * steps_per_day)
-   step_seconds = 24.0*3600.0/steps_per_day ! seconds_per_year * dt_fast_yr
-   write(*,*)steps_per_day,dt_fast_yr,step_seconds
+   dt_fast_yr = timestep/(365.0 * 24.0)
+   step_seconds = timestep*3600.0
+   write(*,*)'steps_per_day,dt_fast_yr,step_seconds', &
+              steps_per_day,dt_fast_yr,step_seconds
    ! total years of model run
    totyears = model_run_years
    totdays  = INT(totyears/yr_data+1)*days_data
@@ -232,7 +233,6 @@ program BiomeESS
         new_annual_cycle = ((year0 /= year1).OR. & ! new year
                 (idata == steps_per_day .and. simu_steps > datalines)) ! last line
         if(new_annual_cycle)then
-
             idoy = 0
             !call annual_calls(vegn)
             ! Update plant hydraulic states, for the last year
@@ -291,59 +291,70 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
   type(climate_data_type), pointer :: climateData(:)
   character(len=80)  commts
   integer, parameter :: niterms=9       ! MDK data for Oak Ridge input
-  integer, parameter :: ilines=22*366*24 ! the maxmum records of Oak Ridge FACE, 1999~2007
-  integer,dimension(ilines) :: year_data
-  real,   dimension(ilines) :: doy_data,hour_data
-  real input_data(niterms,ilines)
-  real inputstep
+
+  integer, allocatable :: doy_data(:),year_data(:)
+  real,    allocatable :: hour_data(:),input_data(:,:)
+  integer :: yr,dy
+  real    :: hr, clim(niterms)
+
   integer :: istat1,istat2,istat3
-  integer :: doy,idays
-  integer :: i,j,k
+  integer :: ndays,nyear
   integer :: m,n
+  integer :: totlines
 
+! Open forcing data
   climfile=trim(filepath_in)//trim(climfile)
-
-! open forcing data
   open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
-  write(*,*)istat2
-! skip 2 lines of input met data file
-  read(11,'(a160)') commts
-! read(11,'(a160)') commts ! MDK data only has one line comments
-  m       = 0  ! to record the lines in a file
-  idays   = 1  ! the total days in a data file
-  yr_data = 0 ! to record years of a dataset
-  do    ! read forcing files
-      m=m+1
-      read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
-                              (input_data(n,m),n=1,niterms)
-      if(istat3<0)exit
-      if(m == 1) then
-          doy = doy_data(m)
-      else
-          doy = doy_data(m-1)
-      endif
-      if(doy /= doy_data(m)) idays = idays + 1
-      !write(*,*)year_data(m),doy_data(m),hour_data(m)
-  enddo ! end of reading the forcing file
+  write(*,*)'istat2',istat2
 
+! Skip 1 line of input met data file
+  read(11,'(a160)') commts ! MDK data only has one line comments
+  ! Count total lines
+  totlines = 0  ! to record the lines in a file
+  do
+    read(11,*,IOSTAT=istat3)yr,dy !,hr,(clim(n),n=1,niterms)
+    if(istat3 < 0)exit
+    totlines = totlines + 1
+  enddo ! end of reading the forcing file
+  write(*,*)'total lines:',totlines
+
+  ! Allocate arrays for reading in data
+  allocate(doy_data(totlines),year_data(totlines),hour_data(totlines))
+  allocate(input_data(niterms,totlines))
+
+! Read forcing files
+  rewind 11
+  read(11,'(a160)') commts
+  ndays = 0 ! the total days in this data file
+  nyear = 0 ! the total years of this data file
+  dy    = -1  ! Initial value
+  yr    = -1
+  do m = 1, totlines
+    read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
+                        (input_data(n,m),n=1,niterms)
+    ! Count days
+    if(m > 1) then
+      dy = doy_data(m-1)
+      yr = year_data(m-1)
+    endif
+    if(dy /= doy_data(m)) ndays = ndays + 1
+    if(yr /= year_data(m))nyear = nyear + 1
+  enddo
+  ! Check fast time step
   timestep = hour_data(2) - hour_data(1)
-  write(*,*)"forcing",datalines,yr_data,timestep,dt_fast_yr
   if (timestep==1.0)then
       write(*,*)"the data freqency is hourly"
   elseif(timestep==0.5)then
       write(*,*)"the data freqency is half hourly"
   else
+      write(*,*)'hour data:',hour_data(1),hour_data(2),hour_data(3)
       write(*,*)"Please check time step!"
       stop
   endif
-  close(11)    ! close forcing file
-! Put the data into forcing
-  datalines = m - 1
-  days_data = idays
-  yr_data  = year_data(datalines-1) - year_data(1) + 1
 
-  allocate(climateData(datalines))
-  do i=1,datalines
+! Put the data into forcing
+  allocate(climateData(totlines))
+  do i=1,totlines
      climateData(i)%year      = year_data(i)          ! Year
      climateData(i)%doy       = doy_data(i)           ! day of the year
      climateData(i)%hod       = hour_data(i)          ! hour of the day
@@ -359,7 +370,12 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
   enddo
   forcingData => climateData
+  datalines = totlines
+  days_data = ndays
+  yr_data   = nyear
   write(*,*)"forcing", datalines,days_data,yr_data
+  close(11)    ! close forcing file
+  deallocate(doy_data,year_data,hour_data,input_data)
 end subroutine read_FACEforcing
 
 !=============================================================

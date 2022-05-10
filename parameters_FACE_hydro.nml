@@ -54,9 +54,10 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
 
 ! Model run
 filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
-climfile    = 'ORNL_forcing.txt'  ! 'US-Ha1forcing.txt' ! 'US-WCrforcing.txt' !   'CA-Manforcing.txt' !
-              ! 'CA-Manforcing.txt'   !  'US-WBWforcing.txt'
-              ! 'US-Dk1forcing.txt' ! CA-Obsforcing.txt
+climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'  ! 'US-Ha1forcing.txt'
+              ! 'US-WCrforcing.txt'   ! 'CA-Manforcing.txt' !
+              ! 'CA-Manforcing.txt'   ! 'US-WBWforcing.txt'
+              ! 'US-Dk1forcing.txt'
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
 model_run_years     =  200, ! 1600, ! 4800, 2400, 1200
 equi_days           =  0,
@@ -66,6 +67,6 @@ do_U_shaped_mortality = .True. ! .False. !
 update_annualLAImax =  .False. ! .True. !
 do_fire = .FALSE. ! .True.
 do_migration = .FALSE. ! .True.
-do_constant_kx = .False. ! .True. ! 
+do_constant_kx = .False. ! .True. !
 Sc_prcp = 1.0 ! 0.5 ! 0.25, ! 1/4 rainfall
 /

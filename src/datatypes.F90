@@ -44,7 +44,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
 ! Plant hydraulics-mortality
 real, public, parameter    :: m0_dbh = 12000.0 !  DBH-WTC0 scaling factor
 real, public, parameter    :: rho_cellwall = 1500.0 ! kg m-3, Kellogg & Wangaard 1969
-integer, public, parameter :: Ysw_max = 80 ! Maximum function years of xylems
+integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
 ! Soil water hydrualics
  real, public, parameter :: rzone = 2.0 !m
  real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
@@ -538,8 +538,8 @@ real :: f_N_add = 0.02 ! re-fill of N for sapwood
 
 ! Fire disturbance
 real :: envi_fire_prb = 0.5 ! fire probability due to environment
-real :: Ignition_G0 = 1.0 ! Ignition probability for woody plants once meets envi_fire_prb
-real :: Ignition_W0 = 0.025 ! Ignition probability for grasses and woody plants once meets envi_fire_prb
+real :: Ignition_G0 = 1.0   ! Ignition probability for grasses once meets envi_fire_prb
+real :: Ignition_W0 = 0.025 ! Ignition probability for woody plants once meets envi_fire_prb
 real :: m0_g_fire = 0.2  ! mortality rates of grasses due to fire
 real :: m0_w_fire = 0.99 ! mortality rates of trees adue to fire
 real :: r_BK0 = -240.0 ! -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark
@@ -1103,7 +1103,7 @@ end subroutine Zero_diagnostics
   ! NEP is equal to NNP minus soil respiration
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
   !! Output horly diagnostics
-  If(outputhourly .and. iday>equi_days .and. ihour==12) & ! .and. iday<equi_days+366
+  If(outputhourly .and. iday>equi_days .and. iday<equi_days+366 ) & !  .and. ihour==12
     write(fno1,'(3(I5,","),30(E11.4,","),25(F8.2,","))')  &
       iyears, idoy, ihour,      &
       forcing%radiation,    &
