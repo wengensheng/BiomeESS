@@ -9,7 +9,7 @@ module soil_mod
  private
 
 ! ------ public subroutines ---------
-public :: SoilWaterDynamicsLayer, water_supply_layer
+public :: SoilWaterDynamicsLayer, soil_water_uptake_supply
 public :: soil_data_beta
 
 !---------------------------------
@@ -33,54 +33,53 @@ contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 !========================================================================
 ! Weng 2017-10-18 ! compute available water for photosynthesis
-subroutine water_supply_layer(forcing, vegn)
-  type(climate_data_type),intent(in):: forcing
+!========================================================================
+! Calculate soil water uptake by plants and supply for transpiration
+subroutine soil_water_uptake_supply(vegn) ! forcing,
+  !type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
-  real :: fWup(max_lev)      ! fraction to the actual soil water
   real :: freewater(max_lev)
-  real :: totWsup(max_lev) ! potential water uptake, mol s-1 m-2
-  real :: psi_soil, psi_leaf, psi_stem, psi_root ! Pa, water potentials from soil to leaf
   real :: thetaS(max_lev) ! soil moisture index (0~1)
-  real :: dpsiSR(max_lev) ! pressure difference between soil water and root water, MPa
-  integer :: i,j, layer
+  real :: LayerTot(max_lev) ! potential water uptake, kg H2O s-1 m-2
+  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
+  real :: fWup(max_lev)      ! fraction to the actual soil water
+  integer :: i,j
 
-!! Plant hydraulics
-   psi_leaf = -2.31 *1.0e6 ! pa, Katul et al. 2003, for clay soil
-!! Water supply from each layer
+  ! Calculating soil water availability for transpiration in next step
   do i=1, max_lev ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0))
+     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
      thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
-     !Soil water pressure
-     psi_soil = soilpars(vegn%soiltype)%psi_sat_ref * &  ! Pa
-            ((vegn%FLDCAP/vegn%wcl(i))**soilpars(vegn%soiltype)%chb)! water retention curve
+     ! The difference of water potential between roots and soil
      dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
-     ! Layer allocation, water uptake capacity
-     totWsup(i) = 0.0 ! Potential water uptake per layer by all cohorts
+
+     ! Water uptake capacity
+     LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
-        associate ( sp => spdata(cc%species) )
-        cc%WupL(i) = cc%rootareaL(i)*sp%Kw_root*dpsiSR(i)*step_seconds ! kg H2O tree-1 step-1
-        totWsup(i) = totWsup(i) + cc%WupL(i) * cc%nindivs ! water uptake per layer by all cohorts
-        end associate
+        ! Potential water uptake per soil layer by all cohorts
+        cc%WupL(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
+        LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
      enddo
-     ! adjust cc%WupL(i) according to available water
+
+     ! Adjust cc%WupL(i) according to soil available water
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
-        if(totWsup(i)>0.0) &
-            fWup(i) = Min(0.25 * freewater(i) / totWsup(i),1.0)! ratio of available soil water
+        if(LayerTot(i)>0.0) &
+            fWup(i) = Min(0.2 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
         cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
      enddo ! cohort for each layer
   enddo    ! all layers
 
-! total water suplly for each cohort
+! total water suplly for next step's transpiration
   do j = 1, vegn%n_cohorts
      cc => vegn%cohorts(j)
      cc%W_supply = sum(cc%WupL(:))
   enddo
- end subroutine water_supply_layer
+
+end subroutine soil_water_uptake_supply
 
 ! ============================================================================
 ! Weng, 2017-10-27

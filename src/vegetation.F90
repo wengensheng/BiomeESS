@@ -1140,7 +1140,6 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   real :: Q_plant  ! mm/s
   real :: sumK, sumPK
   integer :: i,j, layer
-  logical :: do_static_plant_water = .True.
 
   ! Soil water parameters (psi and conductivity for each layer)
   call soil_water_psi_K(vegn)
@@ -1392,54 +1391,6 @@ subroutine soil_water_psi_K(vegn)
 end subroutine soil_water_psi_K
 
 !========================================================================
-! Calculate soil water uptake by plants and supply for transpiration
-subroutine soil_water_uptake_supply(vegn) ! forcing,
-  !type(climate_data_type),intent(in):: forcing
-  type(vegn_tile_type), intent(inout) :: vegn
-
-!----- local var --------------
-  type(cohort_type),pointer :: cc
-  real :: freewater(max_lev)
-  real :: thetaS(max_lev) ! soil moisture index (0~1)
-  real :: LayerTot(max_lev) ! potential water uptake, kg H2O s-1 m-2
-  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
-  real :: fWup(max_lev)      ! fraction to the actual soil water
-  integer :: i,j
-
-  ! Calculating soil water availability for transpiration in next step
-  do i=1, max_lev ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
-     thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
-     ! The difference of water potential between roots and soil
-     dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
-
-     ! Water uptake capacity
-     LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
-     do j = 1, vegn%n_cohorts
-        cc => vegn%cohorts(j)
-        ! Potential water uptake per soil layer by all cohorts
-        cc%WupL(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
-        LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
-     enddo
-
-     ! Adjust cc%WupL(i) according to soil available water
-     do j = 1, vegn%n_cohorts
-        cc => vegn%cohorts(j)
-        if(LayerTot(i)>0.0) &
-            fWup(i) = Min(0.2 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
-        cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
-     enddo ! cohort for each layer
-  enddo    ! all layers
-
-! total water suplly for next step's transpiration
-  do j = 1, vegn%n_cohorts
-     cc => vegn%cohorts(j)
-     cc%W_supply = sum(cc%WupL(:))
-  enddo
-
-end subroutine soil_water_uptake_supply
-
-!========================================================================
 ! Weng 2022-02-16 ! Compute water flux via tree trunk (i.e., soil-trunk-leaves)
 subroutine Plant_water_dynamics_equi(vegn) ! forcing,
   !type(climate_data_type),intent(in):: forcing
@@ -1456,7 +1407,6 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
   real :: k_stem          ! actual conductance of the whole tree
   real :: dW_L,dW_S  ! water demand of leaves and stems  ! mm/s
   integer :: i,j, layer
-  logical :: do_static_plant_water = .True.
 
   ! Soil water parameters (psi and conductivity for each layer)
   call soil_water_psi_K(vegn)
