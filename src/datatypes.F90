@@ -1072,10 +1072,11 @@ end subroutine Zero_diagnostics
 
 !=========================================================================
 ! Hourly fluxes sum to daily
- subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday,fno1)
+ subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday,fno1,fno2)
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
-  integer, intent(in) :: iyears,idoy,ihour,iday,fno1
+  integer, intent(in) :: iyears,idoy,ihour,iday
+  integer, intent(in) :: fno1, fno2
 
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
@@ -1102,9 +1103,20 @@ end subroutine Zero_diagnostics
   enddo
   ! NEP is equal to NNP minus soil respiration
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
+
   !! Output horly diagnostics
-  If(outputhourly .and. iday>equi_days .and. iday<equi_days+366 ) & !  .and. ihour==12
-    write(fno1,'(3(I5,","),30(E11.4,","),25(F8.2,","))')  &
+  If(outputhourly .and. iday>equi_days .and. iday<equi_days+366 ) then !  .and. ihour==12
+    write(fno1,'(4(I8,","))')vegn%n_cohorts
+    do i = 1, vegn%n_cohorts
+        cc => vegn%cohorts(i)
+        write(fno1,'(6(I8,","),40(F12.4,","))')           &
+          iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,  &
+          cc%nindivs*10000,cc%dbh,cc%height,cc%crownarea, &
+          cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,           &
+          cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_stem
+    enddo
+    ! Hourly tile
+    write(fno2,'(3(I5,","),30(E12.4,","),25(F12.4,","))')  &
       iyears, idoy, ihour,      &
       forcing%radiation,    &
       forcing%Tair,         &
@@ -1112,9 +1124,13 @@ end subroutine Zero_diagnostics
       vegn%GPP,vegn%resp,vegn%transp,  &
       vegn%evap,vegn%runoff,vegn%soilwater, &
       vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2), &
-      vegn%cohorts(1)%bl,vegn%cohorts(1)%psi_leaf,vegn%cohorts(1)%psi_stem, & !vegn%FLDCAP,vegn%WILTPT
-      vegn%cohorts(1)%W_leaf,vegn%cohorts(1)%W_stem,vegn%cohorts(1)%transp
-
+      vegn%cohorts(1)%bl,       &
+      vegn%cohorts(1)%psi_leaf, &
+      vegn%cohorts(1)%psi_stem, & !vegn%FLDCAP,vegn%WILTPT
+      vegn%cohorts(1)%W_leaf,   &
+      vegn%cohorts(1)%W_stem,   &
+      vegn%cohorts(1)%transp
+  endif
   ! Daily summary:
   vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
   vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
@@ -1222,7 +1238,6 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     real :: plantC, plantN, soilC, soilN
     integer :: i,j
 
-    write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*,'(1(a6,","),2(a4,","),25(a8,","))')    &
             'cID','PFT','L', 'n',                    &
@@ -1230,6 +1245,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             'NSC', 'NSN', 'GPP','NPP', 'mu','Asap','Ktree'
 
     ! Cohotrs ouput
+    write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
         treeG = cc%seedC + cc%NPPleaf + cc%NPProot + cc%NPPwood
@@ -1238,15 +1254,16 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         froot = cc%NPProot/treeG
         fwood = cc%NPPwood/treeG
         dDBH = (cc%DBH   - cc%DBH_ys)*1000.
-        write(f1,'(1(I7,","),2(I4,","),1(F9.1,","),50(E12.4,","))')    &
-            cc%ccID,cc%species,cc%layer,                        &
-            cc%nindivs*10000, cc%layerfrac,dDBH,                &
+        write(f1,'(4(I8,","),1(F9.1,","),300(E12.4,","))') &
+            iyears,cc%ccID,cc%species,cc%layer,                &
+            cc%nindivs*10000, cc%layerfrac,dDBH,               &
             cc%dbh,cc%height,cc%crownarea,                     &
             cc%bsw+cc%bHW,cc%nsc,cc%NSN,                       &
             treeG,fseed, fleaf, froot, fwood,                  &
             cc%annualGPP,cc%annualNPP,                         &
             cc%annualNup,cc%annualfixedN,                      &
-            cc%mu,cc%Asap,cc%Ktrunk
+            cc%mu,cc%Asap,cc%Ktrunk,(cc%farea(j), j=1,Ysw_max)
+
         ! Screen output
         write(*,'(1(I6,","),2(I4,","),1(F8.1,","),25(F8.2,","))')    &
             cc%ccID,cc%species,cc%layer,                       &

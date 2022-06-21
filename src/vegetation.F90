@@ -53,7 +53,7 @@ public :: vegn_gap_fraction_update
     !call plant_water_dynamics_Xiangtao(vegn) ! Xiangtao's model
 #else
     ! Water supply for photosynthesis from soil layers
-    call water_supply_layer(forcing, vegn)
+    call soil_water_uptake_supply(vegn)
 #endif
 
   ! Photosynsthesis
@@ -211,7 +211,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   ! ---- local vars
   ! photosynthesis
   real :: vm
-  real :: kc,ko ! Michaelis-Menten constants for CO2 and O2, respectively
+  real :: kc,ko  ! Michaelis-Menten constants for CO2 and O2, respectively
   real :: ci
   real :: capgam ! CO2 compensation point
   real :: f2,f3
@@ -1107,17 +1107,6 @@ subroutine vegn_hydraulic_states(vegn, deltat)
    end associate
 enddo
 
-  !----- Temporary output
-  !write(933,*)vegn%n_cohorts
-  !do i = 1, vegn%n_cohorts
-     i=1
-     cc => vegn%cohorts(i)
-     write(933,'(2(I7,","),250(E12.4,","))')    &
-            cc%ccID,cc%species,cc%nindivs*10000, &
-            cc%DBH,cc%height,cc%Asap,cc%Ktrunk,  &
-            !(cc%accH(k)/1000.,k=1,Ysw_max),               &
-            (cc%farea(k), k=1,Ysw_max)
-  !enddo
 #endif
 
 end subroutine vegn_hydraulic_states
