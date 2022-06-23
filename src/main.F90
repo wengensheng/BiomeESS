@@ -78,8 +78,6 @@ program BiomeESS
    real    :: dDBH ! yearly growth of DBH, mm
    real    :: plantC,plantN, soilC, soilN
    real    :: dSlowSOM  ! for multiple tests only
-   character(len=150) :: YearlyCohort,DailyCohort,HourlyCohort           ! Output file names
-   character(len=150) :: YearlyPatch, DailyPatch, HourlyPatch  ! output file names
    logical :: new_annual_cycle
    integer :: istat1,istat2,istat3
    integer :: year0, year1, iyears
@@ -87,103 +85,33 @@ program BiomeESS
    integer :: totyears, totdays
    integer :: i, j, k, idays, idoy
    integer :: simu_steps,idata
-   character(len=50) :: filepath_out,filesuffix
+   character(len=50) :: fpath_out
    character(len=50) :: parameterfile(10),chaSOM(10)
    character(len=50) :: runID
-   character(len=50) :: namelistfile  ! = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !
-                                       !   'parameters_WC_biodiversity.nml'
+   character(len=50) :: fnamelist  ! = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !
+                                  !   'parameters_WC_biodiversity.nml'
    integer :: timeArray(3)
 
-#ifdef Hydro_test
-   runID = 'BCI_hydro' !
-#else
-   runID = 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub' !  'OR_GAPLUE' !  'FACE_hydro' !
-#endif
+   runID = 'BCI_hydro' ! 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub'
+                       !  'OR_GAPLUE' !  'FACE_hydro' !
 
-   namelistfile = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
+   fnamelist = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
     !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
    ! call random_seed()
    call itime(timeArray)     ! Get the current time
-   i = rand ( timeArray(1)+timeArray(2)+timeArray(3) )
+   i = rand(timeArray(1)+timeArray(2)+timeArray(3) )
+
    ! create output files
-   filepath_out='output/'
-   filesuffix   = '_'//trim(runID)//'.csv' ! tag for simulation experiments
-   HourlyCohort = trim(filepath_out)//'Cohort_hourly'//trim(filesuffix)   ! hourly
-   HourlyPatch  = trim(filepath_out)//'Patch_hourly'//trim(filesuffix)    ! hourly
-   DailyCohort  = trim(filepath_out)//'Cohort_daily'//trim(filesuffix)    ! daily
-   DailyPatch   = trim(filepath_out)//'Patch_daily'//trim(filesuffix)     ! Daily
-   YearlyCohort = trim(filepath_out)//'Cohort_yearly'//trim(filesuffix)   ! Yearly
-   YearlyPatch  = trim(filepath_out)//'Patch_yearly'//trim(filesuffix)    ! Yearly
-
-   fno1=91; fno2=92; fno3=103; fno4=104; fno5=105; fno6=106
-
-   open(fno1,file=trim(HourlyCohort),ACTION='write', IOSTAT=istat1)
-   open(fno2,file=trim(HourlyPatch), ACTION='write', IOSTAT=istat1)
-   open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
-   open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
-   open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
-   open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
-
-   ! header
-   write(fno1,'(5(a8,","),30(a12,","))')        &       ! Hourly cohort
-        'year','doy','hour','cID','sp','layer', &
-        'density','dbh','height','Acrown',      &
-        'bl','LAI','GPP', 'NPP', 'Transp',      &
-        'Psi_L','Psi_W','W_leaf','W_stem'
-
-   write(fno2,'(5(a8,","),30(a12,","))')      &       ! Hourly tile
-        'year','doy','hour','rad',            &
-        'Tair','Prcp', 'GPP', 'Resp',         &
-        'Transp','Evap','Runoff','Soilwater', &
-        'wcl', 'psi_soil','k_soil',           &
-        'bl','Psi_L','Psi_W','W_leaf','W_stem','Transp'
-
-
-   write(fno3,'(9(a6,","),45(a8,","))')               &  ! Daily cohort
-        'year','doy','hour','cID','PFT','layer',      &
-        'Pheno','ndm','ncd','density','flayer','LAI', &
-        'gpp','resp','transp','NPPL','NPPR','NPPW',   &
-        'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
-        'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
-        'GDD','ALT'
-
-   write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &  ! Daily tile
-        'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &
-        'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
-        'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
-        'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
-        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
-        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
-        'mineralN', 'N_uptk','Kappa'
-
-   write(fno5,'(3(a5,","),30(a9,","))')            &    ! Yearly cohort
-        'yr','cID','PFT','layer','density','f_L',  &
-        'dDBH','dbh','height','Acrown',            &
-        'wood','nsc', 'NSN','NPPtr','seed',        &
-        'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
-        'N_uptk','N_fix','mu','Asap','Ktree',      &
-        'farea1','farea2','farea3','farea4','farea5'
-
-   write(fno6,'(1(a5,","),80(a12,","))')  'year',         &  ! Yearly tile
-        'CAI','LAI','treecover', 'grasscover',            &
-        'GPP', 'Rauto', 'Rh', 'burned',                   &
-        'rain','SiolWater','Transp','Evap','Runoff',      &
-        'plantC', 'soilC', 'plantN', 'soilN', 'totN',     &
-        'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',   &
-        'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',   &
-        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
-        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
-        'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S',  &
-        'N_loss','seedC','seedN','Seedling-C','Seedling-N'
-
+   fpath_out='output/'
+   call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
 
    ! Parameter initialization: Initialize soil and PFT parameters
-   call initialize_soilpars(namelistfile)
-   call initialize_PFT_data(namelistfile)
+   call initialize_soilpars(fnamelist)
+   call initialize_PFT_data(fnamelist)
 
    ! Initialize vegetation tile and plant cohorts
    allocate(vegn)
-   call initialize_vegn_tile(vegn,nCohorts,namelistfile)
+   call initialize_vegn_tile(vegn,nCohorts,fnamelist)
    ! Sort and relayer cohorts
    call relayer_cohorts(vegn)
    call Zero_diagnostics(vegn)
@@ -250,7 +178,7 @@ program BiomeESS
             ! Update plant hydraulic states, for the last year
             call vegn_hydraulic_states(vegn,real(seconds_per_year))
             call annual_diagnostics(vegn,iyears,fno5,fno6)
-#ifndef Hydro_test
+!#ifndef Hydro_test
             ! For the incoming year
             if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
             ! N is losing after changing the soil pool structure. Hack !!!!!
@@ -263,7 +191,7 @@ program BiomeESS
             call vegn_reproduction(vegn)
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
-#endif
+!#endif
 
             call kill_lowdensity_cohorts(vegn)
 
@@ -476,6 +404,87 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
   write(*,*)"forcing", datalines,days_data,yr_data
 
 end subroutine read_NACPforcing
+
+!=========== Write output file header ====================
+subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
+  character(len=50),intent(in):: runID,fpath
+  integer,intent(inout):: fno1,fno2,fno3,fno4,fno5,fno6
+
+  ! ----------Local vars ------------
+  character(len=150) :: YearlyCohort,DailyCohort,HourlyCohort ! Output file names
+  character(len=150) :: YearlyPatch, DailyPatch, HourlyPatch  ! output file names
+  character(len=50)  :: filesuffix
+
+   ! File path and names
+   filesuffix   = '_'//trim(runID)//'.csv' ! tag for simulation experiments
+   HourlyCohort = trim(fpath)//'Cohort_hourly'//trim(filesuffix)   ! hourly
+   HourlyPatch  = trim(fpath)//'Patch_hourly'//trim(filesuffix)    ! hourly
+   DailyCohort  = trim(fpath)//'Cohort_daily'//trim(filesuffix)    ! daily
+   DailyPatch   = trim(fpath)//'Patch_daily'//trim(filesuffix)     ! Daily
+   YearlyCohort = trim(fpath)//'Cohort_yearly'//trim(filesuffix)   ! Yearly
+   YearlyPatch  = trim(fpath)//'Patch_yearly'//trim(filesuffix)    ! Yearly
+
+   ! Open files
+   fno1=91; fno2=92; fno3=103; fno4=104; fno5=105; fno6=106
+   open(fno1,file=trim(HourlyCohort),ACTION='write', IOSTAT=istat1)
+   open(fno2,file=trim(HourlyPatch), ACTION='write', IOSTAT=istat1)
+   open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
+   open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
+   open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
+   open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
+
+   ! Add file header
+   write(fno1,'(5(a8,","),30(a12,","))')        &       ! Hourly cohort
+        'year','doy','hour','cID','sp','layer', &
+        'density','dbh','height','Acrown',      &
+        'bl','LAI','GPP', 'NPP', 'Transp',      &
+        'Psi_L','Psi_W','W_leaf','W_stem'
+
+   write(fno2,'(5(a8,","),30(a12,","))')      &       ! Hourly tile
+        'year','doy','hour','rad',            &
+        'Tair','Prcp', 'GPP', 'Resp',         &
+        'Transp','Evap','Runoff','Soilwater', &
+        'wcl', 'psi_soil','k_soil',           &
+        'bl','Psi_L','Psi_W','W_leaf','W_stem','Transp'
+
+   write(fno3,'(9(a6,","),45(a8,","))')               &  ! Daily cohort
+        'year','doy','hour','cID','PFT','layer',      &
+        'Pheno','ndm','ncd','density','flayer','LAI', &
+        'gpp','resp','transp','NPPL','NPPR','NPPW',   &
+        'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
+        'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+        'GDD','ALT'
+
+   write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &  ! Daily tile
+        'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &
+        'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
+        'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
+        'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
+        'mineralN', 'N_uptk','Kappa'
+
+   write(fno5,'(3(a5,","),30(a9,","))')            &    ! Yearly cohort
+        'yr','cID','PFT','layer','density','f_L',  &
+        'dDBH','dbh','height','Acrown',            &
+        'wood','nsc', 'NSN','NPPtr','seed',        &
+        'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
+        'N_uptk','N_fix','mu','Asap','Ktree',      &
+        'farea1','farea2','farea3','farea4','farea5'
+
+   write(fno6,'(1(a5,","),80(a12,","))')  'year',         &  ! Yearly tile
+        'CAI','LAI','treecover', 'grasscover',            &
+        'GPP', 'Rauto', 'Rh', 'burned',                   &
+        'rain','SiolWater','Transp','Evap','Runoff',      &
+        'plantC', 'soilC', 'plantN', 'soilN', 'totN',     &
+        'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',   &
+        'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',   &
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
+        'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S',  &
+        'N_loss','seedC','seedN','Seedling-C','Seedling-N'
+
+end subroutine set_up_output_files
 
 !===========for netcdf IO ============================
 #ifdef USE_NETCDF

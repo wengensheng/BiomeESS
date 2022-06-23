@@ -1055,7 +1055,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         ! Make sure ring area calculation is correct.
         cc%Aring(k) = PI * Max(0.0,cc%Rring(k)**2 - (cc%DBH_ys/2.)**2)
      else
-        cc%Aring(k) = PI * cc%Rring(k)**2
+        cc%Aring(k) = PI * cc%Rring(k)**2 ! Only for the first year
      endif
 
      ! Heartwood D and Functional area (i.e., sapwood area)
@@ -2833,11 +2833,14 @@ subroutine merge_cohorts(c1,c2)
   type(cohort_type), intent(inout) :: c2
 
   real :: x1, x2 ! normalized relative weights
-  real :: btot
+  real :: btot, c2H, c2DBH
+  integer :: i
 
   if(c1%nindivs > 0.0 .or. c2%nindivs > 0.0)then
      x1 = c1%nindivs/(c1%nindivs+c2%nindivs)
      x2 = c2%nindivs/(c1%nindivs+c2%nindivs)
+     c2DBH = c2%dbh
+     c2H   = c2%height
 
   ! update number of individuals in merged cohort
      c2%nindivs = c1%nindivs + c2%nindivs
@@ -2866,11 +2869,35 @@ subroutine merge_cohorts(c1,c2)
      c2%W_stem  = x1*c1%W_stem  + x2*c2%W_stem
      c2%W_dead  = x1*c1%W_dead  + x2*c2%W_dead
 
-  !   Allometry recalculation
+     ! Allometry recalculation
      btot = c2%bsw + c2%bHW
      call Wood2Architecture(c2,btot)
      call calc_second_vars(c2)
      call plant_water2psi(c2)
+
+     ! Reset tree rings' hydraulics
+     c2%Kx    = x1*c1%Kx    + x2*c2%Kx
+     c2%WTC0  = x1*c1%WTC0  + x2*c2%WTC0
+     c2%totW  = x1*c1%totW  + x2*c2%totW
+     c2%accH  = x1*c1%accH  + x2*c2%accH
+     c2%farea = x1*c1%farea + x2*c2%farea
+
+     ! Recalculate ring variables
+     c2%Rring   = c2%Rring * c2%dbh/c2DBH
+     c2%Lring   = c2%Lring * c2%height/c2H
+     do i=2,MIN(c2%Nrings, Ysw_max)
+       if (c2%Rring(i)>c2%Rring(i-1)) then
+         c2%Aring(i) = PI*(c2%Rring(i)**2 - c2%Rring(i-1)**2)
+       endif
+     enddo
+
+     ! Update tree trunk sapwood area and conductance
+     c2%Asap = 0.0
+     c2%Ktrunk = 0.0
+     do i=1, MIN(c2%Nrings, Ysw_max)
+        c2%Asap   = c2%Asap   + c2%farea(i)*c2%Aring(i)
+        c2%Ktrunk = c2%Ktrunk + c2%farea(i)*c2%Aring(i)*c2%Kx(i)/c2%Lring(i)
+     enddo
 
   endif
 end subroutine merge_cohorts
