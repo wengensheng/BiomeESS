@@ -15,9 +15,8 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
 ! ---- public variables ---------
  public :: forcingData,spdata, soilpars
  ! parameters
- public :: MaxCohortID, &
-    K0SOM, f_M2SOM, &
-    K_nitrogen, fDON, rho_SON, etaN,  &
+ public :: MaxCohortID, diff_S0, &
+    K0SOM, f_M2SOM, K_nitrogen, fDON, rho_SON, etaN,  &
     fsc_fine, fsc_wood,  &
     GR_factor,  l_fract, retransN, f_initialBSW, &
     ! fire model
@@ -33,21 +32,22 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  real,    public, parameter :: seconds_per_day = 24. * 3600.
 
  real,    public, parameter :: PI = 3.1415926
- integer, public, parameter :: MSPECIES = 15, Nsoiltypes = 7
+ integer, public, parameter :: MSPECIES = 15
+ integer, public, parameter :: Nsoiltypes = 7
  integer, public, parameter :: n_dim_soil_types = 9
- integer, public, parameter :: max_lev  = 3 ! Soil layers, for soil water dynamics
- integer, public, parameter :: num_l    = 3 ! Soil layers,
  integer, public, parameter :: LEAF_ON  = 1
  integer, public, parameter :: LEAF_OFF = 0
  real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
-real, public, parameter    :: m0_dbh = 12000.0 !  DBH-WTC0 scaling factor
-real, public, parameter    :: rho_cellwall = 1500.0 ! kg m-3, Kellogg & Wangaard 1969
+real, public, parameter    :: m0_dbh = 16.0 !  DBH-WTC0 scaling factor, 12000/300 = 40
+real, public, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
 integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
 ! Soil water hydrualics
- real, public, parameter :: rzone = 2.0 !m
- real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5/) ! m, thickness of soil layers
+ integer, public, parameter :: max_lev = 5 ! Soil layers, for soil water dynamics
+ integer, public, parameter :: num_l   = max_lev ! Soil layers,
+ real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5,1.5,1.5/) ! m, thickness of soil layers
+ real, public, parameter :: rzone = sum(thksl) !m
  real, public, parameter :: psi_wilt  = -150.0  ! matric head at wilting
  real, public, parameter :: K_rel_min = 1.e-12
  real, public, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d drainage rate at FC
@@ -61,6 +61,7 @@ integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
                     FrittedClay = 5, &
                     Loam        = 6, &
                     Clay        = 7
+
  ! Vegetation types
  integer, public, parameter :: & ! phenology type
  PHEN_DECIDIOUS = 0, &
@@ -120,6 +121,7 @@ type spec_data_type
   real    :: CNleafsupport! leaf structural tissues, 175
   real    :: leaf_size    ! characteristic leaf size
   real    :: leafTK      ! leaf thickness, m
+  real    :: rho_leaf     ! leaf mass density (kgC/m3)
   real    :: alpha_phot   ! photosynthesis efficiency
   real    :: m_cond       ! factor of stomatal conductance
   real    :: Vmax         ! max rubisco rate, mol m-2 s-1
@@ -270,7 +272,7 @@ type :: cohort_type
   real :: dW_stem  = 0.d0 ! water demand due to stem growth
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
-  real :: Asap ! Functional cross sectional area
+  real :: Asap1, Asap ! Functional cross sectional area
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
   real :: totW(Ysw_max) = 0.0 ! m, total water transport for each ring
@@ -558,6 +560,9 @@ real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_m
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 
+! Cohort management
+real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
+
 ! Phenology parameters
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
 real :: T0_gdd   = 273.15 + 5.0 ! 5.d0
@@ -688,7 +693,7 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CNleafsupport, c_LLS,      &
-  K0SOM, f_M2SOM,  &
+  diff_S0, K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
   GR_factor, l_fract, retransN, f_N_add,  &
@@ -759,15 +764,16 @@ character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer   :: model_run_years = 100
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
-integer   :: equi_days       = 0 ! 100 * 365
-logical   :: outputhourly = .False.
-logical   :: outputdaily  = .True.
-logical   :: do_U_shaped_mortality = .False.
-logical   :: update_annualLAImax = .False.
-logical   :: do_migration = .False.
-logical   :: do_fire = .False.
-logical   :: do_closedN_run = .True. !.False.
-logical   :: do_constant_kx = .True. ! trunk new xylem has the same kx or not
+integer  :: equi_days       = 0 ! 100 * 365
+logical  :: outputhourly = .False.
+logical  :: outputdaily  = .True.
+logical  :: do_U_shaped_mortality = .False.
+logical  :: update_annualLAImax = .False.
+logical  :: do_migration = .False.
+logical  :: do_fire = .False.
+logical  :: do_closedN_run = .True. !.False.
+logical  :: do_VariedKx   = .False. ! trunk new xylem has the same kx or not
+logical  :: do_VariedWTC0 = .True.
 
 namelist /initial_state_nml/ &
     init_n_cohorts, init_cohort_species, init_cohort_nindivs, &
@@ -779,7 +785,7 @@ namelist /initial_state_nml/ &
     outputhourly, outputdaily, equi_days, &
     do_U_shaped_mortality,update_annualLAImax, &
     do_fire, do_migration, Sc_prcp, &
-    do_closedN_run,do_constant_kx
+    do_closedN_run,do_VariedKx,do_variedWTC0
 !---------------------------------
 
  contains
@@ -939,6 +945,7 @@ subroutine initialize_PFT_data(namelistfile)
    integer :: i,j
    real :: rdepth(0:max_lev)
    real :: residual
+   real :: WDref = 300.0 ! Reference wood density, 300 KgC m-3
 
    ! specific root area
    sp%SRA = 2.0/(sp%root_r*sp%rho_FR) ! m2/kgC
@@ -972,10 +979,17 @@ subroutine initialize_PFT_data(namelistfile)
 !  Leaf turnover rate, (leaf longevity as a function of LMA)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
    ! Leaf thickness, m
-   sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
-
-   ! wood_psi50
-   sp%wood_psi50 = 0.0 - 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+   !sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
+   sp%leafTK = 0.003 * SQRT(sp%LMA)
+   sp%rho_leaf = sp%LMA/sp%leafTK
+   sp%w0L_max = 1000.0/sp%rho_leaf - 1000./rho_cellwall ! 18.0  ! leaf max. water/carbon ratio
+   ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
+   sp%kx0 = 5.0 * WDref/sp%rho_wood  ! (mm/s)/(Mpa/m)
+   sp%WTC0 = 1200. * (sp%rho_wood/WDref)**1.5
+   sp%w0S_max = 1000.0/sp%rho_wood - 1000./rho_cellwall ! 2.0   ! stem max. water/carbon ratio
+   sp%H0_stem = 1000. * (1.-sp%rho_wood/rho_cellwall) & ! Full water content per m3 wood !820.0 - 1.6 * sp%rho_wood
+              * 0.35*(sp%rho_wood/WDref)**(-1.67)       ! Compress ratio per MPa, Santiago et al. 2018
+   sp%wood_psi50 = -1.09 - 1.475 * (sp%rho_wood/WDref) ** 1.73 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
 
  end subroutine init_derived_species_data
 
@@ -1240,9 +1254,9 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     write(*,'(1(a6,","),2(a4,","),25(a8,","))')    &
-            'cID','PFT','L', 'n',                    &
-            'f_CA','dDBH', 'DBH','Height','Acrown',  &
-            'NSC', 'NSN', 'GPP','NPP', 'mu','Asap','Ktree'
+            'cID','PFT','L', 'n',                   &
+            'f_CA','dDBH','DBH','Height','Acrown',  &
+            'NSC','NSN','GPP','NPP','mu','Asap','Ktree'
 
     ! Cohotrs ouput
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -1253,24 +1267,24 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
         fleaf = cc%NPPleaf/treeG
         froot = cc%NPProot/treeG
         fwood = cc%NPPwood/treeG
-        dDBH = (cc%DBH   - cc%DBH_ys)*1000.
-        write(f1,'(4(I8,","),1(F9.1,","),300(E12.4,","))') &
-            iyears,cc%ccID,cc%species,cc%layer,                &
-            cc%nindivs*10000, cc%layerfrac,dDBH,               &
-            cc%dbh,cc%height,cc%crownarea,                     &
-            cc%bsw+cc%bHW,cc%nsc,cc%NSN,                       &
-            treeG,fseed, fleaf, froot, fwood,                  &
-            cc%annualGPP,cc%annualNPP,                         &
-            cc%annualNup,cc%annualfixedN,                      &
-            cc%mu,cc%Asap,cc%Ktrunk,(cc%farea(j), j=1,Ysw_max)
+        dDBH  = (cc%DBH - cc%DBH_ys) * 1000.
+        write(f1,'(4(I8,","),300(E15.4,","))')           &
+            iyears,cc%ccID,cc%species,cc%layer,          &
+            cc%nindivs*10000, cc%layerfrac,dDBH,         &
+            cc%dbh,cc%height,cc%crownarea,               &
+            cc%bsw+cc%bHW,cc%nsc,cc%NSN,                 &
+            treeG,fseed,fleaf,froot,fwood,               &
+            cc%annualGPP,cc%annualNPP,                   &
+            cc%annualNup,cc%annualfixedN,cc%mu,          &
+            cc%Asap,cc%Ktrunk,(cc%farea(j),j=1,Ysw_max)
 
         ! Screen output
-        write(*,'(1(I6,","),2(I4,","),1(F8.1,","),25(F8.2,","))')    &
-            cc%ccID,cc%species,cc%layer,                       &
-            cc%nindivs*10000, cc%layerfrac,  &
-            dDBH, cc%dbh,cc%height,cc%crownarea,               &
+        write(*,'(1(I6,","),2(I4,","),30(F8.2,","))') &
+            cc%ccID,cc%species,cc%layer,         &
+            cc%nindivs*10000, cc%layerfrac,      &
+            dDBH, cc%dbh,cc%height,cc%crownarea, &
             cc%nsc,cc%NSN*1000,                  &
-            cc%annualGPP, cc%annualNPP,    &
+            cc%annualGPP, cc%annualNPP,          &
             cc%mu,cc%Asap,cc%Ktrunk
     enddo
 

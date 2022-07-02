@@ -211,11 +211,13 @@ program BiomeESS
    enddo
 
    !deallocate(cc)
-   close(91)
-   close(101)
-   close(102)
-   close(103)
-   close(104)
+   close(fno1)
+   close(fno2)
+   close(fno3)
+   close(fno4)
+   close(fno5)
+   close(fno6)
+
    deallocate(vegn%cohorts)
    deallocate(forcingData)
 

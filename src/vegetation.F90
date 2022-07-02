@@ -672,7 +672,7 @@ subroutine fetch_CN_for_growth(cc)
         cc%crownarea = cc%crownarea + dCA
 
 !       Update secondary plant states
-        call calc_second_vars(cc)
+        call derived_cc_vars(cc)
         if(cc%firstday)then
           cc%psi_stem = maxval(vegn%psi_soil(:))
           cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
@@ -724,7 +724,7 @@ subroutine fetch_CN_for_growth(cc)
            cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
         endif ! for grasses
         ! Plant water status update
-        call calc_second_vars(cc)
+        call derived_cc_vars(cc)
         call Plant_water2psi(cc)
      elseif(cc%status == LEAF_OFF .and. cc%C_growth > 0.)then
         cc%nsc = cc%nsc + cc%C_growth
@@ -1093,15 +1093,15 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         woodC  = cc%bsw   + cc%bHW
         woodN  = cc%sapwN + cc%woodN
         dSW    = MIN(woodC, sp%alphaBM * D_hw**sp%thetaBM) - cc%bHW
-        cc%W_stem = cc%W_stem * (1.0 - dSW/cc%bSW)
-        cc%W_dead = cc%W_stem * dSW/cc%bSW
+        cc%W_stem = cc%W_stem - cc%W_stem * dSW/cc%bSW
+        cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
         cc%bHW    = cc%bHW + dSW
         cc%bsw    = woodC - cc%bHW
 
         cc%sapwN = woodN * cc%bsw/woodC
         cc%woodN = woodN * cc%bHW/woodC
         ! Update other variables
-        call calc_second_vars(cc)
+        call derived_cc_vars(cc)
         call plant_water2psi(cc)
      endif
    end associate
@@ -1179,6 +1179,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      !call Plant_water2psi(cc)
 
      ! Water supply for the next step photosynthesis
+     ! This is for the stomata conductance.
      !cc%W_supply = 0.05*sum(vegn%freewater(:))
      k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
      cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
@@ -1437,7 +1438,7 @@ end subroutine Plant_water_dynamics_equi
 
 !=================================================
 ! Weng: update soil root area layers, hydraulic variables, 03/29/2022
-subroutine calc_second_vars(cc)
+subroutine derived_cc_vars(cc)
   type(cohort_type), intent(inout) :: cc
   !----------local var ----------
   integer :: j
@@ -1451,15 +1452,15 @@ subroutine calc_second_vars(cc)
     enddo
     ! Plant hydraulics-related variables
     cc%V_leaf = cc%bl/sp%LMA * sp%leafTK ! area * thicknees
-    cc%V_stem = (cc%bsw+cc%bhw)/sp%rho_wood ! m^3
-    cc%Wmax_l = (cc%V_leaf - 2*cc%bl /rho_cellwall)*1000 ! max leaf water content
-    cc%Wmax_s = (cc%V_stem - 2*cc%bsw/rho_cellwall)*1000 ! max stem water content
+    cc%V_stem = cc%bsw/sp%rho_wood ! m^3  ! (cc%bsw+cc%bhw)
+    cc%Wmax_l = (cc%V_leaf - cc%bl /rho_cellwall)*1000 ! max leaf water content
+    cc%Wmax_s = (cc%V_stem - cc%bsw/rho_cellwall)*1000 ! max stem water content, kg H2O
     cc%H_leaf = sp%H0_leaf * cc%V_leaf ! Leaf Capacitance
-    cc%H_stem = sp%H0_stem * cc%V_stem ! Stem capacitance
+    cc%H_stem = sp%H0_stem * cc%V_stem * cc%W_stem/cc%Wmax_s ! Stem capacitance
     cc%Wmin_l = cc%Wmax_l + cc%H_leaf * sp%psi0_leaf
     cc%Wmin_s = cc%Wmax_s + cc%H_stem * sp%psi0_stem
   end associate
- end subroutine calc_second_vars
+ end subroutine derived_cc_vars
 
 !====================================
 subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
@@ -1616,9 +1617,11 @@ real function NewWoodWTC(cc) result(WTC)
 
     !---------------------
     associate ( sp => spdata(cc%species))
-      WTC = sp%WTC0  + m0_dbh * cc%DBH ** sp%thetaHT
-      !WTC = sp%WTC0*(1.0 + m0_dbh/sp%WTC0 * cc%DBH ** sp%thetaHT)
-
+    if (do_VariedWTC0)then
+      WTC = sp%WTC0 * (1. + m0_dbh * cc%DBH**sp%thetaHT)
+    else
+      WTC = sp%WTC0 * (1. + m0_dbh * 0.5 ) ! 0.25**0.5 = 0.5
+    endif
     end associate
 end function NewWoodWTC
 
@@ -1628,13 +1631,13 @@ real function NewWoodKx(cc) result(Kx)
     type(cohort_type),intent(in) :: cc
     !---------------------
     associate ( sp => spdata(cc%species))
-      ! It has a big issue here: Kx should be scaling with tree height to
-      ! keep psi_leaf independent of tree height
-      if (do_constant_kx)then
-        Kx = sp%Kx0
-      else
-        Kx = sp%Kx0 * (0.02 + 0.12 * cc%height)  ! (mm/s)/(MPa/m)
-      endif
+    ! Kx scaling with tree height to keep psi_leaf constant
+    if (do_VariedKx)then
+      !Kx = sp%Kx0 * (0.02 + 0.12 * cc%height)  ! (mm/s)/(MPa/m)
+      Kx = sp%Kx0 * (1. + m0_dbh * cc%DBH**sp%thetaHT)  ! (mm/s)/(MPa/m)
+    else
+      Kx = sp%Kx0 * (1. + m0_dbh * 0.5 ) ! 0.25**0.5 = 0.5
+    endif
     end associate
 end function NewWoodKx
 
@@ -1651,6 +1654,7 @@ real function mortality_rate(cc) result(mu) ! per year
     real :: m_S ! Mortality multifactor for size effects
     real :: A_D ! Sensitivity to dbh
     real :: mu_hydro ! Mortality prob. due to hydraulic failure
+    integer :: n ! the latest ring
     !---------------------
     associate ( sp => spdata(cc%species))
     if(do_U_shaped_mortality)then
@@ -1659,23 +1663,24 @@ real function mortality_rate(cc) result(mu) ! per year
        m_S = 0.0
     endif
     A_D = 4.0
-#ifdef Hydro_test
-    ! TODO: hydraulic faulure induced mortality
-    mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
-#else
-    mu_hydro = 0.0
-#endif
-
     expD = exp(A_D * (cc%dbh - sp%D0mu))
     f_L  = SQRT(Max(0.0,cc%layer - 1.0)) ! Layer effects (0~ infinite)
     f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
-    f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big D)
+    f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
     if(sp%lifeform==0)then  ! for grasses
-       mu = Min(0.5, sp%mortrate_d_c*(1.0+3.0*f_L))
+      mu = Min(0.5, sp%mortrate_d_c*(1.0+3.0*f_L))
     else                    ! for trees
-       mu = Min(0.5,sp%mortrate_d_c * (1.d0+f_L*f_S)*f_D) ! per year
-       mu = mu + mu_hydro - mu * mu_hydro ! Add hydraulic failure
+      mu = Min(0.5,sp%mortrate_d_c * (1.d0+f_L*f_S)*f_D) ! per year
+#ifdef Hydro_test
+      ! TODO: hydraulic faulure induced mortality
+      ! mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
+      mu = Min(0.5,sp%mortrate_d_c * (1.d0+f_L*f_S)*f_D)
+      n = MIN(cc%Nrings, Ysw_max)
+      mu_hydro = Max(0., 1. - cc%farea(n))  ! Asap should be much greater than Asap1
+      mu = mu + mu_hydro - mu * mu_hydro ! Add hydraulic failure
+#endif
     endif
+
     end associate
 end function mortality_rate
 
@@ -1901,7 +1906,7 @@ subroutine plant2soil(vegn,cc,deadtrees)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%leafarea*sp%LNbase)
 
      ! Assume water in plants goes to first layer of soil
-     vegn%wcl(1) = vegn%wcl(1) +  deadtrees * (cc%W_leaf+cc%W_stem)/(thksl(1)*1000.0)
+     vegn%wcl(1) = vegn%wcl(1) +  deadtrees * (cc%W_leaf+cc%W_stem+cc%W_dead)/(thksl(1)*1000.0)
 
      vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + fsc_wood *loss_coarse
      vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
@@ -2105,7 +2110,7 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Ktrunk = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
 
      ! Cohort hydraulic properties
-     call calc_second_vars(cc)
+     call derived_cc_vars(cc)
      cc%W_leaf = cc%Wmax_l
      cc%W_stem = cc%Wmax_s
      cc%W_dead = 0.0
@@ -2828,7 +2833,7 @@ end subroutine kill_lowdensity_cohorts
 
 
 ! ============================================================================
-subroutine merge_cohorts(c1,c2)
+subroutine merge_cohorts(c1,c2) ! Put c1 into c2
   type(cohort_type), intent(in) :: c1
   type(cohort_type), intent(inout) :: c2
 
@@ -2839,6 +2844,7 @@ subroutine merge_cohorts(c1,c2)
   if(c1%nindivs > 0.0 .or. c2%nindivs > 0.0)then
      x1 = c1%nindivs/(c1%nindivs+c2%nindivs)
      x2 = c2%nindivs/(c1%nindivs+c2%nindivs)
+     c2%ccID = c1%ccID
      c2DBH = c2%dbh
      c2H   = c2%height
 
@@ -2872,7 +2878,7 @@ subroutine merge_cohorts(c1,c2)
      ! Allometry recalculation
      btot = c2%bsw + c2%bHW
      call Wood2Architecture(c2,btot)
-     call calc_second_vars(c2)
+     call derived_cc_vars(c2)
      call plant_water2psi(c2)
 
      ! Reset tree rings' hydraulics
@@ -2916,7 +2922,7 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                    (c1%layer>1 .and.c2%layer>1))
    sameSizeTree = (spdata(c1%species)%lifeform > 0).and.  &
                   (spdata(c2%species)%lifeform > 0).and.  &
-                 ((abs(c1%DBH - c2%DBH)/c2%DBH < 0.2 ) .or.  &
+                 ((abs(c1%DBH - c2%DBH)/c2%DBH < diff_S0 ) .or.  &
                   (abs(c1%DBH - c2%DBH)        < 0.001))  ! it'll be always true for grasses
    sameSizeGrass= (spdata(c1%species)%lifeform ==0) .and. &
                   (spdata(c2%species)%lifeform ==0) .and. &
@@ -3252,7 +3258,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     ! Plant hydraulics
     cc%psi_stem = psi_s0
     cc%psi_leaf = cc%psi_stem - H2MPa(cc%height) ! MPa
-    call calc_second_vars(cc)
+    call derived_cc_vars(cc)
     call plant_psi2water(cc)
 
   end associate
