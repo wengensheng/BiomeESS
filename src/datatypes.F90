@@ -119,7 +119,7 @@ type spec_data_type
   real    :: alpha_L      ! leaf turn over rate
   real    :: LNA          ! leaf Nitrogen per unit area, kg N/m2
   real    :: LNbase       ! basal leaf Nitrogen per unit area, kg N/m2, (Rubisco)
-  real    :: CNleafsupport! leaf structural tissues, 175
+  real    :: CN0leafST    ! leaf structural tissues, 175
   real    :: leaf_size    ! characteristic leaf size
   real    :: leafTK      ! leaf thickness, m
   real    :: rho_leaf     ! leaf mass density (kgC/m3)
@@ -148,11 +148,11 @@ type spec_data_type
   ! wood traits
   real    :: rho_wood     ! woody density, kg C m-3 wood
   real    :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
-  real    :: taperfactor
+  real    :: f_taper
   ! Plant hydraulics
   real    :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
   real    :: WTC0 ! xylem water transfer capacity, m/lifetime
-  real    :: r_DF ! sensitivity of defunction due to water transport usage
+
 
   real    :: H0_leaf ! Leaf capacitance, kgH2O m-3 MPa-1
   real    :: H0_stem ! Stem/wood capacitance, kgH2O m-3 MPa-1
@@ -160,10 +160,10 @@ type spec_data_type
   real    :: w0S_max ! stem maximum water/carbon ratio
   real    :: w0L_min ! leaf minimum water/carbon ratio
   real    :: w0S_min ! stem minimum water/carbon ratio
-  real    :: psi0_leaf ! minimum leaf water potential
-  real    :: psi0_stem ! minimum stem wood potential
-  real    :: wood_psi50 !wood potential at which 50% conductivity lost, MPa
-  real    :: wood_Kexp  ! exponent of the PLC curve
+  real    :: psi0_LF ! minimum leaf water potential
+  real    :: psi0_WD ! minimum stem wood potential
+  real    :: psi50_WD !wood potential at which 50% conductivity lost, MPa
+  real    :: Kexp_WD  ! exponent of the PLC curve
 
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -185,12 +185,12 @@ type spec_data_type
   real    :: tc_crit_on      ! K, for turning ON a growth season
   real    :: gdd_crit        ! K, critical value of GDD5 for turning ON growth season
   !  vital rates
-  real    :: maturalage       ! the age that can reproduce
+  real    :: AgeRepro       ! the age that can reproduce
   real    :: v_seed           ! fracton of G_SF to G_F
-  real    :: seedlingsize     ! size of the seedlings, kgC/indiv
+  real    :: s0_plant     ! size of the seedlings, kgC/indiv
   real    :: prob_g,prob_e    ! germination and establishment probabilities
-  real    :: mortrate_d_c     ! yearly mortality rate in canopy
-  real    :: mortrate_d_u     ! yearly mortality rate in understory
+  real    :: r0mort_c     ! yearly mortality rate in canopy
+  real    :: r0mort_u     ! yearly mortality rate in understory
   real    :: D0mu
   real    :: A_sd
   real    :: B_sd
@@ -553,14 +553,20 @@ real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
 
 ! Ensheng's growth parameters:
 real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_min = 0.15 ! for understory mortality rate is calculated as:
-! deathrate = mortrate_d_u * (1+A*exp(B*DBH))/(1+exp(B*DBH))
+! deathrate = r0mort_u * (1+A*exp(B*DBH))/(1+exp(B*DBH))
 !real :: A_mort     = 9.0   ! A coefficient in understory mortality rate correction, 1/year
 !real :: B_mort     = -60.0  ! B coefficient in understory mortality rate correction, 1/m
 !real :: DBHtp      = 2.0 !  m, for canopy tree's mortality rate
 
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
-
+! Plant hydraulics
+real :: TK0_leaf = 0.003    ! leaf thickness at reference LMA, m
+real :: kx0_WD   = 5.0      ! kx0 at reference WD
+real :: WTC0_WD  = 1200.0   ! Water transporat capacity at reference WD
+real :: CR0_WD   = 0.35     ! Compression ratio of wood tissues at reference WD
+real :: p50_WD   = -1.565   ! psi50 at reference WD
+real :: r_DF     = 100.0 ! sensitivity of defunction due to water transport usage
 ! Cohort management
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
 
@@ -626,47 +632,46 @@ real :: tc_crit_on(0:MSPECIES) = 273.15 + 10. ! 280.16 ! ON
 real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
 
 ! Allometry parameters
-real :: alphaHT(0:MSPECIES)      = 36.0
-real :: thetaHT(0:MSPECIES)      = 0.5 !
-real :: alphaCA(0:MSPECIES)      = 150.0
-real :: thetaCA(0:MSPECIES)      = 1.5
-real :: alphaBM(0:MSPECIES)      = 5200.0
-real :: thetaBM(0:MSPECIES)      = 2.5
+real :: alphaHT(0:MSPECIES) = 36.0
+real :: thetaHT(0:MSPECIES) = 0.5 !
+real :: alphaCA(0:MSPECIES) = 150.0
+real :: thetaCA(0:MSPECIES) = 1.5
+real :: alphaBM(0:MSPECIES) = 5200.0
+real :: thetaBM(0:MSPECIES) = 2.5
 
 ! Reproduction prarameters
-real :: maturalage(0:MSPECIES)   = 5.0  ! year
-real :: v_seed(0:MSPECIES)       = 0.1  ! fraction of allocation to wood+seeds
-real :: seedlingsize(0:MSPECIES) = 0.05 ! kgC
-real :: prob_g(0:MSPECIES)       = 1.0
-real :: prob_e(0:MSPECIES)       = 1.0
+real :: AgeRepro(0:MSPECIES) = 5.0  ! year
+real :: v_seed(0:MSPECIES)   = 0.1  ! fraction of allocation to wood+seeds
+real :: s0_plant(0:MSPECIES) = 0.05 ! kgC, initial seedling size
+real :: prob_g(0:MSPECIES)   = 1.0
+real :: prob_e(0:MSPECIES)   = 1.0
 
 ! Mortality
-real :: mortrate_d_c(0:MSPECIES) = 0.01 ! yearly
-real :: mortrate_d_u(0:MSPECIES) = 0.075
-real :: D0mu(0:MSPECIES)         = 2.0     ! m, Mortality curve parameter
-real :: A_sd(0:MSPECIES)         = 9.0     ! Max multiplier
-real :: B_sd(0:MSPECIES)         = -20.    ! Mortality sensitivity for seedlings
+real :: r0mort_c(0:MSPECIES) = 0.01 ! yearly
+real :: r0mort_u(0:MSPECIES) = 0.075
+real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
+real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier
+real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
 
 ! Leaf parameters
 real :: LMA(0:MSPECIES)          = 0.035  !  leaf mass per unit area, kg C/m2
 !(/0.04,    0.04,    0.035,   0.035,   0.140,  0.032, 0.032,  0.036,   0.036,   0.036,   0.036,   0.036,   0.036,   0.036,   0.036,   0.036  /)
 real :: leafLS(0:MSPECIES) = 1.0
 !(/1., 1., 1., 1., 3., 3., 1., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 /)
-real :: LNbase(0:MSPECIES)        = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
-real :: CNleafsupport(0:MSPECIES) = 80.0 ! CN ratio of leaf supporting tissues
-real :: rho_wood(0:MSPECIES)      = 300.0 ! kgC m-3
-real :: taperfactor(0:MSPECIES)   = 0.75 ! taper factor, from a cylinder to a tree
-real :: kx0(0:MSPECIES)           = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
-real :: WTC0(0:MSPECIES)          = 1200.0  ! 2000, m /lifetime
-real :: r_DF(0:MSPECIES)          = 100.0
-real :: H0_leaf(0:MSPECIES)       = 200.0 ! Leaf capacitance, kgH2O m-3 MPa-1
-real :: H0_stem(0:MSPECIES)       = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
-real :: w0L_max(0:MSPECIES)       = 18.0  ! leaf maximum water/carbon ratio ()
-real :: w0S_max(0:MSPECIES)       = 2.0   ! stem maximum water/carbon ratio
-real :: psi0_leaf(0:MSPECIES)     = -3.0  ! MPa
-real :: psi0_stem(0:MSPECIES)     = -1.5  ! MPa
-real :: wood_psi50(0:MSPECIES)    = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
-real :: wood_Kexp(0:MSPECIES)     = 2.0
+real :: LNbase(0:MSPECIES)   = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
+real :: CN0leafST(0:MSPECIES)= 80.0 ! CN ratio of leaf supporting tissues
+real :: rho_wood(0:MSPECIES) = 300.0 ! kgC m-3
+real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
+real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
+real :: WTC0(0:MSPECIES)     = 1200.0  ! 2000, m /lifetime
+real :: H0_leaf(0:MSPECIES)  = 200.0 ! Leaf capacitance, kgH2O m-3 MPa-1
+real :: H0_stem(0:MSPECIES)  = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
+real :: w0L_max(0:MSPECIES)  = 18.0  ! leaf maximum water/carbon ratio ()
+real :: w0S_max(0:MSPECIES)  = 2.0   ! stem maximum water/carbon ratio
+real :: psi0_LF(0:MSPECIES)  = -3.0  ! MPa
+real :: psi0_WD(0:MSPECIES)  = -1.5  ! MPa
+real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
+real :: Kexp_WD(0:MSPECIES)  = 2.0
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
@@ -693,7 +698,8 @@ namelist /vegn_parameters_nml/  &
   rho_FR, root_r, root_zeta,Kw_root, &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
-  LMA, LNbase, CNleafsupport, c_LLS,      &
+  LMA, LNbase, CN0leafST, c_LLS,      &
+  TK0_leaf,kx0_WD,WTC0_WD,CR0_WD,p50_WD,r_DF, &
   diff_S0, K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
@@ -702,11 +708,10 @@ namelist /vegn_parameters_nml/  &
   gdd_crit,tc_crit_off, tc_crit_on, envi_fire_prb,  &
   T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,   & ! Weng, 2021-05-30
   alphaHT, thetaHT, alphaCA, thetaCA, alphaBM, thetaBM, &
-  maturalage, v_seed, seedlingsize, prob_g,prob_e,      &
-  mortrate_d_c, mortrate_d_u, D0mu, A_sd, B_sd,         &
-  phiRL, phiCSA, rho_wood, taperfactor, &
-  kx0, WTC0, r_DF, &
-  H0_leaf,H0_stem,w0L_max,w0S_max,psi0_leaf, psi0_stem, &
+  AgeRepro, v_seed, s0_plant, prob_g,prob_e,      &
+  r0mort_c, r0mort_u, D0mu, A_sd, B_sd,         &
+  phiRL, phiCSA, rho_wood, f_taper, &
+  kx0, WTC0, psi0_LF, psi0_WD, &
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0, f_cGap, &
@@ -881,7 +886,7 @@ subroutine initialize_PFT_data(namelistfile)
 ! Plant traits
   spdata%LMA            = LMA      ! leaf mass per unit area, kg C/m2
   spdata%LNbase         = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
-  spdata%CNleafsupport  = CNleafsupport
+  spdata%CN0leafST  = CN0leafST
   spdata%lifeform     = lifeform
   spdata%alphaHT      = alphaHT
   spdata%thetaHT      = thetaHT
@@ -890,29 +895,28 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%alphaBM      = alphaBM
   spdata%thetaBM      = thetaBM
 
-  spdata%maturalage   = maturalage
+  spdata%AgeRepro   = AgeRepro
   spdata%v_seed       = v_seed
-  spdata%seedlingsize = seedlingsize
+  spdata%s0_plant = s0_plant
   spdata%prob_g       = prob_g
   spdata%prob_e       = prob_e
-  spdata%mortrate_d_c = mortrate_d_c
-  spdata%mortrate_d_u = mortrate_d_u
+  spdata%r0mort_c = r0mort_c
+  spdata%r0mort_u = r0mort_u
   spdata%D0mu         = D0mu
   spdata%A_sd         = A_sd
   spdata%B_sd         = B_sd
   spdata%rho_wood     = rho_wood
-  spdata%taperfactor  = taperfactor
+  spdata%f_taper  = f_taper
   spdata%kx0          = kx0
   spdata%WTC0         = WTC0
-  spdata%r_DF         = r_DF
   spdata%H0_leaf      = H0_leaf
   spdata%H0_stem      = H0_stem
   spdata%w0L_max      = w0L_max
   spdata%w0S_max      = w0S_max
-  spdata%psi0_leaf    = psi0_leaf
-  spdata%psi0_stem    = psi0_stem
-  spdata%wood_psi50   = wood_psi50
-  spdata%wood_Kexp    = wood_Kexp
+  spdata%psi0_LF    = psi0_LF
+  spdata%psi0_WD    = psi0_WD
+  spdata%psi50_WD   = psi50_WD
+  spdata%Kexp_WD    = Kexp_WD
 
   spdata%LAImax       = LAImax
   spdata%LAImax_u     = 1.2 ! LAImax
@@ -946,6 +950,7 @@ subroutine initialize_PFT_data(namelistfile)
    integer :: i,j
    real :: rdepth(0:soil_L)
    real :: residual
+   real :: R_WD
 
    ! specific root area
    sp%SRA = 2.0/(sp%root_r*sp%rho_FR) ! m2/kgC
@@ -962,12 +967,12 @@ subroutine initialize_PFT_data(namelistfile)
    enddo
 
    ! calculate alphaBM parameter of allometry. note that rho_wood was re-introduced for this calculation
-   sp%alphaBM    = sp%rho_wood * sp%taperfactor * PI/4. * sp%alphaHT ! 5200
+   sp%alphaBM    = sp%rho_wood * sp%f_taper * PI/4. * sp%alphaHT ! 5200
 
 !  Vmax as a function of LNbase
    sp%Vmax = 0.02 * sp%LNbase ! 0.03125 * sp%LNbase ! Vmax/LNbase= 25E-6/0.8E-3 = 0.03125 !
 !  CN0 of leaves
-   sp%LNA     = sp%LNbase +  sp%LMA/sp%CNleafsupport
+   sp%LNA     = sp%LNbase +  sp%LMA/sp%CN0leafST
    sp%CNleaf0 = sp%LMA/sp%LNA
 !  Leaf life span as a function of LMA
    sp%leafLS = c_LLS * sp%LMA
@@ -980,17 +985,18 @@ subroutine initialize_PFT_data(namelistfile)
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
    ! Leaf thickness, m
    !sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
-   sp%leafTK = 0.003 * SQRT(sp%LMA)
+   sp%leafTK = TK0_leaf * SQRT(sp%LMA)
    sp%rho_leaf = sp%LMA/sp%leafTK
    sp%w0L_max = 1000.0/sp%rho_leaf - 1000./rho_cellwall ! 18.0  ! leaf max. water/carbon ratio
    sp%w0S_max = 1000.0/sp%rho_wood - 1000./rho_cellwall ! 2.0   ! stem max. water/carbon ratio
 
    ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
-   sp%kx0 = 5.0 * WDref0/sp%rho_wood  ! (mm/s)/(Mpa/m)
-   sp%WTC0 = 1200. * (sp%rho_wood/WDref0)**1.5
-   sp%H0_stem = 1000. * (1.-sp%rho_wood/rho_cellwall) & ! Full water content per m3 wood !820.0 - 1.6 * sp%rho_wood
-              * 0.35*(sp%rho_wood/WDref0)**(-1.67)       ! Compress ratio per MPa, Santiago et al. 2018
-   sp%wood_psi50 = -1.09 - 1.475 * (sp%rho_wood/WDref0) ** 1.73 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+   R_WD = sp%rho_wood/WDref0
+   sp%kx0     = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
+   sp%WTC0    = WTC0_WD * R_WD**1.5
+   sp%H0_stem = CR0_WD  * R_WD**(-1.67) * &  ! Compress ratio per MPa, Santiago et al. 2018
+                (1.-sp%rho_wood/rho_cellwall)*1000.0  ! Full water content per m3 wood !820.0 - 1.6 * sp%rho_wood
+   sp%psi50_WD= p50_WD  * R_WD**1.73 -1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
 
  end subroutine init_derived_species_data
 

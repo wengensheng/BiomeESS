@@ -591,7 +591,7 @@ subroutine fetch_CN_for_growth(cc)
         if((G_LFR-dBL) > FR_deficit) dBL = G_LFR - FR_deficit
         dBR  = G_LFR - dBL
         ! calculate carbon spent on growth of sapwood growth
-        if(cc%layer == 1 .AND. cc%age > sp%maturalage)then
+        if(cc%layer == 1 .AND. cc%age > sp%AgeRepro)then
             dSeed = sp%v_seed * (cc%C_growth - G_LFR)
             dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
         else
@@ -814,7 +814,7 @@ subroutine vegn_phenology(vegn,doy) ! daily step
          ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
          ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
          ! reset
-         cc%nindivs = MIN(ccNSC /sp%seedlingsize, ccNSN/(sp%seedlingsize/sp%CNroot0))
+         cc%nindivs = MIN(ccNSC /sp%s0_plant, ccNSN/(sp%s0_plant/sp%CNroot0))
          totC = ccNSC / cc%nindivs
          totN = ccNSN / cc%nindivs
          call setup_seedling(cc,totC,totN)
@@ -1071,7 +1071,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! new usage for functional conduits
         cc%accH(k) = cc%accH(k) + Transp_sap ! m, for functional conduits only
         cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k)*cc%Aring(k) ! m3, for the whole ring
-        Fd(k) = 1./(1.+exp(sp%r_DF*(1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
+        Fd(k) = 1./(1.+exp(r_DF * (1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
         cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
         ! Whole tree conductivity
         cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
@@ -1139,7 +1139,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
 
      ! When cc%leafarea > 0
      Q_plant = cc%transp   ! /step_seconds
-     k_stem  = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+     k_stem  = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
      psi_ht = H2MPa(cc%height) ! MPa
 
      psi_leaf = ((cc%psi_stem-psi_ht)*k_stem*step_seconds - Q_plant + cc%H_leaf*cc%psi_leaf)/ &
@@ -1175,7 +1175,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      ! Water supply for the next step photosynthesis
      ! This is for the stomata conductance.
      !cc%W_supply = 0.05*sum(vegn%freewater(:))
-     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
      cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
                  + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
      end associate
@@ -1278,7 +1278,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !-------Cohort specific variables-----------
     transp = cc%transp ! /step_seconds
     psi_ht = H2MPa(cc%height) ! MPa
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
 
     !! Soil Water psi and K from plant's perspective
     weighted_gw_cond = 0.0     ! kgH2O/m/s
@@ -1302,7 +1302,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
       ap = -k_stem/cc%H_leaf
       bp = ((cc%psi_stem - psi_ht)*k_stem - transp/step_seconds)/cc%H_leaf
       exp_term = exp(ap * step_seconds)
-      psi_leaf = max(sp%psi0_leaf,((ap*cc%psi_leaf+bp)*exp_term - bp)/ap)
+      psi_leaf = max(sp%psi0_LF,((ap*cc%psi_leaf+bp)*exp_term - bp)/ap)
       wflux_wl = (psi_leaf - cc%psi_leaf)*cc%H_leaf + transp
     else
       cc%psi_leaf = cc%psi_stem - psi_ht
@@ -1321,7 +1321,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     ap = -weighted_gw_cond / cc%H_stem
     bp = (weighted_gw_rate - wflux_wl/step_seconds) / cc%H_stem
     exp_term = exp(ap * step_seconds)
-    psi_stem = max( sp%psi0_stem,((ap * cc%psi_stem + bp) * exp_term - bp) / ap)
+    psi_stem = max( sp%psi0_WD,((ap * cc%psi_stem + bp) * exp_term - bp) / ap)
     wflux_gw = (psi_stem - cc%psi_stem) * cc%H_stem + wflux_wl ! kg H2O/tree/step
 
     !------------------ Update plant water and hydraulic status ------------------
@@ -1340,7 +1340,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     end if
 
     !----------------Next step maximum transpiration---------------
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
     !cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
     !            + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
     cc%W_supply = 0.05 * sum(vegn%freewater(:))*cc%crownarea
@@ -1408,7 +1408,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      cc%psi_leaf = psi_leaf
 
      ! Stem-Leaf water flux
-     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
+     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
      psi_ht = H2MPa(cc%height) ! MPa
      cc%Q_leaf = (cc%psi_stem - cc%psi_leaf - psi_ht) * k_stem * step_seconds
      cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
@@ -1451,8 +1451,8 @@ subroutine derived_cc_vars(cc)
     cc%Wmax_s = (cc%V_stem - cc%bsw/rho_cellwall)*1000 ! max stem water content, kg H2O
     cc%H_leaf = sp%H0_leaf * cc%V_leaf ! Leaf Capacitance
     cc%H_stem = sp%H0_stem * cc%V_stem * cc%W_stem/cc%Wmax_s ! Stem capacitance
-    cc%Wmin_l = cc%Wmax_l + cc%H_leaf * sp%psi0_leaf
-    cc%Wmin_s = cc%Wmax_s + cc%H_stem * sp%psi0_stem
+    cc%Wmin_l = cc%Wmax_l + cc%H_leaf * sp%psi0_LF
+    cc%Wmin_s = cc%Wmax_s + cc%H_stem * sp%psi0_WD
   end associate
  end subroutine derived_cc_vars
 
@@ -1486,9 +1486,9 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
       sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
     enddo
     psi_ht = H2MPa(cc%height) ! MPa
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%wood_psi50,sp%wood_Kexp)
-    psi_stem = Max(sp%psi0_stem, (sumPK - Q_stem)/sumK)
-    psi_leaf = Max(sp%psi0_leaf, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
+    psi_stem = Max(sp%psi0_WD, (sumPK - Q_stem)/sumK)
+    psi_leaf = Max(sp%psi0_LF, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
 
   end associate
 end subroutine plant_water_potential_equi
@@ -1510,8 +1510,8 @@ implicit none
 type(cohort_type), intent(inout) :: cc
 
   associate ( sp => spdata(cc%species) )
-    cc%W_leaf = cc%Wmax_L - (cc%Wmax_L - cc%Wmin_L) * cc%psi_leaf/sp%psi0_leaf
-    cc%W_stem = cc%Wmax_S - (cc%Wmax_S - cc%Wmin_S) * cc%psi_stem/sp%psi0_stem
+    cc%W_leaf = cc%Wmax_L - (cc%Wmax_L - cc%Wmin_L) * cc%psi_leaf/sp%psi0_LF
+    cc%W_stem = cc%Wmax_S - (cc%Wmax_S - cc%Wmin_S) * cc%psi_stem/sp%psi0_WD
   end associate
 end subroutine Plant_psi2water
 
@@ -1526,10 +1526,10 @@ end subroutine Plant_psi2water
       real :: dW_L,dW_S
       associate ( sp => spdata(cc%species) )
         dW_S =  Max(0.0,MIN(1.0,(cc%Wmax_S - cc%W_stem)/(cc%Wmax_S - cc%Wmin_S)))
-        cc%psi_stem = sp%psi0_stem * dW_S
+        cc%psi_stem = sp%psi0_WD * dW_S
          if(cc%bl > 0.0001)then
            dW_L =  Max(0.0,MIN(1.0,(cc%Wmax_L - cc%W_leaf)/(cc%Wmax_L - cc%Wmin_L)))
-           cc%psi_leaf = sp%psi0_leaf * dW_L
+           cc%psi_leaf = sp%psi0_LF * dW_L
          else
            cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
          endif
@@ -1662,13 +1662,13 @@ real function mortality_rate(cc) result(mu) ! per year
     f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
     f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
     if(sp%lifeform==0)then  ! for grasses
-      mu = Min(0.5, sp%mortrate_d_c*(1.0+3.0*f_L))
+      mu = Min(0.5, sp%r0mort_c*(1.0+3.0*f_L))
     else                    ! for trees
-      mu = Min(0.5,sp%mortrate_d_c * (1.d0+f_L*f_S)*f_D) ! per year
+      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 #ifdef Hydro_test
       ! TODO: hydraulic faulure induced mortality
       ! mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
-      mu = Min(0.5,sp%mortrate_d_c * (1.d0+f_L*f_S)*f_D)
+      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D)
       n = MIN(cc%Nrings, Ysw_max)
       mu_hydro = Max(0., 1. - cc%farea(n))  ! Asap should be much greater than Asap1
       mu = mu + mu_hydro - mu * mu_hydro ! Add hydraulic failure
@@ -2003,7 +2003,7 @@ subroutine vegn_reproduction (vegn)
         ! update child cohort parameters
         associate (sp => spdata(reproPFTs(i))) ! F2003
         ! density
-        cc%nindivs = seedC(i)/sp%seedlingsize
+        cc%nindivs = seedC(i)/sp%s0_plant
 
         cc%species = reproPFTs(i)
         if(sp%phenotype == 0)then
@@ -2014,11 +2014,11 @@ subroutine vegn_reproduction (vegn)
         cc%firstlayer = 0
         cc%topyear = 0.0
         cc%age     = 0.0
-        totC = sp%seedlingsize
+        totC = sp%s0_plant
         if(seedC(i)>0.0)then
-          totN = sp%seedlingsize * seedN(i)/seedC(i)
+          totN = sp%s0_plant * seedN(i)/seedC(i)
         else
-          totN = sp%seedlingsize/10.0
+          totN = sp%s0_plant/10.0
         endif
         call setup_seedling(cc,totC,totN)
 
@@ -2120,9 +2120,9 @@ function cohort_can_reproduce(cc); logical cohort_can_reproduce
   associate (sp => spdata(cc%species) )! F2003
   cohort_can_reproduce = (cc%layer == 1 .and. &
                           cc%nindivs > 0.0 .and. &
-                          cc%age   > sp%maturalage.and. &
-                          cc%seedC > sp%seedlingsize .and. &
-                          cc%seedN > sp%seedlingsize/sp%CNseed0)
+                          cc%age   > sp%AgeRepro.and. &
+                          cc%seedC > sp%s0_plant .and. &
+                          cc%seedN > sp%s0_plant/sp%CNseed0)
   end associate
 
 end function
