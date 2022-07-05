@@ -20,9 +20,9 @@ real, public :: &
      csw = 2106.0    ! specific heat of water (ice)
 
 ! soil layer depth
-real     :: dz(max_lev) = thksl   ! thicknesses of layers
-real     :: zfull(max_lev)
-real     :: zhalf(max_lev+1)
+real     :: dz(soil_L) = thksl   ! thicknesses of layers
+real     :: zfull(soil_L)
+real     :: zhalf(soil_L+1)
 
 
 contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -41,15 +41,15 @@ subroutine soil_water_uptake_supply(vegn) ! forcing,
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
-  real :: freewater(max_lev)
-  real :: thetaS(max_lev) ! soil moisture index (0~1)
-  real :: LayerTot(max_lev) ! potential water uptake, kg H2O s-1 m-2
-  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
-  real :: fWup(max_lev)      ! fraction to the actual soil water
+  real :: freewater(soil_L)
+  real :: thetaS(soil_L) ! soil moisture index (0~1)
+  real :: LayerTot(soil_L) ! potential water uptake, kg H2O s-1 m-2
+  real :: dpsiSR(soil_L) ! pressure difference between soil and root, MPa
+  real :: fWup(soil_L)      ! fraction to the actual soil water
   integer :: i,j
 
   ! Calculating soil water availability for transpiration in next step
-  do i=1, max_lev ! Calculate water uptake potential layer by layer
+  do i=1, soil_L ! Calculate water uptake potential layer by layer
      freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
      thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
      ! The difference of water potential between roots and soil
@@ -91,7 +91,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
-  real    :: rainwater,W_deficit(max_lev),W_add(max_lev)
+  real    :: rainwater,W_deficit(soil_L),W_add(soil_L)
   real    :: kappa  ! light extinction coefficient of corwn layers
   real    :: Esoil      ! soil surface evaporation, kg m-2 s-1
   real    :: Hsoil      ! sensible heat from soil
@@ -110,7 +110,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   real    :: rLAI
   real    :: transp
   real    :: fsupply ! fraction of transpiration from a soil layer
-  real    :: WaterBudgetL(max_lev)
+  real    :: WaterBudgetL(soil_L)
   integer :: i,j,k
 
 ! Soil water conditions
@@ -126,7 +126,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
       ! cc%transp   = min(cc%transp,cc%W_supply)
       ! deduct from soil water pool
       if(cc%W_supply>0.0)then
-         do i=1,max_lev
+         do i=1,soil_L
             fsupply = cc%WupL(i)/cc%W_supply
             transp  = fsupply * cc%transp * cc%nindivs
             !vegn%wcl(i) = vegn%wcl(i) - transp/(thksl(i)*1000.0)
@@ -175,7 +175,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 !! soil water refill by precipitation
   rainwater =  forcing%rain * step_seconds
   if(rainwater > 0.0)then
-     do i=1, max_lev
+     do i=1, soil_L
         W_deficit(i) = (vegn%FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
         W_add(i) = min(rainwater, W_deficit(i))
         rainwater = rainwater - W_add(i)
@@ -189,7 +189,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 
   ! Total soil water
   vegn%SoilWater = 0.0
-  do i=1,max_lev
+  do i=1,soil_L
      vegn%wcl(i) = vegn%wcl(i) +  WaterBudgetL(i)/(thksl(i)*1000.0)
      vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
   enddo
@@ -213,7 +213,7 @@ subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
 
   ! ---- local vars
   integer :: k, l
-  real    :: dz(max_lev)    ! thicknesses of layers
+  real    :: dz(soil_L)    ! thicknesses of layers
   real, dimension(num_l) :: &
        uptake_frac_max, & ! normalized root distribution
        vegn_uptake_term, &

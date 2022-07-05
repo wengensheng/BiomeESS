@@ -1060,10 +1060,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 
      ! Heartwood D and Functional area (i.e., sapwood area)
      cc%Asap = 0.0
-     D_hw  = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)
         cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
-        if(cc%farea(k)<0.5) D_hw = cc%Rring(k) * 2.0
      enddo
 
      ! Calculate life-time water transported and xylem fatigue
@@ -1079,17 +1077,16 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
      enddo
 
-     end associate
-  enddo
+     ! Update Asap and D_hw
+     cc%Asap = 0.0
+     D_hw  = 0.0
+     do k=1, MIN(cc%Nrings, Ysw_max)
+        cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
+        if(cc%farea(k)<0.5) D_hw = cc%Rring(k) * 2.0
+     enddo
 
-#ifdef Hydro_test
-  !Convert sapwood to heartwood
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species))
-
+     ! update C and N of sapwood and wood
      if(sp%lifeform>0)then ! woody plants
-        ! update C and N of sapwood and wood
         woodC  = cc%bsw   + cc%bHW
         woodN  = cc%sapwN + cc%woodN
         dSW    = MIN(woodC, sp%alphaBM * D_hw**sp%thetaBM) - cc%bHW
@@ -1097,18 +1094,15 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
         cc%bHW    = cc%bHW + dSW
         cc%bsw    = woodC - cc%bHW
-
-        cc%sapwN = woodN * cc%bsw/woodC
-        cc%woodN = woodN * cc%bHW/woodC
+        cc%sapwN  = woodN * cc%bsw/woodC
+        cc%woodN  = woodN * cc%bHW/woodC
         ! Update other variables
         call derived_cc_vars(cc)
         call plant_water2psi(cc)
      endif
-   end associate
-enddo
 
-#endif
-
+     end associate
+  enddo
 end subroutine vegn_hydraulic_states
 
 !========================================================================
@@ -1121,10 +1115,10 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   type(cohort_type),pointer :: cc
   real :: psi_ht            ! Gravitational water pressure, MPa
   real :: psi_leaf,psi_stem
-  real :: Q_soil(max_lev) ! Soil to roots water flux (kg H2O/tree/step)
-  real :: k_rs(max_lev)   ! soil-root water conductance by soil layer
-  real :: dpsiRL(max_lev) ! pressure difference between root and leaf, MPa
-  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
+  real :: Q_soil(soil_L) ! Soil to roots water flux (kg H2O/tree/step)
+  real :: k_rs(soil_L)   ! soil-root water conductance by soil layer
+  real :: dpsiRL(soil_L) ! pressure difference between root and leaf, MPa
+  real :: dpsiSR(soil_L) ! pressure difference between soil and root, MPa
   real :: k_stem          ! The conductance of the tree at current conditions
   real :: Q_plant  ! mm/s
   real :: sumK, sumPK
@@ -1158,7 +1152,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      ! Water fluxes from soil layers to stem base (and between soil layers via roots)
      sumK  = 0.0
      sumPK = 0.0
-     do i=1, max_lev
+     do i=1, soil_L
        ! RAI(i) = cc%rootareaL(i)/cc%crownarea
        ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
        k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
@@ -1169,7 +1163,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      psi_stem = (sumPK*step_seconds - cc%Q_leaf + cc%psi_stem*cc%H_stem)/ &
                 (sumK *step_seconds + cc%H_stem)
 
-     do i=1, max_lev ! Calculate water uptake layer by layer
+     do i=1, soil_L ! Calculate water uptake layer by layer
         Q_soil(i) =  k_rs(i) * (vegn%psi_soil(i) - psi_stem) * step_seconds
         cc%W_stem = cc%W_stem + Q_soil(i)
         cc%WupL(i) = Q_soil(i)
@@ -1200,8 +1194,8 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
   type(cohort_type),pointer :: cc
   real :: transp          ! mm/tree/s
   real :: psi_ht          ! Gravitational water pressure, MPa
-  real :: k_rs(max_lev)   ! root to each soil layer conductance
-  real :: layer_water_supply(max_lev)
+  real :: k_rs(soil_L)   ! root to each soil layer conductance
+  real :: layer_water_supply(soil_L)
   real :: psi_s0   ! Maximum soil layer water potential
   real :: psi_leaf
   real :: psi_stem
@@ -1289,7 +1283,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !! Soil Water psi and K from plant's perspective
     weighted_gw_cond = 0.0     ! kgH2O/m/s
     weighted_gw_rate = 0.0     ! kgH2O/s
-    do i=1, max_lev
+    do i=1, soil_L
        k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
        if(vegn%psi_soil(i)<cc%psi_stem) k_rs(i)=0.0
        weighted_gw_cond = weighted_gw_cond + k_rs(i)                  ! kgH2O/m/s
@@ -1372,7 +1366,7 @@ subroutine soil_water_psi_K(vegn)
   k_sat_ref   = soilpars(vegn%soiltype)%k_sat_ref
   v_sat       = soilpars(vegn%soiltype)%vwc_sat
   chb         = soilpars(vegn%soiltype)%chb
-  do i=1, max_lev
+  do i=1, soil_L
      vegn%psi_soil(i) = calc_soil_psi(psi_sat_ref,chb,v_sat,vegn%wcl(i))
      vegn%K_soil(i)   = calc_soil_K  (k_sat_ref,  chb,v_sat,vegn%wcl(i))
      vegn%freewater(i)= max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
@@ -1390,10 +1384,10 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
   type(cohort_type),pointer :: cc
   real :: psi_ht            ! Gravitational water pressure, MPa
   real :: psi_leaf,psi_stem
-  real :: psi_soil(max_lev),K_soil(max_lev),Q_soil(max_lev)
-  real :: thetaS(max_lev) ! soil moisture index (0~1)
-  real :: dpsiRL(max_lev) ! pressure difference between root and leaf, MPa
-  real :: dpsiSR(max_lev) ! pressure difference between soil and root, MPa
+  real :: psi_soil(soil_L),K_soil(soil_L),Q_soil(soil_L)
+  real :: thetaS(soil_L) ! soil moisture index (0~1)
+  real :: dpsiRL(soil_L) ! pressure difference between root and leaf, MPa
+  real :: dpsiSR(soil_L) ! pressure difference between soil and root, MPa
   real :: k_stem          ! actual conductance of the whole tree
   real :: dW_L,dW_S  ! water demand of leaves and stems  ! mm/s
   integer :: i,j, layer
@@ -1421,7 +1415,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      cc%W_stem = cc%W_stem - cc%Q_leaf
 
      ! Water fluxes from soil layers to stem base (and between soil layers via roots)
-     do i=1, max_lev ! Calculate water uptake potential layer by layer
+     do i=1, soil_L ! Calculate water uptake potential layer by layer
         dpsiSR(i) = vegn%psi_soil(i) - cc%psi_stem
         Q_soil(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
         cc%W_stem = cc%W_stem + Q_soil(i)
@@ -1447,7 +1441,7 @@ subroutine derived_cc_vars(cc)
     cc%leafarea  = Aleaf_BM(cc%bl,cc)
     cc%lai       = cc%leafarea/(cc%crownarea *(1.0-sp%f_cGap))
     cc%rootarea  = cc%br * sp%SRA
-    do j=1,max_lev
+    do j=1,soil_L
        cc%rootareaL(j) = cc%rootarea * sp%root_frac(j)
     enddo
     ! Plant hydraulics-related variables
@@ -1474,8 +1468,8 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
 
   !------local var -----------
   real :: psi_ht          ! Gravitational water pressure, MPa
-  real :: RAI(max_lev)    ! root area index
-  real :: k_rs(max_lev)   ! root-soil layer conductance
+  real :: RAI(soil_L)    ! root area index
+  real :: k_rs(soil_L)   ! root-soil layer conductance
   real :: sumK,sumPK
   real :: k_stem         ! with water conditions
   integer :: i
@@ -1484,7 +1478,7 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
   associate ( sp => spdata(cc%species) )
     sumK  = 0.0
     sumPK = 0.0
-    do i=1, max_lev
+    do i=1, soil_L
       ! RAI(i) = cc%rootareaL(i)/cc%crownarea
       ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
       k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
@@ -1551,15 +1545,15 @@ subroutine plant_psi_s0(vegn,cc,psi_s0)
   type(cohort_type),    intent(in) :: cc
   real,                 intent(out):: psi_s0
   !------local var -----------
-  real :: RAI(max_lev)    ! root area index
-  real :: k_rs(max_lev)   ! root-soil layer conductance
+  real :: RAI(soil_L)    ! root area index
+  real :: k_rs(soil_L)   ! root-soil layer conductance
   real :: sumK,sumPK
   integer :: i
 
 !! Calculate plant water potential
     sumK  = 0.0
     sumPK = 0.0
-    do i=1, max_lev
+    do i=1, soil_L
       ! RAI(i) = cc%rootareaL(i)/cc%crownarea
       ! k_rs(i)= vegn%K_soil(i)*SQRT(RAI(i))/(3.14159*thksl(i))
       k_rs(i)= vegn%K_soil(i)*cc%rootareaL(i) ! per tree
@@ -3148,7 +3142,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
       vegn%wcl    = FLDCAP
       ! Update soil water
       vegn%SoilWater = 0.0
-      do i=1, max_lev
+      do i=1, soil_L
          vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
       enddo
       vegn%thetaS = 1.0

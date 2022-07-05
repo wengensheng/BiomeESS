@@ -41,12 +41,13 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
 real, public, parameter    :: m0_dbh = 16.0 !  DBH-WTC0 scaling factor, 12000/300 = 40
+real, public, parameter    :: WDref0 = 300.0 ! Transform wood density to a unitless scalar, kgC m-3
 real, public, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
 integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
 ! Soil water hydrualics
- integer, public, parameter :: max_lev = 5 ! Soil layers, for soil water dynamics
- integer, public, parameter :: num_l   = max_lev ! Soil layers,
- real, public, parameter :: thksl(max_lev)=(/0.05,0.45,1.5,1.5,1.5/) ! m, thickness of soil layers
+ integer,public,parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
+ integer,public,parameter :: num_l   = soil_L ! Soil layers,
+ real, public, parameter :: thksl(soil_L)=(/0.05,0.45,1.5,1.5,1.5/) ! m, thickness of soil layers
  real, public, parameter :: rzone = sum(thksl) !m
  real, public, parameter :: psi_wilt  = -150.0  ! matric head at wilting
  real, public, parameter :: K_rel_min = 1.e-12
@@ -133,7 +134,7 @@ type spec_data_type
   real    :: rho_FR       ! material density of fine roots (kgC m-3)
   real    :: root_r       ! radius of the fine roots, m
   real    :: root_zeta    ! e-folding parameter of root vertical distribution (m)
-  real    :: root_frac(max_lev)    ! root fraction
+  real    :: root_frac(soil_L)    ! root fraction
   real    :: SRA          ! speific fine root area, m2/kg C
   real    :: SRL          ! specific root lenght
   real    :: gamma_FR     ! Fine root respiration rate, kgC kgC-1 yr-1
@@ -315,14 +316,14 @@ type :: cohort_type
   real    :: DBH_ys             ! DBH at the begining of a year (growing season)
 
 ! ---- water uptake-related variables
-  real    :: root_length(max_lev) ! m
+  real    :: root_length(soil_L) ! m
   real    :: rootarea ! total fine root area per tree
   real    :: rootdepth  ! maximum depth of fine roots
-  real    :: rootareaL(max_lev) = 0.0 ! Root length per layer, m of root/m
-  real    :: WupL(max_lev) = 0.0 ! normalized vertical distribution of uptake
+  real    :: rootareaL(soil_L) = 0.0 ! Root length per layer, m of root/m
+  real    :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
   real    :: W_supply  ! potential water uptake rate per unit time per tree
   real    :: transp   ! transpiration rate per tree per hour
-  real    :: uptake_frac(max_lev) ! for LM3 soil water uptake, Weng, 2017-10-28
+  real    :: uptake_frac(soil_L) ! for LM3 soil water uptake, Weng, 2017-10-28
   real    :: K_r,r_r
   real    :: root_zeta
 ! for photosynthesis
@@ -356,7 +357,7 @@ type :: vegn_tile_type
    real :: f_gap(9)    = 0.0 ! gap fraction of each crown layer
    real :: kp(9)       = 0.0 ! light extinction coefficient fro each layer
    ! uptake-related variables
-   real :: root_distance(max_lev) ! characteristic half-distance between fine roots, m
+   real :: root_distance(soil_L) ! characteristic half-distance between fine roots, m
    ! averaged quantities for PPA phenology
    real :: tc_daily = 0.0
    real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology
@@ -385,10 +386,10 @@ type :: vegn_tile_type
    real :: transp         ! kg m-2 hour-1
    real :: runoff        ! Water runoff of the veg tile, unit?
    real :: thetaS     ! moisture index (ws - wiltpt)/(fldcap - wiltpt)
-   real :: wcl(max_lev)   ! volumetric soil water content for each layer
-   real :: freewater(max_lev) ! Available water in each layer
-   real :: psi_soil(max_lev) ! MPa
-   real :: K_soil(max_lev)   ! Kg H2O/(m2 s MPa)
+   real :: wcl(soil_L)   ! volumetric soil water content for each layer
+   real :: freewater(soil_L) ! Available water in each layer
+   real :: psi_soil(soil_L) ! MPa
+   real :: K_soil(soil_L)   ! Kg H2O/(m2 s MPa)
    real :: soilWater      ! kg m-2 in root zone
 
    ! Vegetation water
@@ -398,7 +399,7 @@ type :: vegn_tile_type
 
 ! ---- water uptake-related variables
   real    :: RAI ! root area index
-  real    :: RAIL(max_lev) = 0.0 ! Root length per layer, m of root/m
+  real    :: RAIL(soil_L) = 0.0 ! Root length per layer, m of root/m
   real    :: W_uptake  ! water uptake rate per unit time per m2
 
 !  Carbon fluxes
@@ -574,7 +575,7 @@ real :: gdd_par3 = -0.02 ! -0.01d0
 
 ! reduction of bl_max and br_max for the understory vegetation, unitless
 real :: understory_lai_factor = 0.25
-!real :: rdepth(0: max_lev) = 0.0
+!real :: rdepth(0: soil_L) = 0.0
 ! -------- PFT-specific parameters ----------
 ! c4grass  c3grass  temp-decid  tropical  evergreen  BE  BD  BN  NE  ND  G  D  T  A
 integer :: pt(0:MSPECIES) = 0
@@ -943,22 +944,21 @@ subroutine initialize_PFT_data(namelistfile)
    type(spec_data_type), intent(inout) :: sp
    ! ---- local vars ------
    integer :: i,j
-   real :: rdepth(0:max_lev)
+   real :: rdepth(0:soil_L)
    real :: residual
-   real :: WDref = 300.0 ! Reference wood density, 300 KgC m-3
 
    ! specific root area
    sp%SRA = 2.0/(sp%root_r*sp%rho_FR) ! m2/kgC
    ! root vertical profile
    rdepth=0.0
-   do j=1,max_lev
+   do j=1,soil_L
      rdepth(j) = rdepth(j-1)+thksl(j)
      sp%root_frac(j) = exp(-rdepth(j-1)/sp%root_zeta)- &
                        exp(-rdepth(j)  /sp%root_zeta)
    enddo
-   residual = exp(-rdepth(max_lev)/sp%root_zeta)
-   do j=1,max_lev
-      sp%root_frac(j) = sp%root_frac(j) + residual*thksl(j)/rdepth(max_lev)
+   residual = exp(-rdepth(soil_L)/sp%root_zeta)
+   do j=1,soil_L
+      sp%root_frac(j) = sp%root_frac(j) + residual*thksl(j)/rdepth(soil_L)
    enddo
 
    ! calculate alphaBM parameter of allometry. note that rho_wood was re-introduced for this calculation
@@ -983,13 +983,14 @@ subroutine initialize_PFT_data(namelistfile)
    sp%leafTK = 0.003 * SQRT(sp%LMA)
    sp%rho_leaf = sp%LMA/sp%leafTK
    sp%w0L_max = 1000.0/sp%rho_leaf - 1000./rho_cellwall ! 18.0  ! leaf max. water/carbon ratio
-   ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
-   sp%kx0 = 5.0 * WDref/sp%rho_wood  ! (mm/s)/(Mpa/m)
-   sp%WTC0 = 1200. * (sp%rho_wood/WDref)**1.5
    sp%w0S_max = 1000.0/sp%rho_wood - 1000./rho_cellwall ! 2.0   ! stem max. water/carbon ratio
+
+   ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
+   sp%kx0 = 5.0 * WDref0/sp%rho_wood  ! (mm/s)/(Mpa/m)
+   sp%WTC0 = 1200. * (sp%rho_wood/WDref0)**1.5
    sp%H0_stem = 1000. * (1.-sp%rho_wood/rho_cellwall) & ! Full water content per m3 wood !820.0 - 1.6 * sp%rho_wood
-              * 0.35*(sp%rho_wood/WDref)**(-1.67)       ! Compress ratio per MPa, Santiago et al. 2018
-   sp%wood_psi50 = -1.09 - 1.475 * (sp%rho_wood/WDref) ** 1.73 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+              * 0.35*(sp%rho_wood/WDref0)**(-1.67)       ! Compress ratio per MPa, Santiago et al. 2018
+   sp%wood_psi50 = -1.09 - 1.475 * (sp%rho_wood/WDref0) ** 1.73 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
 
  end subroutine init_derived_species_data
 
