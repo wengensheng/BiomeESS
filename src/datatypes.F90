@@ -40,7 +40,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
-real, public, parameter    :: m0_dbh = 16.0 !  DBH-WTC0 scaling factor, 12000/300 = 40
+
 real, public, parameter    :: WDref0 = 300.0 ! Transform wood density to a unitless scalar, kgC m-3
 real, public, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
 integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
@@ -152,7 +152,8 @@ type spec_data_type
   ! Plant hydraulics
   real    :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
   real    :: WTC0 ! xylem water transfer capacity, m/lifetime
-
+  real    :: CR0_Leaf ! leaf compression ratio per MPa
+  real    :: CR0_Wood ! Wood compression ratio per MPa
 
   real    :: H0_leaf ! Leaf capacitance, kgH2O m-3 MPa-1
   real    :: H0_stem ! Stem/wood capacitance, kgH2O m-3 MPa-1
@@ -536,7 +537,7 @@ real :: fsc_wood   = 0.0     ! fraction of fast turnover carbon in wood biomass
 real :: GR_factor  = 0.33 ! growth respiration factor
 real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
 real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
-real :: f_initialBSW = 0.005  !0.01, 0.2
+real :: f_initialBSW = 0.1  !0.01, 0.2
 real :: f_N_add = 0.02 ! re-fill of N for sapwood
 
 ! Fire disturbance
@@ -561,12 +562,15 @@ real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_m
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 ! Plant hydraulics
-real :: TK0_leaf = 0.003    ! leaf thickness at reference LMA, m
-real :: kx0_WD   = 5.0      ! kx0 at reference WD
-real :: WTC0_WD  = 1200.0   ! Water transporat capacity at reference WD
-real :: CR0_WD   = 0.35     ! Compression ratio of wood tissues at reference WD
-real :: p50_WD   = -1.565   ! psi50 at reference WD
-real :: r_DF     = 100.0 ! sensitivity of defunction due to water transport usage
+real :: TK0_leaf = 0.003   ! leaf thickness at reference LMA, m
+real :: kx0_WD   = 5.0     ! kx0 at reference WD
+real :: WTC0_WD  = 1200.0  ! Water transporat capacity at reference WD
+real :: CR0_LF   = 0.50    ! Compression ratio of leaf tissues at reference LMA
+real :: CR0_WD   = 0.35    ! Compression ratio of wood tissues at reference WD
+real :: p50_WD   = -1.565  ! stem psi50 at reference WD
+real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport usage
+real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
+real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
 ! Cohort management
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
 
@@ -664,6 +668,8 @@ real :: rho_wood(0:MSPECIES) = 300.0 ! kgC m-3
 real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
 real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
 real :: WTC0(0:MSPECIES)     = 1200.0  ! 2000, m /lifetime
+real :: CR0_Leaf(0:MSPECIES)   = 0.5 ! leaf compression ratio per MPa
+real :: CR0_Wood(0:MSPECIES)   = 0.2 ! Wood compression ratio per MPa
 real :: H0_leaf(0:MSPECIES)  = 200.0 ! Leaf capacitance, kgH2O m-3 MPa-1
 real :: H0_stem(0:MSPECIES)  = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
 real :: w0L_max(0:MSPECIES)  = 18.0  ! leaf maximum water/carbon ratio ()
@@ -699,7 +705,7 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CN0leafST, c_LLS,      &
-  TK0_leaf,kx0_WD,WTC0_WD,CR0_WD,p50_WD,r_DF, &
+  TK0_leaf,kx0_WD,WTC0_WD,CR0_LF,CR0_WD,p50_WD,r_DF,m0_WTC,m0_kx, &
   diff_S0, K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
@@ -770,7 +776,7 @@ character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer   :: model_run_years = 100
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
-integer  :: equi_days       = 0 ! 100 * 365
+integer  :: equi_days    = 0 ! 100 * 365
 logical  :: outputhourly = .False.
 logical  :: outputdaily  = .True.
 logical  :: do_U_shaped_mortality = .False.
@@ -778,7 +784,7 @@ logical  :: update_annualLAImax = .False.
 logical  :: do_migration = .False.
 logical  :: do_fire = .False.
 logical  :: do_closedN_run = .True. !.False.
-logical  :: do_VariedKx   = .False. ! trunk new xylem has the same kx or not
+logical  :: do_VariedKx   = .True. ! trunk new xylem has the same kx or not
 logical  :: do_VariedWTC0 = .True.
 
 namelist /initial_state_nml/ &
@@ -906,9 +912,11 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%A_sd         = A_sd
   spdata%B_sd         = B_sd
   spdata%rho_wood     = rho_wood
-  spdata%f_taper  = f_taper
+  spdata%f_taper      = f_taper
   spdata%kx0          = kx0
   spdata%WTC0         = WTC0
+  spdata%CR0_Leaf     = CR0_Leaf
+  spdata%CR0_Wood     = CR0_Wood
   spdata%H0_leaf      = H0_leaf
   spdata%H0_stem      = H0_stem
   spdata%w0L_max      = w0L_max
@@ -987,6 +995,7 @@ subroutine initialize_PFT_data(namelistfile)
    !sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
    sp%leafTK = TK0_leaf * SQRT(sp%LMA)
    sp%rho_leaf = sp%LMA/sp%leafTK
+   sp%CR0_Leaf  = CR0_LF  * (0.02/sp%LMA)
    sp%w0L_max = 1000.0/sp%rho_leaf - 1000./rho_cellwall ! 18.0  ! leaf max. water/carbon ratio
    sp%w0S_max = 1000.0/sp%rho_wood - 1000./rho_cellwall ! 2.0   ! stem max. water/carbon ratio
 
@@ -994,9 +1003,8 @@ subroutine initialize_PFT_data(namelistfile)
    R_WD = sp%rho_wood/WDref0
    sp%kx0     = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
    sp%WTC0    = WTC0_WD * R_WD**1.5
-   sp%H0_stem = CR0_WD  * R_WD**(-1.67) * &  ! Compress ratio per MPa, Santiago et al. 2018
-                (1.-sp%rho_wood/rho_cellwall)*1000.0  ! Full water content per m3 wood !820.0 - 1.6 * sp%rho_wood
-   sp%psi50_WD= p50_WD  * R_WD**1.73 -1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+   sp%CR0_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
+   sp%psi50_WD = p50_WD * R_WD**1.73 -1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
 
  end subroutine init_derived_species_data
 

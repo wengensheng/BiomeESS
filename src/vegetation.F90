@@ -1006,7 +1006,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
   real :: Transp_sap ! m, annual Transp per unit sap area
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
-  real :: D_hw, woodC, woodN, dSW
+  real :: D_hw, woodC, newSW, woodN, dSW
   integer :: i, j, k
 
   do i = 1, vegn%n_cohorts
@@ -1078,18 +1078,20 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      enddo
 
      ! Update Asap and D_hw
-     cc%Asap = 0.0
+     !cc%Asap = 0.0
      D_hw  = 0.0
-     do k=1, MIN(cc%Nrings, Ysw_max)
-        cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
-        if(cc%farea(k)<0.5) D_hw = cc%Rring(k) * 2.0
+     do k=1, MIN(cc%Nrings, Ysw_max)-1
+        !cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
+        if(cc%farea(k)<0.05) D_hw = cc%Rring(k) * 2.0
      enddo
 
      ! update C and N of sapwood and wood
      if(sp%lifeform>0)then ! woody plants
         woodC  = cc%bsw   + cc%bHW
         woodN  = cc%sapwN + cc%woodN
-        dSW    = MIN(woodC, sp%alphaBM * D_hw**sp%thetaBM) - cc%bHW
+        newSW = sp%alphaBM * (cc%dbh**sp%thetaBM - D_hw**sp%thetaBM)
+        dSW = cc%bSW - newSW
+        !dSW    = MIN(woodC, sp%alphaBM * D_hw**sp%thetaBM) - cc%bHW
         cc%W_stem = cc%W_stem - cc%W_stem * dSW/cc%bSW
         cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
         cc%bHW    = cc%bHW + dSW
@@ -1178,6 +1180,14 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
      cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
                  + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
+      if(isnan(cc%W_supply))then
+        write(*,*)'cc%W_supply,cc%bsw',cc%W_supply,cc%bsw
+        write(*,*)cc%W_leaf,cc%W_stem
+        write(*,*)cc%Wmin_L,cc%Wmax_L
+        write(*,*)cc%Wmin_s,cc%Wmax_s
+        write(*,*)cc%psi_stem,cc%psi_leaf,k_stem
+        stop '"transp" is a NaN'
+      endif
      end associate
   enddo
 
@@ -1449,10 +1459,13 @@ subroutine derived_cc_vars(cc)
     cc%V_stem = cc%bsw/sp%rho_wood ! m^3  ! (cc%bsw+cc%bhw)
     cc%Wmax_l = (cc%V_leaf - cc%bl /rho_cellwall)*1000 ! max leaf water content
     cc%Wmax_s = (cc%V_stem - cc%bsw/rho_cellwall)*1000 ! max stem water content, kg H2O
-    cc%H_leaf = sp%H0_leaf * cc%V_leaf ! Leaf Capacitance
-    cc%H_stem = sp%H0_stem * cc%V_stem * cc%W_stem/cc%Wmax_s ! Stem capacitance
-    cc%Wmin_l = cc%Wmax_l + cc%H_leaf * sp%psi0_LF
-    cc%Wmin_s = cc%Wmax_s + cc%H_stem * sp%psi0_WD
+    cc%Wmin_l = cc%Wmax_l * exp(sp%psi0_LF*sp%CR0_Leaf)
+    cc%Wmin_s = cc%Wmax_s * exp(sp%psi0_WD*sp%CR0_Wood)
+    cc%H_leaf = (cc%Wmax_l - cc%Wmin_l)/abs(sp%psi0_LF)  ! Linearized Leaf Capacitance
+    cc%H_stem = (cc%Wmax_s - cc%Wmin_s)/abs(sp%psi0_WD)  ! Linearized Stem capacitance
+    !cc%H_leaf = sp%H0_leaf * cc%V_leaf * cc%W_leaf/cc%Wmax_l  ! Leaf Capacitance
+    !cc%H_stem = sp%H0_stem * cc%V_stem * cc%W_stem/cc%Wmax_s ! Stem capacitance
+
   end associate
  end subroutine derived_cc_vars
 
@@ -1512,6 +1525,8 @@ type(cohort_type), intent(inout) :: cc
   associate ( sp => spdata(cc%species) )
     cc%W_leaf = cc%Wmax_L - (cc%Wmax_L - cc%Wmin_L) * cc%psi_leaf/sp%psi0_LF
     cc%W_stem = cc%Wmax_S - (cc%Wmax_S - cc%Wmin_S) * cc%psi_stem/sp%psi0_WD
+    !cc%W_leaf = cc%Wmax_l * exp(cc%psi_leaf*sp%CR0_Leaf)
+    !cc%W_stem = cc%Wmax_s * exp(cc%psi_stem*sp%CR0_Wood)
   end associate
 end subroutine Plant_psi2water
 
@@ -1533,6 +1548,13 @@ end subroutine Plant_psi2water
          else
            cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
          endif
+
+         !cc%psi_stem = log(cc%W_stem/cc%Wmax_s)/sp%CR0_Wood
+         !if(cc%bl > 0.0001)then
+         !  cc%psi_leaf = log(cc%W_leaf/cc%Wmax_l)/sp%CR0_Leaf
+         !else
+         !  cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
+         !endif
       end associate
    end subroutine Plant_water2psi
 
@@ -1612,9 +1634,9 @@ real function NewWoodWTC(cc) result(WTC)
     !---------------------
     associate ( sp => spdata(cc%species))
     if (do_VariedWTC0)then
-      WTC = sp%WTC0 * (1. + m0_dbh * cc%DBH**sp%thetaHT)
+      WTC = sp%WTC0 * (1. + m0_WTC * cc%DBH**sp%thetaHT)
     else
-      WTC = sp%WTC0 * (1. + m0_dbh * 0.5 ) ! 0.25**0.5 = 0.5
+      WTC = sp%WTC0 * (1. + m0_WTC * 0.5 ) ! 0.25**0.5 = 0.5
     endif
     end associate
 end function NewWoodWTC
@@ -1628,9 +1650,9 @@ real function NewWoodKx(cc) result(Kx)
     ! Kx scaling with tree height to keep psi_leaf constant
     if (do_VariedKx)then
       !Kx = sp%Kx0 * (0.02 + 0.12 * cc%height)  ! (mm/s)/(MPa/m)
-      Kx = sp%Kx0 * (1. + m0_dbh * cc%DBH**sp%thetaHT)  ! (mm/s)/(MPa/m)
+      Kx = sp%Kx0 * (1. + m0_kx * cc%DBH**sp%thetaHT)  ! (mm/s)/(MPa/m)
     else
-      Kx = sp%Kx0 * (1. + m0_dbh * 0.5 ) ! 0.25**0.5 = 0.5
+      Kx = sp%Kx0 !* (1. + m0_kx * 0.5 ) ! 0.25**0.5 = 0.5
     endif
     end associate
 end function NewWoodKx

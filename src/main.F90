@@ -29,7 +29,7 @@
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for questions.
 !
-!                      (Lase edited 12/30/2017)
+!                      (Lase edited 12/30/2017, 07/06/2022)
 !
 !------------------------------------------------------------------------
 !
@@ -52,7 +52,7 @@
 !#define USE_NETCDF
 !#define CROWN_GAP_FILLING
 
-program BiomeESS
+program BiomeE
    use datatypes
    use esdvm
    use soil_mod
@@ -541,4 +541,4 @@ end subroutine set_up_output_files
 #endif
 !=================================================================
 !=====================================================
-end program BiomeESS
+end program BiomeE
