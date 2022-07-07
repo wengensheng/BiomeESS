@@ -9,7 +9,7 @@ module soil_mod
  private
 
 ! ------ public subroutines ---------
-public :: SoilWaterDynamicsLayer, soil_water_uptake_supply
+public :: SoilWaterDynamicsLayer, SoilWaterSupply, SoilWaterTranspUpdate
 public :: soil_data_beta
 
 !---------------------------------
@@ -35,7 +35,7 @@ contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ! Weng 2017-10-18 ! compute available water for photosynthesis
 !========================================================================
 ! Calculate soil water uptake by plants and supply for transpiration
-subroutine soil_water_uptake_supply(vegn) ! forcing,
+subroutine SoilWaterSupply(vegn) ! forcing,
   !type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
 
@@ -79,7 +79,41 @@ subroutine soil_water_uptake_supply(vegn) ! forcing,
      cc%W_supply = sum(cc%WupL(:))
   enddo
 
-end subroutine soil_water_uptake_supply
+end subroutine SoilWaterSupply
+
+! ============================================================================
+! 07/07/2022, Weng
+! Update soil water by deducting transpiration
+subroutine SoilWaterTranspUpdate(vegn)
+  type(vegn_tile_type),intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real    :: WaterBudgetL(soil_L)
+  real    :: transp, fsupply ! fraction of transpiration from a soil layer
+  integer :: i,j
+
+  ! Soil water conditions
+  call SoilWaterSupply(vegn)
+  ! Water uptaken by roots, hourly
+  WaterBudgetL = 0.0
+  vegn%transp = 0.0
+  do j = 1, vegn%n_cohorts
+      cc => vegn%cohorts(j)
+      if(cc%W_supply>0.0)then
+         do i=1,soil_L
+            fsupply = cc%WupL(i)/cc%W_supply
+            transp  = fsupply * cc%transp * cc%nindivs
+            !vegn%wcl(i) = vegn%wcl(i) - transp/(thksl(i)*1000.0)
+            WaterBudgetL(i) = WaterBudgetL(i) - transp
+            vegn%transp = vegn%transp + transp
+         enddo
+      endif
+  enddo ! all cohorts
+  do i=1,soil_L
+     vegn%wcl(i) = vegn%wcl(i) + WaterBudgetL(i)/(thksl(i)*1000.0)
+  enddo
+end subroutine SoilWaterTranspUpdate
 
 ! ============================================================================
 ! Weng, 2017-10-27
@@ -91,6 +125,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
 
 !----- local var --------------
   type(cohort_type),pointer :: cc
+  real    :: WaterBudgetL(soil_L)
   real    :: rainwater,W_deficit(soil_L),W_add(soil_L)
   real    :: kappa  ! light extinction coefficient of corwn layers
   real    :: Esoil      ! soil surface evaporation, kg m-2 s-1
@@ -108,34 +143,9 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   real    :: rsoil  ! s m-1
   real    :: raero
   real    :: rLAI
-  real    :: transp
-  real    :: fsupply ! fraction of transpiration from a soil layer
-  real    :: WaterBudgetL(soil_L)
   integer :: i,j,k
 
-! Soil water conditions
-  !call water_supply_layer(forcing, vegn)
-
-! Water uptaken by roots, hourly
   WaterBudgetL = 0.0
-  vegn%transp = 0.0
-  do j = 1, vegn%n_cohorts
-      cc => vegn%cohorts(j)
-      ! Compare with soil water
-      ! cc%W_supply = sum(cc%WupL(:))
-      ! cc%transp   = min(cc%transp,cc%W_supply)
-      ! deduct from soil water pool
-      if(cc%W_supply>0.0)then
-         do i=1,soil_L
-            fsupply = cc%WupL(i)/cc%W_supply
-            transp  = fsupply * cc%transp * cc%nindivs
-            !vegn%wcl(i) = vegn%wcl(i) - transp/(thksl(i)*1000.0)
-            WaterBudgetL(i) = WaterBudgetL(i) - transp
-            vegn%transp = vegn%transp + transp
-         enddo
-      endif
-  enddo ! all cohorts
-
 !! Soil surface evaporation
 !    calculate kappa  ! light extinction coefficient of corwn layers
      kappa = 0.75
@@ -192,6 +202,7 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   do i=1,soil_L
      vegn%wcl(i) = vegn%wcl(i) +  WaterBudgetL(i)/(thksl(i)*1000.0)
      vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
+     vegn%freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT)*thksl(i)*1000.0)) ! kg/m2, or mm
   enddo
 
 end subroutine SoilWaterDynamicsLayer

@@ -322,6 +322,7 @@ type :: cohort_type
   real    :: rootdepth  ! maximum depth of fine roots
   real    :: rootareaL(soil_L) = 0.0 ! Root length per layer, m of root/m
   real    :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
+  real    :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
   real    :: W_supply  ! potential water uptake rate per unit time per tree
   real    :: transp   ! transpiration rate per tree per hour
   real    :: uptake_frac(soil_L) ! for LM3 soil water uptake, Weng, 2017-10-28
