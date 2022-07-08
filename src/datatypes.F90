@@ -1274,7 +1274,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     write(*,'(1(a6,","),2(a4,","),25(a8,","))')    &
             'cID','PFT','L', 'n',                   &
             'f_CA','dDBH','DBH','Height','Acrown',  &
-            'NSC','NSN','GPP','NPP','mu','Asap','Ktree'
+            'NSC','GPP','NPP','mu','Atrunk','Asap','Ktree'
 
     ! Cohotrs ouput
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -1298,12 +1298,11 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
         ! Screen output
         write(*,'(1(I6,","),2(I4,","),30(F8.2,","))') &
-            cc%ccID,cc%species,cc%layer,         &
-            cc%nindivs*10000, cc%layerfrac,      &
-            dDBH, cc%dbh,cc%height,cc%crownarea, &
-            cc%nsc,cc%NSN*1000,                  &
-            cc%annualGPP, cc%annualNPP,          &
-            cc%mu,cc%Asap,cc%Ktrunk
+            cc%ccID,cc%species,cc%layer,              &
+            cc%nindivs*10000, cc%layerfrac,           &
+            dDBH,cc%dbh,cc%height,cc%crownarea,       &
+            cc%nsc,cc%annualGPP,cc%annualNPP,cc%mu,   &
+            PI*(cc%dbh/2)**2,cc%Asap,cc%Ktrunk
     enddo
 
     ! tile pools output
