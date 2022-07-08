@@ -1116,6 +1116,7 @@ end subroutine Zero_diagnostics
   ! Tile summary
   vegn%GPP    = 0.; vegn%fixedN = 0.
   vegn%NPP    = 0.; vegn%Resp   = 0.
+  vegn%transp = 0.
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      ! cohort daily
@@ -1129,6 +1130,7 @@ end subroutine Zero_diagnostics
      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
      vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
      vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs
+     vegn%transp = vegn%transp + cc%transp * cc%nindivs
      vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
   enddo
   ! NEP is equal to NNP minus soil respiration

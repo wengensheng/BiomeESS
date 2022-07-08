@@ -90,26 +90,25 @@ subroutine SoilWaterTranspUpdate(vegn)
 !----- local var --------------
   type(cohort_type),pointer :: cc
   real    :: WaterBudgetL(soil_L)
-  real    :: transp, fsupply ! fraction of transpiration from a soil layer
+  real    :: W_supply, fsupply ! fraction of transpiration from a soil layer
   integer :: i,j
 
   ! Soil water conditions
-  call SoilWaterSupply(vegn)
-  ! Water uptaken by roots, hourly
+  ! call SoilWaterSupply(vegn)
+
+  ! Water uptaken by roots in each soil layer
   WaterBudgetL = 0.0
-  vegn%transp = 0.0
   do j = 1, vegn%n_cohorts
       cc => vegn%cohorts(j)
-      if(cc%W_supply>0.0)then
+      W_supply = sum(cc%WupL)
+      if(W_supply > 0.0)then
          do i=1,soil_L
-            fsupply = cc%WupL(i)/cc%W_supply
-            transp  = fsupply * cc%transp * cc%nindivs
-            !vegn%wcl(i) = vegn%wcl(i) - transp/(thksl(i)*1000.0)
-            WaterBudgetL(i) = WaterBudgetL(i) - transp
-            vegn%transp = vegn%transp + transp
+            fsupply = cc%WupL(i)/W_supply
+            WaterBudgetL(i) = WaterBudgetL(i) - fsupply * cc%transp * cc%nindivs
          enddo
       endif
   enddo ! all cohorts
+  ! Deduct soil water
   do i=1,soil_L
      vegn%wcl(i) = vegn%wcl(i) + WaterBudgetL(i)/(thksl(i)*1000.0)
   enddo
