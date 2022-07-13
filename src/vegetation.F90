@@ -1192,9 +1192,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
 
      ! Water supply for the next step photosynthesis
      ! This is for the stomata conductance.
-     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
-     cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.5 * (cc%W_stem - cc%Wmin_s) !&
-                 !+ (cc%psi_stem - cc%psi_leaf)* k_stem * step_seconds
+     cc%W_supply = PlantWaterSupply(cc,step_seconds)
 
      !------------------------
      if(isnan(cc%W_supply))then
@@ -1622,6 +1620,53 @@ real function plc_function(psi, psi50, expK) result(plc)
   !---------------------
   plc = 1.d0 / (1.d0 + (psi / psi50) ** expK)
 end function plc_function
+
+!===================================================================
+real function PlantWaterSupply(cc,step_seconds) result(pws)
+  !@sum: Calculate water supply for transpiration from plant water status
+  ! Weng, 07/13/2022
+  type(cohort_type),intent(in) :: cc
+  real,             intent(in) :: step_seconds
+
+  !----- Local vars ---------------
+  real :: psi0_WD, psi50, Kexp
+  real :: W_stem,W_leaf,fW_S
+  real :: k_stem,psi_stem
+  real :: S_stem,S_leaf
+  real :: step_base = 300.
+  integer :: n_iterations,i
+  !---------------------
+  ! ----An arbitrary assignment ---------
+  !W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) &
+  !         + 0.5 * (cc%W_stem - cc%Wmin_s) !&
+  !        !+ (cc%psi_stem - cc%psi_leaf)* k_stem * step_seconds
+
+  ! Calculated as a function of woody properties
+  W_leaf = cc%W_leaf
+  W_stem = cc%W_stem
+  associate ( sp => spdata(cc%species) )
+    psi50   = sp%psi50_WD
+    Kexp    = sp%Kexp_WD
+    psi0_WD = sp%psi0_WD
+  end associate
+  ! Stem water supply
+  n_iterations = int(step_seconds/step_base)
+  pws = 0.0
+  do i =1, n_iterations
+    fW_S =  Max(0.0,MIN(1.0,(cc%Wmax_S-W_stem)/(cc%Wmax_S-cc%Wmin_S)))
+    psi_stem = psi0_WD * fW_S
+    k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,Kexp)
+    S_stem = MAX(Min(psi0_WD*(fW_S-1.)*k_stem*step_base, W_stem-cc%Wmin_S),0.0)
+    W_stem = W_stem - S_stem
+    pws = pws + S_stem
+    if(W_stem <= cc%Wmin_S)exit
+  enddo
+  !Leaf water supply
+  S_leaf = 0.8 * (W_leaf - cc%Wmin_L)
+  ! Total plant water supply
+  pws = pws + S_leaf
+
+end function PlantWaterSupply
 
 !==========================================
 ! Weng, 03/21/2022

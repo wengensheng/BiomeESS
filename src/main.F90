@@ -453,6 +453,7 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
         'year','doy','hour','cID','PFT','layer',      &
         'Pheno','ndm','ncd','density','flayer','LAI', &
         'gpp','resp','transp','NPPL','NPPR','NPPW',   &
+        'W_LF','W_SW','W_HW',                         &
         'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
         'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
         'GDD','ALT'
@@ -460,6 +461,7 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
    write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &  ! Daily tile
         'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &
         'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
+        'W_LF','W_SW','W_HW',                              &
         'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
         'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
         'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
