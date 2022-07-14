@@ -165,6 +165,7 @@ type spec_data_type
   real    :: psi0_WD ! minimum stem wood potential
   real    :: psi50_WD !wood potential at which 50% conductivity lost, MPa
   real    :: Kexp_WD  ! exponent of the PLC curve
+  real    :: f_sup_S2L ! fraction of stem water available for leaves in one hour
 
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -572,8 +573,7 @@ real :: p50_WD   = -1.565  ! stem psi50 at reference WD
 real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport usage
 real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
 real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
-real :: f_W_leaf = 0.5     ! Fraction of leaf water for transpiration per hour
-real :: f_W_stem = 0.5     ! Fraction of leaf water for transpiration per hour
+real :: f0_WD    = 0.8     ! Fraction of stem water for transpiration per hour at zero WD
 ! Cohort management
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
 
@@ -678,9 +678,10 @@ real :: H0_stem(0:MSPECIES)  = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
 real :: w0L_max(0:MSPECIES)  = 18.0  ! leaf maximum water/carbon ratio ()
 real :: w0S_max(0:MSPECIES)  = 2.0   ! stem maximum water/carbon ratio
 real :: psi0_LF(0:MSPECIES)  = -3.0  ! MPa
-real :: psi0_WD(0:MSPECIES)  = -1.5  ! MPa
+real :: psi0_WD(0:MSPECIES)  = -3.0  ! MPa
 real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
 real :: Kexp_WD(0:MSPECIES)  = 2.0
+real :: f_sup_S2L(0:MSPECIES)    = 0.5
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
@@ -708,7 +709,8 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CN0leafST, c_LLS,      &
-  TK0_leaf,kx0_WD,WTC0_WD,CR0_LF,CR0_WD,p50_WD,r_DF,m0_WTC,m0_kx, &
+  TK0_leaf,kx0_WD,WTC0_WD,CR0_LF,CR0_WD,p50_WD,f0_WD, &
+  r_DF,m0_WTC,m0_kx, &
   diff_S0, K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
@@ -720,7 +722,7 @@ namelist /vegn_parameters_nml/  &
   AgeRepro, v_seed, s0_plant, prob_g,prob_e,      &
   r0mort_c, r0mort_u, D0mu, A_sd, B_sd,         &
   phiRL, phiCSA, rho_wood, f_taper, &
-  kx0, WTC0, psi0_LF, psi0_WD, &
+  kx0, WTC0, psi0_LF, psi0_WD,&
   tauNSC, fNSNmax, understory_lai_factor, &
   CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0, &
   NfixRate0, NfixCost0, f_cGap, &
@@ -1007,7 +1009,9 @@ subroutine initialize_PFT_data(namelistfile)
    sp%kx0     = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
    sp%WTC0    = WTC0_WD * R_WD**1.5
    sp%CR0_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
-   sp%psi50_WD = p50_WD * R_WD**1.73 -1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+   sp%psi50_WD = p50_WD * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+   sp%f_sup_S2L= f0_WD / (R_WD+1.0)
+   !sp%psi0_WD  = sp%psi50_WD
 
  end subroutine init_derived_species_data
 
@@ -1139,7 +1143,7 @@ end subroutine Zero_diagnostics
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
 
   !! Output horly diagnostics
-  If(outputhourly .and. iday>equi_days .and. iday<equi_days+366 ) then !  .and. ihour==12
+  If(outputhourly .and. iday>equi_days .and. iday<=equi_days+365*10 ) then !  .and. ihour==12
     write(fno1,'(4(I8,","))')vegn%n_cohorts
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
