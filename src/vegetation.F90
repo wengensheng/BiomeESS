@@ -1142,7 +1142,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      cc%H_leaf = cc%Wmax_l * sp%CR0_Leaf * exp(cc%psi_leaf*sp%CR0_Leaf)  ! Leaf Capacitance
      cc%H_stem = cc%Wmax_s * sp%CR0_Wood * exp(cc%psi_stem*sp%CR0_Wood)  ! Stem capacitance
      Q_air  = cc%transp   ! /step_seconds
-     psi_sl = cc%psi_leaf ! (cc%psi_stem + cc%psi_leaf)/2
+     psi_sl = (cc%psi_stem + cc%psi_leaf)/2
      k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
      psi_ht = H2MPa(cc%height) ! MPa
      psi_leaf = ((cc%psi_stem-psi_ht)*k_stem*step_seconds - Q_air + cc%H_leaf*cc%psi_leaf)/ &
@@ -1652,7 +1652,6 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   !---------------------
 
   ! Prameters
-
   associate ( sp => spdata(cc%species) )
     psi50   = sp%psi50_WD
     Kexp    = sp%Kexp_WD

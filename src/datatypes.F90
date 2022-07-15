@@ -779,9 +779,14 @@ real      :: step_seconds = 3600.0
 
 character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
-integer   :: model_run_years = 100
+integer  :: model_run_years = 100
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
 integer  :: equi_days    = 0 ! 100 * 365
+integer  :: datalines ! the total lines in forcing data file
+integer  :: yr_data   ! Years of the forcing data
+integer  :: days_data ! days of the forcing data
+integer  :: steps_per_day ! 24 or 48
+real     :: timestep  ! hour, Time step of forcing data, usually hourly (1.0)
 logical  :: outputhourly = .False.
 logical  :: outputdaily  = .True.
 logical  :: do_U_shaped_mortality = .False.
@@ -799,7 +804,7 @@ namelist /initial_state_nml/ &
     init_fast_soil_C, init_slow_soil_C,    &
     init_Nmineral, N_input,  &
     filepath_in,climfile, model_run_years, &
-    outputhourly, outputdaily, equi_days, &
+    outputhourly, outputdaily, &
     do_U_shaped_mortality,update_annualLAImax, &
     do_fire, do_migration, Sc_prcp, &
     do_closedN_run,do_VariedKx,do_variedWTC0
@@ -1143,7 +1148,7 @@ end subroutine Zero_diagnostics
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
 
   !! Output horly diagnostics
-  If(outputhourly .and. iday>equi_days .and. iday<=equi_days+365*10 ) then !  .and. ihour==12
+  If(outputhourly .and. iday>equi_days+days_data-366*5 ) then !  .and. ihour==12
     write(fno1,'(4(I8,","))')vegn%n_cohorts
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)

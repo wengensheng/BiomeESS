@@ -65,45 +65,35 @@ program BiomeE
    type(soil_tile_type),  pointer :: soil
    type(cohort_type),     pointer :: cp,cc
 
-   integer,parameter :: rand_seed = 86456
-   integer,parameter :: totalyears = 10
    integer,parameter :: nCohorts = 1
-   integer :: datalines ! the total lines in forcing data file
-   integer :: yr_data   ! Years of the forcing data
-   integer :: days_data ! days of the forcing data
-   integer :: steps_per_day ! 24 or 48
-   real    :: timestep  ! hour, Time step of forcing data, usually hourly (1.0)
-   real    :: tsoil, soil_theta
-   real    :: NPPtree,fseed, fleaf, froot, fwood ! for output
-   real    :: dDBH ! yearly growth of DBH, mm
-   real    :: plantC,plantN, soilC, soilN
-   real    :: dSlowSOM  ! for multiple tests only
-   logical :: new_annual_cycle
-   integer :: istat1,istat2,istat3
-   integer :: year0, year1, iyears
-   integer :: fno1,fno2,fno3,fno4,fno5,fno6 ! output files
-   integer :: totyears, totdays
-   integer :: i, j, k, idays, idoy
-   integer :: simu_steps,idata
    character(len=50) :: fpath_out
    character(len=50) :: parameterfile(10),chaSOM(10)
    character(len=50) :: runID
-   character(len=50) :: fnamelist  ! = 'parameters_Konza-shrub.nml' ! 'parameters_Konza-grass.nml' !
-                                  !   'parameters_WC_biodiversity.nml'
-   integer :: timeArray(3)
+   character(len=50) :: fnamelist
+   integer :: fno1,fno2,fno3,fno4,fno5,fno6 ! output files
+   integer :: istat1,istat2,istat3
+   integer :: totyears, totdays
+   integer :: year0, year1, idays, idoy, iyears, i, j, k
+   integer :: simu_steps,idata
+   integer :: timeArray(3), rand_seed
+   logical :: new_annual_cycle
+   real    :: tsoil, soil_theta
 
+   !--------------------------------------------------------------
+   ! Setup run files
    runID = 'BCI_hydro' ! 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub'
                        !  'OR_GAPLUE' !  'FACE_hydro' !
-
-   fnamelist = 'parameters_'//trim(runID)//'.nml' ! 'parameters_Konza-grass.nml' !
-    !   'parameters_WC_biodiversity.nml' ! 'parameters_CN.nml' ! 'parameters_Allocation.nml' !
-   ! call random_seed()
-   call itime(timeArray)     ! Get the current time
-   i = rand(timeArray(1)+timeArray(2)+timeArray(3) )
+   fnamelist = 'parameters_'//trim(runID)//'.nml' 
 
    ! create output files
    fpath_out='output/'
    call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
+
+   ! Setup random numbers
+   ! call random_seed()
+   call itime(timeArray)     ! Get the current time
+   rand_seed = timeArray(1)+timeArray(2)+timeArray(3)
+   i = rand(rand_seed)
 
    ! Parameter initialization: Initialize soil and PFT parameters
    call initialize_soilpars(fnamelist)
