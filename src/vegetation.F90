@@ -1138,7 +1138,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      endif
 
      ! When cc%leafarea > 0
-     call Plant_water2psi(cc)
+     call Plant_water2psi(cc) ! Refine plant water potential based on water content
      cc%H_leaf = cc%Wmax_l * sp%CR0_Leaf * exp(cc%psi_leaf*sp%CR0_Leaf)  ! Leaf Capacitance
      cc%H_stem = cc%Wmax_s * sp%CR0_Wood * exp(cc%psi_stem*sp%CR0_Wood)  ! Stem capacitance
      Q_air  = cc%transp   ! /step_seconds
@@ -1646,14 +1646,13 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   real :: k_stem,psi_stem,psi_leaf,dpsi
   real :: psi0, psi_sl
   real :: S_stem,S_leaf,wflux
-  real :: step_base = 3600. ! Seconds
+  real :: step_base = 600. ! Seconds
   integer :: n_iterations,i
-  logical :: do_simple_W_supply = .True. ! .False. !
+  logical :: do_simple_W_supply = .False. ! .True. !
   !---------------------
 
   ! Prameters
-  step_base = 300.
-  n_iterations = int(step_seconds/step_base)
+
   associate ( sp => spdata(cc%species) )
     psi50   = sp%psi50_WD
     Kexp    = sp%Kexp_WD
@@ -1668,19 +1667,19 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   if(do_simple_W_supply)then ! An arbitrary assignment
     S_stem = f0_sup_s * Max((cc%W_stem - cc%Wmin_s),0.0) ! + (cc%psi_stem - cc%psi_leaf)* k_stem * step_seconds
   else ! Calculated as a function of woody properties
-    !psi0 = psi0_WD * Max(0.0,MIN(1.0,(cc%Wmax_S-(cc%Wmin_S+cc%W_stem)/2)/(cc%Wmax_S-cc%Wmin_S)))
+    n_iterations = int(step_seconds/step_base)
     W_stem = Min(cc%Wmax_S,Max(cc%W_stem, cc%Wmin_S))
     S_stem = 0.0
     do i =1, n_iterations
-      !psi_stem = psi0_WD * (cc%Wmax_S-W_stem)/(cc%Wmax_S-cc%Wmin_S)
-      W_stem = MIN(max(0.5*cc%Wmin_S,W_stem),cc%Wmax_s)
+      W_stem = MIN(max(0.5*cc%Wmin_S, W_stem), cc%Wmax_s)
       psi_stem = log(W_stem/cc%Wmax_s)/CR0_WD
+      !psi_stem = psi0_WD * (cc%Wmax_S-W_stem)/(cc%Wmax_S-cc%Wmin_S) ! Linear
       dpsi   = psi_stem - psi0_WD ! psi0 !psi_leaf
       if(dpsi <= 0.0)then !  W_stem <= (cc%W_stem+cc%Wmin_s)/2 .or.
         exit
       endif
       k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,Kexp)
-      wflux  = MIN(dpsi * k_stem * step_base, 0.99/n_iterations * (W_stem - cc%Wmin_S))
+      wflux  = MIN(dpsi * k_stem * step_base, 0.8/n_iterations * (W_stem - cc%Wmin_S))
       W_stem = W_stem - wflux
       S_stem = S_stem + wflux
     enddo
