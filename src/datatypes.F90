@@ -40,7 +40,7 @@ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
  real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. If nindivs is less than this number,
   ! then the entire cohort is killed; 2e-15 is approximately 1 individual per Earth
 ! Plant hydraulics-mortality
-
+real, public, parameter    :: rho_H2O = 1000.0 ! water density (kg m-3)
 real, public, parameter    :: WDref0 = 300.0 ! Transform wood density to a unitless scalar, kgC m-3
 real, public, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
 integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
@@ -152,11 +152,11 @@ type spec_data_type
   ! Plant hydraulics
   real    :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
   real    :: WTC0 ! xylem water transfer capacity, m/lifetime
-  real    :: CR0_Leaf ! leaf compression ratio per MPa
-  real    :: CR0_Wood ! Wood compression ratio per MPa
+  real    :: CR_Leaf ! leaf compression ratio per MPa
+  real    :: CR_Wood ! Wood compression ratio per MPa
 
-  real    :: H0_leaf ! Leaf capacitance, kgH2O m-3 MPa-1
-  real    :: H0_stem ! Stem/wood capacitance, kgH2O m-3 MPa-1
+  !real    :: H0_leaf ! Leaf capacitance, kgH2O m-3 MPa-1
+  !real    :: H0_stem ! Stem/wood capacitance, kgH2O m-3 MPa-1
   real    :: w0L_max ! leaf maximum water/carbon ratio
   real    :: w0S_max ! stem maximum water/carbon ratio
   real    :: w0L_min ! leaf minimum water/carbon ratio
@@ -164,7 +164,7 @@ type spec_data_type
   real    :: psi0_LF ! minimum leaf water potential
   real    :: psi0_WD ! minimum stem wood potential
   real    :: psi50_WD !wood potential at which 50% conductivity lost, MPa
-  real    :: Kexp_WD  ! exponent of the PLC curve
+  !real    :: Kexp_WD  ! exponent of the PLC curve
   real    :: f_sup_S2L ! fraction of stem water available for leaves in one hour
 
   ! Allometry
@@ -564,7 +564,7 @@ real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_m
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 ! Plant hydraulics
-real :: TK0_leaf = 0.003   ! leaf thickness at reference LMA, m
+real :: TK0_leaf = 0.003   ! leaf thickness at reference LMA (1.0 LMA), m
 real :: kx0_WD   = 5.0     ! kx0 at reference WD
 real :: WTC0_WD  = 1200.0  ! Water transporat capacity at reference WD
 real :: CR0_LF   = 0.50    ! Compression ratio of leaf tissues at reference LMA
@@ -573,6 +573,7 @@ real :: p50_WD   = -1.565  ! stem psi50 at reference WD
 real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport usage
 real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
 real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
+real :: expK0    = 2.0     ! exponential of the PLC function for (WD/WDref)
 real :: f0_WD    = 0.8     ! Fraction of stem water for transpiration per hour at zero WD
 ! Cohort management
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
@@ -671,16 +672,16 @@ real :: rho_wood(0:MSPECIES) = 300.0 ! kgC m-3
 real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
 real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
 real :: WTC0(0:MSPECIES)     = 1200.0  ! 2000, m /lifetime
-real :: CR0_Leaf(0:MSPECIES)   = 0.5 ! leaf compression ratio per MPa
-real :: CR0_Wood(0:MSPECIES)   = 0.2 ! Wood compression ratio per MPa
-real :: H0_leaf(0:MSPECIES)  = 200.0 ! Leaf capacitance, kgH2O m-3 MPa-1
-real :: H0_stem(0:MSPECIES)  = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
+real :: CR_Leaf(0:MSPECIES)   = 0.5 ! leaf compression ratio per MPa
+real :: CR_Wood(0:MSPECIES)   = 0.2 ! Wood compression ratio per MPa
+!real :: H0_leaf(0:MSPECIES)  = 200.0 ! Leaf capacitance, kgH2O m-3 MPa-1
+!real :: H0_stem(0:MSPECIES)  = 50.0  ! Stem/wood capacitance, kgH2O m-3 MPa-1
 real :: w0L_max(0:MSPECIES)  = 18.0  ! leaf maximum water/carbon ratio ()
 real :: w0S_max(0:MSPECIES)  = 2.0   ! stem maximum water/carbon ratio
 real :: psi0_LF(0:MSPECIES)  = -3.0  ! MPa
 real :: psi0_WD(0:MSPECIES)  = -3.0  ! MPa
 real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
-real :: Kexp_WD(0:MSPECIES)  = 2.0
+!real :: Kexp_WD(0:MSPECIES)  = 2.0
 real :: f_sup_S2L(0:MSPECIES)    = 0.5
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
@@ -710,7 +711,7 @@ namelist /vegn_parameters_nml/  &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CN0leafST, c_LLS,      &
   TK0_leaf,kx0_WD,WTC0_WD,CR0_LF,CR0_WD,p50_WD,f0_WD, &
-  r_DF,m0_WTC,m0_kx, &
+  r_DF,m0_WTC,m0_kx, expK0, &
   diff_S0, K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &
@@ -781,13 +782,14 @@ character(len=80) :: filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer  :: model_run_years = 100
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
+integer  :: totyears, totdays
 integer  :: equi_days    = 0 ! 100 * 365
 integer  :: datalines ! the total lines in forcing data file
 integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 integer  :: steps_per_day ! 24 or 48
 real     :: timestep  ! hour, Time step of forcing data, usually hourly (1.0)
-logical  :: outputhourly = .False.
+logical  :: outputhourly = .True.
 logical  :: outputdaily  = .True.
 logical  :: do_U_shaped_mortality = .False.
 logical  :: update_annualLAImax = .False.
@@ -900,9 +902,9 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%gdd_crit      = gdd_crit
 
 ! Plant traits
-  spdata%LMA            = LMA      ! leaf mass per unit area, kg C/m2
-  spdata%LNbase         = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
-  spdata%CN0leafST  = CN0leafST
+  spdata%LMA        = LMA      ! leaf mass per unit area, kg C/m2
+  spdata%LNbase     = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
+  spdata%CN0leafST  = CN0leafST    ! Supportive tissues
   spdata%lifeform     = lifeform
   spdata%alphaHT      = alphaHT
   spdata%thetaHT      = thetaHT
@@ -918,23 +920,23 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%prob_e   = prob_e
   spdata%r0mort_c = r0mort_c
   spdata%r0mort_u = r0mort_u
-  spdata%D0mu         = D0mu
-  spdata%A_sd         = A_sd
-  spdata%B_sd         = B_sd
-  spdata%rho_wood     = rho_wood
-  spdata%f_taper      = f_taper
-  spdata%kx0          = kx0
-  spdata%WTC0         = WTC0
-  spdata%CR0_Leaf     = CR0_Leaf
-  spdata%CR0_Wood     = CR0_Wood
-  spdata%H0_leaf      = H0_leaf
-  spdata%H0_stem      = H0_stem
-  spdata%w0L_max      = w0L_max
-  spdata%w0S_max      = w0S_max
-  spdata%psi0_LF    = psi0_LF
-  spdata%psi0_WD    = psi0_WD
-  spdata%psi50_WD   = psi50_WD
-  spdata%Kexp_WD    = Kexp_WD
+  spdata%D0mu     = D0mu
+  spdata%A_sd     = A_sd
+  spdata%B_sd     = B_sd
+  spdata%rho_wood = rho_wood
+  spdata%f_taper  = f_taper
+  spdata%kx0      = kx0
+  spdata%WTC0     = WTC0
+  spdata%CR_Leaf  = CR_Leaf
+  spdata%CR_Wood  = CR_Wood
+  !spdata%H0_leaf  = H0_leaf
+  !spdata%H0_stem  = H0_stem
+  spdata%w0L_max  = w0L_max
+  spdata%w0S_max  = w0S_max
+  spdata%psi0_LF  = psi0_LF
+  spdata%psi0_WD  = psi0_WD
+  spdata%psi50_WD = psi50_WD
+  !spdata%Kexp_WD  = Kexp_WD
 
   spdata%LAImax       = LAImax
   spdata%LAImax_u     = 1.2 ! LAImax
@@ -1005,18 +1007,22 @@ subroutine initialize_PFT_data(namelistfile)
    !sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
    sp%leafTK = TK0_leaf * SQRT(sp%LMA)
    sp%rho_leaf = sp%LMA/sp%leafTK
-   sp%CR0_Leaf  = CR0_LF  * (0.02/sp%LMA)
-   sp%w0L_max = 1000.0/sp%rho_leaf - 1000./rho_cellwall ! 18.0  ! leaf max. water/carbon ratio
-   sp%w0S_max = 1000.0/sp%rho_wood - 1000./rho_cellwall ! 2.0   ! stem max. water/carbon ratio
+   sp%CR_Leaf  = CR0_LF  * (0.02/sp%LMA)
+   sp%w0L_max = rho_H2O*(1/sp%rho_leaf - 1/rho_cellwall) ! 18.0  ! leaf max. water/carbon ratio
+   sp%w0S_max = rho_H2O*(1/sp%rho_wood - 1/rho_cellwall) ! 2.0   ! stem max. water/carbon ratio
 
    ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
    R_WD = sp%rho_wood/WDref0
    sp%kx0     = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
    sp%WTC0    = WTC0_WD * R_WD**1.5
-   sp%CR0_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
+   sp%CR_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
    sp%psi50_WD = p50_WD * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
    sp%f_sup_S2L= f0_WD / (R_WD+1.0)
    !sp%psi0_WD  = sp%psi50_WD
+
+   !Mortality
+   !sp%r0mort_c = 0.2 * exp(-2.1*R_WD)
+   !sp%r0mort_c = 0.048 - 0.024 * R_WD
 
  end subroutine init_derived_species_data
 
@@ -1148,7 +1154,7 @@ end subroutine Zero_diagnostics
   vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
 
   !! Output horly diagnostics
-  If(outputhourly .and. iday>equi_days+days_data-366*5 ) then !  .and. ihour==12
+  If(outputhourly .and. iday > totdays-366*5 ) then !  .and. ihour==12
     write(fno1,'(4(I8,","))')vegn%n_cohorts
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
@@ -1284,10 +1290,10 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     integer :: i,j
 
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
-    write(*,'(1(a6,","),2(a4,","),25(a8,","))')    &
+    write(*,'(1(a6,","),2(a4,","),25(a9,","))')    &
             'cID','PFT','L', 'n',                   &
             'f_CA','dDBH','DBH','Height','Acrown',  &
-            'NSC','GPP','NPP','mu','Atrunk','Asap','Ktree'
+            'NSC','GPP','mu','Atrunk','Asap','Ktree'
 
     ! Cohotrs ouput
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -1310,11 +1316,11 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             cc%Asap,cc%Ktrunk,(cc%farea(j),j=1,Ysw_max)
 
         ! Screen output
-        write(*,'(1(I6,","),2(I4,","),30(F8.2,","))') &
+        write(*,'(1(I6,","),2(I4,","),30(F9.3,","))') &
             cc%ccID,cc%species,cc%layer,              &
             cc%nindivs*10000, cc%layerfrac,           &
             dDBH,cc%dbh,cc%height,cc%crownarea,       &
-            cc%nsc,cc%annualGPP,cc%annualNPP,cc%mu,   &
+            cc%nsc,cc%annualGPP,cc%mu,   &
             PI*(cc%dbh/2)**2,cc%Asap,cc%Ktrunk
     enddo
 

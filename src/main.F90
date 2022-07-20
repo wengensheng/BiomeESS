@@ -29,13 +29,14 @@
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for questions.
 !
-!                      (Lase edited 12/30/2017, 07/06/2022)
+!             (Lase updated 12/30/2017, 07/16/2022)
 !
 !------------------------------------------------------------------------
 !
 !
 ! Processes included in this simulator are:
 !     Photosynthesis, transpiration, plant respiration
+!     Plant hydraulics
 !     Phenology
 !     Plant growth: Allometry and allocation
 !     Demography: Reproduction, Mortality
@@ -70,32 +71,52 @@ program BiomeE
    character(len=50) :: parameterfile(10),chaSOM(10)
    character(len=50) :: runID
    character(len=50) :: fnamelist
+   integer :: nml_unit,iostat,io ! for reading the namelist file
    integer :: fno1,fno2,fno3,fno4,fno5,fno6 ! output files
    integer :: istat1,istat2,istat3
-   integer :: totyears, totdays
    integer :: year0, year1, idays, idoy, iyears, i, j, k
    integer :: simu_steps,idata
    integer :: timeArray(3), rand_seed
    logical :: new_annual_cycle
-   real    :: tsoil, soil_theta
+   real    :: r_rand, tsoil, soil_theta
 
    !--------------------------------------------------------------
-   ! Setup run files
+   ! --------------------- Setup run files ---------------------
    runID = 'BCI_hydro' ! 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub'
                        !  'OR_GAPLUE' !  'FACE_hydro' !
-   fnamelist = 'parameters_'//trim(runID)//'.nml' 
+   fnamelist = 'parameters_'//trim(runID)//'.nml'
 
+   ! --------- Read forcing data  -------------------------
+   nml_unit = 901
+   open(nml_unit, file=fnamelist, form='formatted', action='read', status='old')
+   read (nml_unit, nml=initial_state_nml, iostat=io)
+   close (nml_unit)
+
+   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+   steps_per_day = int(24.0/timestep)
+   dt_fast_yr   = timestep/(365.0 * 24.0)
+   step_seconds = timestep*3600.0
+   write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
+   ! total years of model run
+   totyears  = model_run_years
+   totdays   = INT(totyears/yr_data+1)*days_data
+   equi_days = Max(0, totdays - days_data)
+
+   ! Set up rainfall scenario for phiRL test runs
+   forcingData%rain = forcingData%rain * Sc_prcp
+
+   ! --------- Model initialization: ---------------
    ! create output files
    fpath_out='output/'
    call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
 
-   ! Setup random numbers
-   ! call random_seed()
+   ! Setup random numbers ! call random_seed()
    call itime(timeArray)     ! Get the current time
    rand_seed = timeArray(1)+timeArray(2)+timeArray(3)
-   i = rand(rand_seed)
+   r_rand    = rand(rand_seed)
 
-   ! Parameter initialization: Initialize soil and PFT parameters
+   ! ------Initialize soil and PFT parameters
    call initialize_soilpars(fnamelist)
    call initialize_PFT_data(fnamelist)
 
@@ -106,23 +127,7 @@ program BiomeE
    call relayer_cohorts(vegn)
    call Zero_diagnostics(vegn)
 
-   ! Read in forcing data
-   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
-   steps_per_day = int(24.0/timestep)
-   dt_fast_yr = timestep/(365.0 * 24.0)
-   step_seconds = timestep*3600.0
-   write(*,*)'steps_per_day,dt_fast_yr,step_seconds', &
-              steps_per_day,dt_fast_yr,step_seconds
-   ! total years of model run
-   totyears = model_run_years
-   totdays  = INT(totyears/yr_data+1)*days_data
-   equi_days = Max(0, totdays - days_data)
-
-   ! Set up rainfall scenario for phiRL test runs
-   forcingData%rain = forcingData%rain * Sc_prcp
-
-   ! ----- model run ---------- ! Model run starts here !!
+   ! ---------------------- Model run ---------------------
    year0 = forcingData(1)%year
    iyears = 1
    idoy   = 0

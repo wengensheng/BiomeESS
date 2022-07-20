@@ -1139,11 +1139,11 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
 
      ! When cc%leafarea > 0
      call Plant_water2psi(cc) ! Refine plant water potential based on water content
-     cc%H_leaf = cc%Wmax_l * sp%CR0_Leaf * exp(cc%psi_leaf*sp%CR0_Leaf)  ! Leaf Capacitance
-     cc%H_stem = cc%Wmax_s * sp%CR0_Wood * exp(cc%psi_stem*sp%CR0_Wood)  ! Stem capacitance
+     cc%H_leaf = sp%CR_Leaf * cc%W_leaf  ! Leaf Capacitance
+     cc%H_stem = sp%CR_Wood * cc%W_stem  ! Stem capacitance
      Q_air  = cc%transp   ! /step_seconds
      psi_sl = (cc%psi_stem + cc%psi_leaf)/2
-     k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
+     k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,expK0)
      psi_ht = H2MPa(cc%height) ! MPa
      psi_leaf = ((cc%psi_stem-psi_ht)*k_stem*step_seconds - Q_air + cc%H_leaf*cc%psi_leaf)/ &
                 (            k_stem*step_seconds + cc%H_leaf)
@@ -1305,7 +1305,11 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !-------Cohort specific variables-----------
     transp = cc%transp ! /step_seconds
     psi_ht = H2MPa(cc%height) ! MPa
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
+
+    call Plant_water2psi(cc) ! Refine plant water potential based on water content
+    cc%H_leaf = sp%CR_Leaf * cc%W_leaf  ! Leaf Capacitance
+    cc%H_stem = sp%CR_Wood * cc%W_stem  ! Stem capacitance
 
     !! Soil Water psi and K from plant's perspective
     weighted_gw_cond = 0.0     ! kgH2O/m/s
@@ -1374,7 +1378,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     enddo
 
     !----------------Next step maximum transpiration---------------
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
     !cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
     !            + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
     cc%W_supply = 0.05 * sum(vegn%freewater(:))*cc%crownarea
@@ -1441,7 +1445,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      cc%psi_leaf = psi_leaf
 
      ! Stem-Leaf water flux
-     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
+     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
      psi_ht = H2MPa(cc%height) ! MPa
      cc%Q_leaf = (cc%psi_stem - cc%psi_leaf - psi_ht) * k_stem * step_seconds
      cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
@@ -1482,16 +1486,12 @@ subroutine derived_cc_vars(cc)
     ! Plant hydraulics-related variables
     cc%V_leaf = cc%bl/sp%LMA * sp%leafTK ! area * thicknees
     cc%V_stem = cc%bsw/sp%rho_wood ! m^3  ! (cc%bsw+cc%bhw)
-    cc%Wmax_l = (cc%V_leaf - cc%bl /rho_cellwall)*1000 ! max leaf water content
-    cc%Wmax_s = (cc%V_stem - cc%bsw/rho_cellwall)*1000 ! max stem water content, kg H2O
-    cc%Wmin_l = cc%Wmax_l * exp(sp%psi0_LF*sp%CR0_Leaf)
-    cc%Wmin_s = cc%Wmax_s * exp(sp%psi0_WD*sp%CR0_Wood)
+    cc%Wmax_l = (cc%V_leaf - cc%bl /rho_cellwall)*rho_H2O ! max leaf water, kg H2O
+    cc%Wmax_s = (cc%V_stem - cc%bsw/rho_cellwall)*rho_H2O ! max stem water, kg H2O
+    cc%Wmin_l = cc%Wmax_l * exp(sp%psi0_LF*sp%CR_Leaf)
+    cc%Wmin_s = cc%Wmax_s * exp(sp%psi0_WD*sp%CR_Wood)
     cc%H_leaf = (cc%Wmin_l - cc%Wmax_l)/sp%psi0_LF  ! Linearized Leaf Capacitance
     cc%H_stem = (cc%Wmin_s - cc%Wmax_s)/sp%psi0_WD  ! Linearized Stem capacitance
-
-    !cc%H_leaf = sp%H0_leaf * cc%V_leaf * cc%W_leaf/cc%Wmax_l  ! Leaf Capacitance
-    !cc%H_stem = sp%H0_stem * cc%V_stem * cc%W_stem/cc%Wmax_s ! Stem capacitance
-
   end associate
  end subroutine derived_cc_vars
 
@@ -1525,7 +1525,7 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
       sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
     enddo
     psi_ht = H2MPa(cc%height) ! MPa
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
     psi_stem = Max(sp%psi0_WD, (sumPK - Q_stem)/sumK)
     psi_leaf = Max(sp%psi0_LF, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
 
@@ -1551,8 +1551,8 @@ type(cohort_type), intent(inout) :: cc
   associate ( sp => spdata(cc%species) )
     !cc%W_leaf = cc%Wmax_L - (cc%Wmax_L - cc%Wmin_L) * cc%psi_leaf/sp%psi0_LF
     !cc%W_stem = cc%Wmax_S - (cc%Wmax_S - cc%Wmin_S) * cc%psi_stem/sp%psi0_WD
-    cc%W_leaf = cc%Wmax_l * exp(cc%psi_leaf*sp%CR0_Leaf)
-    cc%W_stem = cc%Wmax_s * exp(cc%psi_stem*sp%CR0_Wood)
+    cc%W_leaf = cc%Wmax_l * exp(cc%psi_leaf*sp%CR_Leaf)
+    cc%W_stem = cc%Wmax_s * exp(cc%psi_stem*sp%CR_Wood)
   end associate
 end subroutine Plant_psi2water
 
@@ -1579,10 +1579,10 @@ end subroutine Plant_psi2water
           endif
         else ! Exponential relationship
           W_status = MIN(max(0.01,cc%W_stem),cc%Wmax_s)
-          cc%psi_stem = log(W_status/cc%Wmax_s)/sp%CR0_Wood
+          cc%psi_stem = log(W_status/cc%Wmax_s)/sp%CR_Wood
           if(cc%bl > 0.001)then
             W_status = MIN(max(0.01,cc%W_leaf),cc%Wmax_l)
-            cc%psi_leaf = log(W_status/cc%Wmax_l)/sp%CR0_Leaf
+            cc%psi_leaf = log(W_status/cc%Wmax_l)/sp%CR_Leaf
           else
             cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
           endif
@@ -1630,7 +1630,7 @@ real function plc_function(psi, psi50, expK) result(plc)
   real, intent(in):: psi50
   real, intent(in):: expK
   !---------------------
-  plc = 1.d0 / (1.d0 + (psi / psi50) ** expK)
+  plc = 1.0 / (1.0 + (psi / psi50) ** expK)
 end function plc_function
 
 !===================================================================
@@ -1641,7 +1641,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   real,             intent(in) :: step_seconds
 
   !----- Local vars ---------------
-  real :: psi0_WD, psi50, Kexp, CR0_WD, f0_sup_s
+  real :: psi0_WD, psi50, CR0_WD, f0_sup_s
   real :: W_stem,W_leaf
   real :: k_stem,psi_stem,psi_leaf,dpsi
   real :: psi0, psi_sl
@@ -1654,9 +1654,8 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   ! Prameters
   associate ( sp => spdata(cc%species) )
     psi50   = sp%psi50_WD
-    Kexp    = sp%Kexp_WD
     psi0_WD = sp%psi0_WD
-    CR0_Wd  = sp%CR0_Wood
+    CR0_Wd  = sp%CR_Wood
     f0_sup_s = sp%f_sup_S2L * step_seconds/3600.0
   end associate
 
@@ -1677,7 +1676,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
       if(dpsi <= 0.0)then !  W_stem <= (cc%W_stem+cc%Wmin_s)/2 .or.
         exit
       endif
-      k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,Kexp)
+      k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,expK0)
       wflux  = MIN(dpsi * k_stem * step_base, 0.8/n_iterations * (W_stem - cc%Wmin_S))
       W_stem = W_stem - wflux
       S_stem = S_stem + wflux
@@ -3212,10 +3211,10 @@ end subroutine vegn_sum_tile
 
 !==============================================================
 !============= Vegetation initializations =====================
-subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
+subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
    type(vegn_tile_type),intent(inout),pointer :: vegn
    integer,intent(in) :: nCohorts
-   character(len=50),intent(in) :: namelistfile
+   character(len=50),intent(in) :: nml_file
 !--------local vars -------
 
    type(cohort_type),dimension(:), pointer :: cc, initialCC
@@ -3232,7 +3231,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,namelistfile)
    if(read_from_parameter_file)then
       ! --- Generate cohorts according to "initial_state_nml" ---
       nml_unit = 999
-      open(nml_unit, file=namelistfile, form='formatted', action='read', status='old')
+      open(nml_unit, file=nml_file, form='formatted', action='read', status='old')
       read (nml_unit, nml=initial_state_nml, iostat=io, end=20)
 20    close (nml_unit)
       write(*,nml=initial_state_nml)
