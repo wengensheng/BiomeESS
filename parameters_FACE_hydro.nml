@@ -1,4 +1,5 @@
 &vegn_parameters_nml
+f_initialBSW = 0.1,
 K0SOM  = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
 K_nitrogen = 2.4  ! 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.02 ! organic nitrogen release rate
@@ -6,24 +7,30 @@ etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
-
-! species       0        1        2        3        4        5
-lifeform      = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
-phenotype     = 0,       1,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
-pt            = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
-seedlingsize  = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
-LMA           = 0.02,    0.14,    0.02,    0.02,    0.02,    0.02,    ! Leaf mass per unit area
-phiRL         = 0.7,     0.8,     0.9,     1.0,     1.1,     1.2,     ! Root/Leaf area ratio
-w0L_max       = 18.,     8.0,     18.,     18.,     18.,     18.,
-LNbase        = 0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
-laimax        = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
-LAI_light     = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limited crown LAI
-Nfixrate0     = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
-NfixCost0     = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
-phiCSA        = 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, ! ratio of Asap/Acrown
-mortrate_d_c  = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    ! canopy tree mortality rate, year-1
-mortrate_d_u  = 0.08,    0.08,    0.08,    0.08,    0.08,    0.08,    ! understory tree mortality rate, year-1
-maturalage    = 0,       5,       5,       5,       5,       5
+diff_S0    = 0.2,  ! critical difference for merging of two cohorts
+kx0_WD     = 5.0,  ! 5.0,
+WTC0_WD    = 1200.0,  ! 1200,  Water transport capacity at ref. wood density
+CR0_LF     = 0.5,
+CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
+m0_WTC     = 5.0
+m0_kx      = 5.0
+! species     0        1        2        3        4        5
+lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
+phenotype   = 0,       1,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
+pt          = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
+s0_plant    = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
+LMA         = 0.02,    0.08,    0.08,    0.08,    0.08,    0.08,    ! Leaf mass per unit area
+phiRL       = 0.7,     1.2,     1.2,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
+rho_wood    = 150.,    200.,    250,     300.,    350.,    400.,
+LNbase      = 0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,
+laimax      = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
+LAI_light   = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limited crown LAI
+Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
+NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
+phiCSA      = 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, ! ratio of Asap/Acrown
+r0mort_c    = 0.02,    0.032,   0.028,   0.024,   0.02,   0.016,    ! canopy tree mortality rate, year-1
+AgeRepro    = 0,       5,       5,       5,       5,       5
 /
 
 &soil_data_nml
@@ -37,12 +44,12 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 
 &initial_state_nml
 !!   plant
-init_n_cohorts      = 1, ! total 9
-init_cohort_species = 1,    2,    3,    4,    5,    6,    7,    8,    9,    10
-init_cohort_nindivs = 0.002, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
-init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,
-init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
-init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5,
+init_n_cohorts      = 1, ! total 5
+init_cohort_species = 3,    2,    1,    4,    5,
+init_cohort_nindivs = 0.02, 0.02, 0.02, 0.02, 0.02,
+init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
+init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
+init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,
 
 !  Soil
 init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
@@ -54,19 +61,13 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
 
 ! Model run
 filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
-climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'  ! 'US-Ha1forcing.txt'
-              ! 'US-WCrforcing.txt'   ! 'CA-Manforcing.txt' !
-              ! 'CA-Manforcing.txt'   ! 'US-WBWforcing.txt'
-              ! 'US-Dk1forcing.txt'
+climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
-model_run_years     =  200, ! 1600, ! 4800, 2400, 1200
-equi_days           =  0,
+model_run_years     =  600, !600, ! 1600,
 outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
-do_U_shaped_mortality = .True. ! .False. !
-update_annualLAImax =  .False. ! .True. !
-do_fire = .FALSE. ! .True.
-do_migration = .FALSE. ! .True.
-do_constant_kx = .False. ! .True. !
+do_U_shaped_mortality = .False. ! .True. !
+do_VariedWTC0 = .True. ! .False. !
+do_VariedKx   = .True. ! .False. !
 Sc_prcp = 1.0 ! 0.5 ! 0.25, ! 1/4 rainfall
 /

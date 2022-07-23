@@ -9,7 +9,8 @@ module soil_mod
  private
 
 ! ------ public subroutines ---------
-public :: SoilWaterDynamicsLayer, SoilWaterSupply, SoilWaterTranspUpdate
+public :: SoilWater_psi_K, SoilWaterDynamicsLayer, &
+          SoilWaterTranspUpdate, SoilWaterSupply
 public :: soil_data_beta
 
 !---------------------------------
@@ -27,92 +28,8 @@ real     :: zhalf(soil_L+1)
 
 contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-
-! =============== soil water subroutines ==================================
 ! =========================================================================
-
-!========================================================================
-! Weng 2017-10-18 ! compute available water for photosynthesis
-!========================================================================
-! Calculate soil water uptake by plants and supply for transpiration
-subroutine SoilWaterSupply(vegn) ! forcing,
-  !type(climate_data_type),intent(in):: forcing
-  type(vegn_tile_type), intent(inout) :: vegn
-
-!----- local var --------------
-  type(cohort_type),pointer :: cc
-  real :: freewater(soil_L)
-  real :: thetaS(soil_L) ! soil moisture index (0~1)
-  real :: LayerTot(soil_L) ! potential water uptake, kg H2O s-1 m-2
-  real :: dpsiSR(soil_L) ! pressure difference between soil and root, MPa
-  real :: fWup(soil_L)      ! fraction to the actual soil water
-  integer :: i,j
-
-  ! Calculating soil water availability for transpiration in next step
-  do i=1, soil_L ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
-     thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
-     ! The difference of water potential between roots and soil
-     dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
-
-     ! Water uptake capacity
-     LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
-     do j = 1, vegn%n_cohorts
-        cc => vegn%cohorts(j)
-        ! Potential water uptake per soil layer by all cohorts
-        cc%WupL(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
-        LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
-     enddo
-
-     ! Adjust cc%WupL(i) according to soil available water
-     do j = 1, vegn%n_cohorts
-        cc => vegn%cohorts(j)
-        if(LayerTot(i)>0.0) &
-            fWup(i) = Min(0.2 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
-        cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
-     enddo ! cohort for each layer
-  enddo    ! all layers
-
-! total water suplly for next step's transpiration
-  do j = 1, vegn%n_cohorts
-     cc => vegn%cohorts(j)
-     cc%W_supply = sum(cc%WupL(:))
-  enddo
-
-end subroutine SoilWaterSupply
-
-! ============================================================================
-! 07/07/2022, Weng
-! Update soil water by deducting transpiration
-subroutine SoilWaterTranspUpdate(vegn)
-  type(vegn_tile_type),intent(inout) :: vegn
-
-!----- local var --------------
-  type(cohort_type),pointer :: cc
-  real    :: WaterBudgetL(soil_L)
-  real    :: W_supply, fsupply ! fraction of transpiration from a soil layer
-  integer :: i,j
-
-  ! Soil water conditions
-  ! call SoilWaterSupply(vegn)
-
-  ! Water uptaken by roots in each soil layer
-  WaterBudgetL = 0.0
-  do j = 1, vegn%n_cohorts
-      cc => vegn%cohorts(j)
-      W_supply = sum(cc%WupL)
-      if(W_supply > 0.0)then
-         do i=1,soil_L
-            fsupply = cc%WupL(i)/W_supply
-            WaterBudgetL(i) = WaterBudgetL(i) - fsupply * cc%transp * cc%nindivs
-         enddo
-      endif
-  enddo ! all cohorts
-  ! Deduct soil water
-  do i=1,soil_L
-     vegn%wcl(i) = vegn%wcl(i) + WaterBudgetL(i)/(thksl(i)*1000.0)
-  enddo
-end subroutine SoilWaterTranspUpdate
+! =============== soil water subroutines ==================================
 
 ! ============================================================================
 ! Weng, 2017-10-27
@@ -205,6 +122,141 @@ subroutine SoilWaterDynamicsLayer(forcing,vegn)    !outputs
   enddo
 
 end subroutine SoilWaterDynamicsLayer
+
+!======================================================================
+subroutine SoilWater_psi_K(vegn)
+!@sum leaf and stem equilibrium water potential
+!@+   Weng, 03/20/2022
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !------local var -----------
+  real :: psi_sat_ref,k_sat_ref,v_sat,chb
+  integer :: i
+
+!! Soil Water psi and K
+  psi_sat_ref = soilpars(vegn%soiltype)%psi_sat_ref
+  k_sat_ref   = soilpars(vegn%soiltype)%k_sat_ref
+  v_sat       = soilpars(vegn%soiltype)%vwc_sat
+  chb         = soilpars(vegn%soiltype)%chb
+  do i=1, soil_L
+     vegn%psi_soil(i) = calc_soil_psi(psi_sat_ref,chb,v_sat,vegn%wcl(i))
+     vegn%K_soil(i)   = calc_soil_K  (k_sat_ref,  chb,v_sat,vegn%wcl(i))
+     vegn%freewater(i)= max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
+  enddo
+  vegn%soilwater = sum(vegn%freewater(:))
+
+end subroutine SoilWater_psi_K
+
+!==========================================
+! Weng, 03/21/2022
+real function calc_soil_psi(psi_sat_ref,chb,V_sat,Vwc) result(psi)
+  !Calculate soil water potential (psi, MPa)
+    real,intent(in):: psi_sat_ref
+    real,intent(in):: chb          ! Parameter for scaling
+    real,intent(in):: V_sat        ! Field capacity
+    real,intent(in):: Vwc          ! Soil water content
+    !---------------------
+    psi = psi_sat_ref*1.0e-6 * ((V_sat/Vwc)**chb)    ! MPa
+end function calc_soil_psi
+
+!==========================================
+! Weng, 03/21/2022
+real function calc_soil_K(k_sat_ref,chb,V_sat,Vwc) result(K)
+  !Calculate soil water conductivity (K, kg H2O/(m2 MPa s))
+    real,intent(in):: k_sat_ref
+    real,intent(in):: chb          ! Parameter for scaling
+    real,intent(in):: V_sat        ! Field capacity
+    real,intent(in):: Vwc          ! Soil water content
+    !---------------------
+    k = k_sat_ref * 18./1000. * & ! kg H2O/(m2 MPa s)
+       (Vwc/V_sat)**(2*chb+3)
+
+end function calc_soil_K
+
+!========================================================================
+! Weng 2017-10-18 ! compute available water for photosynthesis
+!========================================================================
+! Calculate soil water uptake by plants and supply for transpiration
+subroutine SoilWaterSupply(vegn) ! forcing,
+  !type(climate_data_type),intent(in):: forcing
+  type(vegn_tile_type), intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real :: freewater(soil_L)
+  real :: thetaS(soil_L) ! soil moisture index (0~1)
+  real :: LayerTot(soil_L) ! potential water uptake, kg H2O s-1 m-2
+  real :: dpsiSR(soil_L) ! pressure difference between soil and root, MPa
+  real :: fWup(soil_L)      ! fraction to the actual soil water
+  integer :: i,j
+
+  ! Calculating soil water availability for transpiration in next step
+  do i=1, soil_L ! Calculate water uptake potential layer by layer
+     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
+     thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
+     ! The difference of water potential between roots and soil
+     dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
+
+     ! Water uptake capacity
+     LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
+     do j = 1, vegn%n_cohorts
+        cc => vegn%cohorts(j)
+        ! Potential water uptake per soil layer by all cohorts
+        cc%WupL(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
+        LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
+     enddo
+
+     ! Adjust cc%WupL(i) according to soil available water
+     do j = 1, vegn%n_cohorts
+        cc => vegn%cohorts(j)
+        if(LayerTot(i)>0.0) &
+            fWup(i) = Min(0.2 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
+        cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
+     enddo ! cohort for each layer
+  enddo    ! all layers
+
+! total water suplly for next step's transpiration
+  do j = 1, vegn%n_cohorts
+     cc => vegn%cohorts(j)
+     cc%W_supply = sum(cc%WupL(:))
+  enddo
+
+end subroutine SoilWaterSupply
+
+! ============================================================================
+! 07/07/2022, Weng
+! Update soil water by deducting transpiration
+subroutine SoilWaterTranspUpdate(vegn)
+  type(vegn_tile_type),intent(inout) :: vegn
+
+!----- local var --------------
+  type(cohort_type),pointer :: cc
+  real    :: WaterBudgetL(soil_L)
+  real    :: W_supply, fsupply ! fraction of transpiration from a soil layer
+  integer :: i,j
+
+  ! Soil water conditions
+  ! call SoilWaterSupply(vegn)
+
+  ! Water uptaken by roots in each soil layer
+  WaterBudgetL = 0.0
+  do j = 1, vegn%n_cohorts
+      cc => vegn%cohorts(j)
+      W_supply = sum(cc%WupL)
+      if(W_supply > 0.0)then
+         do i=1,soil_L
+            fsupply = cc%WupL(i)/W_supply
+            WaterBudgetL(i) = WaterBudgetL(i) - fsupply * cc%transp * cc%nindivs
+         enddo
+      endif
+  enddo ! all cohorts
+  ! Deduct soil water
+  do i=1,soil_L
+     vegn%wcl(i) = vegn%wcl(i) + WaterBudgetL(i)/(thksl(i)*1000.0)
+  enddo
+end subroutine SoilWaterTranspUpdate
+
 
 ! ==============used in LM3, but not here =============================
 ! =============== just for reference =========================================
