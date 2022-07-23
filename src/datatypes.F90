@@ -1,18 +1,20 @@
 module datatypes
-! define data types and constants
+ ! define data types, constants, and some basic functions
  implicit none
-! ---- public types -------
+
+ ! ---- public types -------
  public :: spec_data_type, cohort_type, vegn_tile_type
-! ------ public subroutines ---------
-public :: initialize_PFT_data, initialize_soilpars
-! ------ public functions ---------
-public :: qscomp, esat
 
-! ------ public namelists ---------
-public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
+ ! ------ public subroutines and functions ---------
+ public :: initialize_PFT_data, initialize_soilpars
+ public :: Wood2Architecture,qscomp, calc_solarzen, &
+           Aleaf_BM, esat, A_function
 
-! ---- public variables ---------
- public :: forcingData,spdata, soilpars
+ ! ------ public namelists ---------
+ public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
+
+ ! ---- public variables ---------
+ public :: forcingData, spdata, soilpars
  ! parameters
  public :: MaxCohortID, diff_S0, &
     K0SOM, f_M2SOM, K_nitrogen, fDON, rho_SON, etaN,  &
@@ -1049,6 +1051,114 @@ end subroutine qscomp
    REAL, INTENT(IN) :: T ! degC
    esat=610.78*exp(17.27*T/(T+237.3))
  END FUNCTION esat
+
+ ! ============================================================================
+ subroutine Wood2Architecture(cc,btot)
+   type(cohort_type), intent(inout) :: cc
+   real,intent(in)    :: btot ! wood biomass, kg C
+   !------------------------------------
+   associate(sp=>spdata(cc%species))
+      cc%DBH        = (btot / sp%alphaBM) ** ( 1.0/sp%thetaBM )
+      cc%height     = sp%alphaHT * cc%dbh ** sp%thetaHT
+      cc%crownarea  = sp%alphaCA * cc%dbh ** sp%thetaCA
+      cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/max(1,cc%layer)
+      cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/max(1,cc%layer)
+      cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+
+   end associate
+ end subroutine Wood2Architecture
+
+ ! ============================================================================
+ ! modified by Weng (2014-01-09), 07-18-2017, 06-04-2021
+ function Aleaf_BM(bl,c) result (area)
+   real :: area ! returned value
+   real,    intent(in) :: bl      ! biomass of leaves, kg C/individual
+   type(cohort_type), intent(inout) :: c    ! cohort to update
+
+   area = bl/spdata(c%species)%LMA
+   !if(c%layer > 1.AND. c%firstlayer == 0)then
+   !   area = bl/(0.5*spdata(c%species)%LMA) ! half thickness for leaves in understory
+   !else
+   !   area = bl/spdata(c%species)%LMA
+   !endif
+ end function
+
+ ! ============================================================================
+ ! The combined reduction in decomposition rate as a funciton of TEMP and MOIST
+ ! Based on CENTURY Parton et al 1993 GBC 7(4):785-809 and Bolker's copy of
+ ! CENTURY code
+ function A_function(tsoil, thetaS) result(A)
+   real :: A                 ! return value, resulting reduction in decomposition rate
+   real, intent(in) :: tsoil ! effective temperature for soil carbon decomposition
+   real, intent(in) :: thetaS
+
+   real :: soil_temp ! temperature of the soil, deg C
+   real :: Td        ! rate multiplier due to temp
+   real :: Wd        ! rate reduction due to mositure
+
+   ! coefficeints and terms used in temperaturex term
+   real :: Topt,Tmax,t1,t2,tshl,tshr
+
+   soil_temp = tsoil-273.16
+
+   ! EFFECT OF TEMPERATURE , ! from Bolker's century code
+   Tmax=45.0
+   if (soil_temp > Tmax) soil_temp = Tmax
+   Topt=35.0
+   tshr=0.2
+   tshl=2.63
+   t1=(Tmax-soil_temp)/(Tmax-Topt)
+   t2=exp((tshr/tshl)*(1.-t1**tshl))
+   Td=t1**tshr*t2
+
+   if (soil_temp > -10) Td=Td+0.05
+   if (Td > 1.) Td=1.
+
+   ! EFFECT OF MOISTURE
+   ! Linn and Doran, 1984, Soil Sci. Amer. J. 48:1267-1272
+   ! This differs from the Century Wd
+   ! was modified by slm/ens based on the figures from the above paper
+   !     (not the reported function)
+
+   if(thetaS <= 0.3) then
+      Wd = 0.2
+   else if(thetaS <= 0.6) then
+      Wd = 0.2+0.8*(thetaS-0.3)/0.3
+   else
+      Wd = 1.0 ! exp(2.3*(0.6-thetaS)); ! Weng, 2016-11-26
+   endif
+
+   A = (Td*Wd)  ! the combined (multiplicative) effect of temp and water
+                ! on decomposition rates
+ end function A_function
+
+ !============================================================================
+  ! Weng, 05/24/2018
+  subroutine calc_solarzen(td,latdegrees,cosz,solarelev,solarzen)
+       !* Calculate solar zenith angle **in radians**
+       !* From Spitters, C. J. T. (1986), AgForMet 38: 231-242.
+       implicit none
+       real,intent(in) :: td             ! day(to minute fraction)
+       real,intent(in) :: latdegrees     ! latitude in degrees
+       real :: hour,latrad
+       real :: delta    ! declination angle
+       real :: pi, rad
+       real,intent(out) :: cosz        ! cosz=cos(zen angle)=sin(elev angle)
+       real,intent(out) :: solarelev    ! solar elevation angle (rad)
+       real,intent(out) :: solarzen     ! solar zenith angle (rad)
+       pi  = 3.1415926
+       rad = pi / 180.0 ! Conversion from degrees to radians.
+       hour = (td-floor(td))*24.0
+       latrad = latdegrees*rad
+       delta  = asin(-sin(rad*23.450)*cos(2.0*pi*(td+10.0)/365.0))
+       cosz = sin(latrad)*sin(delta) + &
+                cos(latrad)*cos(delta)*cos(rad* 15.0*(hour-12.0))
+       cosz = max (cosz, 0.01)  ! Sun's angular is 0.01
+
+       ! compute the solar elevation and zenth angles below
+       solarelev = asin(cosz)/pi*180.0  !since asin(cos(zen))=pi/2-zen=elev
+       solarzen = 90.0 - solarelev ! pi/2.d0 - solarelev
+  end subroutine calc_solarzen
 
 !================================================
 end module datatypes

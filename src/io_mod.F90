@@ -8,11 +8,90 @@ module io_mod
 public :: set_up_output_files,read_FACEforcing,read_NACPforcing
 public :: Zero_diagnostics, hourly_diagnostics, daily_diagnostics, &
           annual_diagnostics
-
+public :: vegn_sum_tile
 !---------------------------------
 
  contains
 !====================== Subroutines ======================================
+
+!=================================================
+! Weng, 2021-06-02
+subroutine vegn_sum_tile(vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !----- local var --------------
+  type(cohort_type),pointer :: cc
+  integer :: i, layer
+
+  vegn%NSC     = 0.0
+  vegn%SeedC   = 0.0
+  vegn%leafC   = 0.0
+  vegn%rootC   = 0.0
+  vegn%SapwoodC= 0.0
+  vegn%WoodC   = 0.0
+
+  vegn%NSN     = 0.0
+  vegn%SeedN   = 0.0
+  vegn%leafN   = 0.0
+  vegn%rootN   = 0.0
+  vegn%SapwoodN= 0.0
+  vegn%WoodN   = 0.0
+
+  vegn%W_stem = 0.0
+  vegn%W_dead = 0.0
+  vegn%W_leaf = 0.0
+
+  vegn%LAI     = 0.0
+  vegn%CAI     = 0.0
+
+  vegn%LAIlayer = 0.0
+  vegn%f_gap    = 0.0
+  vegn%treecover = 0.0
+  vegn%grasscover = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+
+     ! update accumulative LAI for each corwn layer
+     layer = Max (1, Min(cc%layer,9)) ! between 1~9
+     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
+                            cc%leafarea * cc%nindivs/(1.0-sp%f_cGap)
+     vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
+                            cc%crownarea * cc%nindivs * sp%f_cGap
+
+    ! For reporting
+    ! Vegn C pools:
+     vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
+     vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
+     vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
+     vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
+     vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
+     vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
+     vegn%CAI     = vegn%CAI  + cc%crownarea * cc%nindivs
+     vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
+    ! Vegn N pools
+     vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
+     vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
+     vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
+     vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
+     vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
+     vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
+     ! Vegn water pools
+     vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
+     vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
+     vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs
+
+     ! Update tree and grass cover
+     if(sp%lifeform==0) then
+         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+     endif
+
+     end associate
+  enddo
+
+end subroutine vegn_sum_tile
 
 !================= Diagnostics============================================
 ! Weng, 2016-11-28
@@ -449,7 +528,6 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
        m=m+1
        read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
                                (input_data(n,m),n=1,niterms)
-
        if(istat3<0)exit
        if(m == 1) then
            doy = doy_data(m)

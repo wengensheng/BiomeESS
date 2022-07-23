@@ -154,7 +154,7 @@ program BiomeE
         ! daily calls
         call vegn_phenology(vegn,j)
         !call vegn_daily_starvation(vegn)
-        call vegn_growth_EW(vegn)
+        call vegn_growth(vegn)
 
         !! annual calls
         idata = MOD(simu_steps+1, datalines)+1 !
@@ -173,7 +173,7 @@ program BiomeE
             ! if(do_closedN_run) call Recover_N_balance(vegn)
             call vegn_annual_starvation(vegn) ! turn it off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
-            if(do_fire)call vegn_fire_disturbance (vegn, real(seconds_per_year))
+            if(do_fire)call vegn_fire (vegn, real(seconds_per_year))
 
             ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
