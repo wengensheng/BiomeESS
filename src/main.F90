@@ -53,6 +53,7 @@
 
 program BiomeE
    use datatypes
+   use io_mod
    use esdvm
    use soil_mod
 #ifdef USE_NETCDF

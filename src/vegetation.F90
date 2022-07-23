@@ -2,6 +2,7 @@
 !---------------
 module esdvm
  use datatypes
+ use io_mod
  use soil_mod
  implicit none
  private
