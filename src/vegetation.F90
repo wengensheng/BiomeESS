@@ -667,10 +667,7 @@ subroutine vegn_growth(vegn)
         if(cc%firstday)then
           cc%psi_stem = maxval(vegn%psi_soil(:))
           cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
-          !call Plant_psi2water(cc)
         endif
-
-        vegn%LAI = vegn%LAI + cc%leafarea  * cc%nindivs
 
         ! Update Ktrunk with new sapwood
         k = Max(MIN(cc%Nrings, Ysw_max),1)
@@ -733,50 +730,46 @@ subroutine vegn_growth(vegn)
 
 end subroutine vegn_growth ! daily
 
-!========= Plant growth ==========================
+!========= Calculate carbon and nitrogen supply ==========================
 subroutine fetch_CN_for_growth(cc)
   !@sum Fetch C from labile C pool according to the demand of leaves and fine roots,
   !@+   and the push of labile C pool
-  !@+   DAILY call.
+  !@+   Daily call.
   !@+   added by Weng, 12-06-2016
 
   implicit none
   type(cohort_type), intent(inout) :: cc
+
   !------local var -----------
   logical :: woody
   logical :: dormant,growing
-
-  real :: NSCtarget
+  real :: NSCtarget, bl_max, br_max
   real :: C_push, C_pull, growthC
   real :: N_push, N_pull, growthN
-  real :: LFR_rate ! make these two variables to PFT-specific parameters
-  real :: bl_max, br_max
+  real :: LFR_rate
   real :: resp_growth
 
-  ! make these two variables to PFT-specific parameters
-  LFR_rate =1.0 !  1.0/16.0 ! filling rate/day
   associate ( sp => spdata(cc%species) )
-  NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
-  ! Fetch C from labile C pool if it is in the growing season
-  if (cc%status == LEAF_ON) then ! growing season
-      C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
-                Max(cc%br_max - cc%br,0.0))
+    LFR_rate = sp%LFR_rate ! 1.0 !  1.0/16.0 ! filling rate/day
+    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
 
-      N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
-                Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
+    ! Fetch C from labile C pool if it is in the growing season
+    if (cc%status == LEAF_ON) then ! growing season
+        C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
+                  Max(cc%br_max - cc%br,0.0))
+        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
+                  Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-      C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+        C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+        N_push = cc%NSN/(days_per_year*sp%tauNSC)
 
-      N_push = cc%NSN/(days_per_year*sp%tauNSC) ! 4.0 * C_push/sp%CNsw0  !
-
-      cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull+N_push)
-      cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull+C_push) ! Max(0.0,MIN(0.02*(cc%nsc-0.2*NSCtarget), C_pull+C_push))
-      !!! cc%NSC      = cc%NSC - cc%C_growth ! just an estimate, not out yet
-  else ! non-growing season
-      cc%C_growth = 0.0
-      cc%N_growth = 0.0
-      cc%resg     = 0.0
-  endif
+        cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
+        cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
+    else ! non-growing season
+        cc%C_growth = 0.0
+        cc%N_growth = 0.0
+        cc%resg     = 0.0
+    endif
   end associate
 
 end subroutine fetch_CN_for_growth
@@ -1641,7 +1634,6 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
      else
        cc%psi_stem = maxval(vegn%psi_soil(:))
      endif
-
 
      ! Water supply for the next step photosynthesis
      ! This is for the stomata conductance.

@@ -131,6 +131,7 @@ type spec_data_type
   real    :: gamma_L      ! leaf respiration coeficient (per yr)
   real    :: gamma_LN     ! leaf respiration coeficient per unit N
   real    :: wet_leaf_dreg ! wet leaf photosynthesis down-regulation
+  real    :: LFR_rate      ! Leaf filling rate per day
   ! root traits
   real    :: rho_FR       ! material density of fine roots (kgC m-3)
   real    :: root_r       ! radius of the fine roots, m
@@ -175,7 +176,7 @@ type spec_data_type
   real    :: phiRL            ! ratio of fine root to leaf area
   real    :: phiCSA           ! ratio of sapwood CSA to target leaf area
   real    :: tauNSC           ! residence time of C in NSC (to define storage capacity)
-  real    :: fNSNmax          ! multilier for NSNmax
+  real    :: fNSNmax          ! multiplier for NSNmax
   real    :: f_N_add
   ! Default C/N ratios
   real    :: CNleaf0
@@ -630,6 +631,7 @@ real :: wet_leaf_dreg(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulatio
         ! photosynthesis of completely wet leaf will be 30% less than that of dry one,
         ! provided everything else is the same
 !(/1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2/)
+real :: LFR_rate(0:MSPECIES)= 1.0
 real :: m_cond(0:MSPECIES)= 7.0 !
 real :: alpha_phot(0:MSPECIES)=  0.06 !
 real :: gamma_L(0:MSPECIES)= 0.02 !
@@ -705,7 +707,7 @@ namelist /vegn_parameters_nml/  &
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh, &
   FLDCAP, WILTPT, &
   pt, phenotype, lifeform, &
-  Vmax, m_cond, Vannual,wet_leaf_dreg,   &
+  Vmax, m_cond, Vannual,wet_leaf_dreg, LFR_rate,   &
   gamma_L, gamma_LN, gamma_SW, gamma_FR,  &
   rho_FR, root_r, root_zeta,Kw_root, &
   !rho_N_up0, N_roots0, &
@@ -886,6 +888,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%m_cond     = m_cond
   spdata%alpha_phot = alpha_phot
   spdata%wet_leaf_dreg = wet_leaf_dreg
+  spdata%LFR_rate = LFR_rate
   spdata%gamma_L  = gamma_L
   spdata%gamma_LN = gamma_LN
   spdata%gamma_SW = gamma_SW
