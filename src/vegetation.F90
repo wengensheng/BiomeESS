@@ -49,7 +49,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
 
   ! Water supply for leaves
   ! Soil water parameters (psi and conductivity for each layer)
-    call SoilWater_psi_K(vegn)
+  call SoilWater_psi_K(vegn)
 
 #ifdef Hydro_test
     ! Dynamic tree trunk conductivity and water potential
@@ -66,7 +66,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
 #endif
 
   ! Update soil water: infiltration and surface evap.
-  call SoilWaterDynamicsLayer(forcing,vegn)
+  call SoilWaterDynamics(forcing,vegn)
 
   ! Respiration and allocation for growth
   do i = 1, vegn%n_cohorts
@@ -517,100 +517,6 @@ subroutine vegn_N_uptake(vegn, tsoil)
      endif ! N_roots>0
   endif
 end subroutine vegn_N_uptake
-
-! ============================================================================
-! Nitrogen mineralization and immoblization with microbial C & N pools
-! it's a new decomposition model with coupled C & N pools and variable
-! carbon use efficiency
-subroutine Soil_BGC (vegn, tsoil, thetaS)
-  type(vegn_tile_type), intent(inout) :: vegn
-  real                , intent(in)    :: tsoil ! soil temperature, deg K
-  real                , intent(in)    :: thetaS
-
-  !---- local var -------------
-  real :: d_C(5), d_N(5), newM(5)
-  real :: CUEf0, CUEs0
-  real :: extraN, N_m    ! Mineralized nitrogen
-  real :: N_loss ! Mineral Nitrogen loss, kg N m-2 step-1
-  real :: runoff ! kg m-2 /step
-  real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
-  real :: A  ! decomp rate reduction due to moisture and temperature
-  integer :: i
-
-  ! Default microbial CUE for fast and slow SOM
-  CUEf0 = CUEmax0       ! 0.4
-  CUEs0 = CUEmax0 * 0.5 ! 0.2
-
-  ! Environmental scalar
-  A=A_function(tsoil,thetaS)
-  runoff = vegn%runoff  !mm/step, weng 2017-10-15
-
-  ! Put litters into soil to start decomposition processes
-  do i=1, 2
-       d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
-       d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
-       vegn%SOC(i)  = vegn%SOC(i) - d_C(i)
-       vegn%SON(i)  = vegn%SON(i) - d_N(i)
-       vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
-       vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
-  enddo
-
-  ! Turnover in SOM4 and SOM5
-  do i=3, 5
-     !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
-     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr
-     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr
-  enddo
-
-  ! New microbes grown from SOM decomposition
-  newM(4) = Min(CUEf0*d_C(4), d_N(4)/CN0SOM(3))
-  newM(5) = Min(CUEs0*d_C(5), d_N(5)/CN0SOM(3))
-  newM(3) = (newM(4)+newM(5)) * (1.-f_M2SOM)
-
-  ! Update C and N pools
-  vegn%SOC(3) = vegn%SOC(3) - d_C(3) + newM(3)
-  vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM
-  vegn%SOC(5) = vegn%SOC(5) - d_C(5) + newM(5) * f_M2SOM
-
-  vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3) / CN0SOM(3)
-  vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4) * f_M2SOM/CN0SOM(3)
-  vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5) * f_M2SOM/CN0SOM(3)
-
-  ! Mineralized nitrogen and Heterotrophic respiration, kg m-2 step-1
-  vegn%rh = d_C(3) + d_C(4) + d_C(5) - newM(4) - newM(5) !
-  N_m = d_N(3)+d_N(4)+d_N(5) - (newM(4)+newM(5))/CN0SOM(3)
-
-  ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
-  ! Find papers about these processes!! Experimental!
-  DON_fast = fDON * d_N(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr
-  DON_slow = fDON * d_N(5) * (etaN*runoff) + vegn%SON(5) * rho_SON * A * dt_fast_yr
-  DON_loss = DON_fast + DON_slow
-  vegn%SON(4) = vegn%SON(4) - DON_fast
-  vegn%SON(5) = vegn%SON(5) - DON_slow
-
-  ! Mineral nitrogen loss
-  !N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
-  !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
-  N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
-  vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
-
-  ! Update mineral N pool (mineralN)
-  vegn%mineralN = vegn%mineralN + vegn%N_input * dt_fast_yr    &
-                + N_m - N_loss
-  vegn%annualN  = vegn%annualN  + vegn%N_input * dt_fast_yr    &
-                + N_m - N_loss
-
- ! Check if soil C/N is lower than CN0
-  do i=4, 5
-     extraN = vegn%SON(i) - vegn%SOC(i)/CN0SOM(i)
-     if (extraN > 0.0)then
-        vegn%SON(i)   = vegn%SON(i)   - extraN
-        vegn%mineralN = vegn%mineralN + extraN
-        vegn%annualN  = vegn%annualN  + extraN
-     endif
-  enddo
-
-end subroutine Soil_BGC
 
 !============================================================================
 !========================== Daily subroutines ===============================
@@ -2074,7 +1980,7 @@ end function PlantWaterSupply
 
 !============================================================================
 real function NewWoodWTC(cc) result(WTC)
-!@sum calculate wood water transport capacity (WTC0), Ensheng Weng, 02/23/2022
+   !@sum calculate wood water transport capacity (WTC0), Ensheng Weng, 02/23/2022
     type(cohort_type),intent(in) :: cc
 
     !---------------------
@@ -2089,7 +1995,7 @@ end function NewWoodWTC
 
 !============================================================================
 real function NewWoodKx(cc) result(Kx)
-!@sum calculate wood water conductivity (Kx), Ensheng Weng, 02/23/2022
+    !@sum calculate wood water conductivity (Kx), Ensheng Weng, 02/23/2022
     type(cohort_type),intent(in) :: cc
     !---------------------
     associate ( sp => spdata(cc%species))
@@ -2152,8 +2058,8 @@ subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
    type(vegn_tile_type),intent(inout),pointer :: vegn
    integer,intent(in) :: nCohorts
    character(len=50),intent(in) :: nml_file
-!--------local vars -------
 
+   !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc, initialCC
    type(cohort_type),pointer :: cp
    integer,parameter :: rand_seed = 86456
@@ -2164,13 +2070,13 @@ subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
    integer :: ierr         ! error code, returned by i/o routines
    integer :: nml_unit
 
-!  Read parameters from the parameter file (namelist)
+   !  Read parameters from the parameter file (namelist)
    if(read_from_parameter_file)then
       ! --- Generate cohorts according to "initial_state_nml" ---
       nml_unit = 999
       open(nml_unit, file=nml_file, form='formatted', action='read', status='old')
       read (nml_unit, nml=initial_state_nml, iostat=io, end=20)
-20    close (nml_unit)
+      20  close (nml_unit)
       write(*,nml=initial_state_nml)
 
       ! Initial Soil pools and environmental conditions
@@ -2457,7 +2363,7 @@ end subroutine mergerank
 subroutine vegn_mergecohorts(vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
-! ---- local vars
+  ! ---- local vars
   type(cohort_type), pointer :: cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
   real, parameter :: mindensity = 1.0E-6
@@ -2802,7 +2708,7 @@ subroutine vegn_migration (vegn)
   integer :: nCohorts, istat
   integer :: i, j, k, n ! cohort indices
 
-! Looping through all current cohorts and get the exsiting PFTs
+  ! Looping through all current cohorts and get the exsiting PFTs
   currPFTs = -999 ! the code of existing PFT
   nPFTs = 0
   do k=1, vegn%n_cohorts
@@ -2821,7 +2727,7 @@ subroutine vegn_migration (vegn)
   enddo ! k, vegn%n_cohorts
   write(*,'(A12,16(I4,","))')'current cc',currPFTs(1:nPFTs)
 
-! Looping through all initial cohorts and get the initial PFTs
+  ! Looping through all initial cohorts and get the initial PFTs
   initialPFTs = -999 ! the code of initial PFT
   nPFT0 = 0
   do k=1, vegn%n_initialCC
@@ -2896,7 +2802,6 @@ subroutine vegn_migration (vegn)
         addedC = addedC + cc%nindivs * totC
         addedN = addedN + cc%nindivs * totN
         call setup_seedling(cc,totC,totN)
-
      enddo
 
      MaxCohortID = MaxCohortID + newcohorts
@@ -3030,7 +2935,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
   !type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
 
-!----- local var --------------
+  !----- local var --------------
   type(cohort_type),pointer :: cc
   real :: psi_ht            ! Gravitational water pressure, MPa
   real :: psi_leaf,psi_stem
@@ -3079,8 +2984,8 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
 end subroutine Plant_water_dynamics_equi
 !====================================
 subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
-!@sum leaf and stem equilibrium water potential
-!@+   Weng, 03/20/2022
+  !@sum leaf and stem equilibrium water potential
+  !@+   Weng, 03/20/2022
   implicit none
   type(vegn_tile_type), intent(in) :: vegn
   type(cohort_type),    intent(in) :: cc
@@ -3095,7 +3000,7 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
   real :: k_stem         ! with water conditions
   integer :: i
 
-!! Water supply from each soil layer
+  !! Water supply from each soil layer
   associate ( sp => spdata(cc%species) )
     sumK  = 0.0
     sumPK = 0.0
@@ -3110,7 +3015,6 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
     psi_stem = Max(sp%psi0_WD, (sumPK - Q_stem)/sumK)
     psi_leaf = Max(sp%psi0_LF, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
-
   end associate
 end subroutine plant_water_potential_equi
 

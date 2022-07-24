@@ -247,86 +247,86 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
   integer :: i,j
 
   ! Output and zero daily variables
-      !!! daily !! cohorts output
+  !!! daily !! cohorts output
+  if(outputdaily.and. iday>equi_days) &
+  write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
+  do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
       if(outputdaily.and. iday>equi_days) &
-      write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
-      do i = 1, vegn%n_cohorts
-          cc => vegn%cohorts(i)
-          if(outputdaily.and. iday>equi_days) &
-          write(fno3,'(9(I5,","),1(F12.4,","),50(F12.4,","))')  &
-                iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
-                cc%status, cc%ndm, cc%ncd,            &
-                cc%nindivs*10000, cc%layerfrac, cc%LAI, &
-                cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
-                cc%NPPleaf,cc%NPProot,cc%NPPwood, &
-                cc%W_leaf,cc%W_stem,cc%W_dead,    &
-                cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
-                cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
-                cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000, &
-                cc%gdd,cc%ALT
+      write(fno3,'(9(I5,","),1(F12.4,","),50(F12.4,","))')  &
+            iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
+            cc%status, cc%ndm, cc%ncd,            &
+            cc%nindivs*10000, cc%layerfrac, cc%LAI, &
+            cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
+            cc%NPPleaf,cc%NPProot,cc%NPPwood, &
+            cc%W_leaf,cc%W_stem,cc%W_dead,    &
+            cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
+            cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
+            cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000, &
+            cc%gdd,cc%ALT
 
-          ! annual sum
-          cc%annualGPP = cc%annualGPP + cc%dailyGPP
-          cc%annualNPP = cc%annualNPP + cc%dailyNPP
-          cc%annualResp = cc%annualResp + cc%dailyResp
-          cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
-          cc%annualfixedN = cc%annualfixedN + cc%dailyfixedN
-          ! Zero Daily variables
-          cc%dailyTrsp = 0.0
-          cc%dailyGPP = 0.0
-          cc%dailyNPP = 0.0
-          cc%dailyResp = 0.0
-          cc%dailyfixedN = 0.0
-      enddo
-      !! Tile level, daily
-      if(outputdaily.and. iday>equi_days) then
-         write(fno4,'(2(I5,","),65(F12.4,","))') iyears, idoy,  &
-            vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,      &
-            vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,      &
-            vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
-            vegn%wcl(3)*thksl(3)*1000., &
-            vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh, &
-            vegn%W_leaf,vegn%W_stem,vegn%W_dead,      &
-            vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
-            vegn%SapwoodC, vegn%woodC,                     &
-            vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,  &
-            vegn%rootN*1000, vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
-            (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
-            vegn%mineralN*1000,vegn%dailyNup*1000,vegn%kp(1)
-      endif
+      ! annual sum
+      cc%annualGPP = cc%annualGPP + cc%dailyGPP
+      cc%annualNPP = cc%annualNPP + cc%dailyNPP
+      cc%annualResp = cc%annualResp + cc%dailyResp
+      cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
+      cc%annualfixedN = cc%annualfixedN + cc%dailyfixedN
+      ! Zero Daily variables
+      cc%dailyTrsp = 0.0
+      cc%dailyGPP = 0.0
+      cc%dailyNPP = 0.0
+      cc%dailyResp = 0.0
+      cc%dailyfixedN = 0.0
+  enddo
+  !! Tile level, daily
+  if(outputdaily.and. iday>equi_days) then
+     write(fno4,'(2(I5,","),65(F12.4,","))') iyears, idoy,  &
+        vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,      &
+        vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,      &
+        vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
+        vegn%wcl(3)*thksl(3)*1000., &
+        vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh, &
+        vegn%W_leaf,vegn%W_stem,vegn%W_dead,      &
+        vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
+        vegn%SapwoodC, vegn%woodC,                     &
+        vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,  &
+        vegn%rootN*1000, vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
+        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
+        vegn%mineralN*1000,vegn%dailyNup*1000,vegn%kp(1)
+  endif
+  !annual tile
+  ! Annual summary:
+  vegn%annualNup  = vegn%annualNup  + vegn%dailyNup
+  vegn%annualGPP  = vegn%annualGPP  + vegn%dailygpp
+  vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
+  vegn%annualResp = vegn%annualResp + vegn%dailyresp
+  vegn%annualRh   = vegn%annualRh   + vegn%dailyrh
+  vegn%annualPrcp = vegn%annualPrcp + vegn%dailyPrcp
+  vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
+  vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
+  vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
+  vegn%annualfixedN  = vegn%annualfixedN  + vegn%dailyfixedN
 
-        !annual tile
-        ! Annual summary:
-        vegn%annualNup  = vegn%annualNup  + vegn%dailyNup
-        vegn%annualGPP  = vegn%annualGPP  + vegn%dailygpp
-        vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
-        vegn%annualResp = vegn%annualResp + vegn%dailyresp
-        vegn%annualRh   = vegn%annualRh   + vegn%dailyrh
-        vegn%annualPrcp = vegn%annualPrcp + vegn%dailyPrcp
-        vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
-        vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
-        vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
-        vegn%annualfixedN  = vegn%annualfixedN  + vegn%dailyfixedN
+  ! zero:
+  vegn%dailyNup  = 0.0
+  vegn%dailyGPP  = 0.0
+  vegn%dailyNPP  = 0.0
+  vegn%dailyResp = 0.0
+  vegn%dailyRh   = 0.0
+  vegn%dailyPrcp = 0.0
+  vegn%dailyTrsp = 0.0
+  vegn%dailyEvap = 0.0
+  vegn%dailyRoff = 0.0
+  vegn%dailyfixedN = 0.0
 
-       ! zero:
-       vegn%dailyNup  = 0.0
-       vegn%dailyGPP  = 0.0
-       vegn%dailyNPP  = 0.0
-       vegn%dailyResp = 0.0
-       vegn%dailyRh   = 0.0
-       vegn%dailyPrcp = 0.0
-       vegn%dailyTrsp = 0.0
-       vegn%dailyEvap = 0.0
-       vegn%dailyRoff = 0.0
-       vegn%dailyfixedN = 0.0
- end subroutine daily_diagnostics
+end subroutine daily_diagnostics
 
 !======================================================
  subroutine annual_diagnostics(vegn, iyears,f1,f2)
    type(vegn_tile_type), intent(inout) :: vegn
    integer, intent(in) :: f1,f2, iyears
 
-!   --------local var --------
+    ! --------local var --------
     type(cohort_type), pointer :: cc
     real treeG, fseed, fleaf, froot,fwood,dDBH
     real :: plantC, plantN, soilC, soilN
@@ -396,9 +396,9 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
  end subroutine annual_diagnostics
 
- !========================================================================
- ! read in forcing data (Users need to write their own data input procedure)
- subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+!========================================================================
+! read in forcing data (Users need to write their own data input procedure)
+subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
    type(climate_data_type),pointer,intent(inout) :: forcingData(:)
    integer,intent(inout) :: datalines,days_data,yr_data
    real, intent(inout)   :: timestep
@@ -415,12 +415,12 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
    integer :: ndays,nyear,totlines
    integer :: m,n,i
 
- ! Open forcing data
+   ! Open forcing data
    climfile=trim(filepath_in)//trim(climfile)
    open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
    write(*,*)'istat2',istat2
 
- ! Skip 1 line of input met data file
+   ! Skip 1 line of input met data file
    read(11,'(a160)') commts ! MDK data only has one line comments
    ! Count total lines
    totlines = 0  ! to record the lines in a file
@@ -435,7 +435,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
    allocate(doy_data(totlines),year_data(totlines),hour_data(totlines))
    allocate(input_data(niterms,totlines))
 
- ! Read forcing files
+   ! Read forcing files
    rewind 11
    read(11,'(a160)') commts
    ndays = 0 ! the total days in this data file
@@ -465,7 +465,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
        stop
    endif
 
- ! Put the data into forcing
+   ! Put the data into forcing
    allocate(climateData(totlines))
    do i=1,totlines
       climateData(i)%year      = year_data(i)          ! Year
@@ -491,11 +491,11 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
    !Close opened file and release memory
    close(11)    ! close forcing file
    deallocate(doy_data,year_data,hour_data,input_data)
- end subroutine read_FACEforcing
+end subroutine read_FACEforcing
 
  !=============================================================
  ! for reading in NACP site synthesis forcing
- subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    type(climate_data_type),pointer,intent(inout) :: forcingData(:)
    integer,intent(inout) :: datalines,days_data,yr_data
    real, intent(inout)   :: timestep
@@ -515,10 +515,10 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
 
    climfile=trim(filepath_in)//trim(climfile)
    write(*,*)'inputfile: ',climfile
- ! open forcing data
+   ! open forcing data
    open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
    write(*,*)istat2
- ! skip 2 lines of input met data file
+   ! skip 2 lines of input met data file
    read(11,'(a160)') commts
    read(11,'(a160)') commts
    m       = 0  ! to record the lines in a file
@@ -552,7 +552,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
        stop
    endif
    close(11)    ! close forcing file
- ! Put the data into forcing
+   ! Put the data into forcing
    datalines = m - 1
    days_data = idays
    yr_data  = year_data(datalines-1) - year_data(1) + 1
@@ -577,10 +577,10 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
    forcingData => climateData
    write(*,*)"forcing", datalines,days_data,yr_data
 
- end subroutine read_NACPforcing
+end subroutine read_NACPforcing
 
- !=========== Write output file header ====================
- subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
+!=========== Write output file header ====================
+subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
    character(len=50),intent(in):: runID,fpath
    integer,intent(inout):: fno1,fno2,fno3,fno4,fno5,fno6
 
@@ -661,7 +661,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
          'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S',  &
          'N_loss','seedC','seedN','Seedling-C','Seedling-N'
 
- end subroutine set_up_output_files
+end subroutine set_up_output_files
 
 !===========for netcdf IO ============================
 #ifdef USE_NETCDF

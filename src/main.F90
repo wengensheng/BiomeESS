@@ -29,21 +29,16 @@
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for questions.
 !
-!             (Lase updated 12/30/2017, 07/16/2022)
+!             (Lase updated 12/30/2017, 07/24/2022)
 !
 !------------------------------------------------------------------------
-!
 ! Processes included in this simulator are:
-!     Photosynthesis, transpiration, plant respiration
-!     Plant hydraulics
-!     Phenology
-!     Plant growth: Allometry and allocation
+!     Photosynthesis, transpiration, plant respiration, Plant hydraulics
+!     Plant growth: Allometry and allocation; Phenology
 !     Demography: Reproduction, Mortality
 !     Population dynamics
-!     Soil C-N dynamics
-!     Soil respiration
-!     Soil water dynamics: soil surface evaporation, infiltration
-!                          runoff
+!     Soil respiration, Soil C-N dynamics
+!     Soil water dynamics: soil surface evaporation, infiltration, runoff
 !
 !----------------------------- END ----------------------------------
 !
@@ -75,7 +70,7 @@ program BiomeE
    real    :: r_rand, tsoil, soil_theta
 
    !--------------------------------------------------------------
-   ! --------------------- Setup run files ---------------------
+   ! ---------------------- Setup run files ----------------------
    runID = 'BCI_hydro' ! 'OR_phiRL' ! 'OR_Nfix' ! 'Konza2' ! 'Konza-shrub'
                        !  'OR_GAPLUE' !  'FACE_hydro' !
    fnamelist = 'parameters_'//trim(runID)//'.nml'
@@ -150,7 +145,6 @@ program BiomeE
         soil_theta    = vegn%thetaS
 
         call daily_diagnostics(vegn,iyears,idoy,idays,fno3,fno4)
-        !write(*,*)iyears,idoy
         ! daily calls
         call vegn_phenology(vegn,j)
         !call vegn_daily_starvation(vegn)
@@ -180,16 +174,12 @@ program BiomeE
             if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
             if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
 !#endif
-
             call kill_lowdensity_cohorts(vegn)
-
 #ifdef CROWN_GAP_FILLING
             call vegn_gap_fraction_update(vegn)
 #endif
-
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
-
             ! set annual variables zero
             call Zero_diagnostics(vegn)
 
