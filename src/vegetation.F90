@@ -1401,6 +1401,49 @@ subroutine plant2soil(vegn,cc,deadtrees)
 end subroutine plant2soil
 
 !============================================================================
+real function mortality_rate(cc) result(mu) ! per year
+  !@sum calculate cohort mortality/year, Ensheng Weng, 12/07/2021
+  ! Mortality rate should be a function of growth rate, age, and environmental
+  ! conditions. Here, we only used used a couple of parameters to calculate
+  ! mortality as functions of social status, seedling size, and adult size.
+  ! Grass is saprately defined.
+  type(cohort_type),intent(in) :: cc
+  !-------local var -------------
+  real :: f_L, f_S, f_D, expD
+  real :: m_S ! Mortality multifactor for size effects
+  real :: A_D ! Sensitivity to dbh
+  real :: mu_hydro ! Mortality prob. due to hydraulic failure
+  integer :: n ! the latest ring
+  !---------------------
+  associate ( sp => spdata(cc%species))
+    if(do_U_shaped_mortality)then
+       m_S = 5.0
+    else
+       m_S = 0.0
+    endif
+    A_D = 4.0
+    expD = exp(A_D * (cc%dbh - sp%D0mu))
+    f_L  = SQRT(Max(0.0,cc%layer - 1.0)) ! Layer effects (0~ infinite)
+    f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
+    f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
+    if(sp%lifeform==0)then  ! for grasses
+      mu = Min(0.5, sp%r0mort_c*(1.0+3.0*f_L))
+    else                    ! for trees
+      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
+#ifdef Hydro_test
+      ! TODO: hydraulic faulure induced mortality
+      ! mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
+      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D)
+      n = MIN(cc%Nrings, Ysw_max)
+      mu_hydro = Max(0., 1. - cc%farea(n))  ! Asap should be much greater than Asap1
+      mu = mu + mu_hydro - mu * mu_hydro ! Add hydraulic failure
+#endif
+    endif
+
+  end associate
+end function mortality_rate
+
+!============================================================================
 !-----------------------Plant Hydraulics------------------------------
 subroutine vegn_hydraulic_states(vegn, deltat)
   ! Update plant hydraulic states and coverstion of sapwood to heartwood
@@ -2008,49 +2051,6 @@ real function NewWoodKx(cc) result(Kx)
     endif
     end associate
 end function NewWoodKx
-
-!============================================================================
-real function mortality_rate(cc) result(mu) ! per year
-  !@sum calculate cohort mortality/year, Ensheng Weng, 12/07/2021
-  ! Mortality rate should be a function of growth rate, age, and environmental
-  ! conditions. Here, we only used used a couple of parameters to calculate
-  ! mortality as functions of social status, seedling size, and adult size.
-  ! Grass is saprately defined.
-  type(cohort_type),intent(in) :: cc
-  !-------local var -------------
-  real :: f_L, f_S, f_D, expD
-  real :: m_S ! Mortality multifactor for size effects
-  real :: A_D ! Sensitivity to dbh
-  real :: mu_hydro ! Mortality prob. due to hydraulic failure
-  integer :: n ! the latest ring
-  !---------------------
-  associate ( sp => spdata(cc%species))
-    if(do_U_shaped_mortality)then
-       m_S = 5.0
-    else
-       m_S = 0.0
-    endif
-    A_D = 4.0
-    expD = exp(A_D * (cc%dbh - sp%D0mu))
-    f_L  = SQRT(Max(0.0,cc%layer - 1.0)) ! Layer effects (0~ infinite)
-    f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
-    f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
-    if(sp%lifeform==0)then  ! for grasses
-      mu = Min(0.5, sp%r0mort_c*(1.0+3.0*f_L))
-    else                    ! for trees
-      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
-#ifdef Hydro_test
-      ! TODO: hydraulic faulure induced mortality
-      ! mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
-      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D)
-      n = MIN(cc%Nrings, Ysw_max)
-      mu_hydro = Max(0., 1. - cc%farea(n))  ! Asap should be much greater than Asap1
-      mu = mu + mu_hydro - mu * mu_hydro ! Add hydraulic failure
-#endif
-    endif
-
-  end associate
-end function mortality_rate
 
 !==============================================================
 !============= Vegetation initializations =====================
