@@ -566,6 +566,7 @@ real :: f_LFR_max =0.85 ! max allocation to leaves and fine roots ! wood_fract_m
 ! for leaf life span and LMA (leafLS = c_LLS * LMA
 real :: c_LLS  = 28.57143 ! yr/ (kg C m-2), 1/LMAs, where LMAs = 0.035
 ! Plant hydraulics
+real :: psi0_osm  = 0.5     ! MPa, leaf osmotic pressure
 real :: TK0_leaf = 0.003   ! leaf thickness at reference LMA (1.0 LMA), m
 real :: kx0_WD   = 5.0     ! kx0 at reference WD
 real :: WTC0_WD  = 1200.0  ! Water transporat capacity at reference WD
@@ -713,8 +714,8 @@ namelist /vegn_parameters_nml/  &
   !rho_N_up0, N_roots0, &
   leaf_size, leafLS, LAImax, LAI_light,   &
   LMA, LNbase, CN0leafST, c_LLS,      &
-  TK0_leaf,kx0_WD,WTC0_WD,CR0_LF,CR0_WD,p50_WD,f0_WD, &
-  r_DF,m0_WTC,m0_kx, expK0, &
+  psi0_osm,TK0_leaf,kx0_WD,WTC0_WD,CR0_LF,CR0_WD, &
+  p50_WD,f0_WD,r_DF,m0_WTC,m0_kx, expK0, &
   diff_S0, K0SOM, f_M2SOM,  &
   K_nitrogen, fDON, rho_SON, etaN,     &
   LMAmin, fsc_fine, fsc_wood, &

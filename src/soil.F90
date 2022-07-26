@@ -211,12 +211,11 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   vegn%runoff = rainwater ! mm step-1
 
   ! Total soil water
-  vegn%SoilWater = 0.0
   do i=1,soil_L
      vegn%wcl(i) = vegn%wcl(i) +  WaterBudgetL(i)/(thksl(i)*1000.0)
-     vegn%SoilWater = vegn%SoilWater + vegn%wcl(i)*thksl(i)*1000.0
      vegn%freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT)*thksl(i)*1000.0)) ! kg/m2, or mm
   enddo
+  vegn%soilwater = sum(vegn%freewater(:))
 
 end subroutine SoilWaterDynamics
 
@@ -239,10 +238,7 @@ subroutine SoilWater_psi_K(vegn)
   do i=1, soil_L
      vegn%psi_soil(i) = calc_soil_psi(psi_sat_ref,chb,v_sat,vegn%wcl(i))
      vegn%K_soil(i)   = calc_soil_K  (k_sat_ref,  chb,v_sat,vegn%wcl(i))
-     vegn%freewater(i)= max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
   enddo
-  vegn%soilwater = sum(vegn%freewater(:))
-
 end subroutine SoilWater_psi_K
 
 !==========================================

@@ -42,9 +42,8 @@
 !
 !----------------------------- END ----------------------------------
 !
-#define Hydro_test
+!#define Do_demography
 !#define USE_NETCDF
-!#define CROWN_GAP_FILLING
 
 program BiomeE
    use datatypes
@@ -160,27 +159,29 @@ program BiomeE
             ! Update plant hydraulic states, for the last year
             call vegn_hydraulic_states(vegn,real(seconds_per_year))
             call annual_diagnostics(vegn,iyears,fno5,fno6)
-!#ifndef Hydro_test
-            ! For the incoming year
-            if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
+
+            ! Case studies
             ! N is losing after changing the soil pool structure. Hack !!!!!
             ! if(do_closedN_run) call Recover_N_balance(vegn)
+            if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+            if(do_migration) call vegn_migration(vegn) ! for competition
+            if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
+
+#ifdef Do_demography
+            ! For the incoming year
             call vegn_annual_starvation(vegn) ! turn it off for grass run
             call vegn_nat_mortality(vegn, real(seconds_per_year))
-            if(do_fire)call vegn_fire (vegn, real(seconds_per_year))
-
             ! Reproduction and Reorganize cohorts
             call vegn_reproduction(vegn)
-            if(do_fire) call vegn_migration(vegn) ! only for grass-shrub-fire modeling
-            if(do_migration) call vegn_migration(vegn) ! for nitrogen fixation competition
-!#endif
-            call kill_lowdensity_cohorts(vegn)
-#ifdef CROWN_GAP_FILLING
-            call vegn_gap_fraction_update(vegn)
 #endif
+
+            ! Cohort management
+            call kill_lowdensity_cohorts(vegn)
+            !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
             call relayer_cohorts(vegn)
             call vegn_mergecohorts(vegn)
-            ! set annual variables zero
+
+            ! zero annual reporting variables
             call Zero_diagnostics(vegn)
 
             ! update the years of model run
