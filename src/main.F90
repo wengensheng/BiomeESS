@@ -42,7 +42,7 @@
 !
 !----------------------------- END ----------------------------------
 !
-!#define Do_demography
+#define Do_demography
 !#define USE_NETCDF
 
 program BiomeE

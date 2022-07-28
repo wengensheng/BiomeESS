@@ -167,7 +167,7 @@ type spec_data_type
   real    :: psi0_WD ! minimum stem wood potential
   real    :: psi50_WD !wood potential at which 50% conductivity lost, MPa
   !real    :: Kexp_WD  ! exponent of the PLC curve
-  real    :: f_sup_S2L ! fraction of stem water available for leaves in one hour
+  real    :: f_supply ! fraction of stem water available for leaves in one hour
 
   ! Allometry
   real    :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -686,7 +686,7 @@ real :: psi0_LF(0:MSPECIES)  = -3.0  ! MPa
 real :: psi0_WD(0:MSPECIES)  = -3.0  ! MPa
 real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
 !real :: Kexp_WD(0:MSPECIES)  = 2.0
-real :: f_sup_S2L(0:MSPECIES)    = 0.5
+real :: f_supply(0:MSPECIES)    = 0.5
 
 real :: LAImax(0:MSPECIES)        = 3.5 ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)     = 4.0 ! maximum LAI limited by light
@@ -1022,12 +1022,12 @@ subroutine initialize_PFT_data(namelistfile)
    sp%WTC0    = WTC0_WD * R_WD**1.5
    sp%CR_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
    sp%psi50_WD = p50_WD * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
-   sp%f_sup_S2L= f0_WD / (R_WD+1.0)
-   !sp%psi0_WD  = sp%psi50_WD
+   sp%psi0_WD  = p50_WD * R_WD**1.73 - 2.0
+   sp%f_supply = f0_WD / (R_WD+1.0)
 
    ! Mortality rate as a function of wood density
    !sp%r0mort_c = 0.2 * exp(-2.1*R_WD)
-   !sp%r0mort_c = 0.048 - 0.024 * R_WD
+   sp%r0mort_c = 0.048 - 0.024 * R_WD
 
  end subroutine init_derived_species_data
 
