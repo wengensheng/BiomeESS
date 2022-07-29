@@ -247,8 +247,8 @@ type :: cohort_type
   real    :: nsc     = 0.0 ! non-structural carbon, kg C/individual
 
 ! ----- carbon fluxes
-  real :: gpp  = 0.0 ! gross primary productivity kg C/timestep
-  real :: npp  = 0.0 ! net primary productivity kg C/timestep
+  real :: gpp  = 0.0 ! gross primary productivity kg C/step
+  real :: npp  = 0.0 ! net primary productivity kg C/step
   real :: resp = 0.0 ! plant respiration
   real :: resl = 0.0 ! leaf respiration
   real :: resr = 0.0 ! root respiration
@@ -792,7 +792,7 @@ integer  :: datalines ! the total lines in forcing data file
 integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 integer  :: steps_per_day ! 24 or 48
-real     :: timestep  ! hour, Time step of forcing data, usually hourly (1.0)
+real     :: step_hour  ! hour, Time step of forcing data, usually hourly (1.0)
 logical  :: outputhourly = .True.
 logical  :: outputdaily  = .True.
 logical  :: do_U_shaped_mortality = .False.

@@ -80,11 +80,11 @@ program BiomeE
    read (nml_unit, nml=initial_state_nml, iostat=io)
    close (nml_unit)
 
-   call read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
-   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
-   steps_per_day = int(24.0/timestep)
-   dt_fast_yr   = timestep/(365.0 * 24.0)
-   step_seconds = timestep*3600.0
+   call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
+   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
+   steps_per_day = int(24.0/step_hour)
+   dt_fast_yr   = step_hour/(365.0 * 24.0)
+   step_seconds = step_hour*3600.0
    write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
    ! total years of model run
    totyears  = model_run_years

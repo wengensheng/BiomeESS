@@ -96,7 +96,7 @@ end subroutine vegn_sum_tile
 !================= Diagnostics============================================
 ! Weng, 2016-11-28
 subroutine Zero_diagnostics(vegn)
-! for annual update
+  ! for annual update
   type(vegn_tile_type), intent(inout) :: vegn
   !-------local var
   type(cohort_type),pointer :: cc

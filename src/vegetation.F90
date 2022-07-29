@@ -1555,7 +1555,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 end subroutine vegn_hydraulic_states
 
 !========================================================================
-! Weng 2022-03-29 !
+! Weng 2022-03-29 ! Updated 07/29/2022
 subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   !type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
@@ -1570,7 +1570,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   real :: sumK, sumPK, dpsi, psi_soil, W_psi_soil
   integer :: i,j
 
-  ! Updates plant water potentials, water fluxes and content
+  ! Plant water potentials, water fluxes and content
   do j = 1, vegn%n_cohorts
      cc => vegn%cohorts(j)
      associate ( sp => spdata(cc%species) )
@@ -1588,7 +1588,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
 
        !Approximately estimate psi_leaf and Q_leaf
        psi_leaf = (k_stem*step_seconds*(cc%psi_stem-psi_ht)+  &
-                   cc%H_leaf*cc%psi_leaf - Q_air) /(k_stem*step_seconds+cc%H_leaf)
+            cc%H_leaf*cc%psi_leaf - Q_air) /(k_stem*step_seconds+cc%H_leaf)
        cc%Q_leaf = (cc%psi_stem - psi_leaf - psi_ht) * k_stem * step_seconds
 
        ! Adjust Q_leaf to make it reasonable
