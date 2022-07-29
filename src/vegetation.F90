@@ -2207,7 +2207,7 @@ end subroutine initialize_cohort_from_biomass
 !==================== Cohort management ================================
 !=======================================================================
 
-! ============================================================================
+!============================================================================
 ! Arrange crowns into canopy layers according to their height and crown areas.
 subroutine relayer_cohorts (vegn)
   type(vegn_tile_type), intent(inout) :: vegn ! input cohorts
