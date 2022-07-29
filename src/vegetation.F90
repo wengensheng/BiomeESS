@@ -1672,9 +1672,9 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
 
   ! Prameters
   associate ( sp => spdata(cc%species) )
-    psi50   = sp%psi50_WD
-    CR0  = sp%CR_Wood
-    f0_sup  = sp%f_supply * step_seconds/3600.0
+    psi50  = sp%psi50_WD
+    CR0    = sp%CR_Wood
+    f0_sup = sp%f_supply * step_seconds/3600.0
   end associate
 
   !Leaf water supply
@@ -1765,15 +1765,15 @@ subroutine Plant_water2psi_exp(cc)
   real :: W_status
 
   associate ( sp => spdata(cc%species))
-    if(cc%Wmax_s > 0.0001)then
-      W_status = MIN(max(0.00001,cc%W_stem),cc%Wmax_s)
+    if(cc%Wmax_s > 1.0E-4)then
+      W_status = MIN(max(1.0E-6,cc%W_stem),cc%Wmax_s)
       cc%psi_stem = log(W_status/cc%Wmax_s)/sp%CR_Wood
     else
       cc%psi_stem = cc%psi_s0
     endif
 
-    if(cc%Wmax_l > 0.001)then
-      W_status = MIN(max(0.00001,cc%W_leaf),cc%Wmax_l)
+    if(cc%Wmax_l > 1.0E-4)then
+      W_status = MIN(max(1.0E-6,cc%W_leaf),cc%Wmax_l)
       cc%psi_leaf = log(W_status/cc%Wmax_l)/sp%CR_Leaf
     else
       cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
