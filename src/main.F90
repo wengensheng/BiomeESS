@@ -56,7 +56,6 @@ program BiomeE
 
    implicit none
    type(vegn_tile_type),  pointer :: vegn
-   type(soil_tile_type),  pointer :: soil
    integer,parameter :: nCohorts = 1
    character(len=50) :: runID, fnamelist, fpath_out
    integer :: nml_unit,iostat,io ! for reading the namelist file

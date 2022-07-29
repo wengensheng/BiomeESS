@@ -63,7 +63,7 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
 filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
 climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
-model_run_years     =  600, !600, ! 1600,
+model_run_years     =  6, !600, ! 1600,
 outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
