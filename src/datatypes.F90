@@ -424,7 +424,7 @@ type :: vegn_tile_type
   ! for annual reporting at tile level
   real :: NSC, SeedC, leafC, rootC, SapwoodC, WoodC
   real :: NSN, SeedN, leafN, rootN, SapwoodN, WoodN
-  real :: totSeedC,totSeedN,totNewCC, totNewCN
+  real :: totSeedC,totSeedN
   ! for cohort plant types (climate-vegetation relationship, Biome, LM3)
   real :: t_ann  = 0.0 ! annual mean T, degK
   real :: t_cold = 0.0 ! average temperature of the coldest month, degK

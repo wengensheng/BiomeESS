@@ -391,8 +391,7 @@ end subroutine daily_diagnostics
         vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
         (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
         vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%annualNup*1000, &
-        vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000, &
-        vegn%totseedC*1000,vegn%totseedN*1000,vegn%totNewCC*1000,vegn%totNewCN*1000
+        vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
 
  end subroutine annual_diagnostics
 

@@ -665,14 +665,15 @@ subroutine vegn_growth(vegn)
         if(cc%firstday)then
           cc%psi_s0 = maxval(vegn%psi_soil(:))
           cc%psi_stem = cc%psi_s0
-          cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
+          cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
         endif
 
         ! Update Ktrunk with new sapwood
         k = Max(MIN(cc%Nrings, Ysw_max),1)
         cc%Kx(k)   = NewWoodKx(cc)
+        cc%Lring(k)= HT2Lpath(cc%height)
         cc%Ktrunk = cc%Ktrunk+ &
-              0.25*PI*(cc%DBH**2-(cc%DBH-dDBH)**2)*cc%Kx(k)/cc%height
+              0.25*PI*(cc%DBH**2-(cc%DBH-dDBH)**2)*cc%Kx(k)/cc%Lring(k)
 
 #ifndef Hydro_test
         !Convert C and N from sapwood to heartwood
@@ -1105,10 +1106,6 @@ subroutine vegn_reproduction (vegn)
 
   ! Looping through all reproducible cohorts and Check if reproduction happens
   reproPFTs = -999 ! the code of reproductive PFT
-  vegn%totseedC = 0.0
-  vegn%totseedN = 0.0
-  vegn%totNewCC = 0.0
-  vegn%totNewCN = 0.0
   seedC = 0.0
   seedN = 0.0
   nPFTs = 0
@@ -1121,22 +1118,18 @@ subroutine vegn_reproduction (vegn)
                seedC(i) = seedC(i) + cc%seedC  * cc%nindivs
                seedN(i) = seedN(i) + cc%seedN  * cc%nindivs
                ! reset parent's seed C and N
-               vegn%totSeedC = vegn%totSeedC + cc%seedC  * cc%nindivs
-               vegn%totSeedN = vegn%totSeedN + cc%seedN  * cc%nindivs
                cc%seedC = 0.0
                cc%seedN = 0.0
-
+               ! Update flag
                matchflag = 1
                exit
            endif
         enddo
-        if(matchflag==0)then ! when it is a new PFT, put it to the next place
+        if(matchflag==0)then ! a new PFT, put the seeds to the next place
             nPFTs            = nPFTs + 1 ! update the number of reproducible PFTs
             reproPFTs(nPFTs) = cc%species ! PFT number
             seedC(nPFTs)     = cc%seedC * cc%nindivs ! seed carbon
             seedN(nPFTs)     = cc%seedN * cc%nindivs ! seed nitrogen
-            vegn%totSeedC = vegn%totSeedC + cc%seedC  * cc%nindivs
-            vegn%totSeedN = vegn%totSeedN + cc%seedN  * cc%nindivs
             ! reset parent's seed C and N
             cc%seedC = 0.0
             cc%seedN = 0.0
@@ -1160,66 +1153,50 @@ subroutine vegn_reproduction (vegn)
         ! Copy old information to new cohort, Weng, 2021-06-02
         do n =1, vegn%n_cohorts ! go through old cohorts
           if(reproPFTs(i) == ccold(n)%species)then
-            ccnew(k) = ccold(n)
+            ccnew(k) = ccold(n) ! Use the information from partent cohort
             exit
           endif
         enddo
 
         ! Update new cohort information
         cc => vegn%cohorts(k)
-        ! Give the new cohort an ID
-        cc%ccID = MaxCohortID + i
-        ! update child cohort parameters
-        associate (sp => spdata(reproPFTs(i))) ! F2003
-        ! density
-        cc%nindivs = seedC(i)/sp%s0_plant
-
         cc%species = reproPFTs(i)
-        if(sp%phenotype == 0)then
-           cc%status = LEAF_OFF
-        else
-           cc%status = LEAF_ON
-        endif
-        cc%firstlayer = 0
-        cc%topyear = 0.0
-        cc%age     = 0.0
-        totC = sp%s0_plant
-        if(seedC(i)>0.0)then
-          totN = sp%s0_plant * seedN(i)/seedC(i)
-        else
-          totN = sp%s0_plant/10.0
-        endif
-        call setup_seedling(cc,totC,totN)
+        cc%ccID = MaxCohortID + i ! new cohort ID
+        ! update child cohort parameters
+        associate (sp => spdata(reproPFTs(i)))
+          totC = sp%s0_plant
+          cc%nindivs = seedC(i)/totC ! density
+          if(seedC(i)>0.0)then
+            totN = totC * seedN(i)/seedC(i)
+          else
+            totN = totC/10.0
+          endif
+          call setup_seedling(cc,totC,totN)
+          ! Take water from the second soil layer
+          vegn%wcl(2) = Max(0.0, vegn%wcl(2)-cc%nindivs*cc%W_stem/(thksl(2)*1000.0))
 
-        vegn%wcl(2) = Max(0.0, vegn%wcl(2) - cc%nindivs * cc%W_stem/(thksl(2)*1000.0))
+          !! seeds fail
+          ! cc%nindivs = cc%nindivs * sp%prob_g * sp%prob_e
+          !!       put failed seeds to soil carbon pools
+          !        failed_seeds = 0.0 ! (1. - sp%prob_g*sp%prob_e) * seedC(i)!!
 
-        vegn%totNewCC = vegn%totNewCC + cc%nindivs*(cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc)
-        vegn%totNewCN = vegn%totNewCN + cc%nindivs*(cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN)
+          !        vegn%litter = vegn%litter + failed_seeds
+          !        vegn%SOC(1) = vegn%SOC(1) +        fsc_fine *failed_seeds
+          !        vegn%SOC(2) = vegn%SOC(2) + (1.0 - fsc_fine)*failed_seeds
 
-        !!        !! seeds fail
-                !cc%nindivs = cc%nindivs * sp%prob_g * sp%prob_e
-        !!       put failed seeds to soil carbon pools
-        !        failed_seeds = 0.0 ! (1. - sp%prob_g*sp%prob_e) * seedC(i)!!
+          !!      Nitrogen of seeds to soil SOMs
+          !        N_failedseed= 0.0 ! (1.-sp%prob_g*sp%prob_e)   * seedN(i)
+          !        vegn%SON(1)  = vegn%SON(1)   +        fsc_fine * N_failedseed
+          !        vegn%SON(2) = vegn%SON(2)  + (1.0 - fsc_fine)* N_failedseed
 
-        !        vegn%litter = vegn%litter + failed_seeds
-        !        vegn%SOC(1) = vegn%SOC(1) +        fsc_fine *failed_seeds
-        !        vegn%SOC(2) = vegn%SOC(2) + (1.0 - fsc_fine)*failed_seeds
-
-        !!      Nitrogen of seeds to soil SOMs
-        !        N_failedseed= 0.0 ! (1.-sp%prob_g*sp%prob_e)   * seedN(i)
-        !        vegn%SON(1)  = vegn%SON(1)   +        fsc_fine * N_failedseed
-        !        vegn%SON(2) = vegn%SON(2)  + (1.0 - fsc_fine)* N_failedseed
-
-        !       annual N from plants to soil
-        !       vegn%N_P2S_yr = vegn%N_P2S_yr + N_failedseed
-
-        end associate   ! F2003
+          !       annual N from plants to soil
+          !       vegn%N_P2S_yr = vegn%N_P2S_yr + N_failedseed
+        end associate
      enddo
      deallocate (ccold)
      MaxCohortID = MaxCohortID + newcohorts
      vegn%n_cohorts = k
      ccnew => null()
-     call zero_diagnostics(vegn)
   endif ! set up new born cohorts
 
 end subroutine vegn_reproduction
@@ -1234,6 +1211,11 @@ subroutine setup_seedling(cc,totC,totN)
   ! ----------------------------
   associate(sp=>spdata(cc%species))
      layer = max(1, cc%layer)
+     if(sp%phenotype == 0)then
+        cc%status = LEAF_OFF
+     else
+        cc%status = LEAF_ON
+     endif
      ! Carbon pools
      cc%bl      = 0.0 * totC
      cc%br      = 0.1 * totC
@@ -1252,9 +1234,13 @@ subroutine setup_seedling(cc,totC,totN)
      ! Structure
      call Wood2Architecture(cc,cc%bsw)
 
+     ! Zero cohort variables
+     cc%firstlayer = 0
+     cc%topyear = 0.0
+     cc%age     = 0.0
+
      ! Hydraulic states
-     cc%Asap   = 0.0
-     cc%Ktrunk = 0.0
+     cc%transp = 0.0
      cc%WTC0  = 0.0
      cc%Kx    = 0.0
      cc%farea = 1.0
@@ -1263,13 +1249,15 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Rring = 0.0
      cc%Lring = 0.0
      cc%Aring = 0.0
-     cc%transp = 0.0
+
      ! First ring
      cc%Nrings  = 1
      cc%WTC0(1) = NewWoodWTC(cc)
      cc%Kx(1)   = NewWoodKx(cc)
+     cc%Lring(1)= HT2Lpath(cc%height)
      cc%Aring(1)= PI * 0.25*cc%DBH**2
-     cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
+     cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/cc%Lring(1)
+     cc%Asap    = cc%Aring(1)
 
      ! Cohort hydraulic properties
      call derived_cc_vars(cc)
@@ -1465,7 +1453,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         cc%accH(1)  = 0.0
         cc%totW(1)  = 0.0
         cc%Rring(1) = cc%DBH/2.0
-        cc%Lring(1) = cc%height ! Lenght of the tubes is the height of this year
+        cc%Lring(1) = HT2Lpath(cc%height)
         cc%Aring(1) = PI * cc%Rring(1)**2
      endif
      ! Set up the space for the new ring : moving previous years' states inward
@@ -1494,7 +1482,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      cc%accH(k)  = 0.0
      cc%totW(k)  = 0.0
      cc%Rring(k) = cc%DBH/2.0
-     cc%Lring(k) = cc%height ! Lenght of the tubes is the height of this year
+     cc%Lring(k) = HT2Lpath(cc%height)
      if(k>1)then
         cc%Aring(k) = PI * Max(0.0,cc%Rring(k)**2 - (cc%DBH_ys/2.)**2)
      else
@@ -1580,7 +1568,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        Q_air  = cc%transp   ! /step_seconds
        psi_sl = (cc%psi_stem + cc%psi_leaf)/2
        k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,expK0)
-       psi_ht = H2MPa(cc%height) ! MPa
+       psi_ht = HT2MPa(cc%height) ! MPa
 
        !Approximately estimate psi_leaf and Q_leaf
        psi_leaf = (k_stem*step_seconds*(cc%psi_stem-psi_ht)+  &
@@ -1772,7 +1760,7 @@ subroutine Plant_water2psi_exp(cc)
       W_status = MIN(max(1.0E-6,cc%W_leaf),cc%Wmax_l)
       cc%psi_leaf = log(W_status/cc%Wmax_l)/sp%CR_Leaf
     else
-      cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
+      cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
     endif
   end associate
 end subroutine Plant_water2psi_exp
@@ -1792,7 +1780,7 @@ subroutine Plant_water2psi_linear(cc)
       dW_L =  Max(0.0,MIN(1.0,(cc%Wmax_L - cc%W_leaf)/(cc%Wmax_L - cc%Wmin_L)))
       cc%psi_leaf = sp%psi0_LF * dW_L
     else
-      cc%psi_leaf = cc%psi_stem - H2MPa(cc%height)
+      cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
     endif
   end associate
 end subroutine Plant_water2psi_linear
@@ -1826,11 +1814,18 @@ subroutine plant_psi_s0(vegn,cc,psi_s0)
 end subroutine plant_psi_s0
 
 !==========================================
-real function H2MPa(ht) result(P) ! water gravational pressure
+real function HT2MPa(ht) result(P) ! water gravational pressure
   real, intent(in):: ht ! Plant height, m
   !---------------------
   P = 1000.0 * 9.8 * ht * 1.0e-6 ! MPa
-end function H2MPa
+end function HT2MPa
+
+!==========================================
+real function HT2Lpath(ht) result(L) ! water path lenght from root to leaves
+  real, intent(in):: ht ! Plant height, m
+  !---------------------
+  L = ht * 1.5 + 0.2 ! m
+end function HT2Lpath
 
 !==========================================
 real function plc_function(psi, psi50, expK) result(plc)
@@ -1964,7 +1959,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
 
     !-------Cohort specific variables-----------
     transp = cc%transp ! /step_seconds
-    psi_ht = H2MPa(cc%height) ! MPa
+    psi_ht = HT2MPa(cc%height) ! MPa
     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
 
     call Plant_water2psi_exp(cc) ! Refine plant water potential based on water content
@@ -2039,8 +2034,6 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
 
     !----------------Next step maximum transpiration---------------
     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
-    !cc%W_supply = 0.5 * (cc%W_leaf - cc%Wmin_L) + 0.05 * (cc%W_stem - cc%Wmin_s) &
-    !            + (cc%psi_stem - cc%psi_leaf - psi_ht)* k_stem * step_seconds
     cc%W_supply = 0.05 * sum(vegn%freewater(:))*cc%crownarea
 
     end associate
@@ -2194,7 +2187,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%WTC0(1) = NewWoodWTC(cc)
     cc%Kx(1)   = NewWoodKx(cc)
     cc%Rring(1)= cc%DBH/2.0
-    cc%Lring(1)= Max(cc%height,0.01) ! Lenght of the tubes is the height of this year
+    cc%Lring(1)= HT2Lpath(cc%height) !Max(cc%height,0.01)
     cc%Aring(1)= PI * cc%Rring(1)**2
     cc%Ktrunk  = PI * cc%Aring(1) * cc%Kx(1)/cc%Lring(1)
     cc%farea(1)= 1.0
@@ -2202,7 +2195,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%totW(1) = 0.0
     ! Initial psi
     cc%psi_stem = psi_s0
-    cc%psi_leaf = cc%psi_stem - H2MPa(cc%height) ! MPa
+    cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height) ! MPa
     call derived_cc_vars(cc)
     call plant_psi2water(cc)
 
@@ -2516,7 +2509,7 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
    type(cohort_type), intent(in) :: c1,c2
 
    real, parameter :: mindensity = 1.0E-4
-   logical :: sameSpecies, sameLayer, sameSize, sameSizeTree, sameSizeGrass, lowDensity
+   logical :: sameSpecies,sameLayer,sameSize,sameSizeTree,sameSizeGrass
 
    sameSpecies  = c1%species == c2%species
    sameLayer    = (c1%layer == c2%layer) .or. & ! .and. (c1%firstlayer == c2%firstlayer)
@@ -2531,13 +2524,10 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (spdata(c2%species)%lifeform ==0) .and. &
                  ((c1%DBH == c2%DBH).and.c1%age> 2. .and. c2%age>2.)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
-   lowDensity  = .FALSE. ! c1%nindivs < mindensity
-                         ! Weng, 2014-01-27, turned off
    cohorts_can_be_merged = sameSpecies .and. sameLayer .and. sameSize
 end function
 
 !======================= Specific experiments ================================
-
 !----------------------- fire disturbance (Konza) ---------------------------
 subroutine vegn_fire (vegn, deltat)
   type(vegn_tile_type), intent(inout) :: vegn
@@ -2805,7 +2795,7 @@ subroutine vegn_migration (vegn)
      MaxCohortID = MaxCohortID + newcohorts
      vegn%n_cohorts = k
      ccnew => null()
-     call zero_diagnostics(vegn)
+
      ! Make carbon and nitrogen balance
      vegn%SOC(2) = vegn%SOC(2) - min(0.05*vegn%SOC(2),addedC)
      vegn%SON(2) = vegn%SON(2) - min(0.05*vegn%SON(2),addedN)
@@ -2958,7 +2948,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
 
      ! Stem-Leaf water flux
      k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
-     psi_ht = H2MPa(cc%height) ! MPa
+     psi_ht = HT2MPa(cc%height) ! MPa
      cc%Q_leaf = (cc%psi_stem - cc%psi_leaf - psi_ht) * k_stem * step_seconds
      cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
      cc%W_stem = cc%W_stem - cc%Q_leaf
@@ -2974,7 +2964,6 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      enddo
 
      ! Water supply for the next step photosynthesis
-     !cc%W_supply = 0.2 * Max(cc%W_stem - cc%Wmin_s,0.0)
      cc%W_supply = 0.05 * vegn%soilwater * cc%crownarea
      end associate
    enddo
@@ -3009,7 +2998,7 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
       sumK = sumK + k_rs(i)
       sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
     enddo
-    psi_ht = H2MPa(cc%height) ! MPa
+    psi_ht = HT2MPa(cc%height) ! MPa
     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
     psi_stem = Max(sp%psi0_WD, (sumPK - Q_stem)/sumK)
     psi_leaf = Max(sp%psi0_LF, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
