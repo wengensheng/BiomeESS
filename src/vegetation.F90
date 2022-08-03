@@ -1268,8 +1268,8 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Nrings  = 1
      cc%WTC0(1) = NewWoodWTC(cc)
      cc%Kx(1)   = NewWoodKx(cc)
-     cc%Aring(1) = PI * 0.25*cc%DBH**2
-     cc%Ktrunk = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
+     cc%Aring(1)= PI * 0.25*cc%DBH**2
+     cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
 
      ! Cohort hydraulic properties
      call derived_cc_vars(cc)
@@ -1496,8 +1496,6 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      cc%Rring(k) = cc%DBH/2.0
      cc%Lring(k) = cc%height ! Lenght of the tubes is the height of this year
      if(k>1)then
-        !cc%Aring(k) = PI * Max(0.0,cc%Rring(k)**2 - cc%Rring(k-1)**2)
-        ! Make sure ring area calculation is correct.
         cc%Aring(k) = PI * Max(0.0,cc%Rring(k)**2 - (cc%DBH_ys/2.)**2)
      else
         cc%Aring(k) = PI * cc%Rring(k)**2 ! Only for the first year
@@ -2167,15 +2165,12 @@ subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
 end subroutine initialize_vegn_tile
 
 ! ============================================================================
-! calculate tree height, DBH, height, and crown area by initial biomass
-! The allometry equations are from Ray Dybzinski et al. 2011 and Forrior et al. in review
-!         HT = alphaHT * DBH ** (gamma-1)   ! DBH --> Height
-!         CA = alphaCA * DBH ** gamma       ! DBH --> Crown Area
-!         BM = alphaBM * DBH ** (gamma + 1) ! DBH --> tree biomass
+! Initialize a cohort by initial biomass and soil water conditions
 subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
   type(cohort_type), intent(inout) :: cc
   real,intent(in)    :: btot ! total biomass per individual, kg C
   real,intent(in)    :: psi_s0 ! Initial stem water potential
+
   !---- local vars ------------
   integer :: j
 
@@ -2198,8 +2193,13 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%Nrings  = 1
     cc%WTC0(1) = NewWoodWTC(cc)
     cc%Kx(1)   = NewWoodKx(cc)
-    cc%Aring(1)= PI * 0.25*cc%DBH**2
-    cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
+    cc%Rring(1)= cc%DBH/2.0
+    cc%Lring(1)= Max(cc%height,0.01) ! Lenght of the tubes is the height of this year
+    cc%Aring(1)= PI * cc%Rring(1)**2
+    cc%Ktrunk  = PI * cc%Aring(1) * cc%Kx(1)/cc%Lring(1)
+    cc%farea(1)= 1.0
+    cc%accH(1) = 0.0
+    cc%totW(1) = 0.0
     ! Initial psi
     cc%psi_stem = psi_s0
     cc%psi_leaf = cc%psi_stem - H2MPa(cc%height) ! MPa
