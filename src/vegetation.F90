@@ -2194,7 +2194,13 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%woodN  = cc%bHW/sp%CNwood0
     cc%seedN  = 0.0
 
-    ! Plant hydraulics
+    ! ----------Plant hydraulics----------
+    cc%Nrings  = 1
+    cc%WTC0(1) = NewWoodWTC(cc)
+    cc%Kx(1)   = NewWoodKx(cc)
+    cc%Aring(1)= PI * 0.25*cc%DBH**2
+    cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/Max(cc%height,0.01)
+    ! Initial psi
     cc%psi_stem = psi_s0
     cc%psi_leaf = cc%psi_stem - H2MPa(cc%height) ! MPa
     call derived_cc_vars(cc)
@@ -2206,10 +2212,8 @@ end subroutine initialize_cohort_from_biomass
 !=======================================================================
 !==================== Cohort management ================================
 !=======================================================================
-
-!============================================================================
-! Arrange crowns into canopy layers according to their height and crown areas.
 subroutine relayer_cohorts (vegn)
+  ! Arrange crowns into canopy layers according to PPA
   type(vegn_tile_type), intent(inout) :: vegn ! input cohorts
 
   ! ---- local constants
@@ -2225,18 +2229,14 @@ subroutine relayer_cohorts (vegn)
   type(cohort_type), pointer :: cc(:),new(:)
   real    :: nindivs
 
-  !  rand_sorting = .TRUE. ! .False.
-
-  ! rank cohorts in descending order by height. For now, assume that they are
-  ! in order
+  ! rank cohorts in descending order by height
   N0 = vegn%n_cohorts
   cc=>vegn%cohorts
   call rank_descending(cc(1:N0)%height,idx)
 
   ! calculate max possible number of new cohorts : it is equal to the number of
   ! old cohorts, plus the number of layers -- since the number of full layers is
-  ! equal to the maximum number of times an input cohort can be split by a layer
-  ! boundary.
+  ! equal to the maximum number of cohorts split by the layer boundaries
   N1 = vegn%n_cohorts + int(sum(cc(1:N0)%nindivs*cc(1:N0)%crownarea))
   allocate(new(N1))
 

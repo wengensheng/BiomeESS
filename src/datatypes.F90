@@ -154,7 +154,7 @@ type spec_data_type
   real :: psi0_LF ! minimum leaf water potential
   real :: psi0_WD ! minimum stem wood potential
   real :: psi50_WD !wood potential at which 50% conductivity lost, MPa
-  !real :: Kexp_WD  ! exponent of the PLC curve
+  real :: Kexp_WD  ! exponent of the PLC curve
   real :: f_supply ! fraction of stem water available for leaves in one hour
 
   ! Allometry
@@ -530,7 +530,7 @@ real :: p50_WD   = -1.565  ! stem psi50 at reference WD
 real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport usage
 real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
 real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
-real :: expK0    = 2.0     ! exponential of the PLC function for (WD/WDref)
+real :: expK0    = 3.0     ! exponential of the PLC function for (WD/WDref)
 real :: f0_WD    = 0.8     ! Fraction of stem water for transpiration per hour at zero WD
 
 ! Phenology parameters
@@ -674,8 +674,8 @@ real :: w0S_max(0:MSPECIES)  = 2.0   ! stem maximum water/carbon ratio
 real :: psi0_LF(0:MSPECIES)  = -3.0  ! MPa
 real :: psi0_WD(0:MSPECIES)  = -3.0  ! MPa
 real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
-!real :: Kexp_WD(0:MSPECIES)  = 2.0
-real :: f_supply(0:MSPECIES)    = 0.5
+real :: Kexp_WD(0:MSPECIES)  = 3.0
+real :: f_supply(0:MSPECIES) = 0.5
 
 ! C/N ratios for plant pools
 real :: CNleaf0(0:MSPECIES)   = 25. ! C/N ratios for leaves
@@ -928,7 +928,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%psi0_LF  = psi0_LF
   spdata%psi0_WD  = psi0_WD
   spdata%psi50_WD = psi50_WD
-  !spdata%Kexp_WD  = Kexp_WD
+  spdata%Kexp_WD  = Kexp_WD
 
   spdata%LAImax       = LAImax
   spdata%LAImax_u     = 1.2 ! LAImax
@@ -1008,6 +1008,7 @@ subroutine initialize_PFT_data(namelistfile)
    sp%CR_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
    sp%psi50_WD = p50_WD * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
    sp%psi0_WD  = p50_WD * R_WD**1.73 - 2.0
+   sp%Kexp_WD  = expK0  * R_WD**(-1)
    sp%f_supply = f0_WD / (R_WD+1.0)
 
    ! Mortality rate as a function of wood density
