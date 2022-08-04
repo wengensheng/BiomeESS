@@ -1003,13 +1003,13 @@ subroutine initialize_PFT_data(namelistfile)
 
    ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
    R_WD = sp%rho_wood/WDref0
-   sp%kx0     = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
-   sp%WTC0    = WTC0_WD * R_WD**1.5
-   sp%CR_Wood = CR0_WD * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
-   sp%psi50_WD = p50_WD * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
-   sp%psi0_WD  = p50_WD * R_WD**1.73 - 2.0
-   sp%Kexp_WD  = expK0  * R_WD**(-1)
-   sp%f_supply = f0_WD / (R_WD+1.0)
+   sp%kx0      = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
+   sp%WTC0     = WTC0_WD * R_WD**1.5
+   sp%CR_Wood  = CR0_WD  * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
+   sp%psi50_WD = p50_WD  * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
+   sp%psi0_WD  = p50_WD  * R_WD**1.73 - 2.0
+   sp%Kexp_WD  = expK0   * R_WD**(-1)
+   sp%f_supply = f0_WD   /(R_WD+1.0)
 
    ! Mortality rate as a function of wood density
    !sp%r0mort_c = 0.2 * exp(-2.1*R_WD)

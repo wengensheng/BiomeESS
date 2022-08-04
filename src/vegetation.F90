@@ -1859,7 +1859,6 @@ real function NewWoodKx(cc) result(Kx)
     associate ( sp => spdata(cc%species))
     ! Kx scaling with tree height to keep psi_leaf constant
     if (do_VariedKx)then
-      !Kx = sp%Kx0 * (0.02 + 0.12 * cc%height)  ! (mm/s)/(MPa/m)
       Kx = sp%Kx0 * (1. + m0_kx * cc%DBH**sp%thetaHT)  ! (mm/s)/(MPa/m)
     else
       Kx = sp%Kx0 !* (1. + m0_kx * 0.5 ) ! 0.25**0.5 = 0.5
