@@ -190,7 +190,7 @@ end subroutine vegn_photosynthesis
 
 !============================================================================
 subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
-                   p_surf, ws, pft, pt, ca, kappa, leaf_wet, layer, &
+                   p_surf, ws, pft, pt, ca, kappa, f_w, layer, &
                    apot, acl,w_scale2, transp)
   real,    intent(in)   :: rad_top ! PAR dn on top of the canopy, w/m2
   real,    intent(in)   :: rad_net ! PAR net on top of the canopy, w/m2
@@ -204,7 +204,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   integer, intent(in)   :: pt   ! physiology type (C3 or C4)
   real,    intent(in)   :: ca   ! concentartion of CO2 in the canopy air space, mol CO2/mol dry air
   real,    intent(in)   :: kappa! canopy extinction coefficient (move inside f(pft))
-  real,    intent(in)   :: leaf_wet ! fraction of leaf that's wet or snow-covered
+  real,    intent(in)   :: f_w ! fraction of leaf that's wet or snow-covered
   integer, intent(in)   :: layer  ! the layer of this canopy
   ! note that the output is per area of leaf; to get the quantities per area of
   ! land, multiply them by LAI
@@ -325,11 +325,11 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
            dum2=min(f2,f3)
 
            ! find LAI level at which rubisco limited rate is equal to light limited rate
-           lai_eq = -log(dum2/(kappa*spdata(pft)%alpha_phot*light_top))/kappa
+           lai_eq = -log(dum2/(kappa*spdata(pft)%alpha_ps*light_top))/kappa
            lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
 
            ! gross photosynthesis for light-limited part of the canopy
-           Ag_l   = spdata(pft)%alpha_phot * par_net     &
+           Ag_l   = spdata(pft)%alpha_ps * par_net     &
                   * (exp(-lai_eq*kappa)-exp(-lai*kappa)) &
                   / (1-exp(-lai*kappa))
 
@@ -355,11 +355,11 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
         if (ci>capgam) then
            ! find LAI level at which rubisco limited rate is equal to light limited rate
            lai_eq=-log(dum2*(ci+2.*capgam)/(ci-capgam)/ &
-                       (spdata(pft)%alpha_phot*light_top*kappa))/kappa
+                       (spdata(pft)%alpha_ps*light_top*kappa))/kappa
            lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
 
            ! gross photosynthesis for light-limited part of the canopy
-           Ag_l   = spdata(pft)%alpha_phot              &
+           Ag_l   = spdata(pft)%alpha_ps              &
                 * (ci-capgam)/(ci+2.*capgam) * par_net   &
                 * (exp(-lai_eq*kappa)-exp(-lai*kappa))  &
                 / (1.0-exp(-lai*kappa))
@@ -382,9 +382,9 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
   an_w=anbar
   if (an_w > 0.) then
-     an_w=an_w*(1-spdata(pft)%wet_leaf_dreg*leaf_wet)
+     an_w=an_w*(1-spdata(pft)%ps_wet*f_w)
   endif
-  gs_w = 1.56 * gsbar *(1-spdata(pft)%wet_leaf_dreg*leaf_wet) !Weng: 1.56 for H2O?
+  gs_w = 1.56 * gsbar *(1-spdata(pft)%ps_wet*f_w) !Weng: 1.56 for H2O?
   if (gs_w > gs_lim) then
       if(an_w > 0.) an_w = an_w*gs_lim/gs_w
       gs_w = gs_lim
@@ -630,7 +630,7 @@ subroutine vegn_growth(vegn)
         cc%br     = cc%br    + dBR
         cc%bsw    = cc%bsw   + dBSW
         cc%seedC  = cc%seedC + dSeed
-        cc%NSC    = cc%NSC  - dBR - dBL -dSeed - dBSW
+        cc%NSC    = cc%NSC   - dBR - dBL -dSeed - dBSW
         cc%resg = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
 
         !!update nitrogen pools, Nitrogen allocation
@@ -1219,7 +1219,7 @@ subroutine setup_seedling(cc,totC,totN)
      ! Carbon pools
      cc%bl      = 0.0 * totC
      cc%br      = 0.1 * totC
-     cc%bsw     = f_initialBSW * totC
+     cc%bsw     = f_iniBSW * totC
      cc%bHW     = 0.0 * totC
      cc%seedC   = 0.0
      cc%nsc     = totC - cc%bsw -cc%br
@@ -1403,7 +1403,7 @@ real function mortality_rate(cc) result(mu) ! per year
     endif
     A_D = 4.0
     expD = exp(A_D * (cc%dbh - sp%D0mu))
-    f_L  = SQRT(Max(0.0,cc%layer - 1.0)) ! Layer effects (0~ infinite)
+    f_L  = SQRT(Max(0.0, cc%layer - 1.0)) ! Layer effects (0~ infinite)
     f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
     f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
     if(sp%lifeform==0)then  ! for grasses
@@ -1567,7 +1567,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        ! Calculate ! Water flux from stems to leaves
        Q_air  = cc%transp   ! /step_seconds
        psi_sl = (cc%psi_stem + cc%psi_leaf)/2
-       k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,expK0)
+       k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
        psi_ht = HT2MPa(cc%height) ! MPa
 
        !Approximately estimate psi_leaf and Q_leaf
@@ -1644,7 +1644,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   real,             intent(in) :: step_seconds
 
   !----- Local vars ---------------
-  real :: psi50, CR0, f0_sup
+  real :: expK,psi50, CR0, f0_sup
   real :: W_stem,W_leaf
   real :: k_stem,psi_stem
   real :: psi0, dpsi
@@ -1657,6 +1657,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   ! Prameters
   associate ( sp => spdata(cc%species) )
     psi50  = sp%psi50_WD
+    expk   = sp%Kexp_WD
     CR0    = sp%CR_Wood
     f0_sup = sp%f_supply * step_seconds/3600.0
   end associate
@@ -1676,7 +1677,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
       psi_stem = log(W_stem/cc%Wmax_s)/CR0
       dpsi     = psi_stem - psi0
       if(dpsi <= 0.02)exit
-      k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,expK0)
+      k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,expK)
       wflux  = MIN(dpsi * k_stem * step_base, 0.5 * (W_stem - cc%Wmin_S))
       W_stem = W_stem - wflux
       S_stem = S_stem + wflux
@@ -1959,7 +1960,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !-------Cohort specific variables-----------
     transp = cc%transp ! /step_seconds
     psi_ht = HT2MPa(cc%height) ! MPa
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
 
     call Plant_water2psi_exp(cc) ! Refine plant water potential based on water content
     cc%H_leaf = sp%CR_Leaf * cc%W_leaf  ! Leaf Capacitance
@@ -2032,7 +2033,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     enddo
 
     !----------------Next step maximum transpiration---------------
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
     cc%W_supply = 0.05 * sum(vegn%freewater(:))*cc%crownarea
 
     end associate
@@ -2946,7 +2947,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      cc%psi_leaf = psi_leaf
 
      ! Stem-Leaf water flux
-     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
+     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
      psi_ht = HT2MPa(cc%height) ! MPa
      cc%Q_leaf = (cc%psi_stem - cc%psi_leaf - psi_ht) * k_stem * step_seconds
      cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
@@ -2998,7 +2999,7 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
       sumPK= sumPK+ k_rs(i) * vegn%psi_soil(i)
     enddo
     psi_ht = HT2MPa(cc%height) ! MPa
-    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,expK0)
+    k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
     psi_stem = Max(sp%psi0_WD, (sumPK - Q_stem)/sumK)
     psi_leaf = Max(sp%psi0_LF, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
   end associate

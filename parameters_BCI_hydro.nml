@@ -1,6 +1,6 @@
 &vegn_parameters_nml
-f_initialBSW = 0.1,
-K0SOM  = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
+f_iniBSW = 0.1,
+K0SOM    = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
 K_nitrogen = 2.4  ! 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.02 ! organic nitrogen release rate
 etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
@@ -8,7 +8,9 @@ f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.2,  ! critical difference for merging of two cohorts
-kx0_WD     = 5.0,  ! 5.0,
+kx0_WD     = 5.0,  ! kx0 at reference WD
+p50_WD     = -1.565,  ! stem psi50 at reference WD
+ths0_WD    = 3.0,    ! exponential of the PLC function for (psi/psi50)
 WTC0_WD    = 1.5E+3, ! 1200.0,  ! Water transport capacity at ref. wood density
 CR0_LF     = 0.5,
 CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
