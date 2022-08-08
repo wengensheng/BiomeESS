@@ -7,22 +7,21 @@ module esdvm
  implicit none
  private
 
- ! ------ public subroutines ---------
  !Core functions
- public :: initialize_vegn_tile
- public :: vegn_CNW_budget_fast
- public :: vegn_growth,vegn_phenology,vegn_daily_starvation
- public :: vegn_annual_starvation
+ public :: initialize_vegn_tile, vegn_CNW_budget_fast,vegn_growth
+ public :: vegn_phenology,vegn_daily_starvation,vegn_annual_starvation
  public :: vegn_reproduction, vegn_nat_mortality, vegn_hydraulic_states
  public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
  !For specific experiments
  public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
- public :: vegn_annualLAImax_update
- public :: vegn_gap_fraction_update  ! for Biodiversity test
+ public :: vegn_annualLAImax_update, vegn_gap_fraction_update
 
  contains
 
 !========================================================================
+!==================== BiomeE surbroutines ===============================
+!========================================================================
+
 !=============== Hourly subroutines =====================================
 subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! hourly carbon, nitrogen, and water dynamics, Weng 2016-11-25
@@ -95,14 +94,14 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
 
 end subroutine vegn_CNW_budget_fast
 
-!=============== Plant physiology =======================================
 !========================================================================
-! Weng 2017-10-18
-! compute stomatal conductance, photosynthesis and respiration
+!=============== Plant physiology =======================================
+! Weng 2017-10-18:compute stomatal conductance, photosynthesis and respiration
 ! updates cc%An_op and cc%An_cl, from LM3
 subroutine vegn_photosynthesis (forcing, vegn)
   type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
+
   !----- local var --------------
   type(cohort_type),pointer :: cc
   real :: rad_top  ! downward radiation at the top of the canopy, W/m2
@@ -155,13 +154,11 @@ subroutine vegn_photosynthesis (forcing, vegn)
         ! recalculate the water supply to mol H20 per m2 of leaf per second
          water_supply = cc%W_supply/(cc%leafarea*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
 
-        fw = 0.0
-        fs = 0.0
+        fw = 0.0; fs = 0.0
         call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%lai, &
-                    p_surf, water_supply, cc%species, sp%pt, &
-                    cana_co2, cc%extinct, fs+fw, cc%layer, &
-             ! output:
-                    psyn, resp,w_scale2,transp )
+                        p_surf, water_supply, cc%species, sp%pt, &
+                        cana_co2, cc%extinct, fs+fw, cc%layer,   &
+                        psyn, resp,w_scale2,transp ) ! output
         ! put into cohort data structure for future use in growth
         cc%An_op  = psyn  ! molC s-1 m-2 of leaves
         cc%An_cl  = -resp  ! molC s-1 m-2 of leaves

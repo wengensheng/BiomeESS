@@ -146,7 +146,7 @@ type spec_data_type
   real :: psi0_WD ! minimum stem wood potential
   real :: psi50_WD !wood potential at which 50% conductivity lost, MPa
   real :: Kexp_WD  ! exponent of the PLC curve
-  real :: f_supply ! fraction of stem water available for leaves in one hour
+  real :: f_supply ! fraction of stem water available for leaves per hour
 
   ! Allometry
   real :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -690,10 +690,11 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   NfixRate0, NfixCost0,f_N_add,fNSNmax,l_fract,retransN,              &
   gamma_L, gamma_LN, gamma_SW, gamma_FR,                              &
   ! Phenology
-  gdd_crit,tc_crit_off,tc_crit_on,T0_gdd,T0_chill, &
+  gdd_crit,tc_crit_off,tc_crit_on,T0_gdd,T0_chill,                    &
   gdd_par1,gdd_par2,gdd_par3,                                         &
   ! Reproduction and Mortality
-  AgeRepro,v_seed,s0_plant,prob_g,prob_e,r0mort_c,D0mu,A_sd,B_sd,     &
+  AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
+  r0mort_c,D0mu,A_sd,B_sd,A_mort,B_mort,                              &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
   ! Plant hydraulics
@@ -828,8 +829,7 @@ subroutine initialize_soilpars(namelistfile)
 
   ! ---- derived constant soil parameters
   ! w_fc (field capacity) set to w at which hydraulic conductivity equals
-  ! a nominal drainage rate "rate_fc"
-  ! w_wilt set to w at which psi is psi_wilt
+  ! a nominal drainage rate "rate_fc". w_wilt set to w at which psi is psi_wilt
   soilpars%vwc_wilt = soilpars%vwc_sat &
           *(soilpars%psi_sat_ref/(psi_wilt*soilpars%alpha))**(1/soilpars%chb)
   soilpars%vwc_fc = soilpars%vwc_sat &
@@ -853,7 +853,7 @@ subroutine initialize_PFT_data(namelistfile)
       nml_unit = 999
       open(nml_unit, file=namelistfile, form='formatted', action='read', status='old')
       read (nml_unit, nml=vegn_parameters_nml, iostat=io, end=10)
-10    close (nml_unit)
+      10 close (nml_unit)
    endif
    write(*,nml=vegn_parameters_nml)
 
