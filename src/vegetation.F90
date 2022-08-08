@@ -773,9 +773,8 @@ end subroutine fetch_CN_for_growth
 
 !============================================================================
 ! Updated by Weng, 06-04-2021
-subroutine vegn_phenology(vegn,doy) ! daily step
+subroutine vegn_phenology(vegn) ! daily step
   type(vegn_tile_type), intent(inout) :: vegn
-  integer, intent(in) :: doy
 
   ! ---- local vars
   type(cohort_type), pointer :: cc
@@ -1338,8 +1337,6 @@ subroutine vegn_annual_starvation (vegn)
        endif
      end associate
   enddo
-  ! Remove the cohorts with 0 individuals
-  ! call kill_lowdensity_cohorts(vegn)
 
 end subroutine vegn_annual_starvation
 
@@ -2040,9 +2037,8 @@ end subroutine plant_water_dynamics_Xiangtao
 
 !==============================================================
 !============= Vegetation initializations =====================
-subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
+subroutine initialize_vegn_tile(vegn,nml_file)
    type(vegn_tile_type),intent(inout),pointer :: vegn
-   integer,intent(in) :: nCohorts
    character(len=50),intent(in) :: nml_file
 
    !--------local vars -------
@@ -2051,6 +2047,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
    integer,parameter :: rand_seed = 86456
    real    :: r
    real    :: btotal
+   integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
    integer :: i, istat
    integer :: io           ! i/o status for the namelist
    integer :: ierr         ! error code, returned by i/o routines
@@ -2092,7 +2089,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
          cp%status  = LEAF_OFF ! ON=1, OFF=0 ! ON
          cp%layer   = 1
          cp%species = init_cohort_species(i)
-         cp%ccID    =  i
+         cp%ccID    = i
          cp%nsc     = init_cohort_nsc(i)
          cp%nindivs = init_cohort_nindivs(i) ! trees/m2
          cp%bsw     = init_cohort_bsw(i)
@@ -2104,7 +2101,7 @@ subroutine initialize_vegn_tile(vegn,nCohorts,nml_file)
       ! Sorting these cohorts
       call relayer_cohorts(vegn)
    else
-     ! ------- Generate cohorts randomly --------
+     ! ------- Generate one cohort randomly --------
      ! Initialize plant cohorts
       allocate(cc(1:nCohorts), STAT = istat)
       vegn%cohorts => cc

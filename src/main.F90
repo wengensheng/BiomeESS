@@ -41,13 +41,12 @@
 !     Soil water dynamics: soil surface evaporation, infiltration, runoff
 !
 !----------------------------- END ----------------------------------
-!
-! Main driver
+
 program BiomeE
   use BiomeE_mod
 
   !-----------
-  call BiomeE_Initialization()
+  call BiomeE_initialization()
   call BiomeE_run()
   call BiomeE_end()
 end program BiomeE
