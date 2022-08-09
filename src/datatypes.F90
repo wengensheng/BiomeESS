@@ -173,9 +173,11 @@ type spec_data_type
   real :: s0_plant     ! size of the seedlings, kgC/indiv
   real :: prob_g,prob_e    ! germination and establishment probabilities
   real :: r0mort_c     ! yearly mortality rate in canopy
-  real :: D0mu
-  real :: A_sd
-  real :: B_sd
+  real :: D0mu         ! Reference diameter for size-dependent mortality
+  real :: A_sd         ! Max multiplier for seedling mortality
+  real :: B_sd         ! Mortality sensitivity for seedlings
+  real :: A_D          ! Sensitivity to dbh
+  real :: s_hu         ! hydraulic mortality sensitivity
   ! Population level variables
   real :: LAImax,LAImax_u ! max. LAI
   real :: LAI_light        ! light controlled maximum LAI
@@ -655,8 +657,10 @@ real :: prob_e(0:MSPECIES)   = 1.0
 ! Mortality parameters
 real :: r0mort_c(0:MSPECIES) = 0.01 ! yearly
 real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
-real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier
+real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
 real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
+real :: A_D(0:MSPECIES)      = 4.0   ! Sensitivity to dbh
+real :: s_hu(0:MSPECIES)     = -25.0 ! hydraulic mortality sensitivity
 
 ! Plant hydraulics parameters
 real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
@@ -696,7 +700,7 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   gdd_par1,gdd_par2,gdd_par3,                                         &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
-  r0mort_c,D0mu,A_sd,B_sd,A_mort,B_mort,                              &
+  r0mort_c,D0mu,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                     &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
   ! Plant hydraulics
@@ -906,6 +910,8 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%D0mu     = D0mu
   spdata%A_sd     = A_sd
   spdata%B_sd     = B_sd
+  spdata%A_D      = A_D
+  spdata%s_hu     = s_hu
   spdata%rho_wood = rho_wood
   spdata%f_taper  = f_taper
   spdata%kx0      = kx0

@@ -1255,6 +1255,8 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Lring(1)= HT2Lpath(cc%height)
      cc%Aring(1)= PI * 0.25*cc%DBH**2
      cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/cc%Lring(1)
+     cc%treeHU = 0.0
+     cc%treeW0 = cc%WTC0(1) * cc%Aring(1)
      cc%Asap    = cc%Aring(1)
 
      ! Cohort hydraulic properties
@@ -1384,39 +1386,48 @@ real function mortality_rate(cc) result(mu) ! per year
   ! mortality as functions of social status, seedling size, and adult size.
   ! Grass is saprately defined.
   type(cohort_type),intent(in) :: cc
+
   !-------local var -------------
-  real :: f_L, f_S, f_D, expD
-  real :: m_S ! Mortality multifactor for size effects
-  real :: A_D ! Sensitivity to dbh
-  real :: mu_hydro ! Mortality prob. due to hydraulic failure
   integer :: n ! the latest ring
+  real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
+  real :: m_S ! Mortality multiplier for size effects
+  real :: expD
+  real :: mu_bg      ! Background mortality rate
+  real :: mu_hydro   ! Mortality prob. due to hydraulic failure
+
   !---------------------
   associate ( sp => spdata(cc%species))
+    n = MIN(cc%Nrings, Ysw_max)
+    f_L  = SQRT(Max(0.0, cc%layer - 1.0)) ! Layer effects (0~ infinite)
+    f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
+
+    ! Size effect on the mortality of adult trees
     if(do_U_shaped_mortality)then
        m_S = 5.0
     else
        m_S = 0.0
     endif
-    A_D = 4.0
-    expD = exp(A_D * (cc%dbh - sp%D0mu))
-    f_L  = SQRT(Max(0.0, cc%layer - 1.0)) ! Layer effects (0~ infinite)
-    f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
+    expD = exp(sp%A_D * (cc%dbh - sp%D0mu))
     f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
+
     if(sp%lifeform==0)then  ! for grasses
-      mu = Min(0.5, sp%r0mort_c*(1.0+3.0*f_L))
+      mu_bg = Min(0.5, sp%r0mort_c*(1.0+3.0*f_L))
     else                    ! for trees
-      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
-#ifdef Hydro_test
-      ! TODO: hydraulic faulure induced mortality
-      ! mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
-      mu = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D)
-      n = MIN(cc%Nrings, Ysw_max)
-      mu_hydro = Max(0., 1. - cc%farea(n))  ! Asap should be much greater than Asap1
-      mu = mu + mu_hydro - mu * mu_hydro ! Add hydraulic failure
-#endif
+      mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
     endif
 
+#ifdef Hydro_test
+    ! Trunk hydraulic failure probability
+    mu_hydro = exp(sp%s_hu * (1.0 - min(1.,cc%treeHU/cc%treeW0)))
+    !mu_hydro = Max(0., 1. - cc%farea(n))
+    !mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
+
+#endif
+
   end associate
+  ! Return mortality rate:
+  mu = mu_bg + mu_hydro - mu_bg * mu_hydro ! Add hydraulic failure
+
 end function mortality_rate
 
 !============================================================================
@@ -1513,7 +1524,6 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      cc%treeW0 = 0.0
      cc%Ktrunk = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)
-
        Fd(k)       = 1./(1.+exp(r_DF * (1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
        funcA(k) = cc%farea(k)*cc%Aring(k)
@@ -1528,6 +1538,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      do k=1, MIN(cc%Nrings, Ysw_max)-1
         if(cc%farea(k)<0.05) D_hw = cc%Rring(k) * 2.0
      enddo
+
      ! Convert sapwood to heart wood
      if(sp%lifeform>0)then ! woody plants
         woodC  = cc%bsw   + cc%bHW
@@ -2203,6 +2214,8 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%Lring(1)= HT2Lpath(cc%height) !Max(cc%height,0.01)
     cc%Aring(1)= PI * cc%Rring(1)**2
     cc%Ktrunk  = PI * cc%Aring(1) * cc%Kx(1)/cc%Lring(1)
+    cc%treeHU = 0.0
+    cc%treeW0 = cc%WTC0(1) * cc%Aring(1)
     cc%farea(1)= 1.0
     cc%accH(1) = 0.0
     cc%totW(1) = 0.0
