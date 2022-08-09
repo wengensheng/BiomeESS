@@ -762,8 +762,8 @@ integer  :: days_data ! days of the forcing data
 integer  :: model_run_years = 100
 integer  :: totyears, totdays, steps_per_day ! 24 or 48
 integer  :: equi_days    = 0 ! 100 * 365
-real     :: step_hour  = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
-real     :: dt_fast_yr = 1.0 / (365.0 * 24.0) ! daily
+real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
+real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! daily
 real     :: step_seconds = 1.0 * 3600.0
 
 !Special test controls

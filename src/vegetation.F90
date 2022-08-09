@@ -51,40 +51,23 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   call SoilWater_psi_K(vegn)
 
 #ifdef Hydro_test
-    ! Dynamic tree trunk conductivity and water potential
-    call Plant_water_dynamics_linear(vegn)  ! A linearized calculation of psi and k
-    !call plant_water_dynamics_Xiangtao(vegn) ! Xiangtao's model
-
-    ! Photosynsthesis
-    call vegn_photosynthesis(forcing, vegn)
+  ! Dynamic tree trunk conductivity and water potential
+  call Plant_water_dynamics_linear(vegn)  ! A linearized calculation of psi and k
+  !call plant_water_dynamics_Xiangtao(vegn) ! Xiangtao's model
+  ! Photosynsthesis
+  call vegn_photosynthesis(forcing, vegn)
 #else
-    ! Water supply for photosynthesis from soil layers
-    call SoilWaterSupply(vegn)
-    call vegn_photosynthesis(forcing, vegn)
-    call SoilWaterTranspUpdate(vegn)
+  ! Water supply for photosynthesis from soil layers
+  call SoilWaterSupply(vegn)
+  call vegn_photosynthesis(forcing, vegn)
+  call SoilWaterTranspUpdate(vegn)
 #endif
 
   ! Update soil water: infiltration and surface evap.
   call SoilWaterDynamics(forcing,vegn)
 
-  ! Respiration and allocation for growth
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species) )
-     ! increment tha cohort age
-     cc%age = cc%age + dt_fast_yr
-     ! Maintenance respiration
-     call plant_respiration(cc,forcing%tair) ! get resp per tree per time step
-     cc%resp = cc%resp + (cc%resg *step_seconds)/seconds_per_day ! put growth respiration to tot resp
-     cc%npp  = cc%gpp  - cc%resp ! kgC tree-1 step-1
-
-     ! detach photosynthesis model from plant growth
-     !cc%nsc  = cc%nsc + 2.4 * cc%crownarea * dt_fast_yr - cc%resp
-     cc%nsc = cc%nsc + cc%npp
-     cc%NSN = cc%NSN + cc%fixedN
-
-     END ASSOCIATE
-  enddo ! all cohorts
+  ! Respiration
+  call vegn_respiration(forcing,vegn)
 
   ! update soil carbon
    call Soil_BGC(vegn, forcing%tsoil, thetaS)
@@ -257,135 +240,130 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   light_top = rad_top*rad_phot
   par_net   = rad_net*rad_phot
 
-  ! calculate humidity deficit, kg/kg
+  ! Humidity deficit, kg/kg
   call qscomp(tl, p_surf, hl)
   ds = max(hl - ea,0.0)
 
-  !  ko=0.25   *exp(1400.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
-  !  kc=0.00015*exp(6000.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
-  !  vm=spdata(pft)%Vmax*exp(3000.0*(1.0/288.2-1.0/tl))
+  associate ( sp => spdata(pft) )
+    !  ko=0.25   *exp(1400.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
+    !  kc=0.00015*exp(6000.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
+    !  vm=sp%Vmax*exp(3000.0*(1.0/288.2-1.0/tl))
 
-  ! corrected by Weng, 2013-01-17
-  ! Weng, 2013-01-10
-  ko=0.248    * exp(35948/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
-  kc=0.000404 * exp(59356/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
-  vm=spdata(pft)%Vmax*exp(24920/Rgas*(1.0/298.2-1.0/tl)) ! / ((layer-1)*1.0+1.0) ! Ea = 33920
+    ! Weng, 2013-01-10
+    ko=0.248    * exp(35948/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
+    kc=0.000404 * exp(59356/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
+    vm=sp%Vmax*exp(24920/Rgas*(1.0/298.2-1.0/tl)) ! / ((layer-1)*1.0+1.0) ! Ea = 33920
 
-  !decrease Vmax due to aging of temperate deciduous leaves
-  !(based on Wilson, Baldocchi and Hanson (2001)."Plant,Cell, and Environment", vol 24, 571-583)
-  !! Turned off by Weng, 2013-02-01, since we can't trace new leaves
-  !  if (spdata(pft)%leaf_age_tau>0 .and. leaf_age>spdata(pft)%leaf_age_onset) then
-  !     vm=vm*exp(-(leaf_age-spdata(pft)%leaf_age_onset)/spdata(pft)%leaf_age_tau)
-  !  endif
+    !decrease Vmax due to aging of temperate deciduous leaves
+    !(based on Wilson, Baldocchi and Hanson (2001)."Plant,Cell, and Environment", vol 24, 571-583)
+    !! Turned off by Weng, 2013-02-01, since we can't trace new leaves
+    !  if (sp%leaf_age_tau>0 .and. leaf_age>sp%leaf_age_onset) then
+    !     vm=vm*exp(-(leaf_age-sp%leaf_age_onset)/sp%leaf_age_tau)
+    !  endif
 
-  ! capgam=0.209/(9000.0*exp(-5000.0*(1.0/288.2-1.0/tl))); - Foley formulation, 1986
-  capgam=0.5*kc/ko*0.21*0.209 ! Farquhar & Caemmerer 1982
+    ! capgam=0.209/(9000.0*exp(-5000.0*(1.0/288.2-1.0/tl))); - Foley formulation, 1986
+    capgam=0.5*kc/ko*0.21*0.209 ! Farquhar & Caemmerer 1982
 
-  ! Find respiration for the whole canopy layer
-  !  Resp=spdata(pft)%gamma_resp*vm*lai /((layer-1)*1.0+1.0)  ! Weng, 2013-01-17 add '/ ((layer-1)*1.0+1.0)'
+    ! Find respiration for the whole canopy layer
+    !  Resp=sp%gamma_resp*vm*lai /((layer-1)*1.0+1.0)  ! Weng, 2013-01-17 add '/ ((layer-1)*1.0+1.0)'
 
-  ! 2014-09-03, for Nitrogen model: resp = D*(A + B*LMA)
-  ! (A+B*LMA) = LNA, D=Vmax/LNA = 25E-6/0.0012 = 0.02 for a standard deciduous species
-  !! Leaf resp as a function of nitrogen
-  !  Resp=spdata(pft)%gamma_resp*0.04*spdata(pft)%LNA  & ! basal rate, mol m-2 s-1
-  !       * exp(24920/Rgas*(1.0/298.2-1.0/tl))         & ! temperature scaled
-  !       * lai                                        & ! whole canopy
-  !       /((layer-1)*1.0+1.0)                         !
-  !! as a function of LMA
-  !  Resp=(spdata(pft)%gamma_LNbase*spdata(pft)%LNbase+spdata(pft)%gamma_LMA*spdata(pft)%LMA)  & ! basal rate, mol m-2 s-1
-  !  Resp=spdata(pft)%gamma_LNbase*(2.5*spdata(pft)%LNA-1.5*spdata(pft)%LNbase)     & ! basal rate, mol m-2 s-1
-  Resp= spdata(pft)%gamma_LN/seconds_per_year & ! per seconds, ! basal rate, mol m-2 s-1
-       * spdata(pft)%LNA * lai / mol_c        & ! whole canopy, ! basal rate, mol m-2 s-1
-       * exp(24920/Rgas*(1.0/298.2-1.0/tl))     ! temperature scaled
-  !             &
-  !       /((layer-1)*1.0+1.0)
-  ! Temperature effects
-  Resp = Resp/((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
-        * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
+    ! 2014-09-03, for Nitrogen model: resp = D*(A + B*LMA)
+    ! (A+B*LMA) = LNA, D=Vmax/LNA = 25E-6/0.0012 = 0.02 for a standard deciduous species
+    !! Leaf resp as a function of nitrogen
+    !  Resp=sp%gamma_resp*0.04*sp%LNA  & ! basal rate, mol m-2 s-1
+    !       * exp(24920/Rgas*(1.0/298.2-1.0/tl))         & ! temperature scaled
+    !       * lai                                        & ! whole canopy
+    !       /((layer-1)*1.0+1.0)                         !
+    !! as a function of LMA
+    !  Resp=(sp%gamma_LNbase*sp%LNbase+sp%gamma_LMA*sp%LMA)  & ! basal rate, mol m-2 s-1
+    !  Resp=sp%gamma_LNbase*(2.5*sp%LNA-1.5*sp%LNbase)     & ! basal rate, mol m-2 s-1
+    Resp= sp%gamma_LN/seconds_per_year          & ! per seconds,  mol m-2 s-1
+         * sp%LNA * lai / mol_c                 & ! whole canopy, mol m-2 s-1
+         * exp(24920/Rgas*(1.0/298.2-1.0/tl))     ! temperature scaled
 
-  ! ignore the difference in [CO2] near the leaf and in the canopy air, rb=0.
+    ! Temperature effects
+    Resp = Resp / ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+                 * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
 
-  Ag_l = 0.
-  Ag_rb= 0.
-  Ag   = 0.
-  anbar= -Resp/lai
-  gsbar=b
-  ! find the LAI level at which gross photosynthesis rates are equal
-  ! only if PAR is positive
-  if(light_top > light_crit)then
-     if(pt==PT_C4) then ! C4 species
-        coef0=(1+ds/do1)/spdata(pft)%m_cond;
-        ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
-        if (ci>capgam) then
-           f2=vm
-           f3=18000.0*vm*ci ! 18000 or 1800?
-           dum2=min(f2,f3)
+    ! ignore the difference in [CO2] near the leaf and in the canopy air, rb=0.
+    Ag_l  = 0.
+    Ag_rb = 0.
+    Ag    = 0.
+    anbar = -Resp/lai
+    gsbar = b
+    ! find the LAI level at which gross photosynthesis rates are equal
+    ! only if PAR is positive
+    if(light_top > light_crit)then
+       if(pt==PT_C4) then ! C4 species
+          coef0=(1+ds/do1)/sp%m_cond;
+          ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
+          if (ci>capgam) then
+             f2=vm
+             f3=18000.0*vm*ci ! 18000 or 1800?
+             dum2=min(f2,f3)
 
-           ! find LAI level at which rubisco limited rate is equal to light limited rate
-           lai_eq = -log(dum2/(kappa*spdata(pft)%alpha_ps*light_top))/kappa
-           lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
+             ! find LAI level at which rubisco limited rate is equal to light limited rate
+             lai_eq = -log(dum2/(kappa*sp%alpha_ps*light_top))/kappa
+             lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
 
-           ! gross photosynthesis for light-limited part of the canopy
-           Ag_l   = spdata(pft)%alpha_ps * par_net     &
-                  * (exp(-lai_eq*kappa)-exp(-lai*kappa)) &
-                  / (1-exp(-lai*kappa))
+             ! gross photosynthesis for light-limited part of the canopy
+             Ag_l   = sp%alpha_ps * par_net     &
+                    * (exp(-lai_eq*kappa)-exp(-lai*kappa)) &
+                    / (1-exp(-lai*kappa))
 
-           ! gross photosynthesis for rubisco-limited part of the canopy
-           Ag_rb  = dum2*lai_eq
-           Ag=(Ag_l+Ag_rb)/ &
-             ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
-             *(1.0+exp(0.4*(tl-45.0-TFREEZE))))
-           An=Ag-Resp
-           anbar=An/lai
+             ! gross photosynthesis for rubisco-limited part of the canopy
+             Ag_rb  = dum2*lai_eq
+             Ag=(Ag_l+Ag_rb)/ &
+               ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+               *(1.0+exp(0.4*(tl-45.0-TFREEZE))))
+             An=Ag-Resp
+             anbar=An/lai
 
-           if(anbar>0.0) then
-               gsbar=anbar/(ci-capgam)/coef0;
-           endif
-        endif ! ci>capgam
-     else ! C3 species
-        coef0=(1+ds/do1)/spdata(pft)%m_cond;
-        coef1=kc*(1.0+0.209/ko);
-        ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
-        f2=vm*(ci-capgam)/(ci+coef1);
-        f3=vm/2.;
-        dum2=min(f2,f3);
-        if (ci>capgam) then
-           ! find LAI level at which rubisco limited rate is equal to light limited rate
-           lai_eq=-log(dum2*(ci+2.*capgam)/(ci-capgam)/ &
-                       (spdata(pft)%alpha_ps*light_top*kappa))/kappa
-           lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
+             if(anbar>0.0) then
+                 gsbar=anbar/(ci-capgam)/coef0;
+             endif
+          endif ! ci>capgam
+       else ! C3 species
+          coef0=(1+ds/do1)/sp%m_cond;
+          coef1=kc*(1.0+0.209/ko);
+          ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
+          f2=vm*(ci-capgam)/(ci+coef1);
+          f3=vm/2.;
+          dum2=min(f2,f3);
+          if (ci>capgam) then
+             ! find LAI level at which rubisco limited rate is equal to light limited rate
+             lai_eq=-log(dum2*(ci+2.*capgam)/(ci-capgam)/ &
+                         (sp%alpha_ps*light_top*kappa))/kappa
+             lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
 
-           ! gross photosynthesis for light-limited part of the canopy
-           Ag_l   = spdata(pft)%alpha_ps              &
-                * (ci-capgam)/(ci+2.*capgam) * par_net   &
-                * (exp(-lai_eq*kappa)-exp(-lai*kappa))  &
-                / (1.0-exp(-lai*kappa))
-           ! gross photosynthesis for rubisco-limited part of the canopy
-           Ag_rb  = dum2*lai_eq
+             ! gross photosynthesis for light-limited part of the canopy
+             Ag_l   = sp%alpha_ps              &
+                  * (ci-capgam)/(ci+2.*capgam) * par_net   &
+                  * (exp(-lai_eq*kappa)-exp(-lai*kappa))  &
+                  / (1.0-exp(-lai*kappa))
+             ! gross photosynthesis for rubisco-limited part of the canopy
+             Ag_rb  = dum2*lai_eq
+             Ag = (Ag_l+Ag_rb) /((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+                * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
+             An = Ag - Resp
+             anbar = An/lai
+             if(anbar>0.0) then
+               gsbar=anbar/(ci-capgam)/coef0
+             endif
+          endif ! ci>capgam
+       endif
+    endif ! light is available for photosynthesis
 
-           Ag = (Ag_l+Ag_rb) /((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
-              * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
-           An = Ag - Resp
-           anbar = An/lai
-
-           if(anbar>0.0) then
-             gsbar=anbar/(ci-capgam)/coef0
-           endif
-        endif ! ci>capgam
-     endif
-  endif ! light is available for photosynthesis
-  !write(898,'(1(I4,","),10(E10.4,","))') &
-  !     layer, light_top, par_net, kappa, lai, lai_eq, ci, capgam, Ag_l, Ag_rb, Ag
-
-  an_w=anbar
-  if (an_w > 0.) then
-     an_w=an_w*(1-spdata(pft)%ps_wet*f_w)
-  endif
-  gs_w = 1.56 * gsbar *(1-spdata(pft)%ps_wet*f_w) !Weng: 1.56 for H2O?
-  if (gs_w > gs_lim) then
-      if(an_w > 0.) an_w = an_w*gs_lim/gs_w
-      gs_w = gs_lim
-  endif
+    an_w=anbar
+    if (an_w > 0.) then
+       an_w=an_w*(1-sp%ps_wet*f_w)
+    endif
+    gs_w = 1.56 * gsbar *(1-sp%ps_wet*f_w) !Weng: 1.56 for H2O?
+    if (gs_w > gs_lim) then
+        if(an_w > 0.) an_w = an_w*gs_lim/gs_w
+        gs_w = gs_lim
+    endif
+  end associate
   ! find water availability diagnostic demand
   Ed = gs_w * ds*mol_air/mol_h2o ! ds*mol_air/mol_h2o is the humidity deficit in [mol_h2o/mol_air]
   ! the factor mol_air/mol_h2o makes units of gs_w and humidity deficit ds compatible:
@@ -395,66 +373,90 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
      if(an_w > 0.0) an_w = an_w*w_scale
      if(an_w < 0.0.and.gs_w >b) gs_w=b
   endif
-  gs=gs_w
-  apot=an_w
-  acl=-Resp/lai
+  gs   = gs_w
+  apot = an_w
+  acl  = -Resp/lai
   transp = min(ws,Ed) ! mol H20/(m2 of leaf s)
 
+  ! Convert units of stomatal conductance to m/s from mol/(m2 s) by
+  ! multiplying it by a volume of a mole of gas
+  gs = gs * Rugas * Tl / p_surf
+
+  ! for reporting
+  w_scale2=min(1.0,ws/Ed)
+
+  ! Error check
   if(isnan(transp))then
     write(*,*)'ws,ed',ws,ed
     stop '"transp" is a NaN'
   endif
-  ! for reporting
-  w_scale2=min(1.0,ws/Ed)
-  ! finally, convert units of stomatal conductance to m/s from mol/(m2 s) by
-  ! multiplying it by a volume of a mole of gas
-  gs = gs * Rugas * Tl / p_surf
-
 end subroutine gs_Leuning
 
 !============================================================================
-subroutine plant_respiration(cc, tairK)
-  type(cohort_type), intent(inout) :: cc
-  real, intent(in) :: tairK ! degK
+subroutine vegn_respiration(forcing,vegn)
+  type(climate_data_type),intent(in):: forcing
+  type(vegn_tile_type), intent(inout) :: vegn
+
   !---------local var ---------
+  type(cohort_type), pointer :: cc
+  real :: TairK     ! air temperature, degK
   real :: tf,tfs ! thermal inhibition factors for above- and below-ground biomass
   real :: r_leaf, r_stem, r_root
   real :: Acambium  ! cambium area, m2/tree
-  ! real :: LeafN     ! leaf nitrogen, kgN/Tree
   real :: fnsc,NSCtarget ! used to regulation respiration rate
   real :: r_Nfix    ! respiration due to N fixation
+  integer :: i
 
-  integer :: sp ! shorthand for cohort species
-  sp = cc%species
-  ! temperature response function
-  tf  = exp(9000.0*(1.0/298.16-1.0/tairK))
+  !-----------------------
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     TairK = forcing%tair
+     associate ( sp => spdata(cc%species) )
+       ! Maintenance respiration
+       !call plant_respiration(cc,forcing%tair) ! get resp per tree per time step
+       ! temperature response function
+       tf  = exp(9000.0*(1.0/298.16-1.0/tairK))
 
-  !  tfs = thermal_inhibition(tsoil)  ! original
-  tfs = tf ! Rm_T_response_function(tsoil) ! Weng 2014-01-14
-  ! With nitrogen model, leaf respiration is a function of leaf nitrogen
-  !NSCtarget = 3.0 * (cc%bl_max + cc%br_max)
-  fnsc = 1.0 ! min(max(0.0,cc%nsc/NSCtarget),1.0)
-  Acambium = PI * cc%DBH * cc%height * 1.2
+       !  tfs = thermal_inhibition(tsoil)  ! original
+       tfs = tf ! Rm_T_response_function(tsoil) ! Weng 2014-01-14
+       ! With nitrogen model, leaf respiration is a function of leaf nitrogen
+       NSCtarget = 0.5 * (cc%bl_max + cc%br_max)
+       fnsc = min(max(0.0,cc%nsc/NSCtarget),1.0)
+       Acambium = PI * cc%DBH * cc%height * 1.2
 
-  ! Facultive Nitrogen fixation
-  !if(cc%NSN < cc%NSNmax .and. cc%NSC > 0.5 * NSCtarget)then
-  !   cc%fixedN = spdata(sp)%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-  !else
-  !   cc%fixedN = 0.0 ! spdata(sp)%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-  !endif
+       ! r_leaf = fnsc*sp%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
+       ! LeafN  = sp%LNA * cc%leafarea
+       r_leaf   = cc%An_cl * mol_C * cc%leafarea * step_seconds
+       r_stem   = fnsc*sp%gamma_SW  * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
+       r_root   = fnsc*sp%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
 
-  ! Obligate Nitrogen Fixation
-  cc%fixedN = fnsc*spdata(sp)%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-  r_Nfix    = spdata(sp)%NfixCost0 * cc%fixedN ! + 0.25*spdata(sp)%NfixCost0 * cc%N_uptake    ! tree-1 step-1
-  ! LeafN    = spdata(sp)%LNA * cc%leafarea
-  r_stem   = fnsc*spdata(sp)%gamma_SW  * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
-  r_root   = fnsc*spdata(sp)%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
-  r_leaf   = cc%An_cl * mol_C * cc%leafarea * step_seconds ! fnsc*spdata(sp)%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
+       ! Facultive Nitrogen fixation
+       !if(cc%NSN < cc%NSNmax .and. cc%NSC > 0.5 * NSCtarget)then
+       !   cc%fixedN = sp%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
+       !else
+       !   cc%fixedN = 0.0 ! sp%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
+       !endif
 
-  cc%resp = r_leaf + r_stem + r_root + r_Nfix   !kgC tree-1 step-1
-  cc%resl = r_leaf + r_stem !tree-1 step-1
-  cc%resr = r_root + r_Nfix ! tree-1 step-1
-end subroutine plant_respiration
+       ! Obligate Nitrogen Fixation
+       cc%fixedN = fnsc*sp%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
+       r_Nfix    = sp%NfixCost0 * cc%fixedN ! + 0.25*sp%NfixCost0 * cc%N_uptake    ! tree-1 step-1
+
+       ! Total Respiration and NPP
+       cc%resl = r_leaf + r_stem ! tree-1 step-1
+       cc%resr = r_root + r_Nfix ! tree-1 step-1
+       cc%resp = cc%resl + cc%resr + cc%resg/steps_per_day   !kgC tree-1 step-1
+       cc%npp  = cc%gpp  - cc%resp ! kgC tree-1 step-1
+
+       ! Update NSC and NSN
+       cc%nsc = cc%nsc + cc%npp
+       cc%NSN = cc%NSN + cc%fixedN
+
+       ! Update cohort age
+       cc%age = cc%age + dt_fast_yr
+     end associate
+  enddo ! all cohorts
+
+end subroutine vegn_respiration
 
 !=====================================================
 ! Weng, 2016-11-28
