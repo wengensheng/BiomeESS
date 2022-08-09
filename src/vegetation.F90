@@ -394,7 +394,7 @@ end subroutine gs_Leuning
 
 !============================================================================
 subroutine vegn_respiration(forcing,vegn)
-  type(climate_data_type),intent(in):: forcing
+  type(climate_data_type),intent(in)  :: forcing
   type(vegn_tile_type), intent(inout) :: vegn
 
   !---------local var ---------
@@ -1432,7 +1432,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
   real :: Fd(Ysw_max)
-  real :: Transp_sap ! m, annual Transp per unit sap area
+  real :: Transp_sap
+  real :: funcA(Ysw_max),Kring(Ysw_max),trsp_ring(Ysw_max)
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   real :: D_hw, woodC, newSW, woodN, dSW
@@ -1487,32 +1488,47 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 
      ! Heartwood D and Functional area (i.e., sapwood area)
      cc%Asap = 0.0
-     do k=1, MIN(cc%Nrings, Ysw_max)
-        cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
-     enddo
-
-     ! Calculate life-time water transported and xylem fatigue
      cc%Ktrunk = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)
-        ! Lifetime water transported for functional xylem conduits (m)
-        Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! new usage for functional conduits
-        cc%accH(k) = cc%accH(k) + Transp_sap ! m, for functional conduits only
-        cc%totW(k) = cc%totW(k) + Transp_sap * cc%farea(k)*cc%Aring(k) ! m3, for the whole ring
-        Fd(k) = 1./(1.+exp(r_DF * (1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
-        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
-        ! Whole tree conductivity
-        cc%Ktrunk = cc%Ktrunk + cc%farea(k)*cc%Aring(k)*cc%Kx(k)/cc%Lring(k)
+       funcA(k)  = cc%farea(k) * cc%Aring(k)
+       Kring(k)  = funcA(k) * cc%Kx(k)/cc%Lring(k)
+       cc%Ktrunk = cc%Ktrunk + Kring(k)
+       cc%Asap   = cc%Asap   + funcA(k)
+     enddo
+     !Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
+
+     ! Update Sap flow of each ring
+     do k=1, MIN(cc%Nrings, Ysw_max)
+       trsp_ring(k) = 1.e-3 * cc%annualTrsp * Kring(k)/cc%Ktrunk ! ton, per ring
+       cc%totW(k)   = cc%totW(k) + trsp_ring(k) ! m3, for the whole ring
+       ! Lifetime water transported for functional xylem conduits
+       if(funcA(k) > 1.0e-12)then
+         cc%accH(k) = cc%accH(k) + trsp_ring(k)/funcA(k)  ! m, for functional conduits only
+       endif
+       !cc%accH(k) = cc%accH(k) + Transp_sap ! just for defunction xylem
      enddo
 
-     ! Update Asap and D_hw
-     !cc%Asap = 0.0
+     ! Whole tree conductivity and hydraulic usage, potential
+     cc%treeHU = 0.0
+     cc%treeW0 = 0.0
+     cc%Ktrunk = 0.0
+     do k=1, MIN(cc%Nrings, Ysw_max)
+
+       Fd(k)       = 1./(1.+exp(r_DF * (1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
+       cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
+       funcA(k) = cc%farea(k)*cc%Aring(k)
+       cc%Ktrunk = cc%Ktrunk + funcA(k) * cc%Kx(k)/cc%Lring(k)
+       cc%treeHU = cc%treeHU + funcA(k) * cc%accH(k)
+       cc%treeW0 = cc%treeW0 + funcA(k) * cc%WTC0(k)
+     enddo
+
+     ! ----- Update C and N of sapwood and heartwood -----
+     ! Calculate heartwood diameter
      D_hw  = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)-1
-        !cc%Asap = cc%Asap + cc%farea(k)*cc%Aring(k)
         if(cc%farea(k)<0.05) D_hw = cc%Rring(k) * 2.0
      enddo
-
-     ! update C and N of sapwood and heartwood
+     ! Convert sapwood to heart wood
      if(sp%lifeform>0)then ! woody plants
         woodC  = cc%bsw   + cc%bHW
         woodN  = cc%sapwN + cc%woodN
@@ -1525,6 +1541,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         cc%bsw    = woodC - cc%bHW
         cc%sapwN  = woodN * cc%bsw/woodC
         cc%woodN  = woodN * cc%bHW/woodC
+
         ! Update other variables
         call derived_cc_vars(cc)
         call Plant_water2psi_exp(cc)

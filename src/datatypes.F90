@@ -256,7 +256,9 @@ type :: cohort_type
   real :: dW_stem  = 0.d0 ! water demand due to stem growth
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
-  real :: Asap1, Asap ! Functional cross sectional area
+  real :: Asap ! Functional cross sectional area
+  real :: treeHU ! total water transported by the functional sapwood
+  real :: treeW0 ! total WTC0 of the sapwood
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
   real :: totW(Ysw_max) = 0.0 ! m, total water transport for each ring

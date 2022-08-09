@@ -338,10 +338,10 @@ end subroutine daily_diagnostics
     integer :: i,j
 
     write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
-    write(*,'(1(a6,","),2(a4,","),25(a9,","))')    &
-            'cID','PFT','L', 'n',                   &
-            'f_CA','dDBH','DBH','Height','Acrown',  &
-            'NSC','GPP','mu','Atrunk','Asap','Ktree'
+    write(*,'(1(a6,","),2(a4,","),25(a9,","))')       &
+            'cID','PFT','L', 'n','f_CA','dDBH',       &
+            'DBH','Height','Acrown','NSC','GPP','mu', &
+            'Atrunk','Asap','Ktree','treeHU','treeW0'
 
     ! Cohotrs ouput
     write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -361,7 +361,8 @@ end subroutine daily_diagnostics
             treeG,fseed,fleaf,froot,fwood,               &
             cc%annualGPP,cc%annualNPP,                   &
             cc%annualNup,cc%annualfixedN,cc%mu,          &
-            cc%Asap,cc%Ktrunk,(cc%farea(j),j=1,Ysw_max)
+            cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0,       &
+            (cc%farea(j),j=1,Ysw_max)
 
         ! Screen output
         write(*,'(1(I6,","),2(I4,","),30(F9.3,","))') &
@@ -369,7 +370,7 @@ end subroutine daily_diagnostics
             cc%nindivs*10000, cc%layerfrac,           &
             dDBH,cc%dbh,cc%height,cc%crownarea,       &
             cc%nsc,cc%annualGPP,cc%mu,   &
-            PI*(cc%dbh/2)**2,cc%Asap,cc%Ktrunk
+            PI*(cc%dbh/2)**2,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
     enddo
 
     ! tile pools output
@@ -645,12 +646,13 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
          'mineralN', 'N_uptk','Kappa'
 
-    write(fno5,'(3(a5,","),30(a9,","))')            &    ! Yearly cohort
+    write(fno5,'(3(a5,","),40(a9,","))')            &    ! Yearly cohort
          'yr','cID','PFT','layer','density','f_L',  &
          'dDBH','dbh','height','Acrown',            &
          'wood','nsc', 'NSN','NPPtr','seed',        &
          'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
          'N_uptk','N_fix','mu','Asap','Ktree',      &
+         'treeHU','treeW0',                         &
          'farea1','farea2','farea3','farea4','farea5'
 
     write(fno6,'(1(a5,","),80(a12,","))')  'year',         &  ! Yearly tile
