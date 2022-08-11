@@ -1390,16 +1390,14 @@ real function mortality_rate(cc) result(mu) ! per year
   !-------local var -------------
   integer :: n ! the latest ring
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
-  real :: m_S ! Mortality multiplier for size effects
-  real :: expD
-  real :: mu_bg      ! Background mortality rate
-  real :: mu_hydro   ! Mortality prob. due to hydraulic failure
+  real :: expD, m_S ! Mortality multiplier for size effects
+  real :: mu_bg, mu_hydro  ! Background mortality rate and hydraulic failure
 
   !---------------------
   associate ( sp => spdata(cc%species))
     n = MIN(cc%Nrings, Ysw_max)
-    f_L  = SQRT(Max(0.0, cc%layer - 1.0)) ! Layer effects (0~ infinite)
-    f_S  = 1. + sp%A_sd * exp(sp%B_sd*cc%dbh) ! Seedling mortality
+    f_L  = sp%A_un * SQRT(Max(0.0, cc%layer - 1.0)) ! Layer effects (0~ infinite)
+    f_S  = sp%A_sd * exp(sp%B_sd*cc%dbh) + 1.0      ! Understory seedling
 
     ! Size effect on the mortality of adult trees
     if(do_U_shaped_mortality)then
@@ -1410,11 +1408,7 @@ real function mortality_rate(cc) result(mu) ! per year
     expD = exp(sp%A_D * (cc%dbh - sp%D0mu))
     f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
 
-    if(sp%lifeform==0)then  ! for grasses
-      mu_bg = Min(0.5, sp%r0mort_c*(1.0+3.0*f_L))
-    else                    ! for trees
-      mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
-    endif
+    mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 
 #ifdef Hydro_test
     ! Trunk hydraulic failure probability
@@ -1423,8 +1417,8 @@ real function mortality_rate(cc) result(mu) ! per year
     !mu_hydro = Max(0., 1. - cc%Asap/cc%crownarea/(sp%LAImax*sp%phiCSA))
 
 #endif
-
   end associate
+
   ! Return mortality rate:
   mu = mu_bg + mu_hydro - mu_bg * mu_hydro ! Add hydraulic failure
 

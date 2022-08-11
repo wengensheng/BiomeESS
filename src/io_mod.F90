@@ -359,7 +359,7 @@ end subroutine daily_diagnostics
             cc%dbh,cc%height,cc%crownarea,               &
             cc%bsw+cc%bHW,cc%nsc,cc%NSN,                 &
             treeG,fseed,fleaf,froot,fwood,               &
-            cc%annualGPP,cc%annualNPP,                   &
+            cc%annualGPP,cc%annualNPP,cc%annualTrsp,     &
             cc%annualNup,cc%annualfixedN,cc%mu,          &
             cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0,       &
             (cc%farea(j),j=1,Ysw_max)
@@ -650,7 +650,7 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
          'yr','cID','PFT','layer','density','f_L',  &
          'dDBH','dbh','height','Acrown',            &
          'wood','nsc', 'NSN','NPPtr','seed',        &
-         'NPPL','NPPR','NPPW','GPP-yr','NPP-yr',    &
+         'NPPL','NPPR','NPPW','GPP','NPP','Transp', &
          'N_uptk','N_fix','mu','Asap','Ktree',      &
          'treeHU','treeW0',                         &
          'farea1','farea2','farea3','farea4','farea5'

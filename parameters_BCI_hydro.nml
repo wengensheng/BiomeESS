@@ -23,7 +23,7 @@ pt          = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: 
 s0_plant    = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
 LMA         = 0.02,    0.08,    0.08,    0.08,    0.08,    0.08,    ! Leaf mass per unit area
 phiRL       = 0.7,     1.2,     1.2,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
-rho_wood    = 150.,    200.,    250,     300.,    350.,    400.,
+rho_wood    = 150.,    200,    250,     300.,    350.,    400.,
 LNbase      = 0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,
 laimax      = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
@@ -31,7 +31,8 @@ LAI_light   = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limi
 Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
 NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
 phiCSA      = 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, ! ratio of Asap/Acrown
-r0mort_c    = 0.02,    0.032,   0.028,   0.024,   0.02,   0.016,    ! canopy tree mortality rate, year-1
+r0mort_c    = 0.02,    0.024,   0.024,   0.024,   0.024,   0.024,   ! canopy tree mortality rate, year-1
+A_sd        = 4.0,     9.0,     9.0,     9.0,     9.0,     9.0,     ! Seedling mortality parameter
 AgeRepro    = 0,       5,       5,       5,       5,       5
 /
 
@@ -46,9 +47,9 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 
 &initial_state_nml
 !!   plant
-init_n_cohorts      = 1, ! total 5
+init_n_cohorts      = 5, ! total 5
 init_cohort_species = 3,    2,    1,    4,    5,
-init_cohort_nindivs = .004, .004, .004, .004, .004,
+init_cohort_nindivs = .001, .001, .001, .001, .001,
 init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,
@@ -65,11 +66,12 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
 filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/'
 climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
+Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 model_run_years     =  600, !600, ! 1600,
 outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
+do_WD_mort_function   = .False. ! .True. ! 
 do_VariedWTC0 = .True. ! .False. !
 do_VariedKx   = .True. ! .False. !
-Sc_prcp = 1.0 ! 0.5 ! 0.25, ! 1/4 rainfall
 /

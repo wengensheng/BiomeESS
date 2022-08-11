@@ -174,6 +174,7 @@ type spec_data_type
   real :: prob_g,prob_e    ! germination and establishment probabilities
   real :: r0mort_c     ! yearly mortality rate in canopy
   real :: D0mu         ! Reference diameter for size-dependent mortality
+  real :: A_un         ! Parameter for understory mortality affected by layers
   real :: A_sd         ! Max multiplier for seedling mortality
   real :: B_sd         ! Mortality sensitivity for seedlings
   real :: A_D          ! Sensitivity to dbh
@@ -259,8 +260,8 @@ type :: cohort_type
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
-  real :: treeHU ! total water transported by the functional sapwood
-  real :: treeW0 ! total WTC0 of the sapwood
+  real :: treeHU ! total water transported by the functional sapwood, m^3
+  real :: treeW0 ! total WTC0 of the sapwood, m^3
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
   real :: totW(Ysw_max) = 0.0 ! m, total water transport for each ring
@@ -657,6 +658,7 @@ real :: prob_e(0:MSPECIES)   = 1.0
 ! Mortality parameters
 real :: r0mort_c(0:MSPECIES) = 0.01 ! yearly
 real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
+real :: A_un(0:MSPECIES)     = 1.0     ! Multiplier for understory mortality
 real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
 real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
 real :: A_D(0:MSPECIES)      = 4.0   ! Sensitivity to dbh
@@ -700,7 +702,7 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   gdd_par1,gdd_par2,gdd_par3,                                         &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
-  r0mort_c,D0mu,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                     &
+  r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
   ! Plant hydraulics
@@ -782,6 +784,7 @@ logical  :: do_fire = .False.
 logical  :: do_closedN_run = .True. !.False.
 logical  :: do_VariedKx   = .True. ! trunk new xylem has the same kx or not
 logical  :: do_VariedWTC0 = .True.
+logical  :: do_WD_mort_function = .False.
 
 ! Scenarios
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
@@ -796,7 +799,7 @@ namelist /initial_state_nml/ &
     ! Model run controls
     filepath_in,climfile, model_run_years, outputhourly, outputdaily,  &
     do_U_shaped_mortality,update_annualLAImax, do_fire, do_migration,  &
-    do_closedN_run, do_VariedKx, do_variedWTC0,                        &
+    do_closedN_run, do_VariedKx, do_variedWTC0,do_WD_mort_function,    &
     Sc_prcp
 
 !---------------------------------
@@ -908,6 +911,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%prob_e   = prob_e
   spdata%r0mort_c = r0mort_c
   spdata%D0mu     = D0mu
+  spdata%A_un     = A_un
   spdata%A_sd     = A_sd
   spdata%B_sd     = B_sd
   spdata%A_D      = A_D
@@ -943,8 +947,9 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%CNseed0 = CNseed0
   spdata%NfixRate0 = NfixRate0
   spdata%NfixCost0 = NfixCost0
-
   spdata%f_cGap = f_cGap
+
+  write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    r0mort_c'
   do i = 0, MSPECIES
      call init_derived_species_data(spdata(i))
   enddo
@@ -1003,12 +1008,16 @@ subroutine initialize_PFT_data(namelistfile)
    sp%CR_Wood  = CR0_WD  * R_WD**(-1.67)  ! Compress ratio per MPa, Santiago et al. 2018
    sp%psi50_WD = p50_WD  * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
    sp%psi0_WD  = p50_WD  * R_WD**1.73 - 2.0
-   sp%Kexp_WD  = ths0_WD * R_WD**(-1)
+   sp%Kexp_WD  = ths0_WD * R_WD**(-0.5) ! rho_wood cannot be 200 for ths0_WD * R_WD**(-1)
    sp%f_supply = f0_WD   /(R_WD+1.0)
 
    ! Mortality rate as a function of wood density
-   !sp%r0mort_c = A_mort * exp(B_mort*R_WD)
-   !sp%r0mort_c = 0.048 - 0.024 * R_WD
+   if(do_WD_mort_function)then
+      !sp%r0mort_c = A_mort * exp(B_mort*R_WD)
+      sp%r0mort_c = 0.048 - 0.024 * R_WD
+   endif
+
+   write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%r0mort_c
 
  end subroutine init_derived_species_data
 
