@@ -1442,6 +1442,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   real :: D_hw, woodC, newSW, woodN, dSW
+  real :: L_max, r_lift
   integer :: i, j, k
 
   do i = 1, vegn%n_cohorts
@@ -1490,19 +1491,21 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      else
         cc%Aring(k) = PI * cc%Rring(k)**2 ! Only for the first year
      endif
+     L_max = cc%Lring(k) ! max(cc%Lring(:))
 
-     ! Heartwood D and Functional area (i.e., sapwood area)
-     cc%Asap = 0.0
-     cc%Ktrunk = 0.0
-     do k=1, MIN(cc%Nrings, Ysw_max)
-       funcA(k)  = cc%farea(k) * cc%Aring(k)
-       Kring(k)  = funcA(k) * cc%Kx(k)/cc%Lring(k)
-       cc%Ktrunk = cc%Ktrunk + Kring(k)
-       cc%Asap   = cc%Asap   + funcA(k)
-     enddo
+     ! Tree trunk conductance and sapwood area
+     cc%Asap = SapwoodArea(cc)
+     cc%Ktrunk = TrunkConductance(cc)
+
      !Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
 
      ! Update Sap flow of each ring
+     do k=1, MIN(cc%Nrings, Ysw_max)
+       funcA(k)  = cc%farea(k) * cc%Aring(k)
+       r_lift = cc%Lring(k)/L_max
+       Kring(k)  = funcA(k) * cc%Kx(k)/cc%Lring(k) * r_lift
+     enddo
+
      do k=1, MIN(cc%Nrings, Ysw_max)
        trsp_ring(k) = 1.e-3 * cc%annualTrsp * Kring(k)/cc%Ktrunk ! ton, per ring
        cc%totW(k)   = cc%totW(k) + trsp_ring(k) ! m3, for the whole ring
@@ -1516,22 +1519,21 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      ! Whole tree conductivity and hydraulic usage, potential
      cc%treeHU = 0.0
      cc%treeW0 = 0.0
-     cc%Ktrunk = 0.0
      do k=1, MIN(cc%Nrings, Ysw_max)
        Fd(k)       = 1./(1.+exp(r_DF * (1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
        funcA(k) = cc%farea(k)*cc%Aring(k)
-       cc%Ktrunk = cc%Ktrunk + funcA(k) * cc%Kx(k)/cc%Lring(k)
        cc%treeHU = cc%treeHU + funcA(k) * cc%accH(k)
        cc%treeW0 = cc%treeW0 + funcA(k) * cc%WTC0(k)
      enddo
 
+     ! Update Asap and Ktrunk
+     cc%Asap   = SapwoodArea(cc)
+     cc%Ktrunk = TrunkConductance(cc)
+
      ! ----- Update C and N of sapwood and heartwood -----
      ! Calculate heartwood diameter
-     D_hw  = 0.0
-     do k=1, MIN(cc%Nrings, Ysw_max)-1
-        if(cc%farea(k)<0.05) D_hw = cc%Rring(k) * 2.0
-     enddo
+     D_hw  = SQRT(Max(0.0, PI*(cc%DBH/2)**2 - cc%Asap)/PI)
 
      ! Convert sapwood to heart wood
      if(sp%lifeform>0)then ! woody plants
@@ -1884,6 +1886,39 @@ real function NewWoodKx(cc) result(Kx)
     endif
     end associate
 end function NewWoodKx
+
+!===================================================================
+real function TrunkConductance(cc) result(Ktrunk)
+  !@sum: Total trunk conductance, Weng, 08/12/2022
+  type(cohort_type),intent(in) :: cc
+
+  !----- Local vars ---------------
+  real :: L_max, r_lift
+  integer :: i
+
+  !---------------------
+  L_max = maxval(cc%Lring(:))
+  Ktrunk = 0.0
+  do i=1, MIN(cc%Nrings, Ysw_max)
+     r_lift = cc%Lring(i)/L_max
+     Ktrunk = Ktrunk + cc%farea(i)*cc%Aring(i)*cc%Kx(i)/cc%Lring(i)*r_lift
+  enddo
+end function TrunkConductance
+
+!===================================================================
+real function SapwoodArea(cc) result(Asap)
+  !@sum: Total trunk conductance, Weng, 08/12/2022
+  type(cohort_type),intent(in) :: cc
+
+  !----- Local vars ---------------
+  integer :: i
+
+  !---------------------
+  Asap = 0.0
+  do i=1, MIN(cc%Nrings, Ysw_max)
+     Asap = Asap + cc%farea(i)*cc%Aring(i)
+  enddo
+end function SapwoodArea
 
 !====================================
 subroutine plant_water_dynamics_Xiangtao(vegn)
@@ -2514,12 +2549,8 @@ subroutine merge_cohorts(c1,c2) ! Put c1 into c2
      enddo
 
      ! Update tree trunk sapwood area and conductance
-     c2%Asap = 0.0
-     c2%Ktrunk = 0.0
-     do i=1, MIN(c2%Nrings, Ysw_max)
-        c2%Asap   = c2%Asap   + c2%farea(i)*c2%Aring(i)
-        c2%Ktrunk = c2%Ktrunk + c2%farea(i)*c2%Aring(i)*c2%Kx(i)/c2%Lring(i)
-     enddo
+     c2%Ktrunk = TrunkConductance(c2)
+     c2%Asap   = SapwoodArea(c2)
 
   endif
 end subroutine merge_cohorts

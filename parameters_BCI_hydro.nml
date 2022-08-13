@@ -47,7 +47,7 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 
 &initial_state_nml
 !!   plant
-init_n_cohorts      = 5, ! total 5
+init_n_cohorts      = 1, ! total 5
 init_cohort_species = 3,    2,    1,    4,    5,
 init_cohort_nindivs = .001, .001, .001, .001, .001,
 init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
@@ -71,7 +71,7 @@ model_run_years     =  600, !600, ! 1600,
 outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
-do_WD_mort_function   = .False. ! .True. ! 
+do_WD_mort_function   = .False. ! .True. !
 do_VariedWTC0 = .True. ! .False. !
 do_VariedKx   = .True. ! .False. !
 /
