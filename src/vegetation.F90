@@ -1438,11 +1438,10 @@ subroutine vegn_hydraulic_states(vegn, deltat)
   type(spec_data_type),   pointer :: sp
   real :: Fd(Ysw_max)
   real :: Transp_sap
-  real :: funcA(Ysw_max),Kring(Ysw_max),trsp_ring(Ysw_max)
+  real :: funcA,trsp_ring(Ysw_max)
   real :: deathrate ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   real :: D_hw, woodC, newSW, woodN, dSW
-  real :: L_max, r_lift
   integer :: i, j, k
 
   do i = 1, vegn%n_cohorts
@@ -1473,7 +1472,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
         enddo
      endif
 
-     ! Setup the new ring formed in this year
+     ! Growth: the new ring formed in this year
      cc%Nrings = cc%Nrings + 1 ! A new ring
      k = MIN(cc%Nrings, Ysw_max)
      ! WTC0 and Kx represent scientific hypotheses. They can be constant,
@@ -1491,27 +1490,17 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      else
         cc%Aring(k) = PI * cc%Rring(k)**2 ! Only for the first year
      endif
-     L_max = cc%Lring(k) ! max(cc%Lring(:))
-
-     ! Tree trunk conductance and sapwood area
-     cc%Asap = SapwoodArea(cc)
-     cc%Ktrunk = TrunkConductance(cc)
-
+     call calculate_Asap_Ktrunk (cc) ! Tree trunk conductance and sapwood area
      !Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
 
-     ! Update Sap flow of each ring
+     ! Update trunk hydraulic status
      do k=1, MIN(cc%Nrings, Ysw_max)
-       funcA(k)  = cc%farea(k) * cc%Aring(k)
-       r_lift = cc%Lring(k)/L_max
-       Kring(k)  = funcA(k) * cc%Kx(k)/cc%Lring(k) * r_lift
-     enddo
-
-     do k=1, MIN(cc%Nrings, Ysw_max)
-       trsp_ring(k) = 1.e-3 * cc%annualTrsp * Kring(k)/cc%Ktrunk ! ton, per ring
+       funcA  = cc%farea(k) * cc%Aring(k)
+       trsp_ring(k) = 1.e-3 * cc%annualTrsp * cc%Kring(k)/cc%Ktrunk ! ton, per ring
        cc%totW(k)   = cc%totW(k) + trsp_ring(k) ! m3, for the whole ring
        ! Lifetime water transported for functional xylem conduits
-       if(funcA(k) > 1.0e-12)then
-         cc%accH(k) = cc%accH(k) + trsp_ring(k)/funcA(k)  ! m, for functional conduits only
+       if(funcA > 1.0e-12)then
+         cc%accH(k) = cc%accH(k) + trsp_ring(k)/funcA  ! m, for functional conduits only
        endif
        !cc%accH(k) = cc%accH(k) + Transp_sap ! just for defunction xylem
      enddo
@@ -1522,14 +1511,11 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      do k=1, MIN(cc%Nrings, Ysw_max)
        Fd(k)       = 1./(1.+exp(r_DF * (1.-cc%accH(k)/cc%WTC0(k)))) ! xylem fatigue
        cc%farea(k) = (1.0 - Fd(k))*cc%farea(k) ! Functional fraction
-       funcA(k) = cc%farea(k)*cc%Aring(k)
-       cc%treeHU = cc%treeHU + funcA(k) * cc%accH(k)
-       cc%treeW0 = cc%treeW0 + funcA(k) * cc%WTC0(k)
+       funcA = cc%farea(k)*cc%Aring(k)
+       cc%treeHU = cc%treeHU + funcA * cc%accH(k)
+       cc%treeW0 = cc%treeW0 + funcA * cc%WTC0(k)
      enddo
-
-     ! Update Asap and Ktrunk
-     cc%Asap   = SapwoodArea(cc)
-     cc%Ktrunk = TrunkConductance(cc)
+     call calculate_Asap_Ktrunk (cc) ! Update Asap and Ktrunk
 
      ! ----- Update C and N of sapwood and heartwood -----
      ! Calculate heartwood diameter
@@ -1710,6 +1696,32 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
 
 end function PlantWaterSupply
 
+!===================================================================
+subroutine calculate_Asap_Ktrunk (cc)
+  !@sum: Sapwood cross-sectional area and
+  ! Total trunk conductance, Weng, 08/13/2022
+  type(cohort_type),intent(inout) :: cc
+
+  !----- Local vars ---------------
+  real :: L_max, Afunc
+  integer :: i
+
+  !---------------------
+  !The contribution of each ring to the Ktrunk is calculated as where and
+  ! how much water it lifts:
+  !Kring=farea * Aringcc%Kx(i)/Lring *(Lring/Lmax)
+  ! "Lring/Lmax" is the fraction of water lifts to tree height (or psi_wood)
+  L_max = maxval(cc%Lring(:))
+  cc%Ktrunk = 0.0
+  cc%Asap   = 0.0
+  do i=1, MIN(cc%Nrings, Ysw_max)
+    Afunc       = cc%farea(i) * cc%Aring(i)
+    cc%Kring(i) = Afunc * cc%Kx(i)/L_max
+    cc%Asap     = cc%Asap + Afunc
+    cc%Ktrunk   = cc%Ktrunk + cc%Kring(i)
+  enddo
+end subroutine calculate_Asap_Ktrunk
+
 !=================================================
 ! Weng: update soil root area layers, hydraulic variables, 03/29/2022
 subroutine derived_cc_vars(cc)
@@ -1886,39 +1898,6 @@ real function NewWoodKx(cc) result(Kx)
     endif
     end associate
 end function NewWoodKx
-
-!===================================================================
-real function TrunkConductance(cc) result(Ktrunk)
-  !@sum: Total trunk conductance, Weng, 08/12/2022
-  type(cohort_type),intent(in) :: cc
-
-  !----- Local vars ---------------
-  real :: L_max, r_lift
-  integer :: i
-
-  !---------------------
-  L_max = maxval(cc%Lring(:))
-  Ktrunk = 0.0
-  do i=1, MIN(cc%Nrings, Ysw_max)
-     r_lift = cc%Lring(i)/L_max
-     Ktrunk = Ktrunk + cc%farea(i)*cc%Aring(i)*cc%Kx(i)/cc%Lring(i)*r_lift
-  enddo
-end function TrunkConductance
-
-!===================================================================
-real function SapwoodArea(cc) result(Asap)
-  !@sum: Total trunk conductance, Weng, 08/12/2022
-  type(cohort_type),intent(in) :: cc
-
-  !----- Local vars ---------------
-  integer :: i
-
-  !---------------------
-  Asap = 0.0
-  do i=1, MIN(cc%Nrings, Ysw_max)
-     Asap = Asap + cc%farea(i)*cc%Aring(i)
-  enddo
-end function SapwoodArea
 
 !====================================
 subroutine plant_water_dynamics_Xiangtao(vegn)
@@ -2549,8 +2528,7 @@ subroutine merge_cohorts(c1,c2) ! Put c1 into c2
      enddo
 
      ! Update tree trunk sapwood area and conductance
-     c2%Ktrunk = TrunkConductance(c2)
-     c2%Asap   = SapwoodArea(c2)
+     call calculate_Asap_Ktrunk (c2)
 
   endif
 end subroutine merge_cohorts

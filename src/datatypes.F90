@@ -269,7 +269,8 @@ type :: cohort_type
   real :: farea(Ysw_max) = 0.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
   real :: Rring(Ysw_max) = 0.0 ! Radius to the outer edge
   real :: Lring(Ysw_max) = 0.0 ! Length of xylem conduits
-  real :: Aring(Ysw_max) = 0.0 !
+  real :: Aring(Ysw_max) = 0.0 ! Area of each ring
+  real :: Kring(Ysw_max) = 0.0 ! Conductance of each ring
 
   ! for diagnostics
   real :: dailyTrsp
