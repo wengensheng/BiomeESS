@@ -535,10 +535,7 @@ subroutine vegn_growth(vegn)
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: N_demand,Nsupplyratio,extraN
   real :: r_N_SD
-  logical :: do_editor_scheme = .False.
   integer :: i,j,k
-
-  do_editor_scheme = .False. ! .True.
 
   ! Turnover of leaves and fine roots
   call vegn_tissue_turnover(vegn)
@@ -546,140 +543,144 @@ subroutine vegn_growth(vegn)
 
   !Allocate C_gain to tissues
   do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     ! call biomass_allocation(cc)
-     associate (sp => spdata(cc%species)) ! F2003
-     if (cc%status == LEAF_ON) then
-        ! Get carbon from NSC pool
-        call fetch_CN_for_growth(cc) ! Weng, 2017-10-19
+    cc => vegn%cohorts(i)
+    ! Update time in the top layer
+    if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
 
-        ! Allocate carbon to the plant pools
-        ! calculate the carbon spent on growth of leaves and roots
-        LF_deficit = max(0.0, cc%bl_max - cc%bl)
-        FR_deficit = max(0.0, cc%br_max - cc%br)
-        LFR_deficit = LF_deficit + FR_deficit
-        G_LFR = max(min(LF_deficit + FR_deficit,  &
-                        f_LFR_max  * cc%C_growth), 0.0) ! (1.- Wood_fract_min)
-        !! and distribute it between roots and leaves
-        dBL  = min(G_LFR, max(0.0, &
-          (G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/(cc%bl_max + cc%br_max) &
-          ))
-        !! flexible allocation scheme
-        !dBL = min(LF_deficit, 0.6*G_LFR)
+    associate (sp => spdata(cc%species))
+    if (cc%status == LEAF_ON) then
+       ! Get carbon from NSC pool
+       call fetch_CN_for_growth(cc) ! Weng, 2017-10-19
 
-        if((G_LFR-dBL) > FR_deficit) dBL = G_LFR - FR_deficit
-        dBR  = G_LFR - dBL
-        ! calculate carbon spent on growth of sapwood growth
-        if(cc%layer == 1 .AND. cc%age > sp%AgeRepro)then
-            dSeed = sp%v_seed * (cc%C_growth - G_LFR)
-            dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
-        else
-            dSeed= 0.0
-            dBSW = cc%C_growth - G_LFR
-        endif
+       ! Allocate carbon to the plant pools
+       ! calculate the carbon spent on growth of leaves and roots
+       LF_deficit = max(0.0, cc%bl_max - cc%bl)
+       FR_deficit = max(0.0, cc%br_max - cc%br)
+       LFR_deficit = LF_deficit + FR_deficit
+       G_LFR = max(min(LF_deficit + FR_deficit,  &
+                       f_LFR_max  * cc%C_growth), 0.0) ! (1.- Wood_fract_min)
+       !! and distribute it between roots and leaves
+       dBL  = min(G_LFR, max(0.0, &
+         (G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/(cc%bl_max + cc%br_max) &
+         ))
+       !! flexible allocation scheme
+       !dBL = min(LF_deficit, 0.6*G_LFR)
 
-        ! For grasses, temporary
-        if(sp%lifeform ==0 )then
-            dSeed = dSeed + 0.15*G_LFR
-            G_LFR = 0.85 * G_LFR
-            dBR   = 0.85 * dBR
-            dBL   = 0.85 * dBL
-        endif
-        !! Nitrogen adjustment on allocations between wood and leaves+roots
-        !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
-        N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
-        !! Nitrogen available for all tisues, including wood
-        IF(cc%N_growth < N_demand)THEN
-            ! a new method, Weng, 2019-05-21
-            ! same ratio reduction for leaf, root, and seed if(cc%N_growth < N_demand)
-            Nsupplyratio = MAX(0.0, MIN(1.0, cc%N_growth/N_demand))
-            !r_N_SD = (cc%N_growth-cc%C_growth/sp%CNsw0)/(N_demand-cc%C_growth/sp%CNsw0) ! fixed wood CN
-            r_N_SD = cc%N_growth/N_demand ! = Nsupplyratio
-            if(sp%lifeform > 0 )then ! for trees
-               if(r_N_SD<=1.0 .and. r_N_SD>0.0)then
-                dBSW =  dBSW + (1.0-r_N_SD) * (dBL+dBR+dSeed)
-                dBR  =  r_N_SD * dBR
-                dBL  =  r_N_SD * dBL
-                dSeed=  r_N_SD * dSeed
-               elseif(r_N_SD <= 0.0)then
-                dBSW = cc%N_growth/sp%CNsw0
-                dBR  =  0.0
-                dBL  =  0.0
-                dSeed=  0.0
-               endif
-            else ! for grasses
-               dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-               dBR  =  Nsupplyratio * dBR
-               dBL  =  Nsupplyratio * dBL
-               dSeed=  Nsupplyratio * dSeed
-            endif
-        ENDIF
+       if((G_LFR-dBL) > FR_deficit) dBL = G_LFR - FR_deficit
+       dBR  = G_LFR - dBL
+       ! calculate carbon spent on growth of sapwood growth
+       if(cc%layer == 1 .AND. cc%age > sp%AgeRepro)then
+           dSeed = sp%v_seed * (cc%C_growth - G_LFR)
+           dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
+       else
+           dSeed= 0.0
+           dBSW = cc%C_growth - G_LFR
+       endif
 
-        !update biomass pools
-        cc%bl     = cc%bl    + dBL
-        cc%br     = cc%br    + dBR
-        cc%bsw    = cc%bsw   + dBSW
-        cc%seedC  = cc%seedC + dSeed
-        cc%NSC    = cc%NSC   - dBR - dBL -dSeed - dBSW
-        cc%resg = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
+       ! For grasses, temporary
+       if(sp%lifeform ==0 )then
+           dSeed = dSeed + 0.15*G_LFR
+           G_LFR = 0.85 * G_LFR
+           dBR   = 0.85 * dBR
+           dBL   = 0.85 * dBL
+       endif
+       !! Nitrogen adjustment on allocations between wood and leaves+roots
+       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
+       N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
+       !! Nitrogen available for all tisues, including wood
+       if(cc%N_growth < N_demand)then
+           ! a new method, Weng, 2019-05-21
+           ! same ratio reduction for leaf, root, and seed if(cc%N_growth < N_demand)
+           Nsupplyratio = MAX(0.0, MIN(1.0, cc%N_growth/N_demand))
+           !r_N_SD = (cc%N_growth-cc%C_growth/sp%CNsw0)/(N_demand-cc%C_growth/sp%CNsw0) ! fixed wood CN
+           r_N_SD = cc%N_growth/N_demand ! = Nsupplyratio
+           if(sp%lifeform > 0 )then ! for trees
+              if(r_N_SD<=1.0 .and. r_N_SD>0.0)then
+               dBSW =  dBSW + (1.0-r_N_SD) * (dBL+dBR+dSeed)
+               dBR  =  r_N_SD * dBR
+               dBL  =  r_N_SD * dBL
+               dSeed=  r_N_SD * dSeed
+              elseif(r_N_SD <= 0.0)then
+               dBSW = cc%N_growth/sp%CNsw0
+               dBR  =  0.0
+               dBL  =  0.0
+               dSeed=  0.0
+              endif
+           else ! for grasses
+              dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
+              dBR  =  Nsupplyratio * dBR
+              dBL  =  Nsupplyratio * dBL
+              dSeed=  Nsupplyratio * dSeed
+           endif
+       endif
 
-        !!update nitrogen pools, Nitrogen allocation
-        cc%leafN = cc%leafN + dBL   /sp%CNleaf0
-        cc%rootN = cc%rootN + dBR   /sp%CNroot0
-        cc%seedN = cc%seedN + dSeed /sp%CNseed0
-        cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
-                   (cc%N_growth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
-        !extraN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
-        extraN   = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
-        cc%sapwN = cc%sapwN - extraN
-        cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - cc%N_growth !! update NSN
-        cc%N_growth = 0.0
+       !update biomass pools
+       cc%bl    = cc%bl    + dBL
+       cc%br    = cc%br    + dBR
+       cc%bsw   = cc%bsw   + dBSW
+       cc%seedC = cc%seedC + dSeed
+       cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
+       cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
 
-        ! accumulated C allocated to leaf, root, and wood
-        cc%NPPleaf = cc%NPPleaf + dBL
-        cc%NPProot = cc%NPProot + dBR
-        cc%NPPwood = cc%NPPwood + dBSW
+       !!update nitrogen pools, Nitrogen allocation
+       cc%leafN = cc%leafN + dBL   /sp%CNleaf0
+       cc%rootN = cc%rootN + dBR   /sp%CNroot0
+       cc%seedN = cc%seedN + dSeed /sp%CNseed0
+       cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
+                  (cc%N_growth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
+       !extraN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
+       extraN   = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
+       cc%sapwN = cc%sapwN - extraN
+       cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - cc%N_growth !! update NSN
+       cc%N_growth = 0.0
 
-        ! update breast height diameter given increase of bsw
-        dDBH   = dBSW / (sp%thetaBM * sp%alphaBM * cc%DBH**(sp%thetaBM-1.0))
-        dHeight= sp%thetaHT * sp%alphaHT * cc%DBH**(sp%thetaHT-1) * dDBH
-        dCA    = sp%thetaCA * sp%alphaCA * cc%DBH**(sp%thetaCA-1) * dDBH
+       ! accumulated C allocated to leaf, root, and wood
+       cc%NPPleaf = cc%NPPleaf + dBL
+       cc%NPProot = cc%NPProot + dBR
+       cc%NPPwood = cc%NPPwood + dBSW
 
-        ! update plant architecture
-        cc%DBH       = cc%DBH       + dDBH
-        cc%height    = cc%height    + dHeight
-        cc%crownarea = cc%crownarea + dCA
+       ! update breast height diameter given increase of bsw
+       dDBH   = dBSW / (sp%thetaBM * sp%alphaBM * cc%DBH**(sp%thetaBM-1.0))
+       dHeight= sp%thetaHT * sp%alphaHT * cc%DBH**(sp%thetaHT-1) * dDBH
+       dCA    = sp%thetaCA * sp%alphaCA * cc%DBH**(sp%thetaCA-1) * dDBH
 
-        ! Update secondary plant states
-        call Update_hydraulic_vars(cc)
-        if(cc%firstday)then
-          cc%psi_s0 = maxval(vegn%psi_soil(:))
-          cc%psi_stem = cc%psi_s0
-          cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
-        endif
+       ! update plant architecture
+       cc%DBH       = cc%DBH       + dDBH
+       cc%height    = cc%height    + dHeight
+       cc%crownarea = cc%crownarea + dCA
 
-        ! Update Ktrunk with new sapwood
-        k = Max(MIN(cc%Nrings, Ysw_max),1)
-        cc%Kx(k)   = NewWoodKx(cc)
-        cc%Lring(k)= HT2Lpath(cc%height)
-        cc%Ktrunk = cc%Ktrunk+ &
-              0.25*PI*(cc%DBH**2-(cc%DBH-dDBH)**2)*cc%Kx(k)/cc%Lring(k)
+       ! update bl_max and br_max
+       call update_max_leaf_roots(cc)
+
+       ! Update secondary plant states
+       call Update_hydraulic_vars(cc)
+       if(cc%firstday)then
+         cc%psi_s0 = maxval(vegn%psi_soil(:))
+         cc%psi_stem = cc%psi_s0
+         cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
+       endif
+
+       ! Update Ktrunk with new sapwood
+       k = Max(MIN(cc%Nrings, Ysw_max),1)
+       cc%Kx(k)   = NewWoodKx(cc)
+       cc%Lring(k)= HT2Lpath(cc%height)
+       cc%Ktrunk = cc%Ktrunk+ &
+             0.25*PI*(cc%DBH**2-(cc%DBH-dDBH)**2)*cc%Kx(k)/cc%Lring(k)
 
 #ifndef Hydro_test
-        !Convert C and N from sapwood to heartwood
-        call Sap2HeartWood_fixedHv(cc)
+       !Convert C and N from sapwood to heartwood
+       call Sap2HeartWood_fixedHv(cc)
 #endif
 
-        ! update bl_max and br_max daily
-        call update_max_leaf_roots(cc)
+       ! Plant water status update
+       call Update_hydraulic_vars(cc)
+       call Plant_water2psi_exp(cc)
 
-        ! Plant water status update
-        call Update_hydraulic_vars(cc)
-        call Plant_water2psi_exp(cc)
      elseif(cc%status == LEAF_OFF .and. cc%C_growth > 0.)then
-        cc%nsc = cc%nsc + cc%C_growth
-        cc%resg = 0.0
+       cc%nsc = cc%nsc + cc%C_growth
+       cc%resg = 0.0
      endif ! "cc%status == LEAF_ON"
+
      ! reset carbon acculmulation terms
      cc%C_growth = 0
 
@@ -746,8 +747,6 @@ subroutine update_max_leaf_roots(cc)
   !----- local vars ---------
   real :: BL_c, BL_u
 
-  ! Update time in the top layer
-  if (cc%layer == 1) cc%topyear = cc%topyear + 1.0 /365.0
   ! Update bl_max and br_max daily
   associate ( sp => spdata(cc%species) )
     BL_c = sp%LMA * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)
@@ -762,7 +761,7 @@ subroutine update_max_leaf_roots(cc)
         ! for those returned to the unerstory and in the first layer
         cc%bl_max = BL_u + min(cc%topyear/2.0,1.0)*(BL_c - BL_u)
     endif
-    
+
     ! Root max
     cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
   end associate
@@ -825,63 +824,61 @@ subroutine vegn_phenology(vegn) ! daily step
   ! environmental factors for each cohort
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
   do i = 1, vegn%n_cohorts
-     cc=>vegn%cohorts(i)
-     associate (sp => spdata(cc%species) )
-     !cc%gdd = cc%gdd + max(0.0, vegn%tc_pheno - T0_gdd) ! GDD5
-     if(cc%status == LEAF_ON)then
-        cc%ncd = 0
-        cc%ndm = 0
-        cc%gdd = 0.0
-        cc%ngd = Min(366, cc%ngd + 1)
-        if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
-     else  ! cc%status == LEAF_OFF
-        cc%ngd = 0
-        cc%ALT = 0.0
-        cc%ndm = cc%ndm + 1
-        if(vegn%tc_pheno<sp%tc_crit_off)then
-           cc%ncd = cc%ncd + 1
-        endif
-        ! Keep gdd as zero in early non-growing season when days < 60
-        if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
-     endif ! cc%status
-
-     end associate
+    cc=>vegn%cohorts(i)
+    associate (sp => spdata(cc%species) )
+      if(cc%status == LEAF_ON)then
+         cc%ncd = 0
+         cc%ndm = 0
+         cc%gdd = 0.0
+         cc%ngd = Min(366, cc%ngd + 1)
+         if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
+      else  ! cc%status == LEAF_OFF
+         cc%ngd = 0
+         cc%ALT = 0.0
+         cc%ndm = cc%ndm + 1
+         if(vegn%tc_pheno<sp%tc_crit_off)then
+            cc%ncd = cc%ncd + 1
+         endif
+         ! Keep gdd as zero in early non-growing season when days < 60
+         if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
+      endif ! cc%status
+    end associate
   enddo
 
   ! --------- Change pheno status ----------------------------
   ! ON and OFF of phenology: change the indicator of growing season for deciduous
   do i = 1,vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate (sp => spdata(cc%species) )
-     !for evergreen
-     if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
-     !for deciduous and grasses
-     ! GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
-     PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)     &
-        ! Temperature conditions
-        .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on)  &
-        !!!  Woody plants            Grasses in the top layer   !!!
-        !.and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer==1))  &
-        )
+    cc => vegn%cohorts(i)
+    associate (sp => spdata(cc%species) )
+      !for evergreen
+      if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
+      !for deciduous and grasses
+      ! GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
+      PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)     &
+         ! Temperature conditions
+         .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on)  &
+         !!!  Woody plants            Grasses in the top layer   !!!
+         !.and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer==1))  &
+         )
 
-     cc%firstday = .false.
-     if(PhenoON)then
-         cc%status = LEAF_ON ! Turn on a growing season
-         cc%firstday = .True.
-     endif
+      cc%firstday = .false.
+      if(PhenoON)then
+          cc%status = LEAF_ON ! Turn on a growing season
+          cc%firstday = .True.
+      endif
 
-     ! Reset grass density at the first day of a growing season
-     if(cc%firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
-         !        reset grass density and size for perenials
-         ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
-         ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
-         ! reset
-         cc%nindivs = MIN(ccNSC /sp%s0_plant, ccNSN/(sp%s0_plant/sp%CNroot0))
-         totC = ccNSC / cc%nindivs
-         totN = ccNSN / cc%nindivs
-         call setup_seedling(cc,totC,totN)
-     endif
-     end associate
+      ! Reset grass density at the first day of a growing season
+      if(cc%firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
+          !        reset grass density and size for perenials
+          ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
+          ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
+          ! reset
+          cc%nindivs = MIN(ccNSC /sp%s0_plant, ccNSN/(sp%s0_plant/sp%CNroot0))
+          totC = ccNSC / cc%nindivs
+          totN = ccNSN / cc%nindivs
+          call setup_seedling(cc,totC,totN)
+      endif
+    end associate
   enddo
 
   if(PhenoON) call relayer_cohorts(vegn)
