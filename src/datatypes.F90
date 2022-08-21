@@ -8,7 +8,7 @@ module datatypes
  ! ------ public subroutines and functions ---------
  public :: initialize_PFT_data, initialize_soilpars
  public :: Wood2Architecture,qscomp, calc_solarzen, &
-           Aleaf_BM, esat, A_function
+           BL2Aleaf, esat, A_function
 
  ! ------ public namelists ---------
  public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
@@ -180,11 +180,11 @@ type spec_data_type
   real :: A_D          ! Sensitivity to dbh
   real :: s_hu         ! hydraulic mortality sensitivity
   ! Population level variables
-  real :: LAImax,LAImax_u ! max. LAI
-  real :: LAI_light        ! light controlled maximum LAI
-  integer :: n_cc             ! for calculating LAImax via cc%LAImax derived from cc%NSN
-  real :: layerfrac        ! species layer fraction
-  real :: f_cGap ! fraction of internal gaps in the canopy
+  real :: LAImax    ! max. LAI
+  real :: LAImax_u  ! max. LAI understorey
+  real :: LAI_light ! light controlled maximum LAI
+  integer :: n_cc   ! for calculating LAImax via cc%LAImax derived from cc%NSN
+  real :: f_cGap    ! fraction of internal gaps in the canopy
   ! "internal" gaps are the gaps that are created within the canopy by the
   ! branch fall processes.
 end type
@@ -297,12 +297,11 @@ type :: cohort_type
   real :: dailyfixedN
   real :: annualfixedN = 0.0 ! annual N fixation per unit crown area
 
-  ! TODO: see if we can make bl_max, br_max local variables
   real :: bl_max  = 0.0 ! Max. leaf biomass, kg C/individual
   real :: br_max  = 0.0 ! Max. fine root biomass, kg C/individual
   real :: CSAsw   = 0.0
   real :: topyear = 0.0 ! the years that a plant in top layer
-  real :: DBH_ys             ! DBH at the begining of a year (growing season)
+  real :: DBH_ys        ! DBH at the begining of a year (growing season)
 
   ! ---- water uptake-related variables
   real :: root_length(soil_L) ! m
@@ -1056,26 +1055,69 @@ end subroutine qscomp
       cc%DBH        = (btot / sp%alphaBM) ** ( 1.0/sp%thetaBM )
       cc%height     = sp%alphaHT * cc%dbh ** sp%thetaHT
       cc%crownarea  = sp%alphaCA * cc%dbh ** sp%thetaCA
-      cc%bl_max = sp%LMA   * sp%LAImax        * cc%crownarea/max(1,cc%layer)
-      cc%br_max = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea/max(1,cc%layer)
+      cc%bl_max = sp%LMA  * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)/max(1,cc%layer)
+      cc%br_max = sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
       cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
 
    end associate
  end subroutine Wood2Architecture
 
- ! ============================================================================
- ! modified by Weng (2014-01-09), 07-18-2017, 06-04-2021
- function Aleaf_BM(bl,c) result (area)
-   real :: area ! returned value
-   real,    intent(in) :: bl      ! biomass of leaves, kg C/individual
-   type(cohort_type), intent(inout) :: c    ! cohort to update
+ !============================================================================
+ ! Allometry equations, Weng (2014-01-09),07-18-2017, 06-04-2021,2022-08-20
+ !-------------------------------------------
+ function DBH2HT(DBH,SP) result (HT)
+   real :: HT ! returned value
+   real,   intent(in) :: DBH
+   integer,intent(in) :: SP
+   HT = spdata(SP)%alphaHT * DBH ** spdata(SP)%thetaHT
+ end function
+ !-------------------------------------------
+ function DBH2CA(DBH,SP) result (CA)
+   real :: CA ! returned value
+   real,   intent(in) :: DBH
+   integer,intent(in) :: SP
+   CA = spdata(SP)%alphaCA * DBH ** spdata(SP)%thetaCA
+ end function
+ !-------------------------------------------
+ function DBH2BM(DBH,SP) result (BM)
+   real :: BM ! returned value
+   real,   intent(in) :: DBH
+   integer,intent(in) :: SP
+   BM = spdata(SP)%alphaBM * DBH ** spdata(SP)%thetaBM
+ end function
+ !-------------------------------------------
+ function BM2DBH(BM,SP) result (DBH)
+  real :: DBH ! returned value
+  real,   intent(in) :: BM
+  integer,intent(in) :: SP
+  DBH = (BM/spdata(SP)%alphaBM) ** ( 1.0/spdata(SP)%thetaBM )
+ end function
 
-   area = bl/spdata(c%species)%LMA
-   !if(c%layer > 1.AND. c%firstlayer == 0)then
-   !   area = bl/(0.5*spdata(c%species)%LMA) ! half thickness for leaves in understory
-   !else
-   !   area = bl/spdata(c%species)%LMA
-   !endif
+ !-------------------------------------------
+ function ccBLmax(cc) result (BLmax)
+  real :: BLmax ! returned value
+  type(cohort_type), intent(in) :: cc    ! cohort to update
+
+  associate(sp=>spdata(cc%species))
+   BLmax = sp%LMA  * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)/max(1,cc%layer)
+  end associate
+ end function
+ !-------------------------------------------
+ function ccBRmax(cc) result (BRmax)
+ real :: BRmax ! returned value
+ type(cohort_type), intent(in) :: cc    ! cohort to update
+
+ associate(sp=>spdata(cc%species))
+  BRmax = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea * (1.0-sp%f_cGap)/max(1,cc%layer)
+ end associate
+ end function
+ !-------------------------------------------
+ function BL2Aleaf(bl,cc) result (area)
+ real :: area ! returned value
+ real, intent(in) :: bl      ! biomass of leaves, kg C/individual
+ type(cohort_type), intent(in) :: cc    ! cohort to update
+
+ area = bl/spdata(cc%species)%LMA
  end function
 
  ! ============================================================================
