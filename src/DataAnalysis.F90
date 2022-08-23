@@ -91,8 +91,8 @@ end
    integer, intent(in):: fin_1,fin_2,fout_1,fout_2
 
    !------local vars -----------
-   integer, parameter :: Columns = 27 + 210 ! 21
-   integer, parameter :: N_veg_out = 21
+   integer, parameter :: Columns = 28 + 210 ! 21
+   integer, parameter :: N_veg_out = 22
 
    character(len=180) :: comments,header1
    character(len=8 ) :: BA_Header(maxPFTs), dD_Header(maxPFTs),farea_Header(210)
@@ -117,9 +117,9 @@ end
      write (BA_Header(i), "(A6,I1)") "BA_PFT", i
      write (dD_Header(i), "(A6,I1)") "dD_PFT", i
    enddo
-   header1 = 'yr,ID,PFT,L,dst,f_L,dD,dbh,HT,CA,wood,nsc,NSN,NPPtr,seed,' &
-           // 'NPPL,NPPR,NPPW,GPP,NPP,Trsp,N_up,N_fix,mu,' &
-           // 'Asap,Ktree,treeHU,treeW0,farea1,farea2'
+   header1 = 'yr,ID,PFT,L,dst,f_L,dD,dbh,HT,CA,wood,nsc,NSN,NPP,' &
+           // 'seed,NPPL,NPPR,NPPW,GPP,NPP,Trsp,N_up,N_fix,mu,'  &
+           // 'Atrunk,Asap,Ktree,treeHU,treeW0,farea1,farea2'
    !do i=1,Columns - 24
    !   write (farea_Header(i), "(A6,I3)") "farea_", i
    !enddo

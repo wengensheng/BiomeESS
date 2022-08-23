@@ -7,8 +7,8 @@ module datatypes
 
  ! ------ public subroutines and functions ---------
  public :: initialize_PFT_data, initialize_soilpars
- public :: Wood2Architecture,qscomp, calc_solarzen, &
-           BL2Aleaf, esat, A_function
+ public :: DBH2HT,DBH2CA,DBH2BM,BM2DBH,BL2Aleaf, &
+           BM2Architecture,qscomp,calc_solarzen,esat, A_function
 
  ! ------ public namelists ---------
  public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
@@ -206,27 +206,26 @@ type :: cohort_type
   integer :: Ncd     = 0   ! number of cold days in non-growing season
   integer :: status  = 0   ! growth status of plant: 1 for ON, 0 for OFF
   integer :: layer   = 1   ! the layer of this cohort (numbered from top, top layer=1)
-  integer :: firstlayer = 0 ! 0 = never been in the first layer; 1 = at least one year in first layer
   real :: layerfrac  = 0.0 ! fraction of layer area occupied by this cohort
   real :: leaf_age     ! leaf age (year)
 
   ! for populatin structure
-  real :: nindivs   = 1.0 ! density of vegetation, individuals/m2
-  real :: mu        = 0.02 ! Cohort mortality rate
-  real :: age       = 0.0 ! age of cohort, years
-  real :: dbh       = 0.0 ! diameter at breast height, m
-  real :: height    = 0.0 ! vegetation height, m
-  real :: crownarea = 1.0 ! crown area, m2/individual
-  real :: leafarea  = 0.0 ! total area of leaves, m2/individual
-  real :: lai       = 0.0 ! crown leaf area index, m2/m2
-  real :: D_bark    = 0.0 ! thickness of bark
+  real :: nindivs= 1.0 ! density of vegetation, individuals/m2
+  real :: mu     = 0.02 ! Cohort mortality rate
+  real :: age    = 0.0 ! age of cohort, years
+  real :: dbh    = 0.0 ! diameter at breast height, m
+  real :: height = 0.0 ! vegetation height, m
+  real :: Acrown = 1.0 ! crown area, m2/individual
+  real :: Aleaf  = 0.0 ! total area of leaves, m2/individual
+  real :: lai    = 0.0 ! crown leaf area index, m2/m2
+  real :: D_bark = 0.0 ! thickness of bark
   ! carbon pools
-  real :: bl      = 0.0 ! biomass of leaves, kg C/individual
-  real :: br      = 0.0 ! biomass of fine roots, kg C/individual
-  real :: bsw     = 0.0 ! biomass of sapwood, kg C/individual
-  real :: bHW     = 0.0 ! biomass of heartwood, kg C/individual
-  real :: seedC   = 0.0 ! biomass put aside for future progeny, kg C/individual
-  real :: nsc     = 0.0 ! non-structural carbon, kg C/individual
+  real :: bl     = 0.0 ! biomass of leaves, kg C/individual
+  real :: br     = 0.0 ! biomass of fine roots, kg C/individual
+  real :: bsw    = 0.0 ! biomass of sapwood, kg C/individual
+  real :: bHW    = 0.0 ! biomass of heartwood, kg C/individual
+  real :: seedC  = 0.0 ! biomass put aside for future progeny, kg C/individual
+  real :: nsc    = 0.0 ! non-structural carbon, kg C/individual
 
   ! ----- carbon fluxes
   real :: gpp  = 0.0 ! gross primary productivity kg C/step
@@ -260,6 +259,7 @@ type :: cohort_type
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
+  real :: Atrunk ! Sum of all rings
   real :: treeHU ! total water transported by the functional sapwood, m^3
   real :: treeW0 ! total WTC0 of the sapwood, m^3
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
@@ -1047,20 +1047,19 @@ end subroutine qscomp
  END FUNCTION esat
 
  ! ============================================================================
- subroutine Wood2Architecture(cc,btot)
+ subroutine BM2Architecture(cc,BM)
    type(cohort_type), intent(inout) :: cc
-   real,intent(in)    :: btot ! wood biomass, kg C
+   real,intent(in)    :: BM ! wood biomass, kg C
    !------------------------------------
    associate(sp=>spdata(cc%species))
-      cc%DBH        = (btot / sp%alphaBM) ** ( 1.0/sp%thetaBM )
-      cc%height     = sp%alphaHT * cc%dbh ** sp%thetaHT
-      cc%crownarea  = sp%alphaCA * cc%dbh ** sp%thetaCA
-      cc%bl_max = sp%LMA  * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)/max(1,cc%layer)
-      cc%br_max = sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
-      cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
-
+     cc%DBH    = BM2DBH(   BM,cc%species)
+     cc%height = DBH2HT(cc%DBH,cc%species)
+     cc%Acrown = DBH2CA(cc%DBH,cc%species)
+     !cc%bl_max = sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
+     !cc%br_max = sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
+     !cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
    end associate
- end subroutine Wood2Architecture
+ end subroutine BM2Architecture
 
  !============================================================================
  ! Allometry equations, Weng (2014-01-09),07-18-2017, 06-04-2021,2022-08-20
@@ -1093,24 +1092,6 @@ end subroutine qscomp
   DBH = (BM/spdata(SP)%alphaBM) ** ( 1.0/spdata(SP)%thetaBM )
  end function
 
- !-------------------------------------------
- function ccBLmax(cc) result (BLmax)
-  real :: BLmax ! returned value
-  type(cohort_type), intent(in) :: cc    ! cohort to update
-
-  associate(sp=>spdata(cc%species))
-   BLmax = sp%LMA  * sp%LAImax * cc%crownarea * (1.0-sp%f_cGap)/max(1,cc%layer)
-  end associate
- end function
- !-------------------------------------------
- function ccBRmax(cc) result (BRmax)
- real :: BRmax ! returned value
- type(cohort_type), intent(in) :: cc    ! cohort to update
-
- associate(sp=>spdata(cc%species))
-  BRmax = sp%phiRL * sp%LAImax/sp%SRA * cc%crownarea * (1.0-sp%f_cGap)/max(1,cc%layer)
- end associate
- end function
  !-------------------------------------------
  function BL2Aleaf(bl,cc) result (area)
  real :: area ! returned value

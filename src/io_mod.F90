@@ -60,20 +60,20 @@ subroutine vegn_sum_tile(vegn)
      ! update accumulative LAI for each corwn layer
      layer = Max (1, Min(cc%layer,9)) ! between 1~9
      vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
-                            cc%leafarea * cc%nindivs/(1.0-sp%f_cGap)
+                            cc%Aleaf * cc%nindivs/(1.0-sp%f_cGap)
      vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
-                            cc%crownarea * cc%nindivs * sp%f_cGap
+                            cc%Acrown * cc%nindivs * sp%f_cGap
 
     ! For reporting
     ! Vegn C pools:
-     vegn%NSC     = vegn%NSC   + cc%NSC      * cc%nindivs
-     vegn%SeedC   = vegn%SeedC + cc%seedC    * cc%nindivs
-     vegn%leafC   = vegn%leafC + cc%bl       * cc%nindivs
-     vegn%rootC   = vegn%rootC + cc%br       * cc%nindivs
-     vegn%SapwoodC= vegn%SapwoodC + cc%bsw   * cc%nindivs
-     vegn%woodC   = vegn%woodC    + cc%bHW   * cc%nindivs
-     vegn%CAI     = vegn%CAI  + cc%crownarea * cc%nindivs
-     vegn%LAI     = vegn%LAI   + cc%leafarea * cc%nindivs
+     vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
+     vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
+     vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
+     vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
+     vegn%SapwoodC= vegn%SapwoodC+ cc%bsw    * cc%nindivs
+     vegn%woodC   = vegn%woodC   + cc%bHW    * cc%nindivs
+     vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
+     vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
     ! Vegn N pools
      vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
      vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
@@ -88,9 +88,9 @@ subroutine vegn_sum_tile(vegn)
 
      ! Update tree and grass cover
      if(sp%lifeform==0) then
-         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%crownarea*cc%nindivs
+         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
      elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-         vegn%treecover = vegn%treecover + cc%crownarea*cc%nindivs
+         vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
      endif
 
      end associate
@@ -208,7 +208,7 @@ end subroutine Zero_diagnostics
         cc => vegn%cohorts(i)
         write(fno1,'(6(I8,","),40(F12.4,","))')           &
           iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,  &
-          cc%nindivs*10000,cc%dbh,cc%height,cc%crownarea, &
+          cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown, &
           cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,           &
           cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_stem
     enddo
@@ -356,21 +356,21 @@ end subroutine daily_diagnostics
         write(f1,'(4(I8,","),300(E15.4,","))')           &
             iyears,cc%ccID,cc%species,cc%layer,          &
             cc%nindivs*10000, cc%layerfrac,dDBH,         &
-            cc%dbh,cc%height,cc%crownarea,               &
+            cc%dbh,cc%height,cc%Acrown,                  &
             cc%bsw+cc%bHW,cc%nsc,cc%NSN,                 &
             treeG,fseed,fleaf,froot,fwood,               &
             cc%annualGPP,cc%annualNPP,cc%annualTrsp,     &
             cc%annualNup,cc%annualfixedN,cc%mu,          &
-            cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0,       &
-            (cc%farea(j),j=1,Ysw_max)
+            cc%Atrunk,cc%Asap,cc%Ktrunk,                 &
+            cc%treeHU,cc%treeW0,(cc%farea(j),j=1,Ysw_max)
 
         ! Screen output
         write(*,'(1(I6,","),2(I4,","),30(F9.3,","))') &
-            cc%ccID,cc%species,cc%layer,              &
-            cc%nindivs*10000, cc%layerfrac,           &
-            dDBH,cc%dbh,cc%height,cc%crownarea,       &
-            cc%nsc,cc%annualGPP,cc%mu,   &
-            PI*(cc%dbh/2)**2,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
+          cc%ccID,cc%species,cc%layer,                &
+          cc%nindivs*10000, cc%layerfrac,             &
+          dDBH,cc%dbh,cc%height,cc%Acrown,            &
+          cc%nsc,cc%annualGPP,cc%mu,cc%Atrunk,        &
+          cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
     enddo
 
     ! tile pools output
@@ -651,8 +651,8 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
          'dDBH','dbh','height','Acrown',            &
          'wood','nsc', 'NSN','NPPtr','seed',        &
          'NPPL','NPPR','NPPW','GPP','NPP','Transp', &
-         'N_uptk','N_fix','mu','Asap','Ktree',      &
-         'treeHU','treeW0',                         &
+         'N_uptk','N_fix','mu','Atrunk','Asap',     &
+         'Ktree','treeHU','treeW0',                 &
          'farea1','farea2','farea3','farea4','farea5'
 
     write(fno6,'(1(a5,","),80(a12,","))')  'year',         &  ! Yearly tile
