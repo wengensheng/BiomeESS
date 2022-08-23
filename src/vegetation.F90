@@ -1430,8 +1430,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
-  real :: r_use
-  real :: Transp_sap
+  real :: r_use ! Ratio of WTC0 usage
+  real :: Trsp_sap ! Asap normalized tranpiration rate
   real :: funcA,trsp_ring(Ysw_max)
   integer :: i, j, k
 
@@ -1484,15 +1484,15 @@ subroutine vegn_hydraulic_states(vegn, deltat)
        call calculate_Asap_Ktrunk (cc) ! Tree trunk conductance and sapwood area
 
        ! Update trunk hydraulic status
-       !Transp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
+       !Trsp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
        do k=1, MIN(cc%Nrings, Ysw_max)
-         !cc%accH(k) = cc%accH(k) + Transp_sap ! Assume the same
+         !cc%accH(k) = cc%accH(k) + Trsp_sap ! Assume the same
 
          ! Ring-specific sapflow
-         funcA = cc%farea(k) * cc%Aring(k)
          trsp_ring(k) = 1.e-3 * cc%annualTrsp * cc%Kring(k)/cc%Ktrunk ! ton, per ring
          cc%totW(k)   = cc%totW(k) + trsp_ring(k) ! m3, for the whole ring
          ! Lifetime water transported for functional xylem conduits
+         funcA = cc%farea(k) * cc%Aring(k)
          if(funcA > 1.0e-12)then
            cc%accH(k) = cc%accH(k) + trsp_ring(k)/funcA  ! m, for functional conduits only
          endif
