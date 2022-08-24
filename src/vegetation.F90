@@ -8,7 +8,7 @@ module esdvm
  private
 
  !Core functions
- public :: initialize_vegn_tile, vegn_CNW_budget_fast,vegn_growth
+ public :: initialize_vegn_tile, vegn_age,vegn_CNW_budget_fast,vegn_growth
  public :: vegn_phenology,vegn_daily_starvation,vegn_annual_starvation
  public :: vegn_reproduction, vegn_nat_mortality, vegn_hydraulic_states
  public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
@@ -78,6 +78,28 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
 end subroutine vegn_CNW_budget_fast
 
 !========================================================================
+! Weng, 08/23/2022: time counter, update cohort ages and the time of them
+!                   staying in the first layer
+subroutine vegn_age (vegn,t_yr)
+  type(vegn_tile_type), intent(inout) :: vegn
+  real, intent(in) :: t_yr ! step length (year)
+
+  !----- local var --------------
+  type(cohort_type),pointer :: cc
+  integer :: i
+
+  ! Tile age
+  vegn%age = vegn%age + t_yr
+  ! Update cohort ages
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     ! Update cohort age
+     cc%age = cc%age + t_yr
+     ! Update time in the top layer
+     if (cc%layer == 1) cc%topyear = cc%topyear + t_yr
+  enddo
+end subroutine vegn_age
+
 !=============== Plant physiology =======================================
 ! Weng 2017-10-18:compute stomatal conductance, photosynthesis and respiration
 ! updates cc%An_op and cc%An_cl, from LM3
@@ -124,46 +146,45 @@ subroutine vegn_photosynthesis (forcing, vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-     if(cc%status == LEAF_ON .and. cc%lai > 0.01) then
-        ! Convert forcing data
-         layer = Max (1, Min(cc%layer,9))
-         rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
-         rad_net = f_light(layer) * forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
-         p_surf  = forcing%P_air  ! Pa
-         TairK   = forcing%Tair ! K
-         Tair    = forcing%Tair - 273.16 ! degC
-         cana_q  = (esat(Tair)*forcing%RH*mol_h2o)/(p_surf*mol_air)  ! air specific humidity, kg/kg
-         cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
-        ! recalculate the water supply to mol H20 per m2 of leaf per second
-         water_supply = cc%W_supply/(cc%Aleaf*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
+       if(cc%status == LEAF_ON .and. cc%lai > 0.01) then
+         ! Convert forcing data
+          layer = Max (1, Min(cc%layer,9))
+          rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
+          rad_net = f_light(layer) * forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
+          p_surf  = forcing%P_air  ! Pa
+          TairK   = forcing%Tair ! K
+          Tair    = forcing%Tair - 273.16 ! degC
+          cana_q  = (esat(Tair)*forcing%RH*mol_h2o)/(p_surf*mol_air)  ! air specific humidity, kg/kg
+          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
+         ! recalculate the water supply to mol H20 per m2 of leaf per second
+          water_supply = cc%W_supply/(cc%Aleaf*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
 
-        fw = 0.0; fs = 0.0
-        call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%lai, &
-                        p_surf, water_supply, cc%species, sp%pt, &
-                        cana_co2, cc%extinct, fs+fw, cc%layer,   &
-                        psyn, resp,w_scale2,transp ) ! output
-        ! put into cohort data structure for future use in growth
-        cc%An_op  = psyn  ! molC s-1 m-2 of leaves
-        cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
-        cc%w_scale  = w_scale2
-        cc%transp = transp * mol_h2o * cc%Aleaf * step_seconds  ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
-        cc%gpp  = (psyn-resp) * mol_C * cc%Aleaf * step_seconds ! kgC step-1 tree-1
+         fw = 0.0; fs = 0.0
+         call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%lai, &
+                         p_surf, water_supply, cc%species, sp%pt, &
+                         cana_co2, cc%extinct, fs+fw, cc%layer,   &
+                         psyn, resp,w_scale2,transp ) ! output
+         ! put into cohort data structure for future use in growth
+         cc%An_op  = psyn  ! molC s-1 m-2 of leaves
+         cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
+         cc%w_scale  = w_scale2
+         cc%transp = transp * mol_h2o * cc%Aleaf * step_seconds  ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
+         cc%gpp  = (psyn-resp) * mol_C * cc%Aleaf * step_seconds ! kgC step-1 tree-1
 
-        !if(isnan(cc%gpp))cc%gpp=0.0
-        if(isnan(cc%gpp))stop '"gpp" is a NaN'
-        if(isnan(cc%transp))then
-           write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
-           stop '"transp" is a NaN'
-        endif
-
-     else
-        ! no leaves means no photosynthesis and no stomatal conductance either
-        cc%An_op  = 0.0
-        cc%An_cl  = 0.0
-        cc%gpp    = 0.0
-        cc%transp = 0.0
-        cc%w_scale  = -9999
-     endif
+         !if(isnan(cc%gpp))cc%gpp=0.0
+         if(isnan(cc%gpp))stop '"gpp" is a NaN'
+         if(isnan(cc%transp))then
+            write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
+            stop '"transp" is a NaN'
+         endif
+       else
+         ! no leaves means no photosynthesis and no stomatal conductance either
+         cc%An_op  = 0.0
+         cc%An_cl  = 0.0
+         cc%gpp    = 0.0
+         cc%transp = 0.0
+         cc%w_scale  = -9999
+       endif
      end associate
   enddo ! vegn, go through all cohorts
 end subroutine vegn_photosynthesis
@@ -450,9 +471,6 @@ subroutine vegn_respiration(forcing,vegn)
        ! Update NSC and NSN
        cc%nsc = cc%nsc + cc%npp
        cc%NSN = cc%NSN + cc%fixedN
-
-       ! Update cohort age
-       cc%age = cc%age + dt_fast_yr
      end associate
   enddo ! all cohorts
 
@@ -541,9 +559,6 @@ subroutine vegn_growth(vegn)
   !Allocate C_gain to tissues
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
-    ! Update time in the top layer
-    if (cc%layer == 1) cc%topyear = cc%topyear + 1./365.
-
     associate (sp => spdata(cc%species))
     if (cc%status == LEAF_ON) then
        ! Get carbon from NSC pool
@@ -746,25 +761,22 @@ subroutine update_max_LFR_NSN(cc)
   !----- local vars ---------
   real :: BL_c, BL_u
 
-  ! Update bl_max and br_max daily
+  ! Update bl_max and br_max daily, Weng 2014-01-23, 2021-06-04, 08/20/2022
   associate ( sp => spdata(cc%species) )
     BL_c = sp%LMA * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)
-    BL_u = BL_c/2 ! max(1,cc%layer)
-
-    ! updated, Weng 2014-01-23, 2021-06-04, 08/20/2022
-    if (cc%layer > 1 .and. cc%topyear < 1.0E-5) then
-        cc%bl_max = BL_u
-        !Keep understory tree's root low and constant
-        !cc%br_max = 1.8*cc%bl_max/(sp%LMA*sp%SRA) ! sp%phiRL
-    else
-        ! for those returned to the unerstory and in the first layer
-        cc%bl_max = BL_u + min(cc%topyear/3.0,1.0)*(BL_c - BL_u)
+    if (cc%layer > 1) then
+      BL_u = BL_c/cc%layer
+    else ! cc%layer = 1
+      BL_u = BL_c / (1+cc%layer)            ! Woody plants only
     endif
+    cc%bl_max = BL_u + min(cc%topyear/3.,1.)*(BL_c - BL_u)
+    ! Grasses in canopy layer
+    if(sp%lifeform==0 .and. cc%layer==1) cc%bl_max = BL_c
 
     ! Root max
-    cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
+    cc%br_max = BLmax2BRmax(cc)
     ! NSN max
-    cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+    cc%NSNmax = ccNSNmax(cc)
   end associate
 end subroutine update_max_LFR_NSN
 
@@ -2132,6 +2144,7 @@ subroutine initialize_vegn_tile(vegn,nml_file)
    integer :: ierr         ! error code, returned by i/o routines
    integer :: nml_unit
 
+   vegn%age = 0.0 ! Set the tile age as zero.
    !  Read parameters from the parameter file (namelist)
    if(read_from_parameter_file)then
       ! --- Generate cohorts according to "initial_state_nml" ---
@@ -2171,8 +2184,8 @@ subroutine initialize_vegn_tile(vegn,nml_file)
          cp%topyear = 0.0
          cp%species = init_cohort_species(i)
          cp%ccID    = i
-         cp%nsc     = init_cohort_nsc(i)
          cp%nindivs = init_cohort_nindivs(i) ! trees/m2
+         cp%nsc     = init_cohort_nsc(i)
          cp%bsw     = init_cohort_bsw(i)
          cp%bHW     = init_cohort_bHW(i)
          btotal     = cp%bsw + cp%bHW  ! kgC /tree
@@ -2193,9 +2206,15 @@ subroutine initialize_vegn_tile(vegn,nml_file)
          cp => vegn%cohorts(i)
          cp%status  = LEAF_OFF ! ON=1, OFF=0 ! ON
          cp%layer   = 1
-         cp%species = INT(rand()*5)+1
-         cp%nindivs = rand()/10. ! trees/m2
-         btotal     = rand()*100.0  ! kgC /tree
+         cp%age     = 0
+         cp%topyear = 0.0
+         cp%species = 3     ! INT(rand()*5)+1
+         cp%ccID    = i
+         cp%nindivs = 0.001 ! rand()/10. ! trees/m2
+         cp%nsc     = 0.005
+         cp%bsw     = 0.2   ! kgC /tree
+         cp%bHW     = 0.0
+         btotal     = cp%bsw + cp%bHW
          call initialize_cohort_from_biomass(cp,btotal,maxval(vegn%psi_soil(:)))
       enddo
       ! Sorting these cohorts

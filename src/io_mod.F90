@@ -177,7 +177,6 @@ end subroutine Zero_diagnostics
   type(cohort_type), pointer :: cc    ! current cohort
   integer :: i
 
-  vegn%age = vegn%age + dt_fast_yr
   ! Tile summary
   vegn%GPP    = 0.; vegn%fixedN = 0.
   vegn%NPP    = 0.; vegn%Resp   = 0.
@@ -337,7 +336,7 @@ end subroutine daily_diagnostics
     real :: plantC, plantN, soilC, soilN
     integer :: i,j
 
-    write(*, '(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
+    write(*, '(2(I6,","),3(F9.4,","))')iyears, vegn%n_cohorts,vegn%age,vegn%cohorts(1)%age
     write(*,'(1(a6,","),2(a4,","),25(a9,","))')       &
             'cID','PFT','L', 'n','f_CA','dDBH',       &
             'DBH','Height','Acrown','NSC','GPP','mu', &

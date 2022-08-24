@@ -104,6 +104,8 @@ subroutine BiomeE_run()
       call hourly_diagnostics(vegn,forcingData(idata),n_yr,idoy,i,idays,fno1,fno2)
     enddo ! steps_per_day
     vegn%Tc_daily = vegn%Tc_daily/steps_per_day
+    ! Update vegn age
+    call vegn_age(vegn,dt_daily_yr)
     call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
 
     ! Daily calls

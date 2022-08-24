@@ -7,8 +7,9 @@ module datatypes
 
  ! ------ public subroutines and functions ---------
  public :: initialize_PFT_data, initialize_soilpars
- public :: DBH2HT,DBH2CA,DBH2BM,BM2DBH,BL2Aleaf, &
-           BM2Architecture,qscomp,calc_solarzen,esat, A_function
+ public :: BM2Architecture,DBH2HT,DBH2CA,DBH2BM,BM2DBH, &
+           CA2BLmax,BLmax2BRmax,ccNSNmax,BL2Aleaf,      &
+           qscomp,calc_solarzen,esat, A_function
 
  ! ------ public namelists ---------
  public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
@@ -335,8 +336,8 @@ type :: vegn_tile_type
   integer :: n_canopycc = 0
   type(cohort_type), pointer :: cohorts(:)=>NULL()
   type(cohort_type), pointer :: initialCC(:)=>NULL()
-  real :: area  ! m2
-  real :: age=0 ! tile age
+  real :: area      ! m2
+  real :: age = 0.0 ! tile age
   real :: LAI  ! leaf area index
   real :: CAI  ! crown area index
   real :: LAIlayer(9) = 0.0 ! LAI of each crown layer, max. 9
@@ -771,7 +772,8 @@ integer  :: model_run_years = 100
 integer  :: totyears, totdays, steps_per_day ! 24 or 48
 integer  :: equi_days    = 0 ! 100 * 365
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
-real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! daily
+real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
+real     :: dt_daily_yr  = 1.0/365.0 ! Daily
 real     :: step_seconds = 1.0 * 3600.0
 
 !Special test controls
@@ -1055,9 +1057,9 @@ end subroutine qscomp
      cc%DBH    = BM2DBH(   BM,cc%species)
      cc%height = DBH2HT(cc%DBH,cc%species)
      cc%Acrown = DBH2CA(cc%DBH,cc%species)
-     !cc%bl_max = sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
-     !cc%br_max = sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
-     !cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+     cc%bl_max = CA2BLmax(cc) !sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
+     cc%br_max = BLmax2BRmax(cc) !sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
+     cc%NSNmax = ccNSNmax(cc) ! sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
    end associate
  end subroutine BM2Architecture
 
@@ -1091,6 +1093,36 @@ end subroutine qscomp
   integer,intent(in) :: SP
   DBH = (BM/spdata(SP)%alphaBM) ** ( 1.0/spdata(SP)%thetaBM )
  end function
+
+ !-------------------------------------------
+ function ccNSNmax(cc) result (NSNmax)
+   real :: NSNmax ! returned value
+   type(cohort_type), intent(in) :: cc    ! cohort to update
+
+   associate(sp=>spdata(cc%species))
+     NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+   end associate
+ end function
+
+ !-------------------------------------------
+ function CA2BLmax(cc) result (BLmax)
+   real :: BLmax ! returned value
+   type(cohort_type), intent(in) :: cc    ! cohort to update
+
+   associate(sp=>spdata(cc%species))
+     BLmax = sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
+   end associate
+ end function
+
+!-------------------------------------------
+function BLmax2BRmax(cc) result (BRmax)
+  real :: BRmax ! returned value
+  type(cohort_type), intent(in) :: cc    ! cohort to update
+
+  associate(sp=>spdata(cc%species))
+    BRmax = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
+  end associate
+end function
 
  !-------------------------------------------
  function BL2Aleaf(bl,cc) result (area)
