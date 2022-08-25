@@ -9,7 +9,7 @@ module global_vars
   real, parameter    ::  PI = 3.1415926
 end module
 
-!====Main============
+!===========Main============
  program growthana
 
  implicit none
