@@ -7,6 +7,7 @@ rm esdvm.mod
 rm datatypes.mod
 rm io_mod.mod
 rm soil_mod.mod
+rm biomee_mod.mod
 
 ./ess
 

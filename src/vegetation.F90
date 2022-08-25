@@ -761,7 +761,9 @@ subroutine update_max_LFR_NSN(cc)
   !----- local vars ---------
   real :: BL_c, BL_u
 
-  ! Update bl_max and br_max daily, Weng 2014-01-23, 2021-06-04, 08/20/2022
+  ! Update bl_max and br_max daily, Weng 2014-01-23, 2021-06-04, 08/24/2022
+  ! The new updates allow a gradual increase of BLmax when a tree enters
+  ! the canopy layer and a abrupt increase for grasses.
   associate ( sp => spdata(cc%species) )
     BL_c = sp%LMA * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)
     if (cc%layer > 1) then
@@ -769,9 +771,7 @@ subroutine update_max_LFR_NSN(cc)
     else ! cc%layer = 1
       BL_u = BL_c / (1+cc%layer)            ! Woody plants only
     endif
-    cc%bl_max = BL_u + min(cc%topyear/3.,1.)*(BL_c - BL_u)
-    ! Grasses in canopy layer
-    if(sp%lifeform==0 .and. cc%layer==1) cc%bl_max = BL_c
+    cc%bl_max = BL_u + min(1., cc%topyear/sp%transT) * (BL_c - BL_u)
 
     ! Root max
     cc%br_max = BLmax2BRmax(cc)
@@ -1497,6 +1497,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 
        ! Update trunk hydraulic status
        !Trsp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
+       cc%treeHU = 0.0
+       cc%treeW0 = 0.0
        do k=1, MIN(cc%Nrings, Ysw_max)
          !cc%accH(k) = cc%accH(k) + Trsp_sap ! Assume the same
 
@@ -1508,17 +1510,14 @@ subroutine vegn_hydraulic_states(vegn, deltat)
          if(funcA > 1.0e-12)then
            cc%accH(k) = cc%accH(k) + trsp_ring(k)/funcA  ! m, for functional conduits only
          endif
-       enddo
 
-       ! Whole tree conductivity and hydraulic usage, potential
-       cc%treeHU = 0.0
-       cc%treeW0 = 0.0
-       do k=1, MIN(cc%Nrings, Ysw_max)
-         r_use       = cc%accH(k)/cc%WTC0(k)
-         cc%farea(k) = 1. - 1./(1. + exp(r_DF * (1.-r_use))) ! * cc%farea(k) ! Functional fraction
-         funcA       = cc%farea(k) * cc%Aring(k)
+         ! Update tree hydraulic usage and WTC0
          cc%treeHU   = cc%treeHU + funcA * cc%accH(k)
          cc%treeW0   = cc%treeW0 + funcA * cc%WTC0(k)
+
+         ! Update each ring's functional fraction
+         !cc%farea(k) = 1. - exp(-r_DF * (1. - MIN(1.0,cc%accH(k)/cc%WTC0(k))))
+         cc%farea(k) = 1. - 1./(1. + exp(r_DF * (1. - cc%accH(k)/cc%WTC0(k))))
        enddo
        call calculate_Asap_Ktrunk (cc) ! Update Asap and Ktrunk
      end associate

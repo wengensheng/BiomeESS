@@ -158,6 +158,7 @@ type spec_data_type
   real :: tauNSC           ! residence time of C in NSC (to define storage capacity)
   real :: fNSNmax          ! multiplier for NSNmax
   real :: f_N_add
+  real :: transT           ! Structural transitional time for canopy layer trees
   ! Default C/N ratios
   real :: CNleaf0
   real :: CNroot0
@@ -590,6 +591,7 @@ real :: phiRL(0:MSPECIES)   = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)  = 0.25E-4 ! ratio of sapwood area to leaf area
 real :: tauNSC(0:MSPECIES)  = 3 ! 3 ! NSC residence time,years
 real :: fNSNmax(0:MSPECIES) = 5 ! 5 ! multiplier for NSNmax as sum of potential bl and br
+real :: transT(0:MSPECIES)  = 3 ! Years
 real :: f_cGap(0:MSPECIES)  = 0.1  ! The gaps between trees
 real :: LFR_rate(0:MSPECIES)= 1.0
 
@@ -696,8 +698,8 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   rho_wood,rho_FR,root_r,root_zeta,Kw_root,rho_N_up0, N_roots0,       &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
-  NfixRate0, NfixCost0,f_N_add,fNSNmax,l_fract,retransN,              &
-  gamma_L, gamma_LN, gamma_SW, gamma_FR,                              &
+  NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
+  retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
   ! Phenology
   gdd_crit,tc_crit_off,tc_crit_on,T0_gdd,T0_chill,                    &
   gdd_par1,gdd_par2,gdd_par3,                                         &
@@ -936,6 +938,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%LAI_light    = LAI_light
   spdata%tauNSC       = tauNSC
   spdata%fNSNmax      = fNSNmax
+  spdata%transT       = transT
   spdata%phiRL        = phiRL
   spdata%phiCSA       = phiCSA
   ! root urnover rate
@@ -1018,8 +1021,14 @@ subroutine initialize_PFT_data(namelistfile)
       !sp%r0mort_c = A_mort * exp(B_mort*R_WD)
       sp%r0mort_c = 0.048 - 0.024 * R_WD
    endif
-
    write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%r0mort_c
+
+   ! -------- Check parameter boundaries
+   if(sp%lifeform==0)then
+     sp%transT = dt_daily_yr ! Grass BLmax transition in canopy layer is short
+   else
+     sp%transT = max(sp%transT, dt_daily_yr) !Minimum for woody plants
+   endif
 
  end subroutine init_derived_species_data
 

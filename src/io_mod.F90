@@ -207,25 +207,20 @@ end subroutine Zero_diagnostics
         cc => vegn%cohorts(i)
         write(fno1,'(6(I8,","),40(F12.4,","))')           &
           iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,  &
-          cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown, &
+          cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,    &
           cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,           &
           cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_stem
     enddo
     ! Hourly tile
+    associate ( cc1 => vegn%cohorts(1))
     write(fno2,'(3(I5,","),30(E12.4,","),25(F12.4,","))')  &
-      iyears, idoy, ihour,      &
-      forcing%radiation,    &
-      forcing%Tair,         &
-      forcing%rain,         &
-      vegn%GPP,vegn%resp,vegn%transp,  &
-      vegn%evap,vegn%runoff,vegn%soilwater, &
-      vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2), &
-      vegn%cohorts(1)%bl,       &
-      vegn%cohorts(1)%psi_leaf, &
-      vegn%cohorts(1)%psi_stem, & !vegn%FLDCAP,vegn%WILTPT
-      vegn%cohorts(1)%W_leaf,   &
-      vegn%cohorts(1)%W_stem,   &
-      vegn%cohorts(1)%transp
+      iyears,idoy,ihour,forcing%radiation,forcing%Tair,    &
+      forcing%rain,vegn%GPP,vegn%resp,vegn%transp,         &
+      vegn%evap,vegn%runoff,vegn%soilwater,                &
+      vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2),         &
+      cc1%bl,cc1%psi_leaf,cc1%psi_stem,cc1%W_leaf,         &
+      cc1%W_stem,cc1%transp
+    end associate
   endif
   ! Daily summary:
   vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
@@ -258,20 +253,20 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
       cc => vegn%cohorts(i)
       if(outputdaily.and. iday>equi_days) &
       write(fno3,'(9(I5,","),1(F12.4,","),50(F12.4,","))')  &
-            iyears,idoy,i, cc%ccID,cc%species,cc%layer,   &
-            cc%status, cc%ndm, cc%ncd,            &
-            cc%nindivs*10000, cc%layerfrac, cc%LAI, &
-            cc%dailygpp,cc%dailyresp,cc%dailytrsp, &
-            cc%NPPleaf,cc%NPProot,cc%NPPwood, &
-            cc%W_leaf,cc%W_stem,cc%W_dead,    &
-            cc%NSC, cc%seedC, cc%bl, cc%br, cc%bsw, cc%bHW, &
-            cc%NSN*1000, cc%seedN*1000, cc%leafN*1000, &
-            cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000, &
+            iyears,idoy,i, cc%ccID,cc%species,              &
+            cc%layer,cc%status, cc%ndm, cc%ncd,             &
+            cc%nindivs*10000, cc%layerfrac, cc%LAI,         &
+            cc%dailygpp,cc%dailyresp,cc%dailytrsp,          &
+            cc%NPPleaf,cc%NPProot,cc%NPPwood,               &
+            cc%W_leaf,cc%W_stem,cc%W_dead,                  &
+            cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,      &
+            cc%NSN*1000, cc%seedN*1000, cc%leafN*1000,      &
+            cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,      &
             cc%gdd,cc%ALT
 
       ! annual sum
-      cc%annualGPP = cc%annualGPP + cc%dailyGPP
-      cc%annualNPP = cc%annualNPP + cc%dailyNPP
+      cc%annualGPP  = cc%annualGPP  + cc%dailyGPP
+      cc%annualNPP  = cc%annualNPP  + cc%dailyNPP
       cc%annualResp = cc%annualResp + cc%dailyResp
       cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
       cc%annualfixedN = cc%annualfixedN + cc%dailyfixedN
@@ -284,18 +279,18 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
   enddo
   !! Tile level, daily
   if(outputdaily.and. iday>equi_days) then
-     write(fno4,'(2(I5,","),65(F12.4,","))') iyears, idoy,  &
-        vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,      &
-        vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,      &
-        vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000., &
-        vegn%wcl(3)*thksl(3)*1000., &
-        vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh, &
-        vegn%W_leaf,vegn%W_stem,vegn%W_dead,      &
-        vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
-        vegn%SapwoodC, vegn%woodC,                     &
-        vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,  &
-        vegn%rootN*1000, vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
-        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
+     write(fno4,'(2(I5,","),65(F12.4,","))') iyears, idoy,       &
+        vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,           &
+        vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,           &
+        vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000.,   &
+        vegn%wcl(3)*thksl(3)*1000.,                              &
+        vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh,    &
+        vegn%W_leaf,vegn%W_stem,vegn%W_dead,                     &
+        vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,            &
+        vegn%SapwoodC, vegn%woodC,                               &
+        vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,         &
+        vegn%rootN*1000, vegn%SapwoodN *1000, vegn%WoodN *1000,  &
+        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),           &
         vegn%mineralN*1000,vegn%dailyNup*1000,vegn%kp(1)
   endif
   !annual tile
@@ -336,7 +331,7 @@ end subroutine daily_diagnostics
     real :: plantC, plantN, soilC, soilN
     integer :: i,j
 
-    write(*, '(2(I6,","),3(F9.4,","))')iyears, vegn%n_cohorts,vegn%age,vegn%cohorts(1)%age
+    write(*, '(2(I6,","),3(F9.3,","))')iyears, vegn%n_cohorts,vegn%age,vegn%cohorts(1)%age
     write(*,'(1(a6,","),2(a4,","),25(a9,","))')       &
             'cID','PFT','L', 'n','f_CA','dDBH',       &
             'DBH','Height','Acrown','NSC','GPP','mu', &
