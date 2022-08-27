@@ -266,7 +266,6 @@ type :: cohort_type
   real :: treeW0 ! total WTC0 of the sapwood, m^3
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
-  real :: totW(Ysw_max) = 0.0 ! m, total water transport for each ring
   real :: accH(Ysw_max) = 0.0 ! m, total water transport for functional conduits
   real :: farea(Ysw_max) = 0.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
   real :: Rring(Ysw_max) = 0.0 ! Radius to the outer edge

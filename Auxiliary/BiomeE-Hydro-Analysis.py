@@ -19,19 +19,19 @@ font = {'family' : 'serif',
         }
 
 ls_cycler = cycler('linestyle',
-                    [(0,()), # solid
-                     (0, (1, 10)), # loosely dotted
-                     (0, (1, 5)), # dotted
-                     (0, (1, 1)), # densely dotted
-                     (0, (5, 10)), # loosely dashed
-                     (0, (5, 5)), # dashed
-                     (0, (5, 1)), # densely dashed
-                     (0, (3, 10, 1, 10)), # loosely dashdotted
-                     (0, (3, 5, 1, 5)), # dashdotted
-                     (0, (3, 1, 1, 1)), # densely dashdotted
-                     (0, (3, 10, 1, 10, 1, 10)), # loosely dashdotdotted
-                     (0, (3, 5, 1, 5, 1, 5)), # dashdotdotted
-                     (0, (3, 1, 1, 1, 1, 1))] # densely dashdotdotted
+            [(0,()), # solid
+            (0, (1, 10)), # loosely dotted
+            (0, (1, 5)), # dotted
+            (0, (1, 1)), # densely dotted
+            (0, (5, 10)), # loosely dashed
+            (0, (5, 5)), # dashed
+            (0, (5, 1)), # densely dashed
+            (0, (3, 10, 1, 10)), # loosely dashdotted
+            (0, (3, 5, 1, 5)), # dashdotted
+            (0, (3, 1, 1, 1)), # densely dashdotted
+            (0, (3, 10, 1, 10, 1, 10)), # loosely dashdotdotted
+            (0, (3, 5, 1, 5, 1, 5)), # dashdotdotted
+            (0, (3, 1, 1, 1, 1, 1))] # densely dashdotdotted 
                   )
 #%% Path and file names
 fpath = './output/'

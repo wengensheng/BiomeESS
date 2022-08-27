@@ -158,6 +158,7 @@ def PlantHydraulicModel():
             Transp[i] = Transp[i] + Wyear[j] * Ax[j]*farea[j]
             #Update farea and Dsw
             farea[j] = 1.0 - 1.0/(1.0 + np.exp(r_DF*(1.0-Wtotal[j]/W0[j])))
+            farea[j] = 1. - np.exp(-r_DF * (1. - np.MIN(1.0,Wtotal[j]/W0[j])))
             Dsw[i]   = Dsw[i] + 0.5*dDBH[j]*farea[j]
 
             # Record each year's results
@@ -357,7 +358,6 @@ plt.ylim((0.0,10.0))
 plt.title('h', x=0.1, y=0.8,fontdict=font)
 plt.ylabel('$dD$ (mm $yr^{-1}$)', fontdict=font)
 plt.xlabel('Tree age (year)', fontdict=font)
-
 
 plt.subplot(3,3,9)
 plt.plot(t, Hv_iW0, t, Hv_cW0)

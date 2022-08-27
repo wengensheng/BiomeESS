@@ -1248,7 +1248,6 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Kx    = 0.0
      cc%farea = 1.0
      cc%accH  = 0.0
-     cc%totW  = 0.0
      cc%Rring = 0.0
      cc%Lring = 0.0
      cc%Aring = 0.0
@@ -1442,9 +1441,9 @@ subroutine vegn_hydraulic_states(vegn, deltat)
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type),   pointer :: sp
-  real :: r_use ! Ratio of WTC0 usage
-  real :: Trsp_sap ! Asap normalized tranpiration rate
-  real :: funcA,trsp_ring(Ysw_max)
+  !real :: Trsp_sap ! Asap normalized tranp rate, m
+  real :: trsp_ring ! Water flow amount of a ring, ton
+  real :: funcA,Lmax
   integer :: i, j, k
 
   do i = 1, vegn%n_cohorts
@@ -1456,7 +1455,6 @@ subroutine vegn_hydraulic_states(vegn, deltat)
           cc%Kx(1)   = NewWoodKx(cc)
           cc%farea(1) = 1.0
           cc%accH(1)  = 0.0
-          cc%totW(1)  = 0.0
           cc%Rring(1) = cc%DBH/2.0
           cc%Lring(1) = HT2Lpath(cc%height)
           cc%Aring(1) = PI * cc%Rring(1)**2
@@ -1468,7 +1466,6 @@ subroutine vegn_hydraulic_states(vegn, deltat)
              cc%Kx(j-1)    = cc%Kx(j)
              cc%farea(j-1) = cc%farea(j)
              cc%accH(j-1)  = cc%accH(j)
-             cc%totW(j-1)  = cc%totW(j)
              cc%Rring(j-1) = cc%Rring(j)
              cc%Lring(j-1) = cc%Lring(j)
              cc%Aring(j-1) = cc%Aring(j)
@@ -1485,7 +1482,6 @@ subroutine vegn_hydraulic_states(vegn, deltat)
        ! Other cohort variables of the new ring
        cc%farea(k) = 1.0
        cc%accH(k)  = 0.0
-       cc%totW(k)  = 0.0
        cc%Rring(k) = cc%DBH/2.0
        cc%Lring(k) = HT2Lpath(cc%height)
        if(k>1)then
@@ -1497,27 +1493,29 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 
        ! Update trunk hydraulic status
        !Trsp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits
+       Lmax = HT2Lpath(cc%height) ! maxval(cc%Lring(:)) !
        cc%treeHU = 0.0
        cc%treeW0 = 0.0
        do k=1, MIN(cc%Nrings, Ysw_max)
          !cc%accH(k) = cc%accH(k) + Trsp_sap ! Assume the same
 
-         ! Ring-specific sapflow
-         trsp_ring(k) = 1.e-3 * cc%annualTrsp * cc%Kring(k)/cc%Ktrunk ! ton, per ring
-         cc%totW(k)   = cc%totW(k) + trsp_ring(k) ! m3, for the whole ring
          ! Lifetime water transported for functional xylem conduits
          funcA = cc%farea(k) * cc%Aring(k)
-         if(funcA > 1.0e-12)then
-           cc%accH(k) = cc%accH(k) + trsp_ring(k)/funcA  ! m, for functional conduits only
+         if(funcA > 1.0e-8)then
+           trsp_ring = 1.e-3 * cc%annualTrsp * cc%Kring(k)/cc%Ktrunk ! ton, per ring
+           cc%accH(k) = cc%accH(k) + trsp_ring/funcA  ! m, for functional conduits only
+           !cc%accH(k) = cc%accH(k) + 1.e-3 * cc%annualTrsp * cc%Kx(k)/Lmax/cc%Ktrunk
          endif
 
+         ! Update each ring's functional fraction
+         cc%farea(k) = 1. - exp(-r_DF * (1. - MIN(1.0,cc%accH(k)/cc%WTC0(k))))
+         !cc%farea(k) = 1. - 1./(1. + exp(r_DF * (1. - cc%accH(k)/cc%WTC0(k))))
+
          ! Update tree hydraulic usage and WTC0
+         funcA = cc%farea(k) * cc%Aring(k)
          cc%treeHU   = cc%treeHU + funcA * cc%accH(k)
          cc%treeW0   = cc%treeW0 + funcA * cc%WTC0(k)
 
-         ! Update each ring's functional fraction
-         !cc%farea(k) = 1. - exp(-r_DF * (1. - MIN(1.0,cc%accH(k)/cc%WTC0(k))))
-         cc%farea(k) = 1. - 1./(1. + exp(r_DF * (1. - cc%accH(k)/cc%WTC0(k))))
        enddo
        call calculate_Asap_Ktrunk (cc) ! Update Asap and Ktrunk
      end associate
@@ -1690,7 +1688,6 @@ subroutine calculate_Asap_Ktrunk (cc)
   type(cohort_type),intent(inout) :: cc
 
   !----- Local vars ---------------
-  real :: L_max
   integer :: i
 
   !---------------------
@@ -1698,14 +1695,13 @@ subroutine calculate_Asap_Ktrunk (cc)
   ! how much water it lifts:
   !Kring=farea * Aringcc%Kx(i)/Lring *(Lring/Lmax)
   ! "Lring/Lmax" is the fraction of water lifts to tree height (or psi_wood)
-  L_max = maxval(cc%Lring(:))
   cc%Ktrunk = 0.0
   cc%Asap   = 0.0
   cc%Atrunk = 0.0
   do i=1, MIN(cc%Nrings, Ysw_max)
     cc%Asap     = cc%Asap   + cc%Aring(i) * cc%farea(i)
     cc%Atrunk   = cc%Atrunk + cc%Aring(i)
-    cc%Kring(i) = cc%farea(i)*cc%Aring(i) * cc%Kx(i)/L_max
+    cc%Kring(i) = cc%farea(i)*cc%Aring(i) * cc%Kx(i)/maxval(cc%Lring(:))
     cc%Ktrunk   = cc%Ktrunk + cc%Kring(i)
   enddo
 end subroutine calculate_Asap_Ktrunk
@@ -2288,7 +2284,6 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%treeW0 = cc%WTC0(1) * cc%Aring(1)
     cc%farea(1)= 1.0
     cc%accH(1) = 0.0
-    cc%totW(1) = 0.0
     ! Initial psi
     cc%psi_stem = psi_s0
     cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height) ! MPa
@@ -2575,7 +2570,6 @@ subroutine merge_cohorts(c1,c2) ! Put c1 into c2
      ! Reset tree rings' hydraulics
      c2%Kx    = x1*c1%Kx    + x2*c2%Kx
      c2%WTC0  = x1*c1%WTC0  + x2*c2%WTC0
-     c2%totW  = x1*c1%totW  + x2*c2%totW
      c2%accH  = x1*c1%accH  + x2*c2%accH
      c2%farea = x1*c1%farea + x2*c2%farea
 
