@@ -197,8 +197,6 @@ end subroutine Zero_diagnostics
      vegn%transp = vegn%transp + cc%transp * cc%nindivs
      vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
   enddo
-  ! NEP is equal to NNP minus soil respiration
-  vegn%nep = vegn%npp - vegn%rh ! kgC m-2 hour-1; time step is hourly
 
   !! Output horly diagnostics
   If(outputhourly .and. iday > totdays-366*5 ) then !  .and. ihour==12

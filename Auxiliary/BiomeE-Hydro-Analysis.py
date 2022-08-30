@@ -34,7 +34,7 @@ ls_cycler = cycler('linestyle',
             (0, (3, 1, 1, 1, 1, 1))] # densely dashdotdotted 
                   )
 #%% Path and file names
-fpath = './output/'
+fpath = '../output/'
 expID = ['PFT3-iWTC0iKx0','PFT3-cWTC0iKx0','5PFTs-iWTC0iKx0','Single5PFTs-iW0iK0-2']
 fname = ['Summary','Patch_yearly','FirstCohortYearly','FirstCohortDaily', \
          'FirstCohortHourly','Cohort_yearly_clean']
@@ -309,6 +309,7 @@ CCYrS = CCYrSingle[0:rows,0:col].astype(np.float)
 n = int(rows/5)
 CCYr5PFTs = CCYrS.reshape((n,5,col))
 xyear  = CCYr5PFTs[:,4,0]
+dDBH   = CCYr5PFTs[:,:,3]
 Acrown = CCYr5PFTs[:,:,6]
 GPP    = CCYr5PFTs[:,:,15]
 Transp = CCYr5PFTs[:,:,17]
@@ -323,7 +324,7 @@ plt.figure(5) #
 #    cycler('linestyle', ['-', '--', ':', '-.',(0, (3, 1, 1, 1, 1, 1))])))
 plt.clf()
 
-plt.subplot(221)
+plt.subplot(321)
 plt.plot(xyear, Transp/Acrown)
 #plt.legend((expID[0:2]),loc=0,ncol=1) # title='PFT',
 #plt.ylim((0.0,60))
@@ -333,31 +334,52 @@ plt.tick_params(labelbottom='off')
 #plt.xlabel('Year', fontdict=font)
 plt.ylabel('Transp (mm yr$^{-1}$)', fontdict=font)
 
-plt.subplot(222)
-plt.plot(xyear, Asap/Acrown*10000/3.5)
+plt.subplot(322)
+plt.plot(xyear, dDBH)
+#plt.legend((expID[0:2]),loc=0,ncol=1) # title='PFT',
 #plt.ylim((0.0,60))
 plt.title('b', x=0.1, y=0.85,fontdict=font)
+plt.tick_params(labelbottom='off')
+#plt.xticks(np.arange(0, 400, 100))
+#plt.xlabel('Year', fontdict=font)
+plt.ylabel('dDBH (mm yr$^{-1}$)', fontdict=font)
+
+plt.subplot(323)
+#plt.plot(xyear, Ktree) #100*Ktree/Acrown
+plt.plot(xyear, 100*Ktree/Acrown)
+#plt.legend((expID[0:2]),loc=0,ncol=1) # title='PFT',
+#plt.ylim((0.0,60))
+plt.title('c', x=0.1, y=0.85,fontdict=font)
+plt.tick_params(labelbottom='off')
+#plt.xticks(np.arange(0, 400, 100))
+#plt.xlabel('Year', fontdict=font)
+plt.ylabel('Ktrunk (m$^{3}$/MPa/s)', fontdict=font)
+
+plt.subplot(324)
+plt.plot(xyear, Asap/Acrown*10000/3.5)
+#plt.ylim((0.0,60))
+plt.title('d', x=0.1, y=0.85,fontdict=font)
 plt.tick_params(labelbottom='off')
 #plt.ylabel('GPP\n(Kg C m$^{-2}$ yr$^{-1}$)', fontdict=font)
 #plt.xticks(np.arange(0, 400, 100))
 #plt.xlabel('Year', fontdict=font)
 plt.ylabel('Hv (cm$^{2}$/m$^{2}$)', fontdict=font)
 
-plt.subplot(223)
+plt.subplot(325)
 plt.plot(xyear, Asap/Atrunk)
 plt.ylim((0.0,0.8))
-plt.title('c', x=0.1, y=0.85,fontdict=font)
+plt.title('e', x=0.1, y=0.85,fontdict=font)
 plt.tick_params(labelbottom='off')
 #plt.ylabel('GPP\n(Kg C m$^{-2}$ yr$^{-1}$)', fontdict=font)
 #plt.xticks(np.arange(0, 400, 100))
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('$r_{SW/Trunk}$', fontdict=font)
 
-plt.subplot(224)
+plt.subplot(326)
 plt.plot(xyear, treeHU/treeW0)
 plt.legend((PFTID),loc=0,ncol=2) # title='PFT',
 plt.ylim((0.0,0.95))
-plt.title('d', x=0.1, y=0.85,fontdict=font)
+plt.title('f', x=0.1, y=0.85,fontdict=font)
 #plt.tick_params(labelbottom='off')
 #plt.xticks(np.arange(0, 400, 100))
 plt.xlabel('Year', fontdict=font)

@@ -58,12 +58,12 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
 
   ! Put litters into soil to start decomposition processes
   do i=1, 2
-       d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
-       d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
-       vegn%SOC(i)  = vegn%SOC(i) - d_C(i)
-       vegn%SON(i)  = vegn%SON(i) - d_N(i)
-       vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
-       vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
+    d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
+    d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
+    vegn%SOC(i)  = vegn%SOC(i) - d_C(i)
+    vegn%SON(i)  = vegn%SON(i) - d_N(i)
+    vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
+    vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)   
   enddo
 
   ! Turnover in SOM4 and SOM5
@@ -262,8 +262,7 @@ real function calc_soil_K(k_sat_ref,chb,V_sat,Vwc) result(K)
     real,intent(in):: V_sat        ! Field capacity
     real,intent(in):: Vwc          ! Soil water content
     !---------------------
-    k = k_sat_ref * 18./1000. * & ! kg H2O/(m2 MPa s)
-       (Vwc/V_sat)**(2*chb+3)
+    k = 18./1000. * k_sat_ref * (Vwc/V_sat)**(2*chb+3)! kg H2O/(m2 MPa s)
 
 end function calc_soil_K
 

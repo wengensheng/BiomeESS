@@ -199,17 +199,17 @@ type :: cohort_type
   integer :: pt           ! photosynthetic physiology of species
 
   ! ---- biological prognostic variables
-  integer :: ccID    = 0   ! cohort ID
-  integer :: species = 0   ! vegetation species
-  real :: gdd     = 0.0   ! for phenology
-  real :: ALT     = 0.0  ! growing season accumulative cold temperature
-  integer :: Ngd     = 0   ! growing days
-  integer :: Ndm     = 0   ! dormant days
-  integer :: Ncd     = 0   ! number of cold days in non-growing season
-  integer :: status  = 0   ! growth status of plant: 1 for ON, 0 for OFF
-  integer :: layer   = 1   ! the layer of this cohort (numbered from top, top layer=1)
-  real :: layerfrac  = 0.0 ! fraction of layer area occupied by this cohort
-  real :: leaf_age     ! leaf age (year)
+  integer :: ccID   = 0   ! cohort ID
+  integer :: species= 0   ! vegetation species
+  real :: gdd       = 0.0   ! for phenology
+  real :: ALT       = 0.0  ! growing season accumulative cold temperature
+  integer :: Ngd    = 0   ! growing days
+  integer :: Ndm    = 0   ! dormant days
+  integer :: Ncd    = 0   ! number of cold days in non-growing season
+  integer :: status = 0   ! growth status of plant: 1 for ON, 0 for OFF
+  integer :: layer  = 1   ! the layer of this cohort (numbered from top, top layer=1)
+  real :: layerfrac = 0.0 ! fraction of layer area occupied by this cohort
+  real :: leaf_age  = 0.0 ! leaf age (year)
 
   ! for populatin structure
   real :: nindivs= 1.0 ! density of vegetation, individuals/m2
@@ -256,8 +256,6 @@ type :: cohort_type
   real :: V_leaf ! Volumn of leaves
   real :: Q_stem ! water flux from soil to stems (kg/tree/step)
   real :: Q_leaf ! water flux from stems to leaves (kg/tree/step)
-  real :: dW_leaf  = 0.d0 ! water demand due to leaf growth
-  real :: dW_stem  = 0.d0 ! water demand due to stem growth
 
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
   real :: Asap ! Functional cross sectional area
@@ -368,7 +366,8 @@ type :: vegn_tile_type
 
   ! Soil water
   integer :: soiltype    ! lookup table for soil hydrologic parameters
-  real :: FLDCAP,WILTPT  ! soil property: field capacity and wilting point (0.xx)
+  real :: FLDCAP  ! soil field capacity
+  real :: WILTPT  ! soil wilting point (0.xx)
   real :: evap           ! kg m-2 per unit fast time step (mm/hour)
   real :: transp         ! kg m-2 hour-1
   real :: runoff        ! Water runoff of the veg tile, unit?
@@ -393,7 +392,6 @@ type :: vegn_tile_type
   real :: gpp =0 ! gross primary production, kgC m-2 yr-1
   real :: npp =0 ! net primary productivity
   real :: resp = 0 ! auto-respiration of plants
-  real :: nep =0 ! net ecosystem productivity
   real :: rh  =0 ! soil carbon lost to the atmosphere
 
   !  fire disturbance

@@ -18,19 +18,19 @@ font = {'family' : 'serif',
 
 linestyle_cycler = cycler('linestyle',['-','-.','--',':'])
 ls_cycler = cycler('linestyle',
-                    [(0,()), # solid
-                     (0, (1, 10)), # loosely dotted
-                     (0, (1, 5)), # dotted
-                     (0, (1, 1)), # densely dotted
-                     (0, (5, 10)), # loosely dashed
-                     (0, (5, 5)), # dashed
-                     (0, (5, 1)), # densely dashed
-                     (0, (3, 10, 1, 10)), # loosely dashdotted
-                     (0, (3, 5, 1, 5)), # dashdotted
-                     (0, (3, 1, 1, 1)), # densely dashdotted
-                     (0, (3, 10, 1, 10, 1, 10)), # loosely dashdotdotted
-                     (0, (3, 5, 1, 5, 1, 5)), # dashdotdotted
-                     (0, (3, 1, 1, 1, 1, 1))] # densely dashdotdotted
+            [(0,()), # solid
+             (0, (1, 10)), # loosely dotted
+             (0, (1, 5)), # dotted
+             (0, (1, 1)), # densely dotted
+             (0, (5, 10)), # loosely dashed
+             (0, (5, 5)), # dashed
+             (0, (5, 1)), # densely dashed
+             (0, (3, 10, 1, 10)), # loosely dashdotted
+             (0, (3, 5, 1, 5)), # dashdotted
+             (0, (3, 1, 1, 1)), # densely dashdotted
+             (0, (3, 10, 1, 10, 1, 10)), # loosely dashdotdotted
+             (0, (3, 5, 1, 5, 1, 5)), # dashdotdotted
+             (0, (3, 1, 1, 1, 1, 1))] # densely dashdotdotted
                   )
 
 #%% --- Global constants
@@ -38,9 +38,10 @@ nYears = 400 # Total years
 PI = 3.1415926
 # Environmental conditions
 dPsi0  = 1.1 # mPa
-TranspD = 0.8
+TranspD = 0.5
 initialR = 0.005 # m
 TreeD0  = 0.25 # m
+thetaW0 = 0.5
 
 # Plant architecture and hydraulic parameters
 alphaC = 150.0
@@ -83,7 +84,7 @@ def PlantHydraulicModel():
 
     # Initiate tree hydraulic capacity
     if do_increasingWTC0:
-        W0[0] = W0_0 * (TreeD[0]/0.0025)**0.5
+        W0[0] = W0_0 * (TreeD[0]/0.0025)**thetaW0
     else:
         W0[0] = W0_0 * (TreeD0/0.0025)**thetaH
 
@@ -136,7 +137,7 @@ def PlantHydraulicModel():
 
         # W0 patterns
         if do_increasingWTC0:
-            W0[i] = W0_0 * (TreeD[i]/0.0025)**thetaH # an increasing W0, a function of D
+            W0[i] = W0_0 * (TreeD[i]/0.0025)**thetaW0 # an increasing W0, a function of D
         else:
             W0[i] = W0_0 * (TreeD0/0.0025)**thetaH
 
@@ -157,14 +158,12 @@ def PlantHydraulicModel():
             #Whole tree water flow
             Transp[i] = Transp[i] + Wyear[j] * Ax[j]*farea[j]
             #Update farea and Dsw
-            farea[j] = 1.0 - 1.0/(1.0 + np.exp(r_DF*(1.0-Wtotal[j]/W0[j])))
-            farea[j] = 1. - np.exp(-r_DF * (1. - np.MIN(1.0,Wtotal[j]/W0[j])))
+            #farea[j] = 1.0 - 1.0/(1.0 + np.exp(r_DF*(1.0-Wtotal[j]/W0[j])))
+            farea[j] = 1. - np.exp(-r_DF * (1. - min(1.0,Wtotal[j]/W0[j])))
             Dsw[i]   = Dsw[i] + 0.5*dDBH[j]*farea[j]
 
             # Record each year's results
-            HtotM[i,j]  = Wtotal[j]
-            fareaM[i,j] = farea[j]
-            KtrM[i,j]   = Kx[j]*Ax[j]*farea[j]
+            fareaM[j,i] = farea[j]
 
         #Acrown-normalized transpiration rate (mm/yr)
         if do_constant_dPsi0:
@@ -297,8 +296,8 @@ plt.ylabel('$WTC_{0}$(km)', fontdict=font)
 #plt.xlabel('Tree age (year)', fontdict=font)
 
 plt.subplot(3,3,2)
-plt.plot(t,fareaM_iW0[50,:],t,fareaM_iW0[150,:]+0.01,t,fareaM_iW0[255,:]+0.02, t,fareaM_iW0[350,:]+0.03)
-plt.legend( ('Year 50', 'Year 150', 'Year 250', 'Year 350'), \
+plt.plot(t,fareaM_iW0[20,:],t,fareaM_iW0[120,:]+0.01,t,fareaM_iW0[220,:]+0.02, t,fareaM_iW0[320,:]+0.03)
+plt.legend( ('Year 20', 'Year 120', 'Year 220', 'Year 320'), \
               ncol=1, loc='lower right', \
               bbox_to_anchor=(0.8, 0.05) )
 plt.title('b', x=0.1, y=0.8,fontdict=font)
@@ -307,8 +306,8 @@ plt.ylabel('$f_{function}$', fontdict=font)
 #plt.xlabel('Tree age (year)', fontdict=font)
 
 plt.subplot(3,3,3)
-plt.plot(t,fareaM_cW0[50,:],t,fareaM_cW0[150,:]+0.01,t,fareaM_cW0[255,:]+0.02, t,fareaM[350,:]+0.03)
-plt.legend( ('Year 50', 'Year 150', 'Year 250', 'Year 350'), \
+plt.plot(t,fareaM_cW0[20,:],t,fareaM_cW0[120,:]+0.01,t,fareaM_cW0[220,:]+0.02, t,fareaM[320,:]+0.03)
+plt.legend( ('Year 20', 'Year 120', 'Year 220', 'Year 320'), \
               ncol=1, loc='lower right', \
               bbox_to_anchor=(0.8, 0.05) )
 plt.title('c', x=0.1, y=0.8,fontdict=font)
@@ -358,6 +357,7 @@ plt.ylim((0.0,10.0))
 plt.title('h', x=0.1, y=0.8,fontdict=font)
 plt.ylabel('$dD$ (mm $yr^{-1}$)', fontdict=font)
 plt.xlabel('Tree age (year)', fontdict=font)
+
 
 plt.subplot(3,3,9)
 plt.plot(t, Hv_iW0, t, Hv_cW0)
