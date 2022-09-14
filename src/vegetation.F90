@@ -1490,6 +1490,9 @@ subroutine vegn_hydraulic_states(vegn, deltat)
           cc%Aring(k) = PI * cc%Rring(k)**2 ! Only for the first year
        endif
        call calculate_Asap_Ktrunk (cc) ! Tree trunk conductance and sapwood area
+       ! Update tree total water transport
+       ! cc%treeHU   = cc%treeHU + cc%Acrown * cc%annualTrsp * 1.e-3 ! ton/tree
+       ! cc%treeW0   = cc%treeW0 + cc%Aring(k) * cc%WTC0(k)
 
        ! Update trunk hydraulic status
        !Trsp_sap = 1.e-3 * cc%annualTrsp/cc%Asap ! m, usage of functional conduits

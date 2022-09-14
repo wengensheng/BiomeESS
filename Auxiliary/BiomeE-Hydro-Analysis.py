@@ -232,7 +232,7 @@ plt.scatter(CCYrVwtc0[:,8], CCYrVwtc0[:,24], s=3)
 plt.title('c', x=0.1, y=0.85,fontdict=font)
 #plt.tick_params(labelbottom='off')
 plt.xlabel('Tree height (m)', fontdict=font)
-plt.ylabel('Ktrunk\n(mm MPa$^{-1}$ s$^{-1}$)', fontdict=font)
+plt.ylabel('Ktrunk\n(Kg H$_{2}$O/MPa/s)', fontdict=font)
 
 plt.subplot(224)
 plt.scatter(CCYrCwtc0[:,8], CCYrCwtc0[:,24], s=3,c='y')
@@ -241,7 +241,7 @@ plt.scatter(CCYrCwtc0[:,8], CCYrCwtc0[:,24], s=3,c='y')
 plt.title('d', x=0.1, y=0.85,fontdict=font)
 #plt.tick_params(labelbottom='off')
 plt.xlabel('Tree height (m)', fontdict=font)
-plt.ylabel('Ktrunk\n(mm MPa$^{-1}$ s$^{-1}$)', fontdict=font)
+plt.ylabel('Ktrunk\n(Kg H$_{2}$O/MPa/s)', fontdict=font)
 
 #%% Plotting Hourly First cohort
 # First cohort hourly dimensions
