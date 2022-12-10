@@ -146,7 +146,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-       if(cc%status == LEAF_ON .and. cc%lai > 0.01) then
+       if(cc%status == LEAF_ON .and. cc%Aleaf > 1.0E-4) then
          ! Convert forcing data
           layer = Max (1, Min(cc%layer,9))
           rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
@@ -1039,12 +1039,13 @@ subroutine Seasonal_fall(cc,vegn)
      endif
 
      dAleaf = BL2Aleaf(dBL,cc)
+#ifdef Hydro_test
      ! Put plant water into the first soil layer
      if(cc%bl >0.0)  &
      vegn%wcl(1) = vegn%wcl(1) + cc%nindivs * cc%W_leaf*dBL/cc%bl/(thksl(1)*1000.0)
      if(cc%bSW>0.0) &
      vegn%wcl(1) = vegn%wcl(1) + cc%nindivs * cc%W_stem*dBStem/cc%bSW/(thksl(1)*1000.0)
-
+#endif
      !Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
      cc%NSN = cc%NSN + retransN * (dNL + dNR + dNStem)
@@ -1365,10 +1366,10 @@ subroutine plant2soil(vegn,cc,deadtrees)
      loss_fine    = deadtrees * (cc%nsc + cc%seedC + cc%br    + cc%Aleaf*LMAmin)
      lossN_coarse = deadtrees * (cc%woodN+cc%sapwN + cc%leafN - cc%Aleaf*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%Aleaf*sp%LNbase)
-
+#ifdef Hydro_test
      ! Assume water in plants goes to first layer of soil
      vegn%wcl(1) = vegn%wcl(1) +  deadtrees * (cc%W_leaf+cc%W_stem+cc%W_dead)/(thksl(1)*1000.0)
-
+#endif
      vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + fsc_wood *loss_coarse
      vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
 
@@ -1396,7 +1397,8 @@ real function mortality_rate(cc) result(mu) ! per year
   integer :: n ! the latest ring
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
   real :: expD, m_S ! Mortality multiplier for size effects
-  real :: mu_bg, mu_hydro  ! Background mortality rate and hydraulic failure
+  real :: mu_bg    = 0.0  ! Background mortality rate
+  real :: mu_hydro = 0.0  ! Hydraulic failure
 
   !---------------------
   associate ( sp => spdata(cc%species))
@@ -1615,17 +1617,6 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        ! Water supply for regulating stomata conductance
        cc%W_supply = PlantWaterSupply(cc,step_seconds)
 
-       !------------------------
-       if(isnan(cc%W_supply))then
-          write(*,*)'cc%species',cc%species
-          write(*,*)'cc%bl,cc%bsw',cc%bl,cc%bsw
-          write(*,*)'cc%Wmin_L,cc%Wmax_L',cc%Wmin_L,cc%Wmax_L
-          write(*,*)'cc%Wmin_s,cc%Wmax_s',cc%Wmin_s,cc%Wmax_s
-          write(*,*)'cc%W_leaf,cc%W_stem',cc%W_leaf,cc%W_stem
-          write(*,*)'cc%H_leaf,cc%H_stem',cc%H_leaf,cc%H_stem
-          write(*,*)'cc%psi_leaf,cc%psi_stem',cc%psi_leaf,cc%psi_stem
-          stop '"transp" is a NaN'
-       endif
      end associate
   enddo
 end subroutine Plant_water_dynamics_linear
@@ -1682,6 +1673,17 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   ! Total plant water supply
   pws = S_stem + S_leaf
 
+  !------------------------
+  if(isnan(pws))then
+     write(*,*)'cc%species',cc%species
+     write(*,*)'cc%bl,cc%bsw',cc%bl,cc%bsw
+     write(*,*)'cc%Wmin_L,cc%Wmax_L',cc%Wmin_L,cc%Wmax_L
+     write(*,*)'cc%Wmin_s,cc%Wmax_s',cc%Wmin_s,cc%Wmax_s
+     write(*,*)'cc%W_leaf,cc%W_stem',cc%W_leaf,cc%W_stem
+     write(*,*)'cc%H_leaf,cc%H_stem',cc%H_leaf,cc%H_stem
+     write(*,*)'cc%psi_leaf,cc%psi_stem',cc%psi_leaf,cc%psi_stem
+     stop 'pws (PlantWaterSupply) is an NaN!'
+  endif
 end function PlantWaterSupply
 
 !===================================================================

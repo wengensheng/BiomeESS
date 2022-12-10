@@ -63,7 +63,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
     vegn%SOC(i)  = vegn%SOC(i) - d_C(i)
     vegn%SON(i)  = vegn%SON(i) - d_N(i)
     vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
-    vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)   
+    vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
   enddo
 
   ! Turnover in SOM4 and SOM5
@@ -312,6 +312,14 @@ subroutine SoilWaterSupply(vegn) ! forcing,
   do j = 1, vegn%n_cohorts
      cc => vegn%cohorts(j)
      cc%W_supply = sum(cc%WupL(:))
+
+     !Error check
+     !------------------------
+     if(isnan(cc%W_supply))then
+       write(*,*)'cc%WupL(:)',cc%WupL(:)
+       stop '"cc%WupL" is an NaN'
+     endif
+
   enddo
 
 end subroutine SoilWaterSupply
