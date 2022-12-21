@@ -14,7 +14,7 @@ module esdvm
  public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
  !For specific experiments
  public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
- public :: vegn_annualLAImax_update, vegn_gap_fraction_update
+ public :: vegn_annualLAImax_update,vegn_gap_fraction_update,reset_vegn_initial
 
  contains
 
@@ -2183,7 +2183,6 @@ subroutine initialize_vegn_tile(vegn,nml_file)
          cp%age     = 0
          cp%topyear = 0.0
          cp%species = init_cohort_species(i)
-         cp%ccID    = i
          cp%nindivs = init_cohort_nindivs(i) ! trees/m2
          cp%nsc     = init_cohort_nsc(i)
          cp%bsw     = init_cohort_bsw(i)
@@ -2191,9 +2190,6 @@ subroutine initialize_vegn_tile(vegn,nml_file)
          btotal     = cp%bsw + cp%bHW  ! kgC /tree
          call initialize_cohort_from_biomass(cp,btotal,maxval(vegn%psi_soil(:)))
       enddo
-      MaxCohortID = cp%ccID
-      ! Sorting these cohorts
-      call relayer_cohorts(vegn)
    else
      ! ------- Generate one cohort randomly --------
      ! Initialize plant cohorts
@@ -2217,14 +2213,6 @@ subroutine initialize_vegn_tile(vegn,nml_file)
          btotal     = cp%bsw + cp%bHW
          call initialize_cohort_from_biomass(cp,btotal,maxval(vegn%psi_soil(:)))
       enddo
-      ! Sorting these cohorts
-      call relayer_cohorts(vegn)
-      ! ID each cohort
-      do i=1,nCohorts
-         cp => vegn%cohorts(i)
-         cp%ccID = MaxCohortID + i
-      enddo
-      MaxCohortID = cp%ccID
       ! Initial Soil pools and environmental conditions
       vegn%SOC(4) = 0.2 ! kgC m-2
       vegn%SOC(5) = 7.0 ! slow soil carbon pool, (kg C/m2)
@@ -2235,6 +2223,16 @@ subroutine initialize_vegn_tile(vegn,nml_file)
       vegn%previousN   = vegn%mineralN
    endif  ! initialization: random or pre-described
 
+   ! Sorting cohorts
+   call relayer_cohorts(vegn)
+
+   ! ID each cohort
+   do i=1,size(vegn%cohorts) ! vegn%n_cohorts
+      cp => vegn%cohorts(i)
+      cp%ccID = i
+   enddo
+   MaxCohortID = cp%ccID
+
    ! tile summary
    call vegn_sum_tile(vegn)
    vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
@@ -2242,7 +2240,7 @@ subroutine initialize_vegn_tile(vegn,nml_file)
                     sum(vegn%SON(:)) + vegn%mineralN
    vegn%totN =  vegn%initialN0
 
-   !Setup reserved initial cohorts
+   !Keep initial plant cohorts
    allocate(cc(1:init_n_cohorts), STAT = istat)
    cc = vegn%cohorts
    vegn%initialCC   => cc
@@ -2297,6 +2295,40 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
 
   end associate
 end subroutine initialize_cohort_from_biomass
+
+!============= Reset to Initial Vegetation States =====================
+!Weng, 12/20/2022
+subroutine reset_vegn_initial(vegn)
+   type(vegn_tile_type),intent(inout),pointer :: vegn
+
+   !--------local vars -------
+   type(cohort_type),dimension(:), pointer :: cc,cc1
+   type(cohort_type), pointer :: cp
+   integer :: i, istat
+
+   !Reset to initial plant cohorts
+   allocate(cc(1:vegn%n_initialCC), STAT = istat)
+   cc1 => vegn%cohorts ! Remember the current cohorts in vegn
+   cc = vegn%initialCC ! Copy the initial cohorts to a new cohor array
+   vegn%cohorts => cc  ! Set the vegn%cohorts as the initial cohorts
+   vegn%n_cohorts = vegn%n_initialCC ! size(vegn%cohorts)
+
+   !Release memory
+   deallocate(cc1) ! Remove the old cohorts
+   cc => null()
+
+   ! Relayering and summary
+   call relayer_cohorts(vegn)
+   call vegn_sum_tile(vegn)
+
+   ! ID each cohort
+   do i=1, vegn%n_cohorts
+      cp => vegn%cohorts(i)
+      cp%ccID = MaxCohortID + i
+   enddo
+   MaxCohortID = cp%ccID
+
+end subroutine reset_vegn_initial
 
 !=======================================================================
 !==================== Cohort management ================================

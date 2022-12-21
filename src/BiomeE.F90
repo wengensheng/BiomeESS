@@ -193,6 +193,8 @@ subroutine BiomeE_run()
 
       ! zero annual reporting variables
       call Zero_diagnostics(vegn)
+      !! Reset vegetation to initial conditions
+      !if (n_yr==200) call reset_vegn_initial(vegn)
 
       ! update the years of model run
       n_yr = n_yr + 1
