@@ -74,7 +74,7 @@ subroutine BiomeE_initialization()
   real    :: r_rand
 
   ! ---------------------- Setup run files ----------------------
-  runID = 'BCI_hydro' ! 'OR_phiRL' ! 'Konza2' ! 'OR_GAPLUE' ! 'FACE_hydro' !
+  runID = 'ORNL_test' ! 'BCI_hydro' ! 'OR_phiRL' ! 'Konza2' !
   fnamelist = 'parameters_'//trim(runID)//'.nml'
 
   ! --------- Read forcing data ----------------------

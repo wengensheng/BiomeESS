@@ -1,4 +1,4 @@
-#define Hydro_test
+!#define Hydro_test
 !---------------
 module esdvm
  use datatypes
@@ -687,7 +687,7 @@ subroutine vegn_growth(vegn)
        call Plant_water2psi_exp(cc)
 #else
        !Convert C and N from sapwood to heartwood
-       call Sap2HeartWood_fixedHv(cc)
+       !call Sap2HeartWood_fixedHv(cc)
 #endif
 
      elseif(cc%status == LEAF_OFF .and. cc%C_growth > 0.)then
@@ -1735,6 +1735,11 @@ subroutine Sap2HeartWood_Hydro(cc)
     cc%bsw    = woodC - cc%bHW
     cc%sapwN  = woodN * cc%bsw/woodC
     cc%woodN  = woodN * cc%bHW/woodC
+
+    !Update Atrunk and Asap
+    D_hw = bm2dbh(cc%bHW,cc%species)
+    cc%Atrunk = PI*(cc%DBH/2)**2
+    cc%Asap = cc%Atrunk - PI*(D_hw/2)**2
   endif
   end associate
 end subroutine Sap2HeartWood_Hydro
@@ -1771,6 +1776,11 @@ subroutine Sap2HeartWood_fixedHv(cc)
        cc%woodN = cc%woodN + dNS
        cc%W_stem = cc%W_stem - cc%W_stem * dSW/cc%bSW
        cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
+
+       !Update Atrunk and Asap
+       DBHwd = bm2dbh(cc%bHW,cc%species)
+       cc%Atrunk = PI*(cc%DBH/2)**2
+       cc%Asap = cc%Atrunk - PI*(DBHwd/2)**2
     endif
   end associate
 end subroutine Sap2HeartWood_fixedHv
