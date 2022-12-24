@@ -60,7 +60,7 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
                               ! low  N input --> Evergreen
 
 ! Model run
-filepath_in = '../forcingData/'
+filepath_in = './input/'
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
 model_run_years     =  600, !600, ! 1600,
