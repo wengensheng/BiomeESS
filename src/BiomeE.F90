@@ -43,7 +43,7 @@
 !
 !----------------------------- END ----------------------------------
 
-#define Do_demography
+!#define DemographyOFF
 
 !---------------
 module BiomeE_mod
@@ -56,6 +56,7 @@ module BiomeE_mod
 
  ! ------ public subroutines ---------
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
+ public :: runID
 
  ! Main vegn unit
  type(vegn_tile_type),public,pointer :: vegn
@@ -73,11 +74,11 @@ subroutine BiomeE_initialization()
   integer :: timeArray(3), rand_seed
   real    :: r_rand
 
-  ! ---------------------- Setup run files ----------------------
-  runID = 'ORNL_test' ! 'BCI_hydro' ! 'OR_phiRL' ! 'Konza2' !
-  fnamelist = 'parameters_'//trim(runID)//'.nml'
+  ! ---------------------- Setup run files and output path --------------------
+  runID = 'BCI_hydro' ! 'ORNL_test' ! 'OR_phiRL' ! 'Konza2' !
 
   ! --------- Read forcing data ----------------------
+  fnamelist = 'parameters_'//trim(runID)//'.nml'
   nml_unit = 901
   open(nml_unit, file=fnamelist, form='formatted', action='read', status='old')
   read (nml_unit, nml=initial_state_nml, iostat=io)
@@ -99,7 +100,7 @@ subroutine BiomeE_initialization()
 
   ! --------- Model initialization: ---------------
   ! create output files
-  fpath_out='output/'
+  fpath_out = filepath_out ! 'output/'
   call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
 
   ! Setup random numbers ! call random_seed()
@@ -178,7 +179,7 @@ subroutine BiomeE_run()
       if(do_migration) call vegn_migration(vegn) ! for competition
       if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
-#ifdef Do_demography
+#ifndef DemographyOFF
       ! For the incoming year
       call vegn_annual_starvation(vegn) ! turn it off for grass run
       call vegn_nat_mortality(vegn, real(seconds_per_year))
