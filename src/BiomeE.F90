@@ -29,7 +29,7 @@
 !
 ! Contact Ensheng Weng (wengensheng@gmail.com) for questions.
 !
-!             (Lase updated 12/30/2017, 07/24/2022)
+! (Lase updated 12/30/2017, 07/24/2022, 01/03/2023)
 !========================================================================
 
 !------------------------------------------------------------------------
@@ -74,16 +74,18 @@ subroutine BiomeE_initialization()
   integer :: timeArray(3), rand_seed
   real    :: r_rand
 
-  ! ---------------------- Setup run files and output path --------------------
+  ! ---------------------- Define namelist file --------------------
   runID = 'BCI_hydro' ! 'ORNL_test' ! 'OR_phiRL' ! 'Konza2' !
-
-  ! --------- Read forcing data ----------------------
   fnamelist = 'parameters_'//trim(runID)//'.nml'
+
+  ! --------- Initialize input and output files --------------------
+  ! --------- Read namelist initial_state_nml ----------------------
   nml_unit = 901
-  open(nml_unit, file=fnamelist, form='formatted', action='read', status='old')
+  open(nml_unit, file=fnamelist, form='formatted',action='read',status='old')
   read (nml_unit, nml=initial_state_nml, iostat=io)
   close (nml_unit)
 
+  ! --------- Read forcing data ----------------------
   call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
   steps_per_day = int(24.0/step_hour)
@@ -98,26 +100,26 @@ subroutine BiomeE_initialization()
   ! Set up rainfall scenario for phiRL test runs
   forcingData%rain = forcingData%rain * Sc_prcp
 
-  ! --------- Model initialization: ---------------
-  ! create output files
+  ! --------- Setup output files ---------------
   fpath_out = filepath_out ! 'output/'
   call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
 
-  ! Setup random numbers ! call random_seed()
-  call itime(timeArray)     ! Get the current time
-  rand_seed = timeArray(1)+timeArray(2)+timeArray(3)
-  r_rand    = rand(rand_seed)
-
-  ! ------Initialize soil and PFT parameters
+  ! ------ Soil and PFT parameters ------
   call initialize_soilpars(fnamelist)
   call initialize_PFT_data(fnamelist)
 
-  ! Initialize vegetation tile and plant cohorts
+  ! ------ Vegetation tile and plant cohorts ------
   allocate(vegn)
   call initialize_vegn_tile(vegn,fnamelist)
   ! Sort and relayer cohorts
   call relayer_cohorts(vegn)
   call Zero_diagnostics(vegn)
+
+  ! ------ Generate a random number ------
+  call itime(timeArray)     ! Get current time
+  rand_seed = timeArray(1)+timeArray(2)+timeArray(3)
+  ! call random_seed()
+  r_rand    = rand(rand_seed)
 
 end subroutine BiomeE_initialization
 
