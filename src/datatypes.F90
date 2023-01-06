@@ -762,6 +762,7 @@ real :: N_input           = 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
 ! Input files
 character(len=80) :: filepath_in = 'input/'
 character(len=80) :: filepath_out = 'output/'
+character(len=80) :: runID = 'test'
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer  :: datalines ! the total lines in forcing data file
 integer  :: yr_data   ! Years of the forcing data
@@ -799,7 +800,7 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
-    filepath_in,filepath_out, climfile,                         &
+    filepath_in,filepath_out, runID, climfile,                  &
     model_run_years, outputhourly, outputdaily, Sc_prcp,        &
     do_U_shaped_mortality,update_annualLAImax, do_fire,         &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &

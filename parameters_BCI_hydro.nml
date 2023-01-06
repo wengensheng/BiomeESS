@@ -63,12 +63,13 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
                               ! low  N input --> Evergreen
 
 ! Model run
-filepath_in = './input/',
-filepath_out= './output/', !The folder for output files
+filepath_in = './input/',  ! Climate forcing data
+filepath_out= './output/', ! Output files
+runID = 'BCI_hydro',       ! for output file name
 climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years     =  600, !600, ! 1600,
+model_run_years     =  200, !600, ! 1600,
 outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !

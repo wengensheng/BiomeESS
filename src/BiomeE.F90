@@ -56,11 +56,10 @@ module BiomeE_mod
 
  ! ------ public subroutines ---------
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
- public :: runID
 
  ! Main vegn unit
  type(vegn_tile_type),public,pointer :: vegn
- character(len=50) :: runID, fnamelist, fpath_out
+ character(len=50) :: fnamelist, fpath_out
  integer :: nml_unit, iostat,io ! for reading the namelist file
  integer :: fno1, fno2, fno3, fno4, fno5, fno6 ! output files
 
@@ -71,12 +70,12 @@ module BiomeE_mod
 subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
   implicit none
+  character(len=50) :: paraID = 'ORNL_test' ! 'BCI_hydro' !
   integer :: timeArray(3), rand_seed
   real    :: r_rand
 
   ! ---------------------- Define namelist file --------------------
-  runID = 'BCI_hydro' ! 'ORNL_test' ! 'OR_phiRL' ! 'Konza2' !
-  fnamelist = 'parameters_'//trim(runID)//'.nml'
+  fnamelist = 'input.nml' ! 'parameters_'//trim(paraID)//'.nml' !
 
   ! --------- Initialize input and output files --------------------
   ! --------- Read namelist initial_state_nml ----------------------
