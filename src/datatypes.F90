@@ -306,7 +306,7 @@ type :: cohort_type
   real :: root_length(soil_L) ! m
   real :: rootarea ! total fine root area per tree
   real :: rootdepth  ! maximum depth of fine roots
-  real :: rootareaL(soil_L) = 0.0 ! Root length per layer, m of root/m
+  real :: ArootL(soil_L) = 0.0 ! Root area per layer
   real :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
   real :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
   real :: W_supply  ! potential water uptake rate per unit time per tree
@@ -343,6 +343,7 @@ type :: vegn_tile_type
   real :: kp(9)       = 0.0 ! light extinction coefficient fro each layer
   ! uptake-related variables
   real :: root_distance(soil_L) ! characteristic half-distance between fine roots, m
+  real :: ArootL(soil_L) = 0.0 ! Root are per layer
   ! averaged quantities for PPA phenology
   real :: tc_daily = 0.0
   real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology

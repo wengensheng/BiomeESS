@@ -48,6 +48,7 @@ subroutine vegn_sum_tile(vegn)
 
   vegn%LAI     = 0.0
   vegn%CAI     = 0.0
+  vegn%ArootL(:) = 0.0
 
   vegn%LAIlayer = 0.0
   vegn%f_gap    = 0.0
@@ -74,6 +75,7 @@ subroutine vegn_sum_tile(vegn)
      vegn%woodC   = vegn%woodC   + cc%bHW    * cc%nindivs
      vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
      vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
+     vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
     ! Vegn N pools
      vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
      vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
@@ -330,7 +332,7 @@ end subroutine daily_diagnostics
     integer :: i,j
 
     write(*, '(2(I6,","),3(F9.3,","))')iyears, vegn%n_cohorts,vegn%age,vegn%cohorts(1)%age
-    write(*,'(1(a6,","),2(a4,","),25(a9,","))')       &
+    write(*,'(1(a6,","),2(a4,","),25(a10,","))')       &
             'cID','PFT','L', 'n','f_CA','dDBH',       &
             'DBH','Height','Acrown','NSC','GPP','mu', &
             'Atrunk','Asap','Ktree','treeHU','treeW0'
@@ -357,7 +359,7 @@ end subroutine daily_diagnostics
             cc%treeHU,cc%treeW0,(cc%farea(j),j=1,Ysw_max)
 
         ! Screen output
-        write(*,'(1(I6,","),2(I4,","),30(F9.3,","))') &
+        write(*,'(1(I6,","),2(I4,","),30(F10.3,","))') &
           cc%ccID,cc%species,cc%layer,                &
           cc%nindivs*10000, cc%layerfrac,             &
           dDBH,cc%dbh,cc%height,cc%Acrown,            &

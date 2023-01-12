@@ -295,7 +295,7 @@ subroutine SoilWaterSupply(vegn) ! forcing,
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         ! Potential water uptake per soil layer by all cohorts
-        cc%WupL(i) = cc%rootareaL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
+        cc%WupL(i) = cc%ArootL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
         LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
      enddo
 
