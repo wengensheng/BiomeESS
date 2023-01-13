@@ -51,25 +51,24 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   call SoilWater_psi_K(vegn)
 
 #ifdef Hydro_test
-  ! Dynamic tree trunk conductivity and water potential
-  call Plant_water_dynamics_linear(vegn)  ! A linearized calculation of psi and k
-  !call plant_water_dynamics_Xiangtao(vegn) ! Xiangtao's model
+  ! Update plant hydraulic status, fluxes, and water supply for transpiration
+  call Plant_water_dynamics_linear(vegn)
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
 #else
-  ! Water supply for photosynthesis from soil layers
+  ! Water supply from soil directly
   call SoilWaterSupply(vegn)
   call vegn_photosynthesis(forcing, vegn)
   call SoilWaterTranspUpdate(vegn)
 #endif
 
-  ! Update soil water: infiltration and surface evap.
+  ! Soil water dynamics: infiltration and surface evap.
   call SoilWaterDynamics(forcing,vegn)
 
-  ! Respiration
+  ! Plant Respiration
   call vegn_respiration(forcing,vegn)
 
-  ! update soil carbon
+  ! Soil organic matter decomposition
    call Soil_BGC(vegn, forcing%tsoil, thetaS)
 
   !! Nitrogen uptake
@@ -1535,7 +1534,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 end subroutine vegn_hydraulic_states
 
 !========================================================================
-! Weng 2022-03-29 ! Updated 07/29/2022
+! Weng 2022-03-29 ! Updated 01/13/2023
 subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   !type(climate_data_type),intent(in):: forcing
   type(vegn_tile_type), intent(inout) :: vegn
@@ -1547,14 +1546,14 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   real :: psi_leaf,psi_stem,psi_sl
   real :: k_rs(soil_L)   ! soil-root water conductance by soil layer
   real :: k_stem         ! The conductance of the tree at current conditions
-  real :: sumK, sumPK, dpsi, psi_soil, W_psi_soil
-  real :: Q_tot ! Total soil water uptake by a plant
-  real :: W_maxL
-  real :: f_sw = 0.2 ! maximum fraction of soil water uptaken per hour
+  real :: sumK, sumPK, dpsi, psi_soil
+  real :: W_psi_s0 ! Stem water content at psi_s0
+  real :: Q_tot  ! Total soil water uptake by a plant
+  real :: W_maxL ! Maximum available water in a soil layer for an individual
+  real :: f_soil ! Fraction of water left in soil for next step
   integer :: i,j
 
   ! Plant water potentials, water fluxes and content
-  vegn%rootC = 0.0
   do j = 1, vegn%n_cohorts
      cc => vegn%cohorts(j)
      associate ( sp => spdata(cc%species) )
@@ -1583,15 +1582,10 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        cc%W_leaf = cc%W_leaf + cc%Q_leaf - Q_air
        cc%W_stem = cc%W_stem - cc%Q_leaf
        cc%psi_leaf = psi_leaf
-     end associate
-  enddo
 
-  ! Water fluxes from soil to stem base (and between soil layers via roots)
-  do j = 1, vegn%n_cohorts
-     cc => vegn%cohorts(j)
-     associate ( sp => spdata(cc%species) )
-       W_psi_soil = cc%Wmax_s * exp(cc%psi_s0 * sp%CR_Wood)
-       if(cc%W_stem < W_psi_soil) then
+       ! Water fluxes from soil to stem base
+       W_psi_s0 = cc%Wmax_s * exp(cc%psi_s0 * sp%CR_Wood)
+       if(cc%W_stem < W_psi_s0) then
          sumK  = 0.0
          sumPK = 0.0
          do i=1, soil_L
@@ -1606,31 +1600,34 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
                     (sumK *step_seconds + cc%H_stem)
          ! Calculate water uptake by layer in theory
          do i=1, soil_L
-            dpsi = max(0.0, vegn%psi_soil(i) - psi_stem)
-            cc%Q_soil(i) = k_rs(i) * dpsi * step_seconds
-            W_maxL =  f_sw * vegn%freewater(i)*cc%ArootL(i)/max(1.e-6,vegn%ArootL(i))
-            cc%Q_soil(i) = Min(cc%Q_soil(i), W_maxL)
+           W_maxL =  vegn%freewater(i)*cc%ArootL(i)/max(1.e-6,vegn%ArootL(i))
+           dpsi = max(0.0, vegn%psi_soil(i) - psi_stem)
+           cc%Q_soil(i) = Min(k_rs(i)*dpsi*step_seconds, W_maxL)
          enddo
 
          ! Check if the plant needs this ammount of water
-         if(sum(cc%Q_soil)>0.0) &
-           cc%Q_soil = cc%Q_soil*Min(1.0,(W_psi_soil-cc%W_stem)/sum(cc%Q_soil))
+         Q_tot = sum(cc%Q_soil)
+         if(Q_tot > 0.0) &
+           cc%Q_soil = cc%Q_soil * Min(1.0,(W_psi_s0-cc%W_stem)/Q_tot)
 
          ! Update stem and soil water content, and stem psi
-         Q_tot = 0.0
          do i=1, soil_L
-           cc%W_stem  = cc%W_stem   + cc%Q_soil(i)
-           vegn%wcl(i)= vegn%wcl(i) - cc%Q_soil(i)*cc%nindivs/(thksl(i)*1000.0)
-           Q_tot = Q_tot + cc%Q_soil(i)
+           cc%W_stem = cc%W_stem + cc%Q_soil(i)
+           vegn%freewater(i) = vegn%freewater(i) - cc%Q_soil(i)*cc%nindivs
+           vegn%wcl(i) = vegn%WILTPT + vegn%freewater(i)/(thksl(i)*1000.0)
          enddo
          cc%psi_stem = psi_stem ! log(cc%W_stem/cc%Wmax_s)/sp%CR_Wood
-       endif
+       endif ! Water uptake from soil
 
-       ! Water supply for regulating stomata conductance
-       cc%W_supply = PlantWaterSupply(cc,step_seconds) + Q_tot
-
+       ! Next step water supply for regulating stomata conductance
+       Q_tot = sum(cc%Q_soil)
+       f_soil = 1.0 - Q_tot/vegn%soilwater ! only when Q_tot is close to soil water
+       cc%W_supply = f_soil*Q_tot + PlantWaterSupply(cc,step_seconds)
      end associate
   enddo
+  ! Update soil free water to make sure it is the sum of all layers'
+  vegn%soilwater = sum(vegn%freewater(:))
+
 end subroutine Plant_water_dynamics_linear
 
 !===================================================================

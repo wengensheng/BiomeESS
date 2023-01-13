@@ -46,9 +46,9 @@ subroutine vegn_sum_tile(vegn)
   vegn%W_dead = 0.0
   vegn%W_leaf = 0.0
 
-  vegn%LAI     = 0.0
-  vegn%CAI     = 0.0
-  vegn%ArootL(:) = 0.0
+  vegn%LAI    = 0.0
+  vegn%CAI    = 0.0
+  vegn%ArootL = 0.0
 
   vegn%LAIlayer = 0.0
   vegn%f_gap    = 0.0
