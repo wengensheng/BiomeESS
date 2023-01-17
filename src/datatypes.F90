@@ -768,6 +768,7 @@ character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer  :: datalines ! the total lines in forcing data file
 integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
+real     :: siteLAT = 36.01 !site latitude, ORNL
 
 ! Model run control
 integer  :: model_run_years = 100
@@ -792,6 +793,7 @@ logical  :: do_WD_mort_function = .False.
 
 ! Scenarios
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
+real     :: CO2_c   = 412 ! PPM, CO2 concentration at 2020
 
 ! Model initialization name list
 namelist /initial_state_nml/ &
@@ -801,8 +803,8 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
-    filepath_in,filepath_out, runID, climfile,                  &
-    model_run_years, outputhourly, outputdaily, Sc_prcp,        &
+    filepath_in,filepath_out, runID, climfile, siteLAT,         &
+    model_run_years, outputhourly, outputdaily, Sc_prcp,CO2_c,  &
     do_U_shaped_mortality,update_annualLAImax, do_fire,         &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
     do_WD_mort_function
@@ -1213,7 +1215,7 @@ end function
        delta  = asin(-sin(rad*23.450)*cos(2.0*pi*(td+10.0)/365.0))
        cosz = sin(latrad)*sin(delta) + &
                 cos(latrad)*cos(delta)*cos(rad* 15.0*(hour-12.0))
-       cosz = max (cosz, 0.01)  ! Sun's angular is 0.01
+       cosz = max (cosz, 0.0)  ! Sun's angular is 0.01
 
        ! compute the solar elevation and zenth angles below
        solarelev = asin(cosz)/pi*180.0  !since asin(cos(zen))=pi/2-zen=elev

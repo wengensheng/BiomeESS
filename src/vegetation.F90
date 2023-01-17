@@ -1601,7 +1601,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
          ! Calculate water uptake by layer in theory
          do i=1, soil_L
            W_maxL =  vegn%freewater(i)*cc%ArootL(i)/max(1.e-6,vegn%ArootL(i))
-           dpsi = max(0.0, vegn%psi_soil(i) - psi_stem)
+           dpsi   = max(0.0, vegn%psi_soil(i) - psi_stem)
            cc%Q_soil(i) = Min(k_rs(i)*dpsi*step_seconds, W_maxL)
          enddo
 

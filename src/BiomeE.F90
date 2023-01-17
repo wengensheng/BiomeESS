@@ -85,8 +85,12 @@ subroutine BiomeE_initialization()
   close (nml_unit)
 
   ! --------- Read forcing data ----------------------
-  call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  if(index(climfile,'CRU')==0)then
+    call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
+    !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  else
+    call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  endif
   steps_per_day = int(24.0/step_hour)
   dt_fast_yr    = step_hour/(365.0 * 24.0)
   step_seconds  = step_hour*3600.0
@@ -98,7 +102,7 @@ subroutine BiomeE_initialization()
 
   ! Set up rainfall scenario for phiRL test runs
   forcingData%rain = forcingData%rain * Sc_prcp
-
+  !stop
   ! --------- Setup output files ---------------
   fpath_out = filepath_out ! 'output/'
   call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)

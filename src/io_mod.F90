@@ -578,6 +578,125 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
 
 end subroutine read_NACPforcing
 
+!=============================================================================
+subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
+   type(climate_data_type),pointer,intent(inout) :: forcingData(:)
+   integer,intent(inout) :: datalines,days_data,yr_data
+   real, intent(inout)   :: timestep
+   !------------local var -------------------
+   type(climate_data_type), pointer :: climateData(:)
+   character(len=80)  commts
+   integer, parameter :: niterms=6 !'tmp','pre','tswrf','spfh','pres','windU'
+   integer, allocatable :: doy_data(:),year_data(:)
+   real,    allocatable :: hour_data(:),input_data(:,:)
+   real    :: hr, clim(niterms)
+   real    :: td,cosz,solarelev,solarzen,r_light
+   real    :: cosz14H
+   integer :: H14 ! The line of each day's 2PM
+   integer :: yr,dy
+   integer :: istat1,istat2,istat3
+   integer :: ndays,nyear,totlines
+   integer :: m,n,i
+
+   ! Open forcing data
+   climfile=trim(filepath_in)//trim(climfile)
+   open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
+   write(*,*)'istat2',istat2
+
+   ! Skip 1 line of input met data file
+   read(11,'(a160)') commts
+   ! Count total lines
+   totlines = 0  ! to record the lines in a file
+   do
+     read(11,*,IOSTAT=istat3)yr,dy !,hr,(clim(n),n=1,niterms)
+     if(istat3 < 0)exit
+     totlines = totlines + 1
+   enddo ! end of reading the forcing file
+   write(*,*)'total lines:',totlines
+
+   ! Allocate arrays for reading in data
+   allocate(doy_data(totlines),year_data(totlines),hour_data(totlines))
+   allocate(input_data(niterms,totlines))
+
+   ! Read forcing files
+   rewind 11
+   read(11,'(a160)') commts
+   ndays = 0   ! the total days in this data file
+   nyear = 0   ! the total years of this data file
+   dy    = -1  ! Initial value
+   yr    = -1
+   do m = 1, totlines
+     read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
+                         (input_data(n,m),n=1,niterms)
+     ! Count days
+     if(m > 1) then
+       dy = doy_data(m-1)
+       yr = year_data(m-1)
+     endif
+     if(dy /= doy_data(m)) ndays = ndays + 1
+     if(yr /= year_data(m))nyear = nyear + 1
+   enddo
+   ! Check fast time step
+   timestep = hour_data(2) - hour_data(1)
+   if (timestep==1.0)then
+       write(*,*)"the data freqency is hourly"
+   elseif(timestep==0.5)then
+       write(*,*)"the data freqency is half hourly"
+   else
+       write(*,*)'hour data:',hour_data(1),hour_data(2),hour_data(3)
+       write(*,*)"Please check time step!"
+       stop
+   endif
+
+   ! Put the data into forcing
+   allocate(climateData(totlines))
+   do i=1,totlines
+      td = doy_data(i) + hour_data(i)/24.0
+      call calc_solarzen(td,siteLAT,cosz,solarelev,solarzen)
+      if(cosz>0.005)then
+        td = doy_data(i) + 14.0/24.0
+        call calc_solarzen(td,siteLAT,cosz14H,solarelev,solarzen)
+        H14 = INT(i/24)*24+14
+        r_light = min (1.0,input_data(3,H14)/(cosZ14H*1380.0))
+        climateData(i)%radiation = (cosZ*1380.0) * r_light      ! W/m2
+        climateData(i)%PAR       = climateData(i)%radiation*2.0 ! umol/m2/s
+      else
+        climateData(i)%radiation = 0.0 ! W/m2
+        climateData(i)%PAR       = 0.0 ! umol/m2/s
+      endif
+      !'tmp','pre','tswrf','spfh','pres','windU'
+      climateData(i)%year      = year_data(i)          ! Year
+      climateData(i)%doy       = doy_data(i)           ! day of the year
+      climateData(i)%hod       = hour_data(i)          ! hour of the day
+      climateData(i)%Tair      = input_data(1,i)       ! air temperature, K
+      climateData(i)%Tsoil     = input_data(1,i) *0.8  ! soil temperature, K
+      climateData(i)%rain      = input_data(2,i)/(timestep * 3600)! ! kgH2O m-2 s-1
+      climateData(i)%P_air     = input_data(5,i)        ! pa
+      climateData(i)%windU     = input_data(6,i)        ! wind velocity (m s-1)
+      climateData(i)%RH        = input_data(4,i)/mol_h2o*mol_air* & ! relative humidity (0.xx)
+                                 climateData(i)%P_air/esat(climateData(i)%Tair-273.16)
+      climateData(i)%CO2       = CO2_c * 1.0e-6       ! mol/mol
+      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+
+      !write(*,'(2(I4,","),9(f9.3,","))') &
+      !          climateData(i)%year, climateData(i)%doy, climateData(i)%hod, &
+      !          climateData(i)%Tair, input_data(2,i),climateData(i)%RH,  &
+      !          climateData(i)%radiation, input_data(3,i), &
+      !          cosZ,r_light
+   enddo
+   forcingData => climateData
+   datalines = totlines
+   days_data = ndays
+   yr_data   = nyear
+   write(*,*)"siteLAT:", siteLAT
+   write(*,*)"runID:  ", runID
+   write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
+
+   !Close opened file and release memory
+   close(11)    ! close forcing file
+   deallocate(doy_data,year_data,hour_data,input_data)
+end subroutine read_CRUforcing
+
 !=========== Write output file header ====================
 subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
    character(len=50),intent(in):: runID,fpath
