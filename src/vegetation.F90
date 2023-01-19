@@ -833,7 +833,7 @@ subroutine vegn_phenology(vegn) ! daily step
          ! Temperature conditions
          .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on)  &
          !!!  Woody plants            Grasses in the top layer   !!!
-         !.and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer==1))  &
+         .and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer<=3))  &
          )
 
       cc%firstday = .false.
@@ -2665,7 +2665,7 @@ subroutine reset_vegn_initial(vegn)
       cp%ccID = MaxCohortID + i
    enddo
    MaxCohortID = cp%ccID
-
+   write(*,*)"Vegetaion resetted to initial conditions!"
 end subroutine reset_vegn_initial
 
 !----------------------- fire disturbance (Konza) ---------------------------

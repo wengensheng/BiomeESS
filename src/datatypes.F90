@@ -773,6 +773,7 @@ real     :: siteLAT = 36.01 !site latitude, ORNL
 ! Model run control
 integer  :: model_run_years = 100
 integer  :: totyears, totdays, steps_per_day ! 24 or 48
+integer  :: yr_ResetVeg = 0 ! reseting vegetation to the initial, clearcut
 integer  :: equi_days    = 0 ! 100 * 365
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
 real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
@@ -804,10 +805,10 @@ namelist /initial_state_nml/ &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
     filepath_in,filepath_out, runID, climfile, siteLAT,         &
-    model_run_years, outputhourly, outputdaily, Sc_prcp,CO2_c,  &
+    model_run_years, yr_ResetVeg, outputhourly, outputdaily,   &
     do_U_shaped_mortality,update_annualLAImax, do_fire,         &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
-    do_WD_mort_function
+    do_WD_mort_function,Sc_prcp,CO2_c
 
 !---------------------------------
  contains
