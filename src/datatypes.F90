@@ -93,9 +93,9 @@ module datatypes
 !===============data types ==============================
 !-----------PFT data type----------------
 type spec_data_type
-  integer :: lifeform     ! 0 for grasses, 1 for trees
-  integer :: phenotype    ! phenology type: 0 for deciduous, 1 for evergreen
-  integer :: pt           ! photosynthetic physiology of species
+  integer :: lifeform  ! 0 for grasses, 1 for trees
+  integer :: phenotype ! phenology type: 0 for deciduous, 1 for evergreen
+  integer :: pt        ! photosynthetic physiology of species
   ! leaf traits
   real :: LMA          ! leaf mass per unit area, kg C/m2
   real :: leafLS       ! leaf life span
@@ -104,16 +104,16 @@ type spec_data_type
   real :: LNbase       ! basal leaf Nitrogen per unit area, kg N/m2, (Rubisco)
   real :: CN0leafST    ! leaf structural tissues, 175
   real :: leaf_size    ! characteristic leaf size
-  real :: leafTK      ! leaf thickness, m
+  real :: leafTK       ! leaf thickness, m
   real :: rho_leaf     ! leaf mass density (kgC/m3)
-  real :: alpha_ps   ! photosynthesis efficiency
+  real :: alpha_ps     ! photosynthesis efficiency
   real :: m_cond       ! factor of stomatal conductance
   real :: Vmax         ! max rubisco rate, mol m-2 s-1
   real :: Vannual      ! annual productivity per unit area at full fun (kgC m-2 yr-1)
   real :: gamma_L      ! leaf respiration coeficient (per yr)
   real :: gamma_LN     ! leaf respiration coeficient per unit N
-  real :: ps_wet ! wet leaf photosynthesis down-regulation
-  real :: LFR_rate      ! Leaf filling rate per day
+  real :: ps_wet       ! wet leaf photosynthesis down-regulation
+  real :: LFR_rate     ! Leaf filling rate per day
   ! root traits
   real :: rho_FR       ! material density of fine roots (kgC m-3)
   real :: root_r       ! radius of the fine roots, m
@@ -169,6 +169,8 @@ type spec_data_type
   real :: tc_crit_off     ! K, for turning OFF a growth season
   real :: tc_crit_on      ! K, for turning ON a growth season
   real :: gdd_crit        ! K, critical value of GDD5 for turning ON growth season
+  real :: betaON
+  real :: betaOFF
   !  vital rates
   real :: AgeRepro       ! the age that can reproduce
   real :: v_seed           ! fracton of G_SF to G_F
@@ -209,7 +211,7 @@ type :: cohort_type
   integer :: status = 0   ! growth status of plant: 1 for ON, 0 for OFF
   integer :: layer  = 1   ! the layer of this cohort (numbered from top, top layer=1)
   real :: layerfrac = 0.0 ! fraction of layer area occupied by this cohort
-  real :: leaf_age  = 0.0 ! leaf age (year)
+  real :: leafage   = 0.0 ! leaf age (year)
 
   ! for populatin structure
   real :: nindivs= 1.0 ! density of vegetation, individuals/m2
@@ -648,6 +650,8 @@ real :: gamma_FR(0:MSPECIES)= 12.0 ! 15 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 real :: tc_crit_off(0:MSPECIES)= 273.15 + 15. ! 283.16 ! OFF
 real :: tc_crit_on(0:MSPECIES) = 273.15 + 10. ! 280.16 ! ON
 real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
+real :: betaON(0:MSPECIES)  = 0.2  ! Critical soil moisture for phenology ON
+real :: betaOFF(0:MSPECIES) = 0.1  ! Critical soil moisture for phenology OFF
 
 ! Reproduction prarameters
 real :: AgeRepro(0:MSPECIES) = 5.0  ! year
@@ -699,8 +703,8 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
   retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
   ! Phenology
-  gdd_crit,tc_crit_off,tc_crit_on,T0_gdd,T0_chill,                    &
-  gdd_par1,gdd_par2,gdd_par3,                                         &
+  gdd_crit,tc_crit_off,tc_crit_on,betaON,betaOFF,                     &
+  T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
   r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                &
@@ -899,6 +903,8 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%tc_crit_off = tc_crit_off
   spdata%tc_crit_on  = tc_crit_on
   spdata%gdd_crit    = gdd_crit
+  spdata%betaON      = betaON
+  spdata%betaOFF     = betaOFF
 
   ! Plant traits
   spdata%LMA        = LMA      ! leaf mass per unit area, kg C/m2
@@ -1270,7 +1276,7 @@ end function
     endif
 
     ! reset leaf age to zero if species are chnaged
-    if (spp/=c%species) c%leaf_age = 0.0
+    if (spp/=c%species) c%leafage = 0.0
 
     c%species = spp
   end subroutine

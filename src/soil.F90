@@ -216,6 +216,7 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
      vegn%freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT)*thksl(i)*1000.0)) ! kg/m2, or mm
   enddo
   vegn%soilwater = sum(vegn%freewater(:))
+  vegn%thetaS = vegn%soilwater/(sum(thksl(:))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
 
 end subroutine SoilWaterDynamics
 

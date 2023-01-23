@@ -193,6 +193,7 @@ subroutine BiomeE_run()
 
       ! Cohort management
       call kill_lowdensity_cohorts(vegn)
+      call kill_old_grass(vegn)
       !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
       call relayer_cohorts(vegn)
       call vegn_mergecohorts(vegn)

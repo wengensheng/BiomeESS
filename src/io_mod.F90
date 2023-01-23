@@ -669,7 +669,7 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
       climateData(i)%doy       = doy_data(i)           ! day of the year
       climateData(i)%hod       = hour_data(i)          ! hour of the day
       climateData(i)%Tair      = input_data(1,i)       ! air temperature, K
-      climateData(i)%Tsoil     = input_data(1,i) *0.8  ! soil temperature, K
+      climateData(i)%Tsoil     = input_data(1,i)*0.8 + 273.16*0.2  ! soil temperature, K
       climateData(i)%rain      = input_data(2,i)/(timestep * 3600)! ! kgH2O m-2 s-1
       climateData(i)%P_air     = input_data(5,i)        ! pa
       climateData(i)%windU     = input_data(6,i)        ! wind velocity (m s-1)

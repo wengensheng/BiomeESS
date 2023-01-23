@@ -12,6 +12,7 @@ module esdvm
  public :: vegn_phenology,vegn_daily_starvation,vegn_annual_starvation
  public :: vegn_reproduction, vegn_nat_mortality, vegn_hydraulic_states
  public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
+ public :: kill_old_grass
  !For specific experiments
  public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
  public :: vegn_annualLAImax_update,vegn_gap_fraction_update,reset_vegn_initial
@@ -197,7 +198,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real,    intent(in)   :: tl   ! leaf temperature, degK
   real,    intent(in)   :: ea   ! specific humidity in the canopy air, kg/kg
   real,    intent(in)   :: lai  ! leaf area index
-  !real,    intent(in)   :: leaf_age ! age of leaf since budburst (deciduos), days
+  !real,    intent(in)   :: leafage ! age of leaf since budburst (deciduos), days
   real,    intent(in)   :: p_surf ! surface pressure, Pa
   real,    intent(in)   :: ws   ! water supply, mol H20/(m2 of leaf s)
   integer, intent(in)   :: pft  ! species
@@ -277,8 +278,8 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     !decrease Vmax due to aging of temperate deciduous leaves
     !(based on Wilson, Baldocchi and Hanson (2001)."Plant,Cell, and Environment", vol 24, 571-583)
     !! Turned off by Weng, 2013-02-01, since we can't trace new leaves
-    !  if (sp%leaf_age_tau>0 .and. leaf_age>sp%leaf_age_onset) then
-    !     vm=vm*exp(-(leaf_age-sp%leaf_age_onset)/sp%leaf_age_tau)
+    !  if (sp%leafage_tau>0 .and. leafage>sp%leafage_onset) then
+    !     vm=vm*exp(-(leafage-sp%leafage_onset)/sp%leafage_tau)
     !  endif
 
     ! capgam=0.209/(9000.0*exp(-5000.0*(1.0/288.2-1.0/tl))); - Foley formulation, 1986
@@ -560,6 +561,9 @@ subroutine vegn_growth(vegn)
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species))
     if (cc%status == LEAF_ON) then
+       !update leaf age
+       cc%leafage = cc%leafage + 1.0/365.0
+
        ! Get carbon from NSC pool
        call fetch_CN_for_growth(cc) ! Weng, 2017-10-19
 
@@ -630,6 +634,7 @@ subroutine vegn_growth(vegn)
        cc%bsw   = cc%bsw   + dBSW
        cc%seedC = cc%seedC + dSeed
        cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
+       cc%leafage = (1.0 - dBL/cc%bl) * cc%leafage
        cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
 
        !!update nitrogen pools, Nitrogen allocation
@@ -789,10 +794,9 @@ subroutine vegn_phenology(vegn) ! daily step
   integer :: i,j
   integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
   real    :: cold_thld = -20.  ! threshold of accumulative low temperature
+  integer :: GrassMaxL = 3   ! Maximal layers that grasses can survive
   real    :: GDD_adp, Tc_off_crit
-  real    :: Tc_adj ! Tc_critical adjust according to growing season lenght
-  real    :: ccNSC, ccNSN
-  real    :: totC, totN
+  real    :: totC, totN, ccNSC, ccNSN
   logical :: PhenoON, PhenoOFF
 
   ! -------------- update vegn GDD and tc_pheno ---------------
@@ -802,14 +806,9 @@ subroutine vegn_phenology(vegn) ! daily step
     cc=>vegn%cohorts(i)
     associate (sp => spdata(cc%species) )
       if(cc%status == LEAF_ON)then
-         cc%ncd = 0
-         cc%ndm = 0
-         cc%gdd = 0.0
          cc%ngd = Min(366, cc%ngd + 1)
          if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
       else  ! cc%status == LEAF_OFF
-         cc%ngd = 0
-         cc%ALT = 0.0
          cc%ndm = cc%ndm + 1
          if(vegn%tc_pheno<sp%tc_crit_off)then
             cc%ncd = cc%ncd + 1
@@ -829,21 +828,23 @@ subroutine vegn_phenology(vegn) ! daily step
       if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
       !for deciduous and grasses
       ! GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
-      PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)     &
-         ! Temperature conditions
-         .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on)  &
-         !!!  Woody plants            Grasses in the top layer   !!!
-         .and.(sp%lifeform==1 .OR.(sp%lifeform==0 .and. cc%layer<=3))  &
+      PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)         &
+        .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
+        .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
+        .and.(.NOT.(sp%lifeform==0 .and. cc%layer > GrassMaxL))     &  ! If grasses, layer< 3
          )
 
       cc%firstday = .false.
       if(PhenoON)then
           cc%status = LEAF_ON ! Turn on a growing season
           cc%firstday = .True.
+          cc%gdd = 0.0
+          cc%ncd = 0
+          cc%ndm = 0
       endif
 
       ! Reset grass density at the first day of a growing season
-      if(cc%firstday .and. sp%lifeform ==0 .and. cc%age>1.)then
+      if(sp%lifeform ==0 .and. (cc%firstday .and. cc%age>0.5))then
           !        reset grass density and size for perenials
           ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
           ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
@@ -855,22 +856,23 @@ subroutine vegn_phenology(vegn) ! daily step
       endif
     end associate
   enddo
-
-  if(PhenoON) call relayer_cohorts(vegn)
+  if(any(vegn%cohorts(:)%firstday)) call relayer_cohorts(vegn)
 
   ! OFF of a growing season
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
-     !Tc_adj = - 5. * exp(-0.05*max(-15.,real(cc%ngd-N0_GD)))
      Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
-     PhenoOFF = (cc%status==LEAF_ON .and. sp%phenotype == 0 .and. &
-                cc%ALT < cold_thld .and. vegn%tc_pheno < Tc_off_crit)
+     PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
+          ((cc%ALT<cold_thld .and. vegn%tc_pheno<Tc_off_crit) .or. &
+          (vegn%thetaS < sp%betaOFF .and. cc%NGD > Days_thld))
      end associate
 
      if(PhenoOFF )then
         cc%status = LEAF_OFF  ! Turn off a growing season
-        cc%gdd    = 0.0        ! Start to counting a new cycle of GDD
+        cc%gdd = 0.0          ! Start to count a new cycle of GDD
+        cc%ngd = 0
+        cc%ALT = 0.0
      endif
      ! leaf fall
      call Seasonal_fall(cc,vegn)
@@ -884,8 +886,7 @@ subroutine vegn_tissue_turnover(vegn)
   !-------local var
   type(cohort_type), pointer :: cc    ! current cohort
   real :: loss_coarse, loss_fine, lossN_coarse, lossN_fine
-  real :: alpha_L   ! turnover rate of leaves
-  real :: alpha_S   ! turnover rate of stems
+  real :: alpha_L, alpha_S, alpha_R   ! turnover rates of leaves, stems, and roots
   real :: dBL, dBR, dBStem  ! leaf and fine root carbon tendencies
   real :: dNL, dNR, dNStem  ! leaf and fine root nitrogen tendencies
   real :: dAleaf ! leaf area decrease due to dBL
@@ -895,34 +896,37 @@ subroutine vegn_tissue_turnover(vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-     !    Turnover of leaves and roots regardless of the STATUS of leaf
-     !    longevity. Deciduous: 0; Evergreen 0.035/LMa
-     !    root turnover
-     if(cc%status==LEAF_OFF)then
-        alpha_L = sp%alpha_L ! 60.0 ! yr-1, for decuduous leaf fall
-     else
-        alpha_L = sp%alpha_L
-     endif
+     ! leave turnover rate, fraction per day
+     alpha_L = MIN(.2,Max(2.*cc%leafage/sp%leafLS-1.,0.))
+
      ! Stem turnover
      if(sp%lifeform == 0)then
         alpha_S = alpha_L
      else
         alpha_S = 0.0
      endif
-     dBL    = cc%bl    *    alpha_L  /days_per_year
-     dNL    = cc%leafN *    alpha_L  /days_per_year
+     ! Root turnover
+     alpha_R = sp%alpha_FR /days_per_year
 
-     dBStem = cc%bsw   *    alpha_S  /days_per_year
-     dNStem = cc%sapwN *    alpha_S  /days_per_year
-
-     dBR    = cc%br    * sp%alpha_FR /days_per_year
-     dNR    = cc%rootN * sp%alpha_FR /days_per_year
+     dBL    = cc%bl    * alpha_L
+     dNL    = cc%leafN * alpha_L
+     dBStem = cc%bsw   * alpha_S
+     dNStem = cc%sapwN * alpha_S
+     dBR    = cc%br    * alpha_R
+     dNR    = cc%rootN * alpha_R
 
      dAleaf = BL2Aleaf(dBL,cc)
 
      !    Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
      cc%NSN = cc%NSN + retransN * (dNL + dNR + dNStem)
+
+     ! Update leaf age
+     if(cc%bl>0.0001)then
+       cc%leafage = (1.0 - dBL/cc%bl)*cc%leafage
+     else
+       cc%leafage = 0.d0
+     endif
      !    update plant pools
      cc%bl    = cc%bl    - dBL
      cc%bsw   = cc%bsw   - dBStem
@@ -1052,6 +1056,7 @@ subroutine Seasonal_fall(cc,vegn)
      cc%bl    = cc%bl  - dBL
      cc%br    = cc%br  - dBR
      cc%bsw   = cc%bsw - dBStem ! for grass
+     if(cc%bl<0.0001)cc%leafage = 0.0
 
      cc%leafN = cc%leafN - dNL
      cc%rootN = cc%rootN - dNR
@@ -1219,6 +1224,8 @@ subroutine setup_seedling(cc,totC,totN)
      else
         cc%status = LEAF_ON
      endif
+     ! Leaf age
+     cc%leafage = 0.0
      ! Carbon pools
      cc%bl     = 0.0 * totC
      cc%br     = 0.1 * totC
@@ -2281,6 +2288,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
   associate(sp=>spdata(cc%species))
     call BM2Architecture(cc,btot)
     call update_max_LFR_NSN(cc)
+    cc%leafage = 0.0
     cc%bl     = 0.0
     cc%br     = cc%bl_max
     cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
@@ -2538,6 +2546,56 @@ subroutine kill_lowdensity_cohorts(vegn)
      vegn%cohorts=>cc
   endif
 end subroutine kill_lowdensity_cohorts
+
+! ============================================================================
+! kill old grass cohorts
+! Weng, 01/22/2023
+subroutine kill_old_grass(vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
+  logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
+  real, parameter :: mindensity = 0.25E-4
+  logical :: OldGrass
+  integer :: i,j,k
+
+ ! calculate the number of cohorts that are not old grass
+  k = 0
+  do i = 1, vegn%n_cohorts
+    cp =>vegn%cohorts(i)
+    associate(sp=>spdata(cp%species))
+      OldGrass = (sp%lifeform ==0 .and. cp%age > 3.0)
+      if (.not. OldGrass) k=k+1
+    end associate
+  enddo
+  if (k==0)then
+     write(*,*)'in kill_old_grass: All cohorts are old grass, No action!'
+     !stop
+  endif
+
+  ! exclude cohorts that are old grass
+  if (k>0 .and. k<vegn%n_cohorts)then
+     allocate(cc(k))
+     j=0
+     do i = 1,vegn%n_cohorts
+        cp =>vegn%cohorts(i)
+        associate(sp=>spdata(cp%species))
+        OldGrass = (sp%lifeform ==0 .and. cp%age > 3.0)
+        if (.not. OldGrass) then
+           j=j+1
+           cc(j) = cp
+        else
+           ! Carbon and Nitrogen from plants to soil pools
+           call plant2soil(vegn,cp,cp%nindivs)
+        endif
+        end associate
+     enddo
+     vegn%n_cohorts = j
+     deallocate (vegn%cohorts)
+     vegn%cohorts=>cc
+  endif
+end subroutine kill_old_grass
 
 ! ============================================================================
 subroutine merge_cohorts(c1,c2) ! Put c1 into c2
