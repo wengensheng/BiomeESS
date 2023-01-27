@@ -132,6 +132,7 @@ subroutine BiomeE_run()
   implicit none
   integer :: i, idays, idata, idoy
   integer :: n_steps, n_yr, year0, year1
+  real    :: r_dstb
   logical :: new_annual_cycle
 
   !----------------------
@@ -180,9 +181,9 @@ subroutine BiomeE_run()
       ! Case studies
       ! N is losing after changing the soil pool structure. Hack !!!!!
       ! if(do_closedN_run) call Recover_N_balance(vegn)
-      if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+      ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
       if(do_migration) call vegn_migration(vegn) ! for competition
-      if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
+      ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
 #ifndef DemographyOFF
       ! For the incoming year
@@ -202,6 +203,8 @@ subroutine BiomeE_run()
       call Zero_diagnostics(vegn)
       !! Reset vegetation to initial conditions
       if (n_yr==yr_ResetVeg) call reset_vegn_initial(vegn)
+      if (do_fire .and. n_yr >yr_ResetVeg .and. rand(0)<envi_fire_prb) &
+         call reset_vegn_initial(vegn)
 
       ! update the years of model run
       n_yr = n_yr + 1
