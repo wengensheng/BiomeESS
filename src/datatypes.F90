@@ -274,6 +274,7 @@ type :: cohort_type
   real :: Kring(Ysw_max) = 0.0 ! Conductance of each ring
 
   ! for diagnostics
+  real :: Aleafmax = 0.0  ! Yearly maximum leaf area
   real :: dailyTrsp
   real :: dailyGPP   ! kgC/tree day-1
   real :: dailyNPP
@@ -647,8 +648,8 @@ real :: gamma_SW(0:MSPECIES)= 0.08 ! 5.0e-4 ! kgC m-2 Acambium yr-1
 real :: gamma_FR(0:MSPECIES)= 12.0 ! 15 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 
 ! Phenology parameters
-real :: tc_crit_off(0:MSPECIES)= 273.15 + 15. ! 283.16 ! OFF
-real :: tc_crit_on(0:MSPECIES) = 273.15 + 10. ! 280.16 ! ON
+real :: tc_crit_off(0:MSPECIES)= 15. ! 283.16 ! OFF ! C for convenience
+real :: tc_crit_on(0:MSPECIES) = 10. ! 280.16 ! ON  ! C for convenience
 real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
 real :: betaON(0:MSPECIES)  = 0.2  ! Critical soil moisture for phenology ON
 real :: betaOFF(0:MSPECIES) = 0.1  ! Critical soil moisture for phenology OFF
@@ -899,9 +900,9 @@ subroutine initialize_PFT_data(namelistfile)
   !  spdata%rho_N_up0 = rho_N_up0
   !  spdata%N_roots0  = N_roots0
 
-  spdata%leaf_size   = leaf_size
-  spdata%tc_crit_off = tc_crit_off
-  spdata%tc_crit_on  = tc_crit_on
+  ! Phenology
+  spdata%tc_crit_off = 273.15 + tc_crit_off ! C to K
+  spdata%tc_crit_on  = 273.15 + tc_crit_on  ! C to K
   spdata%gdd_crit    = gdd_crit
   spdata%betaON      = betaON
   spdata%betaOFF     = betaOFF
@@ -911,6 +912,7 @@ subroutine initialize_PFT_data(namelistfile)
   spdata%LNbase     = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
   spdata%CN0leafST  = CN0leafST    ! Supportive tissues
   spdata%lifeform   = lifeform
+  spdata%leaf_size  = leaf_size
   spdata%alphaHT    = alphaHT
   spdata%thetaHT    = thetaHT
   spdata%alphaCA    = alphaCA

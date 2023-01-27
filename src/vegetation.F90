@@ -801,7 +801,7 @@ subroutine vegn_phenology(vegn) ! daily step
 
   ! -------------- update vegn GDD and tc_pheno ---------------
   ! environmental factors for each cohort
-  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2
+  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2 ! K
   do i = 1, vegn%n_cohorts
     cc=>vegn%cohorts(i)
     associate (sp => spdata(cc%species) )
@@ -2686,7 +2686,7 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (abs(c1%DBH - c2%DBH)        < 0.001))  ! it'll be always true for grasses
    sameSizeGrass= (spdata(c1%species)%lifeform ==0) .and. &
                   (spdata(c2%species)%lifeform ==0) .and. &
-                 ((c1%DBH == c2%DBH).and.c1%age> 2. .and. c2%age>2.)  ! it'll be always true for grasses
+                  (c1%DBH == c2%DBH)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
    cohorts_can_be_merged = sameSpecies .and. sameLayer .and. sameSize
 end function
