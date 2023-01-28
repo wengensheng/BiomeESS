@@ -821,23 +821,7 @@ namelist /initial_state_nml/ &
 
 !========================Parameter initialization =========================
 !==========================================================================
-subroutine initialize_soilpars(namelistfile)
-   character(len=50),intent(in) :: namelistfile
-
-  ! ---- local vars
-  integer :: io           ! i/o status for the namelist
-  integer :: ierr         ! error code, returned by i/o routines
-  integer :: i
-  integer :: nml_unit
-
-!  Read parameters from the parameter file (namelist)
-  if(read_from_parameter_file)then
-     nml_unit = 999
-     open(nml_unit, file=namelistfile, form='formatted', action='read', status='old')
-     read (nml_unit, nml=soil_data_nml, iostat=io, end=10)
-10   close (nml_unit)
-     write (*, nml=soil_data_nml)
-  endif
+subroutine initialize_soilpars()
 
   ! initialize soil parameters
   soilpars%GMD         = GMD ! geometric mean partice diameter, mm
@@ -861,23 +845,10 @@ subroutine initialize_soilpars(namelistfile)
 end subroutine initialize_soilpars
 
 ! ================================================
-subroutine initialize_PFT_data(namelistfile)
-  ! Initialize PFT parameters
-  character(len=50),intent(in) :: namelistfile
-  ! ---- local vars
-  integer :: io           ! i/o status for the namelist
-  integer :: ierr         ! error code, returned by i/o routines
-  integer :: i
-  integer :: nml_unit
+subroutine initialize_PFT_data()
 
-  !  Read parameters from the parameter file (namelist)
-  if(read_from_parameter_file)then
-      nml_unit = 999
-      open(nml_unit, file=namelistfile, form='formatted', action='read', status='old')
-      read (nml_unit, nml=vegn_parameters_nml, iostat=io, end=10)
-      10 close (nml_unit)
-   endif
-   write(*,nml=vegn_parameters_nml)
+  ! ---- local vars
+  integer :: i
 
   ! initialize vegetation data structure
   spdata%pt         = pt

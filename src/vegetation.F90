@@ -2154,9 +2154,8 @@ end subroutine plant_water_dynamics_Xiangtao
 
 !==============================================================
 !============= Vegetation initializations =====================
-subroutine initialize_vegn_tile(vegn,nml_file)
+subroutine initialize_vegn_tile(vegn)
    type(vegn_tile_type),intent(inout),pointer :: vegn
-   character(len=50),intent(in) :: nml_file
 
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc => null()
@@ -2164,18 +2163,10 @@ subroutine initialize_vegn_tile(vegn,nml_file)
    real    :: btotal
    integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
    integer :: i, istat
-   integer :: io, ierr, nml_unit
 
    vegn%age = 0.0 ! Set the tile age as zero.
    !  Read parameters from the parameter file (namelist)
    if(read_from_parameter_file)then
-      ! --- Generate cohorts according to "initial_state_nml" ---
-      nml_unit = 999
-      open(nml_unit, file=nml_file, form='formatted', action='read', status='old')
-      read (nml_unit, nml=initial_state_nml, iostat=io, end=20)
-      20  close (nml_unit)
-      write(*,nml=initial_state_nml)
-
       ! Initial Soil pools and environmental conditions
       call initialize_soil(vegn)
       ! Initialize plant cohorts

@@ -60,7 +60,6 @@ module BiomeE_mod
  ! Main vegn unit
  type(vegn_tile_type),public,pointer :: vegn
  character(len=50) :: fnamelist, fpath_out
- integer :: nml_unit, iostat,io ! for reading the namelist file
  integer :: fno1, fno2, fno3, fno4, fno5, fno6 ! output files
 
  contains
@@ -70,19 +69,30 @@ module BiomeE_mod
 subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
   implicit none
+  character(len=50) :: fnml_path, fnml
   character(len=50) :: paraID = 'ORNL_test' ! 'BCI_hydro' !
   integer :: timeArray(3), rand_seed
+  integer :: rc, fu
   real    :: r_rand
 
   ! ---------------------- Define namelist file --------------------
+  fnml_path = './'
   fnamelist = 'input.nml' ! 'parameters_'//trim(paraID)//'.nml' !
 
-  ! --------- Initialize input and output files --------------------
-  ! --------- Read namelist initial_state_nml ----------------------
-  nml_unit = 901
-  open(nml_unit, file=fnamelist, form='formatted',action='read',status='old')
-  read (nml_unit, nml=initial_state_nml, iostat=io)
-  close (nml_unit)
+  ! --------- Read namelists ----------------------
+  fnml = trim(fnml_path)//trim(fnamelist)
+  call read_namelist(fnml)
+
+  ! ------ Soil and PFT parameters ------
+  call initialize_soilpars()
+  call initialize_PFT_data()
+
+  ! ------ Vegetation tile and plant cohorts ------
+  allocate(vegn)
+  call initialize_vegn_tile(vegn)
+  ! Sort and relayer cohorts
+  call relayer_cohorts(vegn)
+  call Zero_diagnostics(vegn)
 
   ! --------- Read forcing data ----------------------
   if(index(climfile,'CRU')==0)then
@@ -106,17 +116,6 @@ subroutine BiomeE_initialization()
   ! --------- Setup output files ---------------
   fpath_out = filepath_out ! 'output/'
   call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
-
-  ! ------ Soil and PFT parameters ------
-  call initialize_soilpars(fnamelist)
-  call initialize_PFT_data(fnamelist)
-
-  ! ------ Vegetation tile and plant cohorts ------
-  allocate(vegn)
-  call initialize_vegn_tile(vegn,fnamelist)
-  ! Sort and relayer cohorts
-  call relayer_cohorts(vegn)
-  call Zero_diagnostics(vegn)
 
   ! ------ Generate a random number ------
   call itime(timeArray)     ! Get current time
