@@ -169,8 +169,11 @@ type spec_data_type
   real :: tc_crit_off     ! K, for turning OFF a growth season
   real :: tc_crit_on      ! K, for turning ON a growth season
   real :: gdd_crit        ! K, critical value of GDD5 for turning ON growth season
-  real :: betaON
-  real :: betaOFF
+  real :: gdd_par1
+  real :: gdd_par2
+  real :: gdd_par3
+  real :: betaON         ! Critical soil moisture for phenology ON
+  real :: betaOFF        ! Critical soil moisture for phenology OFF
   !  vital rates
   real :: AgeRepro       ! the age that can reproduce
   real :: v_seed           ! fracton of G_SF to G_F
@@ -538,9 +541,6 @@ real :: B_mort   = -2.1
 real :: T0_gdd   = 273.15 + 5.0 ! 5.d0
 real :: T0_chill = 273.15 + 10.0
 integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc_crit
-real :: gdd_par1 = 30.0   !50.d0   ! -68.d0
-real :: gdd_par2 = 800. ! 650.d0  !800.d0  ! 638.d0
-real :: gdd_par3 = -0.02 ! -0.01d0
 
 ! Fire regimes
 real :: envi_fire_prb = 0.5 ! fire probability due to environment
@@ -653,7 +653,9 @@ real :: tc_crit_on(0:MSPECIES) = 10. ! 280.16 ! ON  ! C for convenience
 real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
 real :: betaON(0:MSPECIES)  = 0.2  ! Critical soil moisture for phenology ON
 real :: betaOFF(0:MSPECIES) = 0.1  ! Critical soil moisture for phenology OFF
-
+real :: gdd_par1(0:MSPECIES) = 30.0   !50.d0   ! -68.d0
+real :: gdd_par2(0:MSPECIES) = 800. ! 650.d0  !800.d0  ! 638.d0
+real :: gdd_par3(0:MSPECIES) = -0.02 ! -0.01d0
 ! Reproduction prarameters
 real :: AgeRepro(0:MSPECIES) = 5.0  ! year
 real :: v_seed(0:MSPECIES)   = 0.1  ! fraction of allocation to wood+seeds
@@ -875,6 +877,9 @@ subroutine initialize_PFT_data()
   spdata%tc_crit_off = 273.15 + tc_crit_off ! C to K
   spdata%tc_crit_on  = 273.15 + tc_crit_on  ! C to K
   spdata%gdd_crit    = gdd_crit
+  spdata%gdd_par1    = gdd_par1
+  spdata%gdd_par2    = gdd_par2
+  spdata%gdd_par3    = gdd_par3
   spdata%betaON      = betaON
   spdata%betaOFF     = betaOFF
 

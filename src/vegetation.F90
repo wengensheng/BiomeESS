@@ -795,7 +795,7 @@ subroutine vegn_phenology(vegn) ! daily step
   integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
   real    :: cold_thld = -20.  ! threshold of accumulative low temperature
   integer :: GrassMaxL = 3   ! Maximal layers that grasses can survive
-  real    :: GDD_adp, Tc_off_crit
+  real    :: Tk_OFF, Tk_ON, gdd_ON
   real    :: totC, totN, ccNSC, ccNSN
   logical :: PhenoON, PhenoOFF
 
@@ -810,7 +810,7 @@ subroutine vegn_phenology(vegn) ! daily step
          if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
       else  ! cc%status == LEAF_OFF
          cc%ndm = cc%ndm + 1
-         if(vegn%tc_pheno<sp%tc_crit_off)then
+         if(vegn%tc_pheno<T0_chill)then
             cc%ncd = cc%ncd + 1
          endif
          ! Keep gdd as zero in early non-growing season when days < 60
@@ -826,8 +826,9 @@ subroutine vegn_phenology(vegn) ! daily step
     associate (sp => spdata(cc%species) )
       !for evergreen
       if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
-      !for deciduous and grasses
-      ! GDD_adp = sp%gdd_crit*exp(gdd_par3*cc%ncd) + gdd_par1 ! for adaptive phenology
+      ! GDD threshold for leaf green-up
+      gdd_ON = sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd)
+
       PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)         &
         .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
         .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
@@ -862,9 +863,10 @@ subroutine vegn_phenology(vegn) ! daily step
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
-     Tc_off_crit = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
+     ! Critical temperature trigering offset of phenology
+     Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
-          ((cc%ALT<cold_thld .and. vegn%tc_pheno<Tc_off_crit) .or. &
+          ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or. &
           (vegn%thetaS < sp%betaOFF .and. cc%NGD > Days_thld))
      end associate
 

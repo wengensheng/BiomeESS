@@ -72,11 +72,10 @@ subroutine BiomeE_initialization()
   character(len=50) :: fnml_path, fnml
   character(len=50) :: paraID = 'ORNL_test' ! 'BCI_hydro' !
   integer :: timeArray(3), rand_seed
-  integer :: rc, fu
   real    :: r_rand
 
   ! ---------------------- Define namelist file --------------------
-  fnml_path = './'
+  fnml_path = './para_files/'
   fnamelist = 'input.nml' ! 'parameters_'//trim(paraID)//'.nml' !
 
   ! --------- Read namelists ----------------------

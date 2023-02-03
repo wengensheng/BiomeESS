@@ -37,7 +37,7 @@ subroutine read_namelist(fnml)
   open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
   read (nml=soil_data_nml, iostat=rc, unit=fu)
   if (rc /= 0) then
-    write(*,*)'Namelist soil_data_nml error'
+    write(*,*)'Namelist soil_data_nml error', rc
     stop
   endif
   write(*,nml=soil_data_nml)
@@ -46,7 +46,7 @@ subroutine read_namelist(fnml)
   open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
   read (nml=vegn_parameters_nml, iostat=rc, unit=fu)
   if (rc /= 0) then
-    write(*,*)'Namelist vegn_parameters_nml error'
+    write(*,*)'Namelist vegn_parameters_nml error', rc
     stop
   endif
   write(*,nml=vegn_parameters_nml)
@@ -55,7 +55,7 @@ subroutine read_namelist(fnml)
   open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
   read (nml=initial_state_nml, iostat=rc, unit=fu)
   if (rc /= 0) then
-    write(*,*)'Namelist initial_state_nml error'
+    write(*,*)'Namelist initial_state_nml error', rc
     stop
   endif
   write(*,nml=initial_state_nml)
@@ -310,7 +310,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     enddo
     !! Tile daily
     write(fno4,'(2(I5,","),65(F12.4,","))') iyears, idoy,       &
-       vegn%tc_pheno, vegn%dailyPrcp, vegn%soilwater,           &
+       vegn%tc_pheno, vegn%dailyPrcp, vegn%thetaS,              &
        vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,           &
        vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000.,   &
        vegn%wcl(3)*thksl(3)*1000.,                              &
@@ -662,10 +662,17 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
    integer :: ndays,nyear,totlines
    integer :: m,n,i
 
-   ! Open forcing data
+   ! --------- Data file----------
    climfile=trim(filepath_in)//trim(climfile)
+   ! Check whether file exists
+   inquire (file=climfile, iostat=istat2)
+   if (istat2 /= 0) then
+       write (*, '("Error: input file ", a, " does not exist")') climfile
+       stop
+   end if
+
+   ! Open forcing data
    open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
-   write(*,*)'istat2',istat2
 
    ! Skip 1 line of input met data file
    read(11,'(a160)') commts
@@ -783,28 +790,25 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
 
     ! Open files
     fno1=91; fno2=92; fno3=103; fno4=104; fno5=105; fno6=106
-    open(fno1,file=trim(HourlyCohort),ACTION='write', IOSTAT=istat1)
-    open(fno2,file=trim(HourlyPatch), ACTION='write', IOSTAT=istat1)
-    open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
-    open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
-    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
-    open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
-
-    ! Add file header
-    write(fno1,'(5(a8,","),30(a12,","))')        &       ! Hourly cohort
+    if(outputhourly)then
+      open(fno1,file=trim(HourlyCohort),ACTION='write', IOSTAT=istat1)
+      write(fno1,'(5(a8,","),30(a12,","))')      &       ! Hourly cohort
          'year','doy','hour','cID','sp','layer', &
          'density','dbh','height','Acrown',      &
          'bl','LAI','GPP', 'NPP', 'Transp',      &
          'Psi_L','Psi_W','W_leaf','W_stem'
-
-    write(fno2,'(5(a8,","),30(a12,","))')      &       ! Hourly tile
+      open(fno2,file=trim(HourlyPatch), ACTION='write', IOSTAT=istat1)
+      write(fno2,'(5(a8,","),30(a12,","))')    &       ! Hourly tile
          'year','doy','hour','rad',            &
          'Tair','Prcp', 'GPP', 'Resp',         &
          'Transp','Evap','Runoff','Soilwater', &
          'wcl', 'psi_soil','k_soil',           &
          'bl','Psi_L','Psi_W','W_leaf','W_stem','Transp'
+    endif
 
-    write(fno3,'(9(a6,","),45(a8,","))')               &  ! Daily cohort
+    if(outputdaily)then
+      open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
+      write(fno3,'(9(a6,","),45(a8,","))')             &  ! Daily cohort
          'year','doy','hour','cID','PFT','layer',      &
          'Pheno','ndm','ncd','density','flayer','LAI', &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
@@ -812,9 +816,9 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
          'GDD','ALT'
-
-    write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',    &  ! Daily tile
-         'Tc','Prcp', 'totWs',  'Trsp', 'Evap','Runoff',    &
+      open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
+      write(fno4,'(2(a5,","),55(a10,","))')  'year','doy',  &  ! Daily tile
+         'Tc','Prcp', 'thetaS',  'Trsp', 'Evap','Runoff',   &
          'ws1','ws2','ws3', 'LAI','GPP', 'Rauto', 'Rh',     &
          'W_LF','W_SW','W_HW',                              &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
@@ -822,7 +826,9 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
          'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
          'mineralN', 'N_uptk','Kappa'
+    endif
 
+    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
     if(index(climfile,'CRU')==0)then
        write(fno5,'(3(a5,","),40(a9,","))')         &    ! Yearly cohort
          'yr','cID','PFT','layer','density','f_L',  &
@@ -840,7 +846,7 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
          'GPP','NPP','dDBH','dBA',                         &
          'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
     endif
-
+    open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
     write(fno6,'(1(a5,","),80(a12,","))')  'year',             &  ! Yearly tile
              'CAI','LAI','treecover', 'grasscover',            &
              'GPP', 'Rauto', 'Rh', 'burned',                   &
