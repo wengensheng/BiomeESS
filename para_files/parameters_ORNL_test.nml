@@ -1,3 +1,12 @@
+&soil_data_nml
+soiltype = 3,
+GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
+k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
+vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
+/
+
 &vegn_parameters_nml
 f_iniBSW = 0.1,
 K0SOM    = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
@@ -16,6 +25,7 @@ CR0_LF     = 0.5,
 CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
+envi_fire_prb = 0.0, ! No disturbance
 ! species     0        1        2        3        4        5
 lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
 phenotype   = 0,       1,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
@@ -34,15 +44,6 @@ phiCSA      = 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, ! ratio of A
 r0mort_c    = 0.02,    0.024,   0.024,   0.024,   0.024,   0.024,   ! canopy tree mortality rate, year-1
 A_sd        = 4.0,     9.0,     9.0,     9.0,     9.0,     9.0,     ! Seedling mortality parameter
 AgeRepro    = 0,       5,       5,       5,       5,       5
-/
-
-&soil_data_nml
-soiltype = 3,
-GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
-chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
-psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
-k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
-vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &initial_state_nml

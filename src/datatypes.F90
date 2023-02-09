@@ -360,9 +360,9 @@ type :: vegn_tile_type
   real :: SON(5) = 0.
 
   !!  Nitrogen pools, Weng 2014-08-08
-  real :: mineralN = 0.  ! Mineral nitrogen pool, (kg N/m2)
-  real :: totN = 0.
-  real :: N_input        ! annual N input (kgN m-2 yr-1)
+  real :: mineralN= 0.  ! Mineral nitrogen pool, (kg N/m2)
+  real :: totN    = 0.
+  real :: N_input = 0.      ! annual N input (kgN m-2 yr-1)
   real :: N_uptake= 0.0  ! kg N m-2 hour-1
   real :: fixedN  = 0.0  ! kg N/step
   real :: annualN = 0.0  ! annual available N in a year
@@ -543,7 +543,7 @@ real :: T0_chill = 273.15 + 10.0
 integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc_crit
 
 ! Fire regimes
-real :: envi_fire_prb = 0.5 ! fire probability due to environment
+real :: envi_fire_prb = 0.0 ! fire probability due to environment, 0.5
 real :: Ignition_G0 = 1.0   ! Ignition probability for grasses once meets envi_fire_prb
 real :: Ignition_W0 = 0.025 ! Ignition probability for woody plants once meets envi_fire_prb
 real :: m0_g_fire = 0.2     ! mortality rates of grasses due to fire
@@ -780,7 +780,7 @@ real     :: siteLAT = 36.01 !site latitude, ORNL
 ! Model run control
 integer  :: model_run_years = 100
 integer  :: totyears, totdays, steps_per_day ! 24 or 48
-integer  :: yr_ResetVeg = 0 ! reseting vegetation to the initial, clearcut
+integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
 integer  :: equi_days    = 0 ! 100 * 365
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
 real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly

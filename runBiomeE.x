@@ -1,6 +1,4 @@
 #!/bin/sh
-fparameter='parameters_ORNL_test.nml'
-#'parameters_ORNL_test.nml', 'parameters_BCI_hydro.nml'
 FSRCS="src/datatypes.F90 \
        src/io_mod.F90 \
        src/soil.F90 \
@@ -11,7 +9,6 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=''
 #CPPFLAGS+="-DHydro_test"
 
-echo fparameter
 echo $FSRCS
 
 #gfortran $FSRCS -o ess -I/opt/local/include -L/opt/local/lib -lnetcdff
@@ -19,9 +16,13 @@ echo $FSRCS
 #gfortran src/datatypes.F90 src/io_mod.F90 src/soil.F90 src/vegetation.F90 src/BiomeE.F90 src/main.F90 -DHydro_test -o ess
 
 gfortran $FSRCS $CPPFLAGS -o ess
-cat $fparameter > input.nml
+
+fparameter='./para_files/parameters_ORNL_test.nml'
+echo $fparameter
+cat $fparameter > ./para_files/input.nml
 ./ess
 
+rm ./para_files/input.nml
 rm ess
 rm esdvm.mod
 rm datatypes.mod

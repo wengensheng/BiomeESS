@@ -377,7 +377,7 @@ end subroutine daily_diagnostics
     type(cohort_type), pointer :: cc
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA
     real :: plantC, plantN, soilC, soilN
-    integer :: i,j
+    integer :: i,j,iyr_out
 
     write(*, '(2(I6,","),3(F9.3,","))')iyears, vegn%n_cohorts,vegn%age,vegn%cohorts(1)%age
     write(*,'(1(a6,","),2(a4,","),25(a10,","))')       &
@@ -386,8 +386,9 @@ end subroutine daily_diagnostics
             'Atrunk','Asap','Ktree','treeHU','treeW0'
 
     ! Cohotrs ouput
-    if(index(climfile,'CRU')==0) &
-    write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
+    !if(index(climfile,'CRU')==0) &
+    !write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
+    iyr_out = iyears-yr_ResetVeg+30
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
         associate ( sp => spdata(cc%species))
@@ -399,19 +400,18 @@ end subroutine daily_diagnostics
         dDBH  = cc%DBH - cc%DBH_ys
         dBA   = 3.1415926 * (cc%DBH**2 - cc%DBH_ys**2)/4.0
         if(index(climfile,'CRU')==0)then
-          write(f1,'(4(I8,","),300(E15.4,","))')         &
-            iyears,cc%ccID,cc%species,cc%layer,          &
-            cc%nindivs*10000, cc%layerfrac,dDBH*1000.,   &
-            cc%dbh,cc%height,cc%Acrown,                  &
-            cc%bsw+cc%bHW,cc%nsc,cc%NSN,                 &
-            treeG,fseed,fleaf,froot,fwood,               &
-            cc%annualGPP,cc%annualNPP,cc%annualTrsp,     &
-            cc%annualNup,cc%annualfixedN,cc%mu,          &
-            cc%Atrunk,cc%Asap,cc%Ktrunk,                 &
+          write(f1,'(5(I8,","),300(E15.4,","))')         &
+            iyears,i,cc%ccID,cc%species,cc%layer,        &
+            cc%nindivs*10000,cc%layerfrac,dDBH*1000.,dBA,&
+            cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,&
+            cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,  &
+            cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf, &
+            froot,fwood,cc%mu,cc%annualTrsp,cc%annualNup,&
+            cc%annualfixedN,cc%Atrunk,cc%Asap,cc%Ktrunk, &
             cc%treeHU,cc%treeW0,(cc%farea(j),j=1,Ysw_max)
         else
-          if(iyears-yr_ResetVeg+30>0) &
-          write(f1,'(6(I8,","),300(E15.4,","))')iyears-yr_ResetVeg+30,  &
+          if(iyr_out > 0) &
+          write(f1,'(6(I8,","),300(E15.4,","))')iyr_out, &
             i,cc%ccID,cc%species,sp%lifeform,cc%layer,   &
             cc%nindivs*10000,cc%layerfrac,               &
             cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
@@ -431,30 +431,23 @@ end subroutine daily_diagnostics
     enddo
 
     ! tile pools output
-    !do i = 1, vegn%n_cohorts
-    !    cc => vegn%cohorts(i)
-    !    vegn%annualfixedN  = vegn%annualfixedN  + cc%annualfixedN * cc%nindivs
-    !enddo
     plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
-            vegn%SapwoodC + vegn%woodC
-    plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
-            vegn%rootN + vegn%SapwoodN + vegn%woodN
+             vegn%SapwoodC + vegn%woodC
     soilC  = sum(vegn%SOC(:))
+    plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
+             vegn%rootN + vegn%SapwoodN + vegn%woodN
     soilN  = sum(vegn%SON(:)) + vegn%mineralN
-    vegn%totN = plantN + soilN
-    if(iyears-yr_ResetVeg+30>0) &
-    write(f2,'(1(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))') &
-        iyears-yr_ResetVeg+30,       &
-        vegn%CAI,vegn%LAI, vegn%treecover, vegn%grasscover, &
-        vegn%annualGPP, vegn%annualResp, vegn%annualRh, vegn%C_combusted, &
-        vegn%annualPrcp, vegn%SoilWater,vegn%annualTrsp, vegn%annualEvap, vegn%annualRoff, &
-        plantC,soilC,plantN *1000, soilN * 1000, (plantN+soilN)*1000,&
-        vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,  &
-        vegn%SapwoodC, vegn%woodC,                     &
-        vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000, vegn%rootN*1000, &
-        vegn%SapwoodN *1000,  vegn%WoodN *1000,  &
-        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5), &
-        vegn%mineralN*1000,   vegn%annualfixedN*1000, vegn%annualNup*1000, &
+    !if(iyr_out > 0) &
+    write(f2,'(1(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')    &
+        iyears,vegn%CAI,vegn%LAI, vegn%treecover, vegn%grasscover,      &
+        vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_combusted,  &
+        vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
+        vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
+        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SapwoodC,vegn%woodC,      &
+        vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
+        vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
+        (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
+        vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
 
  end subroutine annual_diagnostics
@@ -549,7 +542,9 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
    datalines = totlines
    days_data = ndays
    yr_data   = nyear
-   write(*,*)"forcing", datalines,days_data,yr_data
+   write(*,*)"siteLAT:", siteLAT
+   write(*,*)"runID:  ", runID
+   write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
 
    !Close opened file and release memory
    close(11)    ! close forcing file
@@ -638,7 +633,9 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
    enddo
    forcingData => climateData
-   write(*,*)"forcing", datalines,days_data,yr_data
+   write(*,*)"siteLAT:", siteLAT
+   write(*,*)"runID:  ", runID
+   write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
 
 end subroutine read_NACPforcing
 
@@ -830,13 +827,13 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
 
     open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
     if(index(climfile,'CRU')==0)then
-       write(fno5,'(3(a5,","),40(a9,","))')         &    ! Yearly cohort
-         'yr','cID','PFT','layer','density','f_L',  &
-         'dDBH','dbh','height','Acrown',            &
-         'wood','nsc', 'NSN','NPPtr','seed',        &
-         'NPPL','NPPR','NPPW','GPP','NPP','Transp', &
-         'N_uptk','N_fix','mu','Atrunk','Asap',     &
-         'Ktree','treeHU','treeW0',                 &
+       write(fno5,'(4(a5,","),40(a7,","))')               &    ! Yearly cohort
+         'yr','cNo.','cID', 'PFT','layer',                &
+         'density','f_L','dDBH','dBA','dbh','height',     &
+         'Acrown','Aleaf','bl','br','bSW','bHW','seed',   &
+         'nsc','NSN','GPP','NPP','Gtree','f_sd','f_lf',   &
+         'f_fr','f_wd','mu','Transp','N_uptk','N_fix',    &
+         'Atrunk','Asap','Ktree','treeHU','treeW0',       &
          'farea1','farea2','farea3','farea4','farea5'
     else ! CRU output
        write(fno5,'(4(a5,","),40(a9,","))')                &    ! Yearly cohort
@@ -851,13 +848,13 @@ subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
              'CAI','LAI','treecover', 'grasscover',            &
              'GPP', 'Rauto', 'Rh', 'burned',                   &
              'rain','SiolWater','Transp','Evap','Runoff',      &
-             'plantC', 'soilC', 'plantN', 'soilN', 'totN',     &
+             'plantC', 'soilC', 'plantN', 'soilN',             &
              'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',   &
              'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',   &
              'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
              'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
              'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S',  &
-             'N_loss','seedC','seedN','Seedling-C','Seedling-N'
+             'N_loss'
 
 end subroutine set_up_output_files
 

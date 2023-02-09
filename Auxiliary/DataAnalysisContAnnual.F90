@@ -98,6 +98,7 @@ end
    character(len=210) :: comments,header1
    character(len=8 ) :: BA_Header(maxPFTs), dD_Header(maxPFTs),farea_Header(210)
    integer,dimension(2,maxyears):: yearch
+   real,   dimension(Columns):: dataline
    real,   dimension(Columns,max_cc,maxyears):: dataarray
    real,   dimension(N_veg_out,maxPFTs,maxyears):: firstCC,L2firstCC
    real,   dimension(maxPFTs,maxyears):: BApft,dDBH,density
@@ -108,7 +109,8 @@ end
    real,   dimension(bins2) :: DBHbins
    real,   dimension(bins,maxyears) :: DBHclasses,BMclasses
 
-   integer :: totyears,m,n,i,j,k,iPFT,iLayer,layertype,yr
+   integer :: totlines,totyears
+   integer :: m,n,i,j,k,iPFT,iLayer,layertype,yr
    integer :: commentlines
    integer :: istat2,istat3,cc
    real :: DBH, GPP, NPP, plantC, soilC,plantN, soilN, mineralN, Nmin
@@ -163,30 +165,54 @@ end
   BApft      = 0.0
   dDBH       = 0.
   density    = 0.
-  m=0
-  do
-     m=m+1 ! Year
-     read(fin_1,*,IOSTAT=istat3)yearch(1,m),yearch(2,m)
-     write(*,*)yearch(1,m),yearch(2,m)
-     if(istat3<0 .or. yearch(2,m)<1)exit
-     cc = yearch(2,m) ! total cohorts in this year
-     do j=1,cc
-         read(fin_1,*,IOSTAT=istat3)yr,(dataarray(i,j,m),i=1,Columns)
-         if(istat3<0 .or. yr < 1)exit
-         if(cc>4 .and. i==cc)cycle ! skip the last cohort
+  yearch = 0
+  m = 1  ! First Year
+  j = 1  ! First cohort
+  k = 1  ! First line
+  read(fin_1,*,IOSTAT=istat3)yr,(dataline(i),i=1,Columns)
+  if(istat3 < 0) then ! Reach to the last line
+    write(*,*)"Annual cohort file reading error:",istat3
+    stop
+  endif
+  yearch(1,m) = yr
+  yearch(2,m) = j
+  dataarray(:,j,m) = dataline(:)
 
-!        CA of plants above 5 meters
+  do
+    read(fin_1,*,IOSTAT=istat3)yr,(dataline(i),i=1,Columns)
+    if(istat3 < 0) then ! Reach to the last line
+      write(*,*)"Annual cohort file reading done, total lines:",k
+      exit
+    else
+      k = k + 1 ! One more line read
+      if(yr > yearch(1,m))then ! Next year
+        m = m + 1
+        j = 1 ! First cohort in this year
+      else ! A new cohort in the same year
+        j = j + 1 ! Count cohorts
+      endif
+      yearch(1,m) = yr
+      yearch(2,m) = j
+      dataarray(:,j,m) = dataline(:)
+    endif
+  enddo
+  totyears = m
+
+  do m=1, totyears
+     cc = yearch(2,m)
+     do j=1,cc
+!        CA of plants above 0.5 meters
          if(dataarray(10,j,m) > 0.5) then ! height
              CApft(m) = CApft(m) + dataarray(11,j,m)* dataarray(5,j,m)/10000.0 ! crown area
          endif
-!             first layer boimass and HT*
+!        first layer boimass and HT*
          if(dataarray(4,j,m) < 1.1) then
              HTstar(m)    = dataarray(10,j,m)
              Layer1Den(m) = Layer1Den(m) + dataarray(5,j,m)
              Layer1BM(m)  = Layer1BM(m)  + dataarray(5,j,m) * &
                            sum(dataarray(13:18,j,m))/10000
          endif
-!             total biomass
+!        total biomass
          totalBM(m) = totalBM(m) + sum(dataarray(13:18,j,m))  &
                     * dataarray(5,j,m)/10000
          totCAI(m)  = totCAI(m) + dataarray(11,j,m) * dataarray(5,j,m)/10000.0
@@ -223,9 +249,8 @@ end
      write(fout_1,105)yearch(1,m),dataarray(:,1,m)
 
   enddo ! End of calculating
-  totyears=m-1
 
-   ! read in another file for combining data
+   ! read in the ecosystem file for combining data
    read(fin_2,*,IOSTAT=istat3)comments
    do m = 1, totyears
        read(fin_2,*,IOSTAT=istat3)n,(ecodata(i,m),i=1,45)
@@ -281,7 +306,6 @@ subroutine cohort_hourly(fin_1,fout_1)
   do while(istat3==0)
      m=m+1 ! Year
      read(fin_1,*,IOSTAT=istat3)cc
-     write(*,*)"total cohorts:",cc
      if(istat3<0 .or. cc<1)exit
      do j=1,cc
          read(fin_1,*,IOSTAT=istat3)(dataarray(i,j),i=1,Columns)
@@ -289,8 +313,6 @@ subroutine cohort_hourly(fin_1,fout_1)
      enddo
      ! Output the first cohort
      write(fout_1,105)dataarray(:,1)
-     write(*,*)"Writing hourly first cohort",m
-
   enddo ! End of file reading
 
   105 format(6(f8.0,','),30(f15.4,','))
@@ -325,7 +347,6 @@ subroutine cohort_daily(fin_1,fout_1)
   do while(istat3==0)
      m=m+1 ! Year
      read(fin_1,*,IOSTAT=istat3)yr,doy,cc
-     write(*,*)"yr,doy,cc:",yr,doy,cc
      if(istat3<0 .or. cc<1)exit
      do j=1,cc
          read(fin_1,*,IOSTAT=istat3)(dataarray(i,j),i=1,Columns)
@@ -333,8 +354,6 @@ subroutine cohort_daily(fin_1,fout_1)
      enddo
      ! Output the first cohort
      write(fout_1,105)dataarray(:,1)
-     write(*,*)"Writing daily first cohort",m
-
   enddo ! End of file reading
 
   105 format(8(f8.0,','),30(f15.4,','))

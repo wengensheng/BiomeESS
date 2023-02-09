@@ -3125,10 +3125,13 @@ end subroutine vegn_gap_fraction_update
  ! Hack !!!!!
  subroutine Recover_N_balance(vegn)
    type(vegn_tile_type), intent(inout) :: vegn
-      if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
-         vegn%SON(5) = vegn%SON(5) - vegn%totN + vegn%initialN0
-         vegn%totN =  vegn%initialN0
-      endif
+
+   vegn%totN = vegn%NSN+vegn%SeedN+vegn%leafN+vegn%rootN+vegn%SapwoodN + &
+               vegn%woodN + sum(vegn%SON(:)) + vegn%mineralN
+   if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
+     vegn%SON(5) = vegn%SON(5) - vegn%totN + vegn%initialN0
+     vegn%totN =  vegn%initialN0
+   endif
 
  end subroutine
 

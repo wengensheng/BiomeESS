@@ -200,8 +200,7 @@ subroutine BiomeE_run()
       ! zero annual reporting variables
       call Zero_diagnostics(vegn)
       !! Reset vegetation to initial conditions
-      if (n_yr==yr_ResetVeg) call reset_vegn_initial(vegn)
-      if (do_fire .and. n_yr >yr_ResetVeg .and. rand(0)<envi_fire_prb) &
+      if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. rand(0)<envi_fire_prb)) &
          call reset_vegn_initial(vegn)
 
       ! update the years of model run

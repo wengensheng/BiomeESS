@@ -1,3 +1,12 @@
+&soil_data_nml
+soiltype = 3,
+GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
+k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
+vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
+/
+
 &vegn_parameters_nml
 f_iniBSW = 0.1,
 K0SOM    = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
@@ -36,15 +45,6 @@ A_sd        = 4.0,     9.0,     9.0,     9.0,     9.0,     9.0,     ! Seedling m
 AgeRepro    = 0,       5,       5,       5,       5,       5
 /
 
-&soil_data_nml
-soiltype = 3,
-GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
-chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
-psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
-k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
-vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
-/
-
 &initial_state_nml
 !!   plant
 init_n_cohorts      = 1, ! total 5
@@ -65,6 +65,7 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
 ! Model run
 filepath_in = './input/',  ! Climate forcing data
 filepath_out= './output/', ! Output files
+siteLAT = 9.25, ! Latitude of the grid that covers BCI
 runID = 'BCI_hydro',       ! for output file name
 climfile    = 'BCI_forcing.csv' ! 'ORNL_forcing.txt'
               ! 'KNZ_amb.csv' !  'KNZ_irr.csv' !
