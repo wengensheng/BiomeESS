@@ -109,8 +109,9 @@ subroutine BiomeE_initialization()
   totdays   = INT(totyears/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
 
-  ! Set up rainfall scenario for phiRL test runs
+  ! Set up scenarios for rainfall and CO2 concentration
   forcingData%rain = forcingData%rain * Sc_prcp
+  forcingData%CO2  = CO2_c * 1.0e-6
   !stop
   ! --------- Setup output files ---------------
   fpath_out = filepath_out ! 'output/'

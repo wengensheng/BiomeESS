@@ -21,7 +21,7 @@ end module
  character(len=90) :: filein1,filein2,fileout1,fileout2,fileout3
  integer :: fin_1,fin_2,fout_1,fout_2,fout_3
 
- runID    = 'ORNL_test' !'BCI_hydro'
+ runID    = 'BCI_hydro' !'ORNL_test' !
  filepath = 'output/' ! 'testruns/'
 
  ! Yearly cohort

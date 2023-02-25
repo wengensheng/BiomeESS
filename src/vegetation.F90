@@ -2227,7 +2227,7 @@ subroutine reset_vegn_initial(vegn)
       cp%ccID = MaxCohortID + i
    enddo
    MaxCohortID = cp%ccID
-   write(*,*)"Vegetaion resetted to initial conditions!"
+   !write(*,*)"Vegetaion resetted to initial conditions!"
 
    ! Release old cohorts
    deallocate(cc1)
@@ -2930,7 +2930,7 @@ subroutine vegn_migration (vegn)
         currPFTs(nPFTs) = cc%species ! PFT number
      endif
   enddo ! k, vegn%n_cohorts
-  write(*,'(A12,16(I4,","))')'current cc',currPFTs(1:nPFTs)
+  !write(*,'(A12,16(I4,","))')'current cc',currPFTs(1:nPFTs)
 
   ! Looping through all initial cohorts and get the initial PFTs
   initialPFTs = -999 ! the code of initial PFT
@@ -2951,7 +2951,7 @@ subroutine vegn_migration (vegn)
         initialPFTs(nPFT0) = cc%species ! PFT number
      endif
   enddo ! k, vegn%n_initialCC
-  write(*,'(A12,16(I4,","))')'initial cc',initialPFTs(1:nPFT0)
+  !write(*,'(A12,16(I4,","))')'initial cc',initialPFTs(1:nPFT0)
 
   ! Get missing PFT(s)
   missingPFTs = -999
@@ -2970,7 +2970,7 @@ subroutine vegn_migration (vegn)
              missingPFTs(n) = initialPFTs(i)
          endif
       enddo
-      write(*,*)'missing PFTs',missingPFTs(1)
+      !write(*,*)'missing PFTs',missingPFTs(1)
   endif
 
   ! Generate new cohorts

@@ -505,18 +505,18 @@ integer :: MaxCohortID = 0
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
 
 ! Growth parameters:
-real :: LMAmin     = 0.02    ! minimum LMA, boundary condition
-real :: fsc_fine   = 1.0     ! fraction of fast turnover carbon in fine biomass
-real :: fsc_wood   = 0.0     ! fraction of fast turnover carbon in wood biomass
-real :: GR_factor  = 0.33 ! growth respiration factor
-real :: l_fract    = 0.0 ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
-real :: retransN   = 0.0   ! retranslocation coefficient of Nitrogen
-real :: f_iniBSW   = 0.1  !0.01, 0.2
-real :: f_N_add    = 0.02 ! re-fill of N for sapwood
-real :: f_LFR_max  = 0.85 ! max allocation to leaves and fine roots each step
-real :: c_LLS      = 28.57143 ! yr/(kg C m-2), 1/LMAs, ! for leaf life span and LMA leafLS = c_LLS * LMA, when LMAs = 0.035.
-real :: rho_N_up0  = 0.1 ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
-real :: N_roots0   = 0.4  ! root biomass at half max N-uptake rate,kg C m-2
+real :: LMAmin    = 0.02    ! minimum LMA, boundary condition
+real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
+real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
+real :: GR_factor = 0.33    ! growth respiration factor
+real :: l_fract   = 0.0     ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
+real :: retransN  = 0.0     ! retranslocation coefficient of Nitrogen
+real :: f_iniBSW  = 0.1     !0.01, 0.2
+real :: f_N_add   = 0.02    ! re-fill of N for sapwood
+real :: f_LFR_max = 0.85    ! max allocation to leaves and fine roots each step
+real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! for leaf life span and LMA leafLS = c_LLS * LMA, when LMAs = 0.035.
+real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
+real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
 
 ! Plant hydraulics
 real :: psi0_osm = 0.5     ! MPa, leaf osmotic pressure
@@ -768,8 +768,8 @@ real :: init_Nmineral     = 0.015  ! Mineral nitrogen pool, (kg N/m2)
 real :: N_input           = 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
 
 ! Input files
-character(len=80) :: filepath_in = 'input/'
-character(len=80) :: filepath_out = 'output/'
+character(len=80) :: filepath_in = './input/'
+character(len=80) :: filepath_out = './output/'
 character(len=80) :: runID = 'test'
 character(len=160) :: climfile = 'US-Ha1forcing.txt'
 integer  :: datalines ! the total lines in forcing data file
@@ -801,7 +801,7 @@ logical  :: do_WD_mort_function = .False.
 
 ! Scenarios
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
-real     :: CO2_c   = 412 ! PPM, CO2 concentration at 2020
+real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
 
 ! Model initialization name list
 namelist /initial_state_nml/ &
@@ -942,7 +942,7 @@ subroutine initialize_PFT_data()
   spdata%NfixCost0 = NfixCost0
   spdata%f_cGap = f_cGap
 
-  write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    r0mort_c'
+  !write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    r0mort_c'
   do i = 0, MSPECIES
      call init_derived_species_data(spdata(i))
   enddo
@@ -1009,7 +1009,7 @@ subroutine initialize_PFT_data()
       !sp%r0mort_c = A_mort * exp(B_mort*R_WD)
       sp%r0mort_c = 0.048 - 0.024 * R_WD
    endif
-   write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%r0mort_c
+   !write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%r0mort_c
 
    ! -------- Check parameter boundaries
    if(sp%lifeform==0)then
