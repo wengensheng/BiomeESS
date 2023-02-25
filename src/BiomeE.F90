@@ -82,24 +82,10 @@ subroutine BiomeE_initialization()
   fnml = trim(fnml_path)//trim(fnamelist)
   call read_namelist(fnml)
 
-  ! ------ Soil and PFT parameters ------
-  call initialize_soilpars()
-  call initialize_PFT_data()
-
-  ! ------ Vegetation tile and plant cohorts ------
-  allocate(vegn)
-  call initialize_vegn_tile(vegn)
-  ! Sort and relayer cohorts
-  call relayer_cohorts(vegn)
-  call Zero_diagnostics(vegn)
-
   ! --------- Read forcing data ----------------------
-  if(index(climfile,'CRU')==0)then
-    call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
-    !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  else
-    call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  endif
+  call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
   steps_per_day = int(24.0/step_hour)
   dt_fast_yr    = step_hour/(365.0 * 24.0)
   step_seconds  = step_hour*3600.0
@@ -113,6 +99,18 @@ subroutine BiomeE_initialization()
   forcingData%rain = forcingData%rain * Sc_prcp
   forcingData%CO2  = CO2_c * 1.0e-6
   !stop
+
+  ! ------ Soil and PFT parameters ------
+  call initialize_soilpars()
+  call initialize_PFT_data()
+
+  ! ------ Vegetation tile and plant cohorts ------
+  allocate(vegn)
+  call initialize_vegn_tile(vegn)
+  ! Sort and relayer cohorts
+  call relayer_cohorts(vegn)
+  call Zero_diagnostics(vegn)
+
   ! --------- Setup output files ---------------
   fpath_out = filepath_out ! 'output/'
   call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
@@ -120,9 +118,7 @@ subroutine BiomeE_initialization()
   ! ------ Generate a random number ------
   call itime(timeArray)     ! Get current time
   rand_seed = timeArray(1)+timeArray(2)+timeArray(3)
-  ! call random_seed()
   r_rand    = rand(rand_seed)
-
 end subroutine BiomeE_initialization
 
 !----------------------------------------------------------------------------
