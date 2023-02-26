@@ -392,8 +392,8 @@ subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
 
   dz = thksl ! Weng
   do l = 1, num_l
-    vlc(l) = max(0., soil%prog(l)%wl / (dens_h2o*dz(l)))
-    vsc(l) = max(0., soil%prog(l)%ws / (dens_h2o*dz(l)))
+    vlc(l) = max(0., soil%prog(l)%wl / (rho_h2o*dz(l)))
+    vsc(l) = max(0., soil%prog(l)%ws / (rho_h2o*dz(l)))
   enddo
 
   ! calculate volumetric root length for the entire tile

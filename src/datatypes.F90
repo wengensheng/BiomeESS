@@ -3,41 +3,40 @@
  implicit none
 
  !=============== Namelist file (must be hardwared) ===============
- character(len=50)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
+ character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
 !===============constants===============
  logical, parameter :: read_from_parameter_file = .TRUE.
- integer, parameter :: days_per_year  = 365
- integer, parameter :: hours_per_year = 365 * 24  ! 8760
+ integer, parameter :: days_per_year    = 365
+ integer, parameter :: hours_per_year   = 365 * 24  ! 8760
  real,    parameter :: seconds_per_year = 365. * 24. * 3600.
- real,    parameter :: seconds_per_day = 24. * 3600.
+ real,    parameter :: seconds_per_day  = 24. * 3600.
 
  ! Physical constants
+ real, parameter :: PI      = 3.1415926
  real, parameter :: TFREEZE = 273.16
- real, parameter :: Rugas = 8.314472 ! universal gas constant, J K-1 mol-1
- real, parameter :: mol_C = 12.0e-3 ! molar mass of carbon, kg
+ real, parameter :: Rugas   = 8.314472 ! universal gas constant, J K-1 mol-1
+ real, parameter :: mol_C   = 12.0e-3 ! molar mass of carbon, kg
  real, parameter :: mol_air = 28.96440e-3 ! molar mass of air, kg
  real, parameter :: mol_CO2 = 44.00995e-3 ! molar mass of CO2,kg
  real, parameter :: mol_h2o = 18.0e-3 ! molar mass of water, kg
- real, parameter :: cpair = 1010.
- real, parameter :: H2OLv0=2.501e6   !latent heat H2O (J/kg)
- real, parameter :: p_sea = 101325.  ! atmospheric pressure  (Pa)
- real, parameter :: DENS_H2O = 1000. ! kg m-3
- real, parameter :: PI = 3.1415926
+ real, parameter :: cpair   = 1010.
+ real, parameter :: H2OLv0  = 2.501e6   !latent heat H2O (J/kg)
+ real, parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
 
  ! Vegetation and soil types
- integer, parameter :: MSPECIES = 15
- integer, parameter :: Nsoiltypes = 7
  integer, parameter :: n_dim_soil_types = 9
- integer, parameter :: LEAF_ON  = 1
- integer, parameter :: LEAF_OFF = 0
- real,    parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
+ integer, parameter :: MSPECIES   = 15
+ integer, parameter :: Nsoiltypes = 7
+ integer, parameter :: LEAF_ON    = 1
+ integer, parameter :: LEAF_OFF   = 0
+ real,    parameter :: min_nindivs= 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
- real, parameter    :: rho_H2O = 1000.0 ! water density (kg m-3)
- real, parameter    :: WDref0 = 300.0   ! Reference wood density, kgC m-3
+ real, parameter    :: rho_H2O      = 1000.0 ! water density (kg m-3)
+ real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3
  real, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
- integer, parameter :: Ysw_max = 210 ! Maximum function years of xylems
+ integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
 
  ! Soil SOM reference C/N ratios
  integer, parameter :: N_SOM = 5
