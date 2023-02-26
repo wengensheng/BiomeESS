@@ -56,11 +56,10 @@ module BiomeE_mod
 
  ! ------ public subroutines ---------
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
-
  ! Main vegn unit
  type(vegn_tile_type),public,pointer :: vegn
- character(len=50) :: fnamelist, fpath_out
- integer :: fno1, fno2, fno3, fno4, fno5, fno6 ! output files
+ ! output files
+ integer :: fno1, fno2, fno3, fno4, fno5, fno6
 
  contains
 
@@ -69,18 +68,14 @@ module BiomeE_mod
 subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
   implicit none
-  character(len=50) :: fnml_path, fnml
-  character(len=50) :: paraID = 'ORNL_test' ! 'BCI_hydro' !
-  integer :: timeArray(3), rand_seed
-  real    :: r_rand
+  integer :: timeArray(3)
 
-  ! ---------------------- Define namelist file --------------------
-  fnml_path = './para_files/'
-  fnamelist = 'input.nml' ! 'parameters_'//trim(paraID)//'.nml' !
+  ! ---------- Time stamp -------------
+  call itime(timeArray)     ! Get current time
+  write(*,'(a6,3(I2,":"))')'Time: ', timeArray
 
-  ! --------- Read namelists ----------------------
-  fnml = trim(fnml_path)//trim(fnamelist)
-  call read_namelist(fnml)
+  ! ---------------------- Read the namelist file -----------------
+  call read_namelist(trim(fnml_path)//trim(fnamelist))
 
   ! --------- Read forcing data ----------------------
   call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
@@ -112,13 +107,11 @@ subroutine BiomeE_initialization()
   call Zero_diagnostics(vegn)
 
   ! --------- Setup output files ---------------
-  fpath_out = filepath_out ! 'output/'
-  call set_up_output_files(runID,fpath_out,fno1,fno2,fno3,fno4,fno5,fno6)
+  call set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
-  ! ------ Generate a random number ------
-  call itime(timeArray)     ! Get current time
-  rand_seed = timeArray(1)+timeArray(2)+timeArray(3)
-  r_rand    = rand(rand_seed)
+  ! ------ Start a new random number series ------
+  call RANDOM_SEED()
+
 end subroutine BiomeE_initialization
 
 !----------------------------------------------------------------------------
@@ -127,7 +120,7 @@ subroutine BiomeE_run()
   implicit none
   integer :: i, idays, idata, idoy
   integer :: n_steps, n_yr, year0, year1
-  real    :: r_dstb
+  real    :: r_d
   logical :: new_annual_cycle
 
   !----------------------
@@ -197,7 +190,8 @@ subroutine BiomeE_run()
       ! zero annual reporting variables
       call Zero_diagnostics(vegn)
       !! Reset vegetation to initial conditions
-      if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. rand(0)<envi_fire_prb)) &
+      CALL RANDOM_NUMBER(r_d)
+      if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
          call reset_vegn_initial(vegn)
 
       ! update the years of model run

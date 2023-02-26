@@ -17,6 +17,11 @@ module datatypes
  ! ---- public variables ---------
  public :: forcingData, spdata, soilpars
 
+ !=============== Namelist file ===============
+ character(len=50)  :: fnml_path = './para_files/'
+ character(len=50)  :: paraID    = 'ORNL_test' ! 'BCI_hydro' !
+ character(len=50)  :: fnamelist = 'input.nml' ! 'parameters_'//trim(paraID)//'.nml'
+
 !===============constants===============
  logical, public, parameter :: read_from_parameter_file = .TRUE.
  integer, public, parameter :: days_per_year  = 365

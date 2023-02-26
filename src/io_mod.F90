@@ -13,10 +13,9 @@ module io_mod
 public :: read_namelist, set_up_output_files,read_FACEforcing,read_NACPforcing
 public :: Zero_diagnostics, hourly_diagnostics, daily_diagnostics, &
           annual_diagnostics
-public :: vegn_sum_tile
 !---------------------------------
+contains
 
- contains
 !====================== Subroutines ======================================
 
 !----------------------------------------------------------------
@@ -62,87 +61,6 @@ subroutine read_namelist(fnml)
   close (fu)
 
 end subroutine read_namelist
-
-!=================================================
-! Weng, 2021-06-02
-subroutine vegn_sum_tile(vegn)
-  type(vegn_tile_type), intent(inout) :: vegn
-
-  !----- local var --------------
-  type(cohort_type),pointer :: cc
-  integer :: i, layer
-
-  vegn%NSC     = 0.0
-  vegn%SeedC   = 0.0
-  vegn%leafC   = 0.0
-  vegn%rootC   = 0.0
-  vegn%SapwoodC= 0.0
-  vegn%WoodC   = 0.0
-
-  vegn%NSN     = 0.0
-  vegn%SeedN   = 0.0
-  vegn%leafN   = 0.0
-  vegn%rootN   = 0.0
-  vegn%SapwoodN= 0.0
-  vegn%WoodN   = 0.0
-
-  vegn%W_stem = 0.0
-  vegn%W_dead = 0.0
-  vegn%W_leaf = 0.0
-
-  vegn%LAI    = 0.0
-  vegn%CAI    = 0.0
-  vegn%ArootL = 0.0
-
-  vegn%LAIlayer = 0.0
-  vegn%f_gap    = 0.0
-  vegn%treecover = 0.0
-  vegn%grasscover = 0.0
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species))
-
-     ! update accumulative LAI for each corwn layer
-     layer = Max (1, Min(cc%layer,9)) ! between 1~9
-     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
-                            cc%Aleaf * cc%nindivs/(1.0-sp%f_cGap)
-     vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
-                            cc%Acrown * cc%nindivs * sp%f_cGap
-
-    ! For reporting
-    ! Vegn C pools:
-     vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
-     vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
-     vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
-     vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
-     vegn%SapwoodC= vegn%SapwoodC+ cc%bsw    * cc%nindivs
-     vegn%woodC   = vegn%woodC   + cc%bHW    * cc%nindivs
-     vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
-     vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
-     vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
-    ! Vegn N pools
-     vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
-     vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
-     vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
-     vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
-     vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
-     vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
-     ! Vegn water pools
-     vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
-     vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
-     vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs
-
-     ! Update tree and grass cover
-     if(sp%lifeform==0) then
-         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
-     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-         vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
-     endif
-
-     end associate
-  enddo
-
-end subroutine vegn_sum_tile
 
 !================= Diagnostics============================================
 ! Weng, 2016-11-28
@@ -379,11 +297,11 @@ end subroutine daily_diagnostics
     real :: plantC, plantN, soilC, soilN
     integer :: i,j,iyr_out
 
-    !write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts
-    !write(*,'(1(a6,","),2(a4,","),25(a10,","))')      &
-    !        'cID','PFT','L', 'n','f_CA','dDBH',       &
-    !        'DBH','Height','Acrown','NSC','GPP','mu', &
-    !        'Atrunk','Asap','Ktree','treeHU','treeW0'
+    write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts
+    write(*,'(1(a6,","),2(a4,","),25(a10,","))')      &
+            'cID','PFT','L', 'n','f_CA','dDBH',       &
+            'DBH','Height','Acrown','NSC','GPP','mu', &
+            'Atrunk','Asap','Ktree','treeHU','treeW0'
 
     ! Cohotrs ouput
     !if(index(climfile,'DBEN')==0) &
@@ -421,12 +339,12 @@ end subroutine daily_diagnostics
 #endif
 
         ! Screen output
-        !write(*,'(1(I6,","),2(I4,","),30(F10.3,","))') &
-        !  cc%ccID,cc%species,cc%layer,                &
-        !  cc%nindivs*10000, cc%layerfrac,             &
-        !  dDBH,cc%dbh,cc%height,cc%Acrown,            &
-        !  cc%nsc,cc%annualGPP,cc%mu,cc%Atrunk,        &
-        !  cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
+        write(*,'(1(I6,","),2(I4,","),30(F10.3,","))') &
+          cc%ccID,cc%species,cc%layer,                &
+          cc%nindivs*10000, cc%layerfrac,             &
+          dDBH,cc%dbh,cc%height,cc%Acrown,            &
+          cc%nsc,cc%annualGPP,cc%mu,cc%Atrunk,        &
+          cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
         end associate
     enddo
 
@@ -776,17 +694,17 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
 end subroutine read_CRUforcing
 
 !=========== Write output file header ====================
-subroutine set_up_output_files(runID,fpath,fno1,fno2,fno3,fno4,fno5,fno6)
-   character(len=50),intent(in):: runID,fpath
+subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
    integer,intent(inout):: fno1,fno2,fno3,fno4,fno5,fno6
 
    ! ----------Local vars ------------
    character(len=150) :: YearlyCohort,DailyCohort,HourlyCohort ! Output file names
    character(len=150) :: YearlyPatch, DailyPatch, HourlyPatch  ! output file names
-   character(len=50)  :: filesuffix
+   character(len=50)  :: filesuffix,fpath
    integer :: istat1, istat2, istat3
 
     ! File path and names
+    fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
     HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'   ! hourly
     HourlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
