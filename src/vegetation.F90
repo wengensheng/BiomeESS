@@ -17,6 +17,8 @@ module esdvm
  public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
  public :: vegn_annualLAImax_update,vegn_gap_fraction_update,reset_vegn_initial
 
+ integer :: MaxCohortID = 0
+
  contains
 
 !========================================================================

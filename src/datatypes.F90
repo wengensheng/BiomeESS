@@ -1,95 +1,78 @@
-module datatypes
+ module datatypes
  ! define data types, constants, and some basic functions
  implicit none
 
- ! ---- public types -------
- public :: spec_data_type, cohort_type, vegn_tile_type
-
- ! ------ public subroutines and functions ---------
- public :: initialize_PFT_data, initialize_soilpars
- public :: BM2Architecture,DBH2HT,DBH2CA,DBH2BM,BM2DBH, &
-           CA2BLmax,BLmax2BRmax,ccNSNmax,BL2Aleaf,      &
-           qscomp,calc_solarzen,esat, A_function
-
- ! ------ public namelists ---------
- public :: vegn_parameters_nml, soil_data_nml, initial_state_nml
-
- ! ---- public variables ---------
- public :: forcingData, spdata, soilpars
-
- !=============== Namelist file ===============
- character(len=50)  :: fnml_path = './para_files/'
- character(len=50)  :: paraID    = 'ORNL_test' ! 'BCI_hydro' !
- character(len=50)  :: fnamelist = 'input.nml' ! 'parameters_'//trim(paraID)//'.nml'
+ !=============== Namelist file (must be hardwared) ===============
+ character(len=50)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
 !===============constants===============
- logical, public, parameter :: read_from_parameter_file = .TRUE.
- integer, public, parameter :: days_per_year  = 365
- integer, public, parameter :: hours_per_year = 365 * 24  ! 8760
- real,    public, parameter :: seconds_per_year = 365. * 24. * 3600.
- real,    public, parameter :: seconds_per_day = 24. * 3600.
+ logical, parameter :: read_from_parameter_file = .TRUE.
+ integer, parameter :: days_per_year  = 365
+ integer, parameter :: hours_per_year = 365 * 24  ! 8760
+ real,    parameter :: seconds_per_year = 365. * 24. * 3600.
+ real,    parameter :: seconds_per_day = 24. * 3600.
 
  ! Physical constants
- real, public, parameter :: TFREEZE = 273.16
- real, public, parameter :: Rugas = 8.314472 ! universal gas constant, J K-1 mol-1
- real, public, parameter :: mol_C = 12.0e-3 ! molar mass of carbon, kg
- real, public, parameter :: mol_air = 28.96440e-3 ! molar mass of air, kg
- real, public, parameter :: mol_CO2 = 44.00995e-3 ! molar mass of CO2,kg
- real, public, parameter :: mol_h2o = 18.0e-3 ! molar mass of water, kg
- real, public, parameter :: cpair = 1010.
- real, public, parameter :: H2OLv0=2.501e6   !latent heat H2O (J/kg)
- real, public, parameter :: p_sea = 101325.  ! atmospheric pressure  (Pa)
- real, public, parameter :: DENS_H2O = 1000. ! kg m-3
- real, public, parameter :: PI = 3.1415926
+ real, parameter :: TFREEZE = 273.16
+ real, parameter :: Rugas = 8.314472 ! universal gas constant, J K-1 mol-1
+ real, parameter :: mol_C = 12.0e-3 ! molar mass of carbon, kg
+ real, parameter :: mol_air = 28.96440e-3 ! molar mass of air, kg
+ real, parameter :: mol_CO2 = 44.00995e-3 ! molar mass of CO2,kg
+ real, parameter :: mol_h2o = 18.0e-3 ! molar mass of water, kg
+ real, parameter :: cpair = 1010.
+ real, parameter :: H2OLv0=2.501e6   !latent heat H2O (J/kg)
+ real, parameter :: p_sea = 101325.  ! atmospheric pressure  (Pa)
+ real, parameter :: DENS_H2O = 1000. ! kg m-3
+ real, parameter :: PI = 3.1415926
 
  ! Vegetation and soil types
- integer, public, parameter :: MSPECIES = 15
- integer, public, parameter :: Nsoiltypes = 7
- integer, public, parameter :: n_dim_soil_types = 9
- integer, public, parameter :: LEAF_ON  = 1
- integer, public, parameter :: LEAF_OFF = 0
- real,    public, parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
+ integer, parameter :: MSPECIES = 15
+ integer, parameter :: Nsoiltypes = 7
+ integer, parameter :: n_dim_soil_types = 9
+ integer, parameter :: LEAF_ON  = 1
+ integer, parameter :: LEAF_OFF = 0
+ real,    parameter :: min_nindivs = 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
- real, public, parameter    :: rho_H2O = 1000.0 ! water density (kg m-3)
- real, public, parameter    :: WDref0 = 300.0   ! Reference wood density, kgC m-3
- real, public, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
- integer, public, parameter :: Ysw_max = 210 ! Maximum function years of xylems
+ real, parameter    :: rho_H2O = 1000.0 ! water density (kg m-3)
+ real, parameter    :: WDref0 = 300.0   ! Reference wood density, kgC m-3
+ real, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
+ integer, parameter :: Ysw_max = 210 ! Maximum function years of xylems
 
  ! Soil SOM reference C/N ratios
- integer, public, parameter :: N_SOM = 5
+ integer, parameter :: N_SOM = 5
  !  fineL, structuralL, microbial, fast, slow
- real, public, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
- real, public, parameter :: CUEmax0 = 0.4 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
+ real, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
+ real, parameter :: CUEmax0 = 0.4 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
 
  ! Soil water hydrualics
- integer,public,parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
- integer,public,parameter :: num_l   = soil_L ! Soil layers,
- real, public, parameter :: thksl(soil_L)=(/0.05,0.45,1.5,1.5,1.5/) ! m, thickness of soil layers
- real, public, parameter :: rzone = sum(thksl) !m
- real, public, parameter :: psi_wilt  = -150.0  ! matric head at wilting
- real, public, parameter :: K_rel_min = 1.e-12
- real, public, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d drainage rate at FC
- real, public, parameter :: ws0 = 0.02 ! hygroscopic point
- real, public, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
- integer, public, parameter :: & ! soil types
+ integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
+ integer, parameter :: num_l   = soil_L ! Soil layers,
+ real, parameter :: thksl(soil_L)=(/0.05,0.45,1.5,1.5,1.5/) ! m, thickness of soil layers
+ real, parameter :: rzone = sum(thksl) !m
+ real, parameter :: psi_wilt  = -150.0  ! matric head at wilting
+ real, parameter :: K_rel_min = 1.e-12
+ real, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d drainage rate at FC
+ real, parameter :: ws0 = 0.02 ! hygroscopic point
+ real, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
+ integer, parameter :: & ! soil types
               Sand        = 1,  LoamySand   = 2, &
               SandyLoam   = 3,  SiltLoam    = 4, &
               FrittedClay = 5,  Loam        = 6, &
               Clay        = 7
 
  ! LM3 vegetation and soil types
- integer, public, parameter :: & ! phenology type
+ integer, parameter :: & ! phenology type
           PHEN_DECIDIOUS = 0, PHEN_EVERGREEN = 1
- integer, public, parameter :: & ! physiology types
+ integer, parameter :: & ! physiology types
                    PT_C3 = 0,  PT_C4 = 1
- integer, public, parameter :: NSPECIES = 5, & ! number of species
+ integer, parameter :: NSPECIES = 5, & ! number of species
           SP_C4GRASS   = 0, & ! c4 grass
           SP_C3GRASS   = 1, & ! c3 grass
           SP_TEMPDEC   = 2, & ! temperate deciduous
           SP_TROPICAL  = 3, & ! non-grass tropical
           SP_EVERGR    = 4    ! non-grass evergreen
- integer, public, parameter :: N_LU_TYPES = 4, & ! number of land use types
+ integer, parameter :: N_LU_TYPES = 4, & ! number of land use types
           LU_PAST    = 1, & ! pasture
           LU_CROP    = 2, & ! crops
           LU_NTRL    = 3, & ! natural vegetation
@@ -493,18 +476,28 @@ type :: climate_data_type
    real :: CO2           ! ppm
    real :: soilwater     ! soil moisture, vol/vol
 end type climate_data_type
-!---------------------------
 
-! Input forcing data
-type(climate_data_type),pointer, save :: forcingData(:)
-! PFT-specific parameters
-type(spec_data_type), save :: spdata(0:MSPECIES) ! define PFTs
-! Soil hydraulic parameters
-type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
+! -------------------------------------------
+! Soil parameters
+! Coarse  Medium   Fine    CM     CF     MF    CMF    Peat    MCM
+  real :: GMD(n_dim_soil_types) = & ! geometric mean partice diameter, mm
+  (/ 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007, 0.3, 0.3 /)
+  real :: GSD(n_dim_soil_types) = & ! geometric standard deviation of particle size
+  (/5.0, 5.3, 7.4, 6.1, 6.1, 14.0, 15.0, 7.4, 7.4 /)
+  real :: vwc_sat(n_dim_soil_types)= &
+   (/ 0.380, 0.445, 0.448, 0.412, 0.414, 0.446, 0.424, 0.445, 0.445   /)
+  !real :: vlc_min(n_dim_soil_types)
+  real :: k_sat_ref(n_dim_soil_types)= & ! mol/(s MPa m) , hydraulic conductivity of saturated soil,
+  (/ 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2 /)
+  real :: psi_sat_ref(n_dim_soil_types) = & ! Pa
+  (/ -600., -790., -910., -1580., -1680., -1880., -5980., -790., -790./)
+  real :: chb(n_dim_soil_types) = &         ! Soil texture parameter
+  (/   3.5,   6.4,  11.0,   4.8,   6.3,   8.4,   6.3,   6.4,   6.4   /)
+  real :: alphaSoil(n_dim_soil_types) = 1.0       ! *** REPLACE LATER BY alpha(layer)
+  real :: heat_capacity_dry(n_dim_soil_types) = &
+  (/ 1.2e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.4e6,   1.0   /)
 
-!---------------------------------------
-integer :: MaxCohortID = 0
-
+! -------------------------------------------
 ! Vegetation and soil BGC parameters
 ! Cohort management
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
@@ -699,62 +692,7 @@ real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
 real :: NfixRate0(0:MSPECIES) = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
 real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
 
-namelist /vegn_parameters_nml/  diff_S0,                              &
-  pt, phenotype, lifeform,                                            &
-  alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,f_taper,f_cGap,     &
-  ! Leaf
-  LAImax,LAI_light,LMA,Vmax,m_cond,Vannual,ps_wet,c_LLS,leaf_size,    &
-  ! Wood and root
-  rho_wood,rho_FR,root_r,root_zeta,Kw_root,rho_N_up0, N_roots0,       &
-  ! Growth & respiration
-  f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
-  NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
-  retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
-  ! Phenology
-  gdd_crit,tc_crit_off,tc_crit_on,betaON,betaOFF,                     &
-  T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
-  ! Reproduction and Mortality
-  AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
-  r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                &
-  ! Tisue C/N ratios
-  LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
-  ! Plant hydraulics
-  WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,f0_WD,CR0_LF,CR0_WD,          &
-  TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
-  ! Soil
-  FLDCAP,WILTPT,LMAmin,fsc_fine,fsc_wood,                             &
-  K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
-  ! Fire model parameters, Weng, 01/13/2021
-  envi_fire_prb,Ignition_G0, Ignition_W0,m0_w_fire, m0_g_fire, r_BK0, &
-  f_HT0 , h0_escape, D_BK0,                    & ! for an old scheme
-  phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh ! LM3 PFT transitions
-
-! -------------------------------------------
-! Soil parameters
-! Coarse  Medium   Fine    CM     CF     MF    CMF    Peat    MCM
-  real :: GMD(n_dim_soil_types) = & ! geometric mean partice diameter, mm
-  (/ 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007, 0.3, 0.3 /)
-  real :: GSD(n_dim_soil_types) = & ! geometric standard deviation of particle size
-  (/5.0, 5.3, 7.4, 6.1, 6.1, 14.0, 15.0, 7.4, 7.4 /)
-  real :: vwc_sat(n_dim_soil_types)= &
-   (/ 0.380, 0.445, 0.448, 0.412, 0.414, 0.446, 0.424, 0.445, 0.445   /)
-  !real :: vlc_min(n_dim_soil_types)
-  real :: k_sat_ref(n_dim_soil_types)= & ! mol/(s MPa m) , hydraulic conductivity of saturated soil,
-  (/ 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2 /)
-  real :: psi_sat_ref(n_dim_soil_types) = & ! Pa
-  (/ -600., -790., -910., -1580., -1680., -1880., -5980., -790., -790./)
-  real :: chb(n_dim_soil_types) = &         ! Soil texture parameter
-  (/   3.5,   6.4,  11.0,   4.8,   6.3,   8.4,   6.3,   6.4,   6.4   /)
-  real :: alphaSoil(n_dim_soil_types) = 1.0       ! *** REPLACE LATER BY alpha(layer)
-  real :: heat_capacity_dry(n_dim_soil_types) = &
-  (/ 1.2e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.4e6,   1.0   /)
-
-! Soil hydraulic and heat parameter name list
-namelist /soil_data_nml/ soiltype,             &
-     GMD, GSD, vwc_sat,k_sat_ref, psi_sat_ref, &
-     chb, alphaSoil,heat_capacity_dry
-
-!----- Initial conditions -------------
+!----- Initial conditions and model control -------------
 integer, parameter :: MAX_INIT_COHORTS = 10 ! Weng, 2014-10-01
 integer :: init_n_cohorts                        = MAX_INIT_COHORTS
 integer :: init_cohort_species(MAX_INIT_COHORTS) = 2
@@ -776,7 +714,7 @@ real :: N_input           = 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
 character(len=80) :: filepath_in = './input/'
 character(len=80) :: filepath_out = './output/'
 character(len=80) :: runID = 'test'
-character(len=160) :: climfile = 'US-Ha1forcing.txt'
+character(len=160) :: climfile = 'ORNL_forcing.txt'
 integer  :: datalines ! the total lines in forcing data file
 integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
@@ -808,7 +746,7 @@ logical  :: do_WD_mort_function = .False.
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
 real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
 
-! Model initialization name list
+! ------------- Model initialization name list ------------
 namelist /initial_state_nml/ &
     ! initial vegetation states
     init_n_cohorts, init_cohort_species, init_cohort_nindivs,   &
@@ -817,19 +755,61 @@ namelist /initial_state_nml/ &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
     filepath_in,filepath_out, runID, climfile, siteLAT,         &
-    model_run_years, yr_ResetVeg, outputhourly, outputdaily,   &
+    model_run_years, yr_ResetVeg, outputhourly, outputdaily,    &
     do_U_shaped_mortality,update_annualLAImax, do_fire,         &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
     do_WD_mort_function,Sc_prcp,CO2_c
 
+! ---------- Soil hydraulic and heat parameter name list ---------
+namelist /soil_data_nml/ soiltype,             &
+     GMD, GSD, vwc_sat,k_sat_ref, psi_sat_ref, &
+     chb, alphaSoil,heat_capacity_dry
+
+! --------- Vegetation parameter name list ---------
+namelist /vegn_parameters_nml/  diff_S0,                              &
+  pt, phenotype, lifeform,                                            &
+  alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,f_taper,f_cGap,     &
+  ! Leaf
+  LAImax,LAI_light,LMA,Vmax,m_cond,Vannual,ps_wet,c_LLS,leaf_size,    &
+  ! Wood and root
+  rho_wood,rho_FR,root_r,root_zeta,Kw_root,rho_N_up0, N_roots0,       &
+  ! Growth & respiration
+  f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
+  NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
+  retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
+  ! Phenology
+  gdd_crit,tc_crit_off,tc_crit_on,betaON,betaOFF,                     &
+  T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
+  ! Reproduction and Mortality
+  AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
+  r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                &
+  ! Tisue C/N ratios
+  LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
+  ! Plant hydraulics
+  WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,f0_WD,CR0_LF,CR0_WD,          &
+  TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
+  ! Soil
+  FLDCAP,WILTPT,LMAmin,fsc_fine,fsc_wood,                             &
+  K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
+  ! Fire model parameters, Weng, 01/13/2021
+  envi_fire_prb,Ignition_G0, Ignition_W0,m0_w_fire, m0_g_fire, r_BK0, &
+  f_HT0 , h0_escape, D_BK0,                    & ! for an old scheme
+  phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh ! LM3 PFT transitions
+
+!-------------Vars for parameter types -----------------------
+! PFT-specific parameters
+type(spec_data_type), save :: spdata(0:MSPECIES) ! define PFTs
+! Soil hydraulic parameters
+type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
+
 !---------------------------------
  contains
+
 !============================ Subroutines =================================
 
 !========================Parameter initialization =========================
 !==========================================================================
 subroutine initialize_soilpars()
-
   ! initialize soil parameters
   soilpars%GMD         = GMD ! geometric mean partice diameter, mm
   soilpars%GSD         = GSD ! geometric standard deviation of particle size

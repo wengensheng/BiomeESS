@@ -57,7 +57,9 @@ module BiomeE_mod
  ! ------ public subroutines ---------
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
  ! Main vegn unit
- type(vegn_tile_type),public,pointer :: vegn
+ type(vegn_tile_type), pointer :: vegn
+ ! Input forcing data
+ type(climate_data_type), pointer :: forcingData(:)
  ! output files
  integer :: fno1, fno2, fno3, fno4, fno5, fno6
 
@@ -75,7 +77,7 @@ subroutine BiomeE_initialization()
   write(*,'(a6,3(I2,":"))')'Time: ', timeArray
 
   ! ---------------------- Read the namelist file -----------------
-  call read_namelist(trim(fnml_path)//trim(fnamelist))
+  call read_namelist(fnml)
 
   ! --------- Read forcing data ----------------------
   call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
