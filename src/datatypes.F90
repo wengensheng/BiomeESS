@@ -2,10 +2,7 @@
  ! define data types, constants, and some basic functions
  implicit none
 
- !=============== Namelist file (must be hardwared) ===============
- character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
-
-!===============constants===============
+ !===============constants===============
  logical, parameter :: read_from_parameter_file = .TRUE.
  integer, parameter :: days_per_year    = 365
  integer, parameter :: hours_per_year   = 365 * 24  ! 8760
@@ -14,6 +11,7 @@
 
  ! Physical constants
  real, parameter :: PI      = 3.1415926
+ real, parameter :: rho_H2O = 1000.0 ! water density (kg m-3)
  real, parameter :: TFREEZE = 273.16
  real, parameter :: Rugas   = 8.314472 ! universal gas constant, J K-1 mol-1
  real, parameter :: mol_C   = 12.0e-3 ! molar mass of carbon, kg
@@ -33,7 +31,6 @@
  real,    parameter :: min_nindivs= 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
- real, parameter    :: rho_H2O      = 1000.0 ! water density (kg m-3)
  real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3
  real, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
  integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
@@ -806,9 +803,7 @@ type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
  contains
 
 !============================ Subroutines =================================
-
 !========================Parameter initialization =========================
-!==========================================================================
 subroutine initialize_soilpars()
   ! initialize soil parameters
   soilpars%GMD         = GMD ! geometric mean partice diameter, mm
@@ -838,23 +833,23 @@ subroutine initialize_PFT_data()
   integer :: i
 
   ! initialize vegetation data structure
-  spdata%pt         = pt
-  spdata%phenotype  = phenotype
-  spdata%Vmax       = Vmax
-  spdata%Vannual    = Vannual
-  spdata%m_cond     = m_cond
+  spdata%pt       = pt
+  spdata%phenotype= phenotype
+  spdata%Vmax     = Vmax
+  spdata%Vannual  = Vannual
+  spdata%m_cond   = m_cond
   spdata%alpha_ps = alpha_ps
-  spdata%ps_wet = ps_wet
+  spdata%ps_wet   = ps_wet
   spdata%LFR_rate = LFR_rate
   spdata%gamma_L  = gamma_L
   spdata%gamma_LN = gamma_LN
   spdata%gamma_SW = gamma_SW
   spdata%gamma_FR = gamma_FR
 
-  spdata%rho_FR    = rho_FR
-  spdata%root_r    = root_r
-  spdata%root_zeta = root_zeta
-  spdata%Kw_root   = Kw_root
+  spdata%rho_FR   = rho_FR
+  spdata%root_r   = root_r
+  spdata%root_zeta= root_zeta
+  spdata%Kw_root  = Kw_root
   !  spdata%rho_N_up0 = rho_N_up0
   !  spdata%N_roots0  = N_roots0
 
@@ -906,16 +901,15 @@ subroutine initialize_PFT_data()
   spdata%psi50_WD = psi50_WD
   spdata%Kexp_WD  = Kexp_WD
 
-  spdata%LAImax       = LAImax
-  spdata%LAImax_u     = 1.2 ! LAImax
-  spdata%LAI_light    = LAI_light
-  spdata%tauNSC       = tauNSC
-  spdata%fNSNmax      = fNSNmax
-  spdata%transT       = transT
-  spdata%phiRL        = phiRL
-  spdata%phiCSA       = phiCSA
-  ! root urnover rate
-  spdata%alpha_FR = alpha_FR
+  spdata%LAImax   = LAImax
+  spdata%LAImax_u = 1.2 ! LAImax
+  spdata%LAI_light= LAI_light
+  spdata%tauNSC   = tauNSC
+  spdata%fNSNmax  = fNSNmax
+  spdata%transT   = transT
+  spdata%phiRL    = phiRL
+  spdata%phiCSA   = phiCSA
+  spdata%alpha_FR = alpha_FR  ! root urnover rate
 
   !! Nitrogen Weng 2012-10-24
   ! spdata%CNleaf0 = CNleaf0
@@ -1017,9 +1011,7 @@ subroutine qscomp(T, p, qsat)
   ! calculate saturated specific humidity
   Temp = T - 273.16 ! degC
   esat=MIN(610.78*exp(17.27*Temp/(Temp+237.3)), p) ! Pa
-
   qsat = 0.622*esat /(p - 0.378*esat )
-
 end subroutine qscomp
 
 !===========================

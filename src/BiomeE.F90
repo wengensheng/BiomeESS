@@ -71,6 +71,8 @@ subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
   implicit none
   integer :: timeArray(3)
+  !=============== Namelist file (must be hardwired) ===============
+  character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
   ! ---------- Time stamp -------------
   call itime(timeArray)     ! Get current time
@@ -210,6 +212,7 @@ subroutine BiomeE_end
   close(fno4); close(fno5); close(fno6)
 
   deallocate(vegn%cohorts)
+  deallocate(vegn)
   deallocate(forcingData)
 end subroutine BiomeE_end
 
