@@ -359,7 +359,7 @@ subroutine SoilWaterTranspUpdate(vegn)
 end subroutine SoilWaterTranspUpdate
 
 
-! ==============Used in LM3, but not here =============================
+! ==============From LM3, but not used in BiomeE =============================
 ! =============== just for reference =========================================
 ! ============================================================================
 ! compute uptake-related properties

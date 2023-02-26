@@ -154,19 +154,20 @@ type spec_data_type
   real :: CNwood0
   real :: CNseed0
   ! phenology
-  real :: tc_crit_off     ! K, for turning OFF a growth season
-  real :: tc_crit_on      ! K, for turning ON a growth season
-  real :: gdd_crit        ! K, critical value of GDD5 for turning ON growth season
+  real :: tc_crit_off    ! K, for turning OFF a growth season
+  real :: tc_crit_on     ! K, for turning ON a growth season
+  real :: gdd_crit       ! K, critical value of GDD5 for turning ON growth season
   real :: gdd_par1
   real :: gdd_par2
   real :: gdd_par3
-  real :: betaON         ! Critical soil moisture for phenology ON
-  real :: betaOFF        ! Critical soil moisture for phenology OFF
+  real :: betaON       ! Critical soil moisture for phenology ON
+  real :: betaOFF      ! Critical soil moisture for phenology OFF
   !  vital rates
-  real :: AgeRepro       ! the age that can reproduce
-  real :: v_seed           ! fracton of G_SF to G_F
+  real :: AgeRepro     ! the age that can reproduce
+  real :: v_seed       ! fracton of G_SF to G_F
   real :: s0_plant     ! size of the seedlings, kgC/indiv
-  real :: prob_g,prob_e    ! germination and establishment probabilities
+  real :: prob_g       ! seed germination probability
+  real :: prob_e       ! seed establishment probability
   real :: r0mort_c     ! yearly mortality rate in canopy
   real :: D0mu         ! Reference diameter for size-dependent mortality
   real :: A_un         ! Parameter for understory mortality affected by layers
@@ -180,8 +181,6 @@ type spec_data_type
   real :: LAI_light ! light controlled maximum LAI
   integer :: n_cc   ! for calculating LAImax via cc%LAImax derived from cc%NSN
   real :: f_cGap    ! fraction of internal gaps in the canopy
-  ! "internal" gaps are the gaps that are created within the canopy by the
-  ! branch fall processes.
 end type
 
 !----------cohort-----------------
@@ -193,9 +192,9 @@ type :: cohort_type
 
   ! ---- biological prognostic variables
   integer :: ccID   = 0   ! cohort ID
-  integer :: species= 0   ! vegetation species
-  real :: gdd       = 0.0   ! for phenology
-  real :: ALT       = 0.0  ! growing season accumulative cold temperature
+  integer :: species= 0   ! PFT type
+  real :: gdd       = 0.0 ! for phenology
+  real :: ALT       = 0.0 ! growing season accumulative cold temperature
   integer :: Ngd    = 0   ! growing days
   integer :: Ndm    = 0   ! dormant days
   integer :: Ncd    = 0   ! number of cold days in non-growing season
@@ -205,7 +204,7 @@ type :: cohort_type
   real :: leafage   = 0.0 ! leaf age (year)
 
   ! for populatin structure
-  real :: nindivs= 1.0 ! density of vegetation, individuals/m2
+  real :: nindivs= 1.0  ! density of vegetation, individuals/m2
   real :: mu     = 0.02 ! Cohort mortality rate
   real :: age    = 0.0 ! age of cohort, years
   real :: dbh    = 0.0 ! diameter at breast height, m
@@ -229,7 +228,9 @@ type :: cohort_type
   real :: resl = 0.0 ! leaf respiration
   real :: resr = 0.0 ! root respiration
   real :: resg = 0.0 ! growth respiration
-  real :: NPPleaf,NPProot,NPPwood ! to record C allocated to leaf, root, and wood
+  real :: NPPleaf = 0.0 ! C allocated to leaf, root, and wood
+  real :: NPProot = 0.0 !
+  real :: NPPwood = 0.0 !
 
   ! for hydraulics-mortality
   integer :: Nrings = 1
@@ -363,15 +364,15 @@ type :: vegn_tile_type
   integer :: soiltype    ! lookup table for soil hydrologic parameters
   real :: FLDCAP  ! soil field capacity
   real :: WILTPT  ! soil wilting point (0.xx)
-  real :: evap           ! kg m-2 per unit fast time step (mm/hour)
-  real :: transp         ! kg m-2 hour-1
-  real :: runoff        ! Water runoff of the veg tile, unit?
-  real :: thetaS     ! moisture index (ws - wiltpt)/(fldcap - wiltpt)
-  real :: wcl(soil_L)   ! volumetric soil water content for each layer
+  real :: evap    ! kg m-2 per unit fast time step (mm/hour)
+  real :: transp  ! kg m-2 hour-1
+  real :: runoff  ! Water runoff of the veg tile, unit?
+  real :: thetaS  ! moisture index (ws - wiltpt)/(fldcap - wiltpt)
+  real :: wcl(soil_L)       ! volumetric soil water content for each layer
   real :: freewater(soil_L) ! Available water in each layer
-  real :: psi_soil(soil_L) ! MPa
-  real :: K_soil(soil_L)   ! Kg H2O/(m2 s MPa)
-  real :: soilWater      ! kg m-2 in root zone
+  real :: psi_soil(soil_L)  ! MPa
+  real :: K_soil(soil_L)    ! Kg H2O/(m2 s MPa)
+  real :: soilWater         ! kg m-2 in root zone
 
   ! Vegetation water
   real :: W_leaf
@@ -384,10 +385,10 @@ type :: vegn_tile_type
   real :: W_uptake  ! water uptake rate per unit time per m2
 
   !  Carbon fluxes
-  real :: gpp =0 ! gross primary production, kgC m-2 yr-1
-  real :: npp =0 ! net primary productivity
+  real :: gpp = 0  ! gross primary production, kgC m-2 yr-1
+  real :: npp = 0  ! net primary productivity
   real :: resp = 0 ! auto-respiration of plants
-  real :: rh  =0 ! soil carbon lost to the atmosphere
+  real :: rh  = 0  ! soil carbon lost to the atmosphere
 
   !  fire disturbance
   real :: C_combusted = 0.0 ! Carbon released to atmosphere via fire
@@ -401,9 +402,9 @@ type :: vegn_tile_type
   real :: dailyNup
   real :: dailyfixedN
   ! for annual diagnostics
-  real :: dailyPrcp=0.0, annualPrcp = 0.0 ! mm m-2 yr-1
-  real :: dailyTrsp=0.0,dailyEvap=0.0, dailyRoff=0.0 ! mm m-2 yr-1
-  real :: annualTrsp=0.0,annualEvap=0.0, annualRoff=0.0 ! mm m-2 yr-1
+  real :: dailyPrcp = 0.0, annualPrcp = 0.0 ! mm m-2 yr-1
+  real :: dailyTrsp = 0.0, dailyEvap  = 0.0, dailyRoff = 0.0 ! mm m-2 yr-1
+  real :: annualTrsp= 0.0, annualEvap = 0.0, annualRoff= 0.0 ! mm m-2 yr-1
   real :: annualGPP = 0.0 ! kgC m-2 ground yr-1
   real :: annualNPP = 0.0
   real :: annualResp = 0.0
@@ -462,8 +463,8 @@ end type soil_tile_type
 
 !Forcing data type
 type :: climate_data_type
-   integer :: year          ! Year
-   integer :: doy           ! day of the year
+   integer :: year       ! Year
+   integer :: doy        ! day of the year
    real :: hod           ! hour of the day
    real :: PAR           ! umol m-2 s-1
    real :: radiation     ! W/m2
