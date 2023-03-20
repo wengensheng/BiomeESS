@@ -20,7 +20,7 @@ gfortran $FSRCS $CPPFLAGS -o ess
 fparameter='./para_files/parameters_ORNL_test.nml'
 echo $fparameter
 cat $fparameter > ./para_files/input.nml
-./ess
+#./ess
 
 rm ./para_files/input.nml
 rm ess

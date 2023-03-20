@@ -55,6 +55,7 @@ module BiomeE_mod
  private
 
  ! ------ public subroutines ---------
+ public :: BiomeE_main
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
  ! Main vegn unit
  type(vegn_tile_type), pointer :: vegn
@@ -66,6 +67,14 @@ module BiomeE_mod
  contains
 
 !================== BiomeE Driver ===========================================
+ subroutine BiomeE_main() ! Weng 03/20/2023, main BiomeE module
+  implicit none
+
+  call BiomeE_initialization()
+  call BiomeE_run()
+  call BiomeE_end()
+end subroutine BiomeE_main
+
 !----------------------------------------------------------------------------
 subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
