@@ -58,6 +58,7 @@ module BiomeE_mod
  public :: BiomeE_main
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
  ! Main vegn unit
+ type(land_grid_type), pointer :: land
  type(vegn_tile_type), pointer :: vegn
  ! Input forcing data
  type(climate_data_type), pointer :: forcingData(:)
@@ -79,7 +80,8 @@ end subroutine BiomeE_main
 subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
   implicit none
-  integer :: timeArray(3)
+  type(vegn_tile_type), pointer :: pveg => NULL()
+  integer :: timeArray(3),i
   !=============== Namelist file (must be hardwired) ===============
   character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
@@ -112,12 +114,30 @@ subroutine BiomeE_initialization()
   call initialize_soilpars()
   call initialize_PFT_data()
 
-  ! ------ Vegetation tile and plant cohorts ------
-  allocate(vegn)
-  call initialize_vegn_tile(vegn)
-  ! Sort and relayer cohorts
-  call relayer_cohorts(vegn)
-  call Zero_diagnostics(vegn)
+  ! ------ Land grid, vegetation tiles, and plant cohorts ------
+  allocate(land)
+  land%nTiles = 0
+  do i =1, N_VegTile
+    allocate(vegn)
+    call initialize_vegn_tile(vegn)
+    ! Sort and relayer cohorts
+    call relayer_cohorts(vegn)
+    call Zero_diagnostics(vegn)
+    vegn%tileID = i
+    land%nTiles = land%nTiles + 1
+    if(i==1)then
+      land%firstVegn => vegn
+      pveg => vegn
+    else
+      pveg%next => vegn
+      vegn%prev => pveg
+      pveg      => vegn
+    endif
+    vegn => NULL()
+  enddo
+  vegn => land%firstVegn
+  pveg => NULL()
+  write(*,*)'total tiles:', N_VegTile
 
   ! --------- Setup output files ---------------
   call set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
@@ -144,27 +164,37 @@ subroutine BiomeE_run()
   n_steps = 0
   do idays =1, totdays ! 1*days_data ! days for the model run
     idoy = idoy + 1
-    vegn%Tc_daily = 0.0 ! Zero daily mean temperature
+    land%Tc_daily = 0.0 ! Zero daily mean temperature
 
     ! Fast-step calls, hourly or half-hourly
     do i=1,steps_per_day
       n_steps = n_steps + 1
       idata = MOD(n_steps-1, datalines) + 1
       year0 = forcingData(idata)%year  ! Current step year
-      vegn%Tc_daily = vegn%Tc_daily + forcingData(idata)%Tair
-
-      call vegn_CNW_budget_fast(vegn,forcingData(idata))
-      call hourly_diagnostics(vegn,forcingData(idata),n_yr,idoy,i,idays,fno1,fno2)
+      land%Tc_daily = land%Tc_daily + forcingData(idata)%Tair
+      vegn => land%firstVegn
+      do while(ASSOCIATED(vegn))
+        call vegn_CNW_budget_fast(vegn,forcingData(idata))
+        call hourly_diagnostics(vegn,forcingData(idata), &
+                                n_yr,idoy,i,idays,fno1,fno2)
+        vegn => vegn%next
+      enddo
     enddo ! steps_per_day
-    vegn%Tc_daily = vegn%Tc_daily/steps_per_day
-    ! Update vegn age
-    call vegn_age(vegn,dt_daily_yr)
-    call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
+    land%Tc_daily = land%Tc_daily/steps_per_day
 
-    ! Daily calls
-    call vegn_phenology(vegn)
-    call vegn_growth(vegn)
-    !call vegn_daily_starvation(vegn)
+    ! Daily run
+    vegn => land%firstVegn
+    do while(ASSOCIATED(vegn))
+      ! Update vegn age
+      call vegn_age(vegn,dt_daily_yr)
+      call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
+      ! Daily calls
+      vegn%Tc_daily = land%Tc_daily
+      call vegn_phenology(vegn)
+      call vegn_growth(vegn)
+      !call vegn_daily_starvation(vegn)
+      vegn => vegn%next
+    enddo
 
     !! Check if the next step is a new year
     idata = MOD(n_steps, datalines) + 1
@@ -175,53 +205,62 @@ subroutine BiomeE_run()
     ! Annual calculations
     if(new_annual_cycle)then
       idoy = 0
-      ! Update plant hydraulic states, for the last year
-      call vegn_hydraulic_states(vegn,real(seconds_per_year))
-      call annual_diagnostics(vegn,n_yr,fno5,fno6)
+      vegn => land%firstVegn
+      do while(ASSOCIATED(vegn))
+        ! Update plant hydraulic states, for the last year
+        call vegn_hydraulic_states(vegn,real(seconds_per_year))
+        call annual_diagnostics(vegn,n_yr,fno5,fno6)
 
-      ! Case studies
-      ! N is losing after changing the soil pool structure. Hack !!!!!
-      ! if(do_closedN_run) call Recover_N_balance(vegn)
-      ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
-      if(do_migration) call vegn_migration(vegn) ! for competition
-      ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
-
+        ! Case studies
+        ! N is losing after changing the soil pool structure. Hack !!!!!
+        ! if(do_closedN_run) call Recover_N_balance(vegn)
+        ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+        if(do_migration) call vegn_migration(vegn) ! for competition
+        ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 #ifndef DemographyOFF
-      ! For the incoming year
-      call vegn_annual_starvation(vegn) ! turn it off for grass run
-      call vegn_nat_mortality(vegn, real(seconds_per_year))
-      call vegn_reproduction(vegn)
+        ! For the incoming year
+        call vegn_annual_starvation(vegn) ! turn it off for grass run
+        call vegn_nat_mortality(vegn, real(seconds_per_year))
+        call vegn_reproduction(vegn)
 #endif
 
-      ! Cohort management
-      call kill_lowdensity_cohorts(vegn)
-      call kill_old_grass(vegn)
-      !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
-      call relayer_cohorts(vegn)
-      call vegn_mergecohorts(vegn)
+        ! Cohort management
+        call kill_lowdensity_cohorts(vegn)
+        call kill_old_grass(vegn)
+        !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
+        call relayer_cohorts(vegn)
+        call vegn_mergecohorts(vegn)
 
-      ! zero annual reporting variables
-      call Zero_diagnostics(vegn)
-      !! Reset vegetation to initial conditions
-      CALL RANDOM_NUMBER(r_d)
-      if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
-         call reset_vegn_initial(vegn)
+        ! zero annual reporting variables
+        call Zero_diagnostics(vegn)
+        !! Reset vegetation to initial conditions
+        CALL RANDOM_NUMBER(r_d)
+        if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
+          call reset_vegn_initial(vegn)
+        vegn => vegn%next
+      enddo
 
       ! update the years of model run
       n_yr = n_yr + 1
     endif
   enddo
-
 end subroutine BiomeE_run
 
 !----------------------------------------------------------------------------
 subroutine BiomeE_end
+  type(vegn_tile_type), pointer :: pveg => NULL()
   !------------ Close output files and release memory
   close(fno1); close(fno2); close(fno3)
   close(fno4); close(fno5); close(fno6)
 
-  deallocate(vegn%cohorts)
-  deallocate(vegn)
+  vegn => land%firstVegn
+  do while(ASSOCIATED(vegn))
+    pveg => vegn%next
+    deallocate(vegn%cohorts)
+    deallocate(vegn)
+    vegn => pveg
+  enddo
+  deallocate(land)
   deallocate(forcingData)
 end subroutine BiomeE_end
 

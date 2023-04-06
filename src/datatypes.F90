@@ -317,7 +317,7 @@ end type cohort_type
 
 !---------------------------
 type :: vegn_tile_type
-  integer :: tag ! kind of the tile
+  integer :: tileID
   integer :: landuse = LU_NTRL
   integer :: n_cohorts = 0
   integer :: n_initialCC = 0
@@ -325,6 +325,8 @@ type :: vegn_tile_type
   integer :: n_canopycc = 0
   type(cohort_type), pointer :: cohorts(:)=>NULL()
   type(cohort_type), pointer :: initialCC(:)=>NULL()
+  type(vegn_tile_type), pointer :: prev => null() ! Pointer to the older vegn tile
+  type(vegn_tile_type), pointer :: next => null() ! Pointer to the younger vegn tile
   real :: area      ! m2
   real :: age = 0.0 ! tile age
   real :: LAI  ! leaf area index
@@ -417,6 +419,13 @@ type :: vegn_tile_type
   real :: p_ann  = 0.0 ! annual mean precip
   real :: ncm    = 0.0 ! number of cold months
 end type vegn_tile_type
+
+type :: land_grid_type
+   type(vegn_tile_type), pointer :: firstVegn => NULL() ! first vegn tile
+   integer :: nTiles = 0 ! The total number of tiles
+   real    :: area       ! are of this grid, m2
+   real    :: Tc_daily   ! Daily mean temperature
+end type land_grid_type
 
 !----------------------------------------
 type :: soil_pars_type
@@ -712,6 +721,7 @@ character(len=80) :: filepath_in = './input/'
 character(len=80) :: filepath_out = './output/'
 character(len=80) :: runID = 'test'
 character(len=160) :: climfile = 'ORNL_forcing.txt'
+integer  :: N_VegTile = 1 ! Initial vegn tiles
 integer  :: datalines ! the total lines in forcing data file
 integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
@@ -751,7 +761,7 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
-    filepath_in,filepath_out, runID, climfile, siteLAT,         &
+    filepath_in,filepath_out,runID,N_VegTile,climfile,siteLAT,  &
     model_run_years, yr_ResetVeg, outputhourly, outputdaily,    &
     do_U_shaped_mortality,update_annualLAImax, do_fire,         &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
