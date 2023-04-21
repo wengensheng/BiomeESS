@@ -57,9 +57,9 @@ module BiomeE_mod
  ! ------ public subroutines ---------
  public :: BiomeE_main
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
- ! Main vegn unit
- type(land_grid_type), pointer :: land
- type(vegn_tile_type), pointer :: vegn
+
+ !-------------Vars for the model -------------
+ type(land_grid_type), pointer :: land ! Land grid
  ! Input forcing data
  type(climate_data_type), pointer :: forcingData(:)
  ! output files
@@ -80,6 +80,7 @@ end subroutine BiomeE_main
 subroutine BiomeE_initialization()
   ! Weng 08/08/2022, for model initialization
   implicit none
+  type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
   integer :: timeArray(3),i
   !=============== Namelist file (must be hardwired) ===============
@@ -123,6 +124,7 @@ subroutine BiomeE_initialization()
     ! Sort and relayer cohorts
     call relayer_cohorts(vegn)
     call Zero_diagnostics(vegn)
+    vegn%Tc_pheno = forcingData(1)%Tair
     vegn%tileID = i
     land%nTiles = land%nTiles + 1
     if(i==1)then
@@ -151,13 +153,13 @@ end subroutine BiomeE_initialization
 subroutine BiomeE_run()
   ! Weng 08/08/2022, for model run
   implicit none
+  type(vegn_tile_type), pointer :: vegn => NULL()
   integer :: i, idays, idata, idoy
   integer :: n_steps, n_yr, year0, year1
   real    :: r_d
   logical :: new_annual_cycle
 
   !----------------------
-  vegn%Tc_pheno = forcingData(1)%Tair
   year0   = forcingData(1)%year
   n_yr    = 1
   idoy    = 0
@@ -248,6 +250,7 @@ end subroutine BiomeE_run
 
 !----------------------------------------------------------------------------
 subroutine BiomeE_end
+  type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
   !------------ Close output files and release memory
   close(fno1); close(fno2); close(fno3)

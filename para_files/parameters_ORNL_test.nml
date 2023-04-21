@@ -34,7 +34,7 @@ s0_plant    = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial si
 LMA         = 0.02,    0.08,    0.08,    0.08,    0.08,    0.08,    ! Leaf mass per unit area
 phiRL       = 0.7,     1.2,     1.2,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
 rho_wood    = 150.,    200,    250,     300.,    350.,    400.,
-LNbase      = 0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+LNbase      = 1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,
 laimax      = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
 LAI_light   = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limited crown LAI

@@ -111,8 +111,8 @@ subroutine vegn_photosynthesis (forcing, vegn)
 
   !----- local var --------------
   type(cohort_type),pointer :: cc
-  real :: rad_top  ! downward radiation at the top of the canopy, W/m2
-  real :: rad_net  ! net radiation absorbed by the canopy, W/m2
+  real :: rad_top  ! downward PAR radiation at the top of the canopy, W/m2
+  real :: rad_net  ! net PAR radiation absorbed by the canopy, W/m2
   real :: Tair, TairK     ! air temperature, degC and degK
   real :: cana_q   ! specific humidity in canopy air space, kg/kg
   real :: cana_co2 ! co2 concentration in canopy air space, mol CO2/mol dry air
@@ -151,8 +151,8 @@ subroutine vegn_photosynthesis (forcing, vegn)
        if(cc%status == LEAF_ON .and. cc%Aleaf > 1.0E-4) then
          ! Convert forcing data
           layer = Max (1, Min(cc%layer,9))
-          rad_top = f_light(layer) * forcing%radiation ! downward radiation at the top of the canopy, W/m2
-          rad_net = f_light(layer) * forcing%radiation * 0.9 ! net radiation absorbed by the canopy, W/m2
+          rad_top = f_light(layer) * f_PAR * forcing%radiation ! downward PAR radiation at the top of the canopy, W/m2
+          rad_net = f_light(layer) * f_PAR * forcing%radiation * 0.9 ! net PAR radiation absorbed by the canopy, W/m2
           p_surf  = forcing%P_air  ! Pa
           TairK   = forcing%Tair ! K
           Tair    = forcing%Tair - 273.16 ! degC
@@ -237,10 +237,9 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real :: dum2
   real, parameter :: light_crit = 0
   real, parameter :: gs_lim = 0.25
-  real, parameter :: Rgas = 8.314 ! J mol-1 K-1, universal gas constant
+
   ! new average computations
-  real :: lai_eq;
-  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
+  real :: lai_eq
   real :: light_top
   real :: par_net
   real :: Ag
@@ -250,7 +249,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real :: anbar
   real :: gsbar
   real :: w_scale
-  real, parameter :: p_sea = 1.0e5 ! sea level pressure, Pa
+  
   ! soil water stress
   real :: Ed, an_w, gs_w
 

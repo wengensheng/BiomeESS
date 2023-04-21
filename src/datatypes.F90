@@ -21,6 +21,9 @@
  real, parameter :: cpair   = 1010.
  real, parameter :: H2OLv0  = 2.501e6   !latent heat H2O (J/kg)
  real, parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
+ real, parameter :: f_PAR   = 0.5  ! Fraction of PAR in total solar radiation
+ real, parameter :: Rgas    = 8.314 ! J mol-1 K-1, universal gas constant
+ real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
 
  ! Vegetation and soil types
  integer, parameter :: n_dim_soil_types = 9
@@ -425,6 +428,7 @@ type :: land_grid_type
    integer :: nTiles = 0 ! The total number of tiles
    real    :: area       ! are of this grid, m2
    real    :: Tc_daily   ! Daily mean temperature
+   real    :: Tc_pheno   ! Running mean for phenology
 end type land_grid_type
 
 !----------------------------------------
