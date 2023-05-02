@@ -734,7 +734,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     if(outputdaily)then
       open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
       write(fno3,'(9(a6,","),45(a8,","))')'tile',      &  ! Daily cohort
-         'year','doy','hour','cID','PFT','layer',      &
+         'year','doy','c_No','cID','PFT','layer',      &
          'Pheno','ndm','ncd','density','flayer','LAI', &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
          'W_LF','W_SW','W_HW',                         &

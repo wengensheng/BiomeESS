@@ -21,7 +21,7 @@ end module
  character(len=90) :: filein1,filein2,fileout1,fileout2,fileout3
  integer :: fin_1,fin_2,fout_1,fout_2,fout_3
 
- runID    = 'BCI_hydro' !'ORNL_test' !
+ runID    = 'ORNL_test' ! 'BCI_hydro' !
  filepath = 'output/' ! 'testruns/'
 
  ! Yearly cohort
@@ -65,6 +65,7 @@ end module
  endif
  close (fout_1)
  close (fin_1)
+ write(*,*)"Hourly Files done!"
 
  ! -------Daily cohort----------
  filein1  = trim(filepath)//trim(runID)//'_'//'Cohort_daily.csv'
@@ -113,6 +114,7 @@ end
    integer :: m,n,i,j,k,iPFT,iLayer,layertype,yr
    integer :: commentlines
    integer :: istat2,istat3,cc
+   integer :: tileID
    real :: DBH, GPP, NPP, plantC, soilC,plantN, soilN, mineralN, Nmin
 
    ! Set file header
@@ -169,7 +171,7 @@ end
   m = 1  ! First Year
   j = 1  ! First cohort
   k = 1  ! First line
-  read(fin_1,*,IOSTAT=istat3)yr,(dataline(i),i=1,Columns)
+  read(fin_1,*,IOSTAT=istat3)tileID,yr,(dataline(i),i=1,Columns)
   if(istat3 < 0) then ! Reach to the last line
     write(*,*)"Annual cohort file reading error:",istat3
     stop
@@ -179,7 +181,7 @@ end
   dataarray(:,j,m) = dataline(:)
 
   do
-    read(fin_1,*,IOSTAT=istat3)yr,(dataline(i),i=1,Columns)
+    read(fin_1,*,IOSTAT=istat3)tileID,yr,(dataline(i),i=1,Columns)
     if(istat3 < 0) then ! Reach to the last line
       write(*,*)"Annual cohort file reading done, total lines:",k
       exit
@@ -253,7 +255,7 @@ end
    ! read in the ecosystem file for combining data
    read(fin_2,*,IOSTAT=istat3)comments
    do m = 1, totyears
-       read(fin_2,*,IOSTAT=istat3)n,(ecodata(i,m),i=1,45)
+       read(fin_2,*,IOSTAT=istat3)tileID,n,(ecodata(i,m),i=1,45)
        GPP      = ecodata(5,m)
        NPP      = ecodata(5,m)-ecodata(6,m)
        plantC   = ecodata(14,m)
@@ -292,6 +294,7 @@ subroutine cohort_hourly(fin_1,fout_1)
 
   integer :: m, j, i, yr
   integer :: cc, istat3, commentlines
+  integer :: tileID
 
   header1 ='yr,doy,h,cID,sp,layer,density,dbh,height,Acrown,bl,LAI,GPP,NPP,' &
           // 'Transp,Psi_L,Psi_W,W_leaf,W_stem'
@@ -308,7 +311,7 @@ subroutine cohort_hourly(fin_1,fout_1)
      read(fin_1,*,IOSTAT=istat3)cc
      if(istat3<0 .or. cc<1)exit
      do j=1,cc
-         read(fin_1,*,IOSTAT=istat3)(dataarray(i,j),i=1,Columns)
+         read(fin_1,*,IOSTAT=istat3)tileID,(dataarray(i,j),i=1,Columns)
          if(istat3<0)exit
      enddo
      ! Output the first cohort
@@ -329,11 +332,13 @@ subroutine cohort_daily(fin_1,fout_1)
   character(len=180) :: comments,header1
   character(len=8 ) :: BA_Header(maxPFTs), dD_Header(maxPFTs)
   real,dimension(Columns,max_cc):: dataarray
+  real,dimension(Columns):: dataline
 
   integer :: m, j, i, yr,doy
   integer :: cc, istat3, commentlines
+  integer :: tileID
 
-  header1 ='yr,doy,hour,cID,PFT,layer,Pheno,ndm,ncd,density,f_L,LAI,' &
+  header1 ='yr,doy,c_No,cID,PFT,layer,Pheno,ndm,ncd,density,f_L,LAI,' &
         // 'gpp,resp,transp,NPPL,NPPR,NPPW,W_LF,W_SW,W_HW,NSC,seedC,' &
         // 'leafC,rootC,SW-C,HW-C,NSN,seedN,leafN,rootN,SW-N,HW-N'
   write(fout_1,'(a170,",")') trim(header1)
@@ -343,17 +348,13 @@ subroutine cohort_daily(fin_1,fout_1)
      read(fin_1,*,IOSTAT=istat3)comments ! the first line, header
   enddo
 
-  m=0
   do while(istat3==0)
-     m=m+1 ! Year
-     read(fin_1,*,IOSTAT=istat3)yr,doy,cc
      if(istat3<0 .or. cc<1)exit
-     do j=1,cc
-         read(fin_1,*,IOSTAT=istat3)(dataarray(i,j),i=1,Columns)
-         if(istat3<0)exit
-     enddo
+     read(fin_1,*,IOSTAT=istat3)tileID,(dataline(i),i=1,Columns)
+     if(istat3<0)exit
+
      ! Output the first cohort
-     write(fout_1,105)dataarray(:,1)
+     if(dataline(3)==1.0)write(fout_1,105)dataline
   enddo ! End of file reading
 
   105 format(8(f8.0,','),30(f15.4,','))

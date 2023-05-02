@@ -13,7 +13,7 @@
  real, parameter :: PI      = 3.1415926
  real, parameter :: rho_H2O = 1000.0 ! water density (kg m-3)
  real, parameter :: TFREEZE = 273.16
- real, parameter :: Rugas   = 8.314472 ! universal gas constant, J K-1 mol-1
+ real, parameter :: Rgas    = 8.314472 ! universal gas constant, J K-1 mol-1
  real, parameter :: mol_C   = 12.0e-3 ! molar mass of carbon, kg
  real, parameter :: mol_air = 28.96440e-3 ! molar mass of air, kg
  real, parameter :: mol_CO2 = 44.00995e-3 ! molar mass of CO2,kg
@@ -22,7 +22,6 @@
  real, parameter :: H2OLv0  = 2.501e6   !latent heat H2O (J/kg)
  real, parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
  real, parameter :: f_PAR   = 0.5  ! Fraction of PAR in total solar radiation
- real, parameter :: Rgas    = 8.314 ! J mol-1 K-1, universal gas constant
  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
 
  ! Vegetation and soil types

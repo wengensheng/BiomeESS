@@ -165,13 +165,13 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   Hgrownd = 0.0
   TairK = forcing%Tair
   Tair  = forcing%Tair - 273.16
-  rhocp = cpair * forcing%P_air * mol_air / (Rugas*TairK)
+  rhocp = cpair * forcing%P_air * mol_air / (Rgas*TairK)
   H2OLv =H2oLv0 - 2.365e3*Tair
   RH = forcing%RH  ! Check forcing's unit of humidity
   Dair  = esat(Tair)*(1.0 - RH)
   slope = (esat(Tair+0.1)-esat(Tair))/0.1
   psyc=forcing%P_air*cpair*mol_air/(H2OLv*mol_h2o)
-  Cmolar=forcing%P_air/(Rugas*TairK) ! mole density of air (mol/m3)
+  Cmolar=forcing%P_air/(Rgas*TairK) ! mole density of air (mol/m3)
   rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
   !Rsoil=3.0E+10 * (FILDCP-vegn%wcl(1))**16 ! Kondo et al. 1990
   !rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
@@ -269,6 +269,7 @@ end function calc_soil_K
 
 !========================================================================
 ! Weng 2017-10-18 ! compute available water for photosynthesis
+! Updated 04/25/2023, Weng
 !========================================================================
 ! Calculate soil water uptake by plants and supply for transpiration
 subroutine SoilWaterSupply(vegn) ! forcing,
@@ -278,10 +279,10 @@ subroutine SoilWaterSupply(vegn) ! forcing,
   !----- local var --------------
   type(cohort_type),pointer :: cc
   real :: freewater(soil_L)
-  real :: thetaS(soil_L) ! soil moisture index (0~1)
+  real :: thetaS(soil_L)   ! soil moisture index (0~1)
+  real :: dpsiSR(soil_L)   ! pressure difference between soil and root, MPa
   real :: LayerTot(soil_L) ! potential water uptake, kg H2O s-1 m-2
-  real :: dpsiSR(soil_L) ! pressure difference between soil and root, MPa
-  real :: fWup(soil_L)      ! fraction to the actual soil water
+  real :: fWup(soil_L)     ! fraction to the actual soil water
   integer :: i,j
 
   ! Calculating soil water availability for transpiration in next step
@@ -301,10 +302,9 @@ subroutine SoilWaterSupply(vegn) ! forcing,
      enddo
 
      ! Adjust cc%WupL(i) according to soil available water
+     fWup(i) = max(0.0, min(1.0, (0.2*freewater(i)+1.0E-9)/(LayerTot(i)+1.0E-9)))
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
-        if(LayerTot(i)>0.0) &
-            fWup(i) = Min(0.2 * freewater(i) / LayerTot(i),1.0)! ratio of available soil water
         cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1
      enddo ! cohort for each layer
   enddo    ! all layers
@@ -314,13 +314,11 @@ subroutine SoilWaterSupply(vegn) ! forcing,
      cc => vegn%cohorts(j)
      cc%W_supply = sum(cc%WupL(:))
 
-     !Error check
-     !------------------------
+     !------- Error check -----------------
      if(isnan(cc%W_supply))then
        write(*,*)'cc%WupL(:)',cc%WupL(:)
        stop '"cc%WupL" is an NaN'
      endif
-
   enddo
 
 end subroutine SoilWaterSupply

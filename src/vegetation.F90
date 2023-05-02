@@ -249,7 +249,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real :: anbar
   real :: gsbar
   real :: w_scale
-  
+
   ! soil water stress
   real :: Ed, an_w, gs_w
 
@@ -402,7 +402,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
   ! Convert units of stomatal conductance to m/s from mol/(m2 s) by
   ! multiplying it by a volume of a mole of gas
-  gs = gs * Rugas * Tl / p_surf
+  gs = gs * Rgas * Tl / p_surf
 
   ! for reporting
   w_scale2=min(1.0,ws/Ed)
