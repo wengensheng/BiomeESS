@@ -1250,6 +1250,33 @@ end function
   end subroutine
 
   ! ============================================================================
+  subroutine check_N_conservation(vegn,totN0,tag)
+    type(vegn_tile_type),intent(in) :: vegn
+    real,                intent(in) :: totN0
+    character(len = *),  intent(in) :: tag
+    !-------local var --------
+    real :: totN1
+    ! Total N balance checking
+    totN1 = TotalN(vegn)
+    if(abs(totN0 - totN1) > 1.0E-6)then ! Precision: 1.19209290E-07
+      write(*,*)"Imbalance of nitrogen in: ", tag
+      write(*,*)'N0, N1, N0-N1', totN0, totN1, totN0 - totN1
+      !stop
+    endif
+    write(*,*)tag, ': N0, N1, N0-N1', totN0, totN1, totN0 - totN1
+  end subroutine check_N_conservation
+
+  ! ============================================================================
+  function TotalN(vegn)
+    real :: TotalN ! returned value
+    type(vegn_tile_type), intent(in) :: vegn
+
+    TotalN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
+             vegn%SapwoodN + vegn%woodN + &
+             vegn%mineralN + sum(vegn%SON(:))
+  end function
+
+  ! ============================================================================
   function btotal(c)
     real :: btotal ! returned value
     type(cohort_type), intent(in) :: c

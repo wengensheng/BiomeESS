@@ -10,9 +10,10 @@ module io_mod
  implicit none
 
 ! ------ public subroutines ---------
-public :: read_namelist, set_up_output_files,read_FACEforcing,read_NACPforcing
-public :: Zero_diagnostics, hourly_diagnostics, daily_diagnostics, &
-          annual_diagnostics
+public :: read_namelist, vegn_sum_tile, Zero_diagnostics
+public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
+public :: read_FACEforcing, read_NACPforcing, set_up_output_files
+
 !---------------------------------
 contains
 
@@ -61,6 +62,84 @@ subroutine read_namelist(fnml)
   close (fu)
 
 end subroutine read_namelist
+
+!=================================================
+! Weng, 2021-06-02
+subroutine vegn_sum_tile(vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !----- local var --------------
+  type(cohort_type),pointer :: cc
+  integer :: i, layer
+
+  vegn%NSC     = 0.0
+  vegn%SeedC   = 0.0
+  vegn%leafC   = 0.0
+  vegn%rootC   = 0.0
+  vegn%SapwoodC= 0.0
+  vegn%WoodC   = 0.0
+
+  vegn%NSN     = 0.0
+  vegn%SeedN   = 0.0
+  vegn%leafN   = 0.0
+  vegn%rootN   = 0.0
+  vegn%SapwoodN= 0.0
+  vegn%WoodN   = 0.0
+
+  vegn%W_stem = 0.0
+  vegn%W_dead = 0.0
+  vegn%W_leaf = 0.0
+
+  vegn%LAI    = 0.0
+  vegn%CAI    = 0.0
+  vegn%ArootL = 0.0
+
+  vegn%LAIlayer = 0.0
+  vegn%f_gap    = 0.0
+  vegn%treecover = 0.0
+  vegn%grasscover = 0.0
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species))
+       ! update accumulative LAI for each corwn layer
+       layer = Max (1, Min(cc%layer,9)) ! between 1~9
+       vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
+                              cc%Aleaf * cc%nindivs/(1.0-sp%f_cGap)
+       vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
+                              cc%Acrown * cc%nindivs * sp%f_cGap
+
+      ! For reporting
+      ! Vegn C pools:
+       vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
+       vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
+       vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
+       vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
+       vegn%SapwoodC= vegn%SapwoodC+ cc%bsw    * cc%nindivs
+       vegn%woodC   = vegn%woodC   + cc%bHW    * cc%nindivs
+       vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
+       vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
+       vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
+      ! Vegn N pools
+       vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
+       vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
+       vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
+       vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
+       vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
+       vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
+       ! Vegn water pools
+       vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
+       vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
+       vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs
+
+       ! Update tree and grass cover
+       if(sp%lifeform==0) then
+           if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
+       elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
+           vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
+       endif
+     end associate
+  enddo
+end subroutine vegn_sum_tile
 
 !================= Diagnostics============================================
 ! Weng, 2016-11-28
@@ -163,6 +242,17 @@ end subroutine Zero_diagnostics
      vegn%transp = vegn%transp + cc%transp * cc%nindivs
      vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
   enddo
+  ! Daily summary:
+  vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
+  vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
+  vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
+  vegn%dailyResp = vegn%dailyResp + vegn%resp
+  vegn%dailyRh   = vegn%dailyRh   + vegn%rh
+  vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
+  vegn%dailyEvap = vegn%dailyEvap + vegn%evap
+  vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
+  vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
+  vegn%dailyfixedN  = vegn%dailyfixedN  + vegn%fixedN
 
   !! Output horly diagnostics
   If(outputhourly .and. iday > totdays-366*5 ) then !  .and. ihour==12
@@ -186,17 +276,6 @@ end subroutine Zero_diagnostics
       cc1%W_stem,cc1%transp
     end associate
   endif
-  ! Daily summary:
-  vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
-  vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
-  vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
-  vegn%dailyResp = vegn%dailyResp + vegn%resp
-  vegn%dailyRh   = vegn%dailyRh   + vegn%rh
-  vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
-  vegn%dailyEvap = vegn%dailyEvap + vegn%evap
-  vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
-  vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
-  vegn%dailyfixedN  = vegn%dailyfixedN  + vegn%fixedN
 
 end subroutine hourly_diagnostics
 
@@ -204,7 +283,6 @@ end subroutine hourly_diagnostics
 subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
   type(vegn_tile_type), intent(inout) :: vegn
   integer, intent(in) :: iyears,idoy,iday,fno3,fno4
-
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
   integer :: i,j
@@ -283,6 +361,9 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
   vegn%dailyEvap = 0.0
   vegn%dailyRoff = 0.0
   vegn%dailyfixedN = 0.0
+
+  ! Daily vegn state
+  call vegn_sum_tile(vegn)
 
 end subroutine daily_diagnostics
 

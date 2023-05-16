@@ -8,11 +8,10 @@ module esdvm
  private
 
  !Core functions
- public :: initialize_vegn_tile, vegn_age,vegn_CNW_budget_fast,vegn_growth
- public :: vegn_phenology,vegn_daily_starvation,vegn_annual_starvation
- public :: vegn_reproduction, vegn_nat_mortality, vegn_hydraulic_states
- public :: relayer_cohorts, vegn_mergecohorts, kill_lowdensity_cohorts
- public :: kill_old_grass
+ public :: initialize_vegn_tile
+ public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics_annual
+ public :: relayer_cohorts, vegn_hydraulic_states
+
  !For specific experiments
  public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
  public :: vegn_annualLAImax_update,vegn_gap_fraction_update,reset_vegn_initial
@@ -24,8 +23,6 @@ module esdvm
 !========================================================================
 !==================== BiomeE surbroutines ===============================
 !========================================================================
-
-!=============== Hourly subroutines =====================================
 subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! hourly carbon, nitrogen, and water dynamics, Weng 2016-11-25
   ! include Nitrogen uptake and carbon budget
@@ -79,30 +76,50 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
 
 end subroutine vegn_CNW_budget_fast
 
-!========================================================================
-! Weng, 08/23/2022: time counter, update cohort ages and the time of them
-!                   staying in the first layer
-subroutine vegn_age (vegn,t_yr)
+!==========================================================================
+subroutine vegn_daily_update(vegn, deltat)
   type(vegn_tile_type), intent(inout) :: vegn
-  real, intent(in) :: t_yr ! step length (year)
+  real, intent(in) :: deltat ! dt_daily_yr, 1.0/365.0
 
-  !----- local var --------------
-  type(cohort_type),pointer :: cc
-  integer :: i
+  call vegn_age(vegn,deltat) ! Update vegn age
+  call vegn_phenology(vegn)
+  call vegn_growth(vegn)
+  !call vegn_daily_starvation(vegn)
+  call Vegn_N_deposition(vegn,deltat) ! Daily N deposition
+  call vegn_sum_tile(vegn)  ! Update tile variables
+end subroutine vegn_daily_update
 
-  ! Tile age
-  vegn%age = vegn%age + t_yr
-  ! Update cohort ages
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     ! Update cohort age
-     cc%age = cc%age + t_yr
-     ! Update time in the top layer
-     if (cc%layer == 1) cc%topyear = cc%topyear + t_yr
-  enddo
-end subroutine vegn_age
+!==========================================================================
+subroutine vegn_demographics_annual(vegn, deltat)
+  type(vegn_tile_type), intent(inout) :: vegn
+  real, intent(in) :: deltat ! seconds of a year
+  !-------- local vars ----------
+  !real totN0
+
+  !! Total N balance checking
+  !call vegn_sum_tile(vegn)
+  !totN0 = TotalN(vegn)
+
+#ifndef DemographyOFF
+  ! For the incoming year
+  call vegn_annual_starvation(vegn) ! turn it off for grass run
+  call vegn_nat_mortality(vegn, deltat)
+  call vegn_reproduction(vegn)
+#endif
+  ! Cohort management
+  call kill_lowdensity_cohorts(vegn)
+  call kill_old_grass(vegn)
+  !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
+  call relayer_cohorts(vegn)
+  call vegn_mergecohorts(vegn)
+  call vegn_sum_tile(vegn)
+
+  !call check_N_conservation(vegn,totalN1,'annual')
+
+end subroutine vegn_demographics_annual
 
 !=============== Plant physiology =======================================
+!=============== Hourly subroutines =====================================
 ! Weng 2017-10-18:compute stomatal conductance, photosynthesis and respiration
 ! updates cc%An_op and cc%An_cl, from LM3
 subroutine vegn_photosynthesis (forcing, vegn)
@@ -536,7 +553,6 @@ end subroutine vegn_N_uptake
 
 !============================================================================
 !========================== Daily subroutines ===============================
-
 subroutine vegn_growth(vegn)
   ! updates cohort biomass pools, LAI, and height using accumulated
   ! C_growth and bHW_gain
@@ -661,12 +677,6 @@ subroutine vegn_growth(vegn)
        !! update plant architecture given increase of bsw
        BM        = cc%bsw + cc%bHW
        call BM2Architecture(cc,BM)
-       !dDBH = dBSW / (sp%thetaBM * sp%alphaBM * cc%DBH**(sp%thetaBM-1.0))
-       !dHT  = sp%thetaHT * sp%alphaHT * cc%DBH**(sp%thetaHT-1) * dDBH
-       !dCA  = sp%thetaCA * sp%alphaCA * cc%DBH**(sp%thetaCA-1) * dDBH
-       !cc%DBH    = BM2DBH(    BM,cc%species) !cc%DBH    = cc%DBH    + dDBH
-       !cc%height = DBH2HT(cc%DBH,cc%species) !cc%height = cc%height + dHT
-       !cc%Acrown = DBH2CA(cc%DBH,cc%species) !cc%Acrown = cc%Acrown + dCA
 
        ! Update bl_max, br_max, and NSNmax with shifts from understory to the top layer
        call update_max_LFR_NSN(cc)
@@ -706,10 +716,6 @@ subroutine vegn_growth(vegn)
   end associate ! F2003
   enddo
   cc => null()
-
-  ! Update tile variables
-  call vegn_sum_tile(vegn)
-
 end subroutine vegn_growth ! daily
 
 !========= Calculate carbon and nitrogen supply ==========================
@@ -1093,6 +1099,39 @@ subroutine Seasonal_fall(cc,vegn)
   end associate
 
 end subroutine Seasonal_fall
+
+!========================================================================
+! Weng, 08/23/2022: time counter, update cohort ages and the time of them
+!                   staying in the first layer
+subroutine vegn_age (vegn,t_yr) ! daily
+  type(vegn_tile_type), intent(inout) :: vegn
+  real, intent(in) :: t_yr ! step length (year), 1.0/365.0
+
+  !----- local var --------------
+  type(cohort_type),pointer :: cc
+  integer :: i
+
+  vegn%age = vegn%age + t_yr ! Tile age
+  ! Update cohort ages
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     ! Update cohort age
+     cc%age = cc%age + t_yr
+     ! Update time in the top layer
+     if (cc%layer == 1) cc%topyear = cc%topyear + t_yr
+  enddo
+end subroutine vegn_age
+
+! =========================================================================
+subroutine vegn_N_deposition(vegn, dt_daily)
+  ! Weng, 05/15/2023: Nitrogen deposition, daily
+  type(vegn_tile_type), intent(inout) :: vegn
+  real                , intent(in)    :: dt_daily
+
+  ! Update mineral N pool (mineralN)
+  vegn%mineralN = vegn%mineralN + vegn%N_input * dt_daily
+  vegn%annualN  = vegn%annualN  + vegn%N_input * dt_daily
+end subroutine vegn_N_deposition
 
 !==========================================================================
 !========================= Annual subroutines =============================
@@ -2191,9 +2230,7 @@ subroutine initialize_vegn_tile(vegn)
 
    ! tile summary
    call vegn_sum_tile(vegn)
-   vegn%initialN0 = vegn%NSN + vegn%SeedN + vegn%leafN +      &
-                    vegn%rootN + vegn%SapwoodN + vegn%woodN + &
-                    sum(vegn%SON(:)) + vegn%mineralN
+   vegn%initialN0 = totalN(vegn)
    vegn%totN =  vegn%initialN0
 
    !Keep initial plant cohorts
@@ -2375,87 +2412,6 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
 
   end associate
 end subroutine initialize_cohort_from_biomass
-
-!=================================================
-! Weng, 2021-06-02
-subroutine vegn_sum_tile(vegn)
-  type(vegn_tile_type), intent(inout) :: vegn
-
-  !----- local var --------------
-  type(cohort_type),pointer :: cc
-  integer :: i, layer
-
-  vegn%NSC     = 0.0
-  vegn%SeedC   = 0.0
-  vegn%leafC   = 0.0
-  vegn%rootC   = 0.0
-  vegn%SapwoodC= 0.0
-  vegn%WoodC   = 0.0
-
-  vegn%NSN     = 0.0
-  vegn%SeedN   = 0.0
-  vegn%leafN   = 0.0
-  vegn%rootN   = 0.0
-  vegn%SapwoodN= 0.0
-  vegn%WoodN   = 0.0
-
-  vegn%W_stem = 0.0
-  vegn%W_dead = 0.0
-  vegn%W_leaf = 0.0
-
-  vegn%LAI    = 0.0
-  vegn%CAI    = 0.0
-  vegn%ArootL = 0.0
-
-  vegn%LAIlayer = 0.0
-  vegn%f_gap    = 0.0
-  vegn%treecover = 0.0
-  vegn%grasscover = 0.0
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species))
-
-     ! update accumulative LAI for each corwn layer
-     layer = Max (1, Min(cc%layer,9)) ! between 1~9
-     vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
-                            cc%Aleaf * cc%nindivs/(1.0-sp%f_cGap)
-     vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
-                            cc%Acrown * cc%nindivs * sp%f_cGap
-
-    ! For reporting
-    ! Vegn C pools:
-     vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
-     vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
-     vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
-     vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
-     vegn%SapwoodC= vegn%SapwoodC+ cc%bsw    * cc%nindivs
-     vegn%woodC   = vegn%woodC   + cc%bHW    * cc%nindivs
-     vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
-     vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
-     vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
-    ! Vegn N pools
-     vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
-     vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
-     vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
-     vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
-     vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
-     vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
-     ! Vegn water pools
-     vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
-     vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
-     vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs
-
-     ! Update tree and grass cover
-     if(sp%lifeform==0) then
-         if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
-     elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-         vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
-     endif
-
-     end associate
-  enddo
-
-end subroutine vegn_sum_tile
 
 !=======================================================================
 !==================== Cohort management ================================
@@ -3208,8 +3164,7 @@ end subroutine vegn_gap_fraction_update
  subroutine Recover_N_balance(vegn)
    type(vegn_tile_type), intent(inout) :: vegn
 
-   vegn%totN = vegn%NSN+vegn%SeedN+vegn%leafN+vegn%rootN+vegn%SapwoodN + &
-               vegn%woodN + sum(vegn%SON(:)) + vegn%mineralN
+   vegn%totN = TotalN(vegn)
    if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
      vegn%SON(5) = vegn%SON(5) - vegn%totN + vegn%initialN0
      vegn%totN =  vegn%initialN0

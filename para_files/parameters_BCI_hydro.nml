@@ -8,12 +8,12 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &vegn_parameters_nml
-f_iniBSW = 0.1,
-K0SOM    = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
-K_nitrogen = 2.4  ! 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
-rho_SON    = 0.02 ! organic nitrogen release rate
-etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
-f_M2SOM    = 0.8, ! fraction of microbes to litter
+f_iniBSW   = 0.1,
+K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
+K_nitrogen = 0.0,  ! 2.4,  ! 1.2 ! 2.4 ! rate of a year, 2.5
+rho_SON    = 0.0,  ! 0.02, !  organic nitrogen release rate
+etaN       = 0.0,  ! 0.025 ! Nitrogen loss rate with runoff
+f_M2SOM    = 0.8,  ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.2,  ! critical difference for merging of two cohorts
@@ -31,9 +31,9 @@ phenotype   = 0,       1,       0,       0,       0,       0,       ! 0: Deciduo
 pt          = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
 s0_plant    = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
 LMA         = 0.02,    0.08,    0.08,    0.08,    0.08,    0.08,    ! Leaf mass per unit area
-phiRL       = 0.7,     1.2,     1.2,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
-rho_wood    = 150.,    200,    250,     300.,    350.,    400.,
-LNbase      = 0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  0.8E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+phiRL       = 0.7,     1.5,     1.5,     1.5,     1.5,     1.5,     ! Root/Leaf area ratio
+rho_wood    = 150.,    200,     250,     300.,    350.,    400.,
+LNbase      = 1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,
 laimax      = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
 LAI_light   = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limited crown LAI
@@ -53,14 +53,14 @@ init_cohort_nindivs = .001, .001, .001, .001, .001,
 init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,
-init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_soil_C    = 40.0   ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
-init_Nmineral       = 5.0E-3 ! 402.5E-3, ! kg N m-2
-N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+init_fast_soil_C    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_soil_C    = 40.0,   ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
+N_input             = 0.0E-3, ! 20.E-3, ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
 runID = 'BCI_hydro',       ! for output file name
-model_run_years =  200, !600, ! 1600,
+model_run_years =  800,    ! 600, ! 1600,
 filepath_in = './input/',  ! Climate forcing data
 filepath_out= './output/', ! Output files
 siteLAT = 9.25, ! Latitude of the grid that covers BCI

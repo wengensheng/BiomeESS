@@ -11,7 +11,7 @@ module soil_mod
 ! ------ public subroutines ---------
 public :: Soil_BGC, SoilWater_psi_K, SoilWaterDynamics, &
           SoilWaterTranspUpdate, SoilWaterSupply
-public :: soil_data_beta
+!public :: soil_data_beta
 
 !---------------------------------
 ! ==== module data ===========================================================
@@ -44,7 +44,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   real :: extraN, N_m    ! Mineralized nitrogen
   real :: N_loss ! Mineral Nitrogen loss, kg N m-2 step-1
   real :: runoff ! kg m-2 /step
-  real :: DON_fast,DON_slow,DON_loss ! Dissolved organic N loss, kg N m-2 step-1
+  real :: dN_SOM4,dN_SOM5 ! Dissolved organic N loss, kg N m-2 step-1
   real :: A  ! decomp rate reduction due to moisture and temperature
   integer :: i
 
@@ -53,7 +53,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   CUEs0 = CUEmax0 * 0.5 ! 0.2
 
   ! Environmental scalar
-  A=A_function(tsoil,thetaS)
+  A = A_function(tsoil,thetaS)
   runoff = vegn%runoff  !mm/step, weng 2017-10-15
 
   ! Put litters into soil to start decomposition processes
@@ -83,33 +83,29 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM
   vegn%SOC(5) = vegn%SOC(5) - d_C(5) + newM(5) * f_M2SOM
 
-  vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3) / CN0SOM(3)
-  vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4) * f_M2SOM/CN0SOM(3)
-  vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5) * f_M2SOM/CN0SOM(3)
+  vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3)/CN0SOM(3)
+  vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4)/CN0SOM(3) * f_M2SOM
+  vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5)/CN0SOM(3) * f_M2SOM
 
   ! Mineralized nitrogen and Heterotrophic respiration, kg m-2 step-1
   vegn%rh = d_C(3) + d_C(4) + d_C(5) - newM(4) - newM(5) !
-  N_m = d_N(3)+d_N(4)+d_N(5) - (newM(4)+newM(5))/CN0SOM(3)
+  N_m = d_N(3) + d_N(4)+d_N(5) - (newM(4)+newM(5))/CN0SOM(3)
 
   ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
-  ! Find papers about these processes!! Experimental!
-  DON_fast = fDON * d_N(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr
-  DON_slow = fDON * d_N(5) * (etaN*runoff) + vegn%SON(5) * rho_SON * A * dt_fast_yr
-  DON_loss = DON_fast + DON_slow
-  vegn%SON(4) = vegn%SON(4) - DON_fast
-  vegn%SON(5) = vegn%SON(5) - DON_slow
+  dN_SOM4 = fDON * d_N(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr
+  dN_SOM5 = fDON * d_N(5) * (etaN*runoff) + vegn%SON(5) * rho_SON * A * dt_fast_yr
+  vegn%SON(4) = vegn%SON(4) - dN_SOM4
+  vegn%SON(5) = vegn%SON(5) - dN_SOM5
 
   ! Mineral nitrogen loss
   !N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
   !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
   N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
-  vegn%Nloss_yr = vegn%Nloss_yr + N_loss + DON_loss
+  vegn%Nloss_yr = vegn%Nloss_yr + N_loss + dN_SOM4 + dN_SOM5
 
   ! Update mineral N pool (mineralN)
-  vegn%mineralN = vegn%mineralN + vegn%N_input * dt_fast_yr    &
-                + N_m - N_loss
-  vegn%annualN  = vegn%annualN  + vegn%N_input * dt_fast_yr    &
-                + N_m - N_loss
+  vegn%mineralN = vegn%mineralN + N_m - N_loss
+  vegn%annualN  = vegn%annualN  + N_m - N_loss
 
  ! Check if soil C/N is lower than CN0
   do i=4, 5
@@ -125,8 +121,7 @@ end subroutine Soil_BGC
 
 ! =========================================================================
 ! =============== soil water subroutines ==================================
-
-! ============================================================================
+! =========================================================================
 ! Weng, 2017-10-27
 subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   ! All of inputs, the unit of water is 'mm',

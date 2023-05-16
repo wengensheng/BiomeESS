@@ -168,7 +168,7 @@ subroutine BiomeE_run()
     idoy = idoy + 1
     land%Tc_daily = 0.0 ! Zero daily mean temperature
 
-    ! Fast-step calls, hourly or half-hourly
+    ! Fast-step update (hourly or half-hourly)
     do i=1,steps_per_day
       n_steps = n_steps + 1
       idata = MOD(n_steps-1, datalines) + 1
@@ -179,32 +179,28 @@ subroutine BiomeE_run()
         call vegn_CNW_budget_fast(vegn,forcingData(idata))
         call hourly_diagnostics(vegn,forcingData(idata), &
                                 n_yr,idoy,i,idays,fno1,fno2)
+
         vegn => vegn%next
       enddo
     enddo ! steps_per_day
     land%Tc_daily = land%Tc_daily/steps_per_day
 
-    ! Daily run
+    ! Daily update
     vegn => land%firstVegn
     do while(ASSOCIATED(vegn))
-      ! Update vegn age
-      call vegn_age(vegn,dt_daily_yr)
       call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
-      ! Daily calls
       vegn%Tc_daily = land%Tc_daily
-      call vegn_phenology(vegn)
-      call vegn_growth(vegn)
-      !call vegn_daily_starvation(vegn)
+      call vegn_daily_update(vegn,dt_daily_yr)
+
       vegn => vegn%next
     enddo
 
     !! Check if the next step is a new year
     idata = MOD(n_steps, datalines) + 1
     year1 = forcingData(idata)%year  ! Nex step year
-    new_annual_cycle = ((year0 /= year1) .OR. & ! new year
-                (MOD(n_steps, datalines) == 0)) ! last line
+    new_annual_cycle = ((year0 /= year1) .OR. (MOD(n_steps,datalines)==0))
 
-    ! Annual calculations
+    ! Annual update
     if(new_annual_cycle)then
       idoy = 0
       vegn => land%firstVegn
@@ -219,23 +215,13 @@ subroutine BiomeE_run()
         ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
         if(do_migration) call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
-#ifndef DemographyOFF
-        ! For the incoming year
-        call vegn_annual_starvation(vegn) ! turn it off for grass run
-        call vegn_nat_mortality(vegn, real(seconds_per_year))
-        call vegn_reproduction(vegn)
-#endif
 
-        ! Cohort management
-        call kill_lowdensity_cohorts(vegn)
-        call kill_old_grass(vegn)
-        !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
-        call relayer_cohorts(vegn)
-        call vegn_mergecohorts(vegn)
+        call vegn_demographics_annual(vegn,real(seconds_per_year))
 
         ! zero annual reporting variables
         call Zero_diagnostics(vegn)
-        !! Reset vegetation to initial conditions
+
+        !! Reset vegetation to initial conditions, for DBEN
         CALL RANDOM_NUMBER(r_d)
         if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
           call reset_vegn_initial(vegn)
