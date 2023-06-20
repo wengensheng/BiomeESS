@@ -374,7 +374,7 @@ end subroutine daily_diagnostics
 
     ! --------local var --------
     type(cohort_type), pointer :: cc
-    real treeG, fseed, fleaf, froot,fwood,dDBH,dBA
+    real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
     real :: plantC, plantN, soilC, soilN
     integer :: i,j,iyr_out
 
@@ -396,8 +396,9 @@ end subroutine daily_diagnostics
         fleaf = cc%NPPleaf/treeG
         froot = cc%NPProot/treeG
         fwood = cc%NPPwood/treeG
-        dDBH  = cc%DBH - cc%DBH_ys
+        dDBH  = (cc%DBH - cc%DBH_ys) * 1000.0 ! mm
         dBA   = 3.1415926 * (cc%DBH**2 - cc%DBH_ys**2)/4.0
+        dCA   = cc%Acrown - DBH2CA(cc%DBH_ys,cc%species)
 #ifdef DBEN_run
         if(iyr_out > 0) &
         write(f1,'(7(I8,","),300(E15.4,","))')vegn%tileID, &
@@ -405,12 +406,12 @@ end subroutine daily_diagnostics
           cc%layer,cc%nindivs*10000,cc%layerfrac,      &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
           cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,   &
-          cc%annualGPP,cc%annualNPP,dDBH*1000.,dBA,    &
+          cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
 #else
         write(f1,'(6(I8,","),300(E15.4,","))')vegn%tileID, &
           iyears,i,cc%ccID,cc%species,cc%layer,        &
-          cc%nindivs*10000,cc%layerfrac,dDBH*1000.,dBA,&
+          cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,  &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,&
           cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,  &
           cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf, &
@@ -840,12 +841,12 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'yr','cNo.','cID','PFT','Woody','Layer',          &
       'Density','f_L','dbh','height','Acrown','Aleaf',  &
       'bl','br','bSW','bHW','seed','nsc',               &
-      'GPP','NPP','dDBH','dBA',                         &
+      'GPP','NPP','dDBH','dBA','dCA',                   &
       'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
 #else
     write(fno5,'(4(a5,","),40(a7,","))')'tile',        &    ! Yearly cohort
       'yr','cNo.','cID', 'PFT','layer',                &
-      'density','f_L','dDBH','dBA','dbh','height',     &
+      'N_ha','f_L','dDBH','dBA','dCA','dbh','height',  &
       'Acrown','Aleaf','bl','br','bSW','bHW','seed',   &
       'nsc','NSN','GPP','NPP','Gtree','f_sd','f_lf',   &
       'f_fr','f_wd','mu','Transp','N_uptk','N_fix',    &

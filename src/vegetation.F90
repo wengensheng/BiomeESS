@@ -563,7 +563,6 @@ subroutine vegn_growth(vegn)
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: G_LFR  ! amount of carbon spent on leaf and root growth
   real :: dBL, dBR, dBSW, dSeed ! growth of leaf, root, sapwood, and seeds, kgC/individual
-  real :: dDBH, dHT, dCA ! tendencies of DBH, height, and Acrown
   real :: BM, DBH1 ! the DBH before grwoth
   real :: N_demand, Nsupplyratio, extraN
   real :: r_N_SD
