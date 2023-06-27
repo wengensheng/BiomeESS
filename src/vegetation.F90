@@ -562,8 +562,9 @@ subroutine vegn_growth(vegn)
   type(cohort_type), pointer :: cc    ! current cohort
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: G_LFR  ! amount of carbon spent on leaf and root growth
+  real :: Cgrowth, Ngrowth
   real :: dBL, dBR, dBSW, dSeed ! growth of leaf, root, sapwood, and seeds, kgC/individual
-  real :: BM, DBH1 ! the DBH before grwoth
+  real :: DBH0 ! the DBH before grwoth
   real :: N_demand, Nsupplyratio, extraN
   real :: r_N_SD
   integer :: i,j,k
@@ -575,150 +576,128 @@ subroutine vegn_growth(vegn)
   !Allocate C_gain to tissues
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
+    if(cc%status == LEAF_OFF) cycle
+    !update leaf age
+    cc%leafage = cc%leafage + 1.0/365.0
+    ! Get carbon from NSC pool
+    call fetch_CN_for_growth(cc,Cgrowth,Ngrowth) ! Weng, 2017-10-19
+
     associate (sp => spdata(cc%species))
-    if (cc%status == LEAF_ON) then
-       !update leaf age
-       cc%leafage = cc%leafage + 1.0/365.0
+      ! Allocate carbon to the plant pools
+      ! calculate the carbon spent on growth of leaves and roots
+      LF_deficit = max(0., cc%bl_max - cc%bl)
+      FR_deficit = max(0., cc%br_max - cc%br)
+      LFR_deficit = LF_deficit + FR_deficit
+      G_LFR = max(min(LF_deficit + FR_deficit, f_LFR_max * Cgrowth),0.) ! (1.- Wood_fract_min)
+      !! and distribute it between roots and leaves
+      dBL = min(max(0.,(G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/ &
+                       (cc%bl_max + cc%br_max)), G_LFR)
+      if((G_LFR-dBL) > FR_deficit) dBL = G_LFR - FR_deficit
+      dBR  = G_LFR - dBL
+      ! calculate carbon spent on growth of sapwood growth
+      if(cc%layer == 1 .AND. cc%age > sp%AgeRepro)then
+          dSeed = sp%v_seed * (Cgrowth - G_LFR)
+          dBSW  = (1.0-sp%v_seed)* (Cgrowth - G_LFR)
+      else
+          dSeed= 0.0
+          dBSW = Cgrowth - G_LFR
+      endif
 
-       ! Get carbon from NSC pool
-       call fetch_CN_for_growth(cc) ! Weng, 2017-10-19
+      ! For grasses, temporary
+      if(sp%lifeform ==0 )then
+          dSeed = dSeed + 0.15*G_LFR
+          G_LFR = 0.85 * G_LFR
+          dBR   = 0.85 * dBR
+          dBL   = 0.85 * dBL
+      endif
+      !! Nitrogen adjustment on allocations between wood and leaves+roots
+      !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
+      N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
+      !! Nitrogen available for all tisues, including wood
+      if(Ngrowth < N_demand)then
+        ! a new method, Weng, 2019-05-21
+        ! same ratio reduction for leaf, root, and seed if(Ngrowth < N_demand)
+        Nsupplyratio = MAX(0.0, MIN(1.0, Ngrowth/N_demand))
+        !r_N_SD = (Ngrowth-Cgrowth/sp%CNsw0)/(N_demand-Cgrowth/sp%CNsw0) ! fixed wood CN
+        r_N_SD = Ngrowth/N_demand ! = Nsupplyratio
+        if(sp%lifeform > 0 )then ! for trees
+           if(r_N_SD<=1.0 .and. r_N_SD>0.0)then
+            dBSW =  dBSW + (1.0-r_N_SD) * (dBL+dBR+dSeed)
+            dBR  =  r_N_SD * dBR
+            dBL  =  r_N_SD * dBL
+            dSeed=  r_N_SD * dSeed
+           elseif(r_N_SD <= 0.0)then
+            dBSW = Ngrowth/sp%CNsw0
+            dBR  =  0.0
+            dBL  =  0.0
+            dSeed=  0.0
+           endif
+        else ! for grasses
+           dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
+           dBR  =  Nsupplyratio * dBR
+           dBL  =  Nsupplyratio * dBL
+           dSeed=  Nsupplyratio * dSeed
+        endif
+      endif
 
-       ! Allocate carbon to the plant pools
-       ! calculate the carbon spent on growth of leaves and roots
-       LF_deficit = max(0., cc%bl_max - cc%bl)
-       FR_deficit = max(0., cc%br_max - cc%br)
-       LFR_deficit = LF_deficit + FR_deficit
-       G_LFR = max(min(LF_deficit + FR_deficit, f_LFR_max * cc%C_growth),0.) ! (1.- Wood_fract_min)
-       !! and distribute it between roots and leaves
-       dBL = min(max(0.,(G_LFR*cc%bl_max + cc%bl_max*cc%br - cc%br_max*cc%bl)/ &
-                        (cc%bl_max + cc%br_max)), G_LFR)
-       !! flexible allocation scheme
-       !dBL = min(LF_deficit, 0.6*G_LFR)
+      !update biomass pools
+      cc%bl    = cc%bl    + dBL
+      cc%br    = cc%br    + dBR
+      cc%bsw   = cc%bsw   + dBSW
+      cc%seedC = cc%seedC + dSeed
+      cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
+      cc%leafage = (1.0 - dBL/cc%bl) * cc%leafage
+      cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
 
-       if((G_LFR-dBL) > FR_deficit) dBL = G_LFR - FR_deficit
-       dBR  = G_LFR - dBL
+      !!update nitrogen pools, Nitrogen allocation
+      cc%leafN = cc%leafN + dBL   /sp%CNleaf0
+      cc%rootN = cc%rootN + dBR   /sp%CNroot0
+      cc%seedN = cc%seedN + dSeed /sp%CNseed0
+      cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
+         (Ngrowth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
+      !extraN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
+      extraN   = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
+      cc%sapwN = cc%sapwN - extraN
+      cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - Ngrowth !! update NSN
 
-       ! calculate carbon spent on growth of sapwood growth
-       if(cc%layer == 1 .AND. cc%age > sp%AgeRepro)then
-           dSeed = sp%v_seed * (cc%C_growth - G_LFR)
-           dBSW  = (1.0-sp%v_seed)* (cc%C_growth - G_LFR)
-       else
-           dSeed= 0.0
-           dBSW = cc%C_growth - G_LFR
-       endif
+      ! accumulated C allocated to leaf, root, and wood
+      cc%NPPleaf = cc%NPPleaf + dBL
+      cc%NPProot = cc%NPProot + dBR
+      cc%NPPwood = cc%NPPwood + dBSW
 
-       ! For grasses, temporary
-       if(sp%lifeform ==0 )then
-           dSeed = dSeed + 0.15*G_LFR
-           G_LFR = 0.85 * G_LFR
-           dBR   = 0.85 * dBR
-           dBL   = 0.85 * dBL
-       endif
-       !! Nitrogen adjustment on allocations between wood and leaves+roots
-       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
-       N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
-       !! Nitrogen available for all tisues, including wood
-       if(cc%N_growth < N_demand)then
-         ! a new method, Weng, 2019-05-21
-         ! same ratio reduction for leaf, root, and seed if(cc%N_growth < N_demand)
-         Nsupplyratio = MAX(0.0, MIN(1.0, cc%N_growth/N_demand))
-         !r_N_SD = (cc%N_growth-cc%C_growth/sp%CNsw0)/(N_demand-cc%C_growth/sp%CNsw0) ! fixed wood CN
-         r_N_SD = cc%N_growth/N_demand ! = Nsupplyratio
-         if(sp%lifeform > 0 )then ! for trees
-            if(r_N_SD<=1.0 .and. r_N_SD>0.0)then
-             dBSW =  dBSW + (1.0-r_N_SD) * (dBL+dBR+dSeed)
-             dBR  =  r_N_SD * dBR
-             dBL  =  r_N_SD * dBL
-             dSeed=  r_N_SD * dSeed
-            elseif(r_N_SD <= 0.0)then
-             dBSW = cc%N_growth/sp%CNsw0
-             dBR  =  0.0
-             dBL  =  0.0
-             dSeed=  0.0
-            endif
-         else ! for grasses
-            dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-            dBR  =  Nsupplyratio * dBR
-            dBL  =  Nsupplyratio * dBL
-            dSeed=  Nsupplyratio * dSeed
-         endif
-       endif
+      ! Keep previous DBH
+      DBH0 = cc%DBH
 
-       !update biomass pools
-       cc%bl    = cc%bl    + dBL
-       cc%br    = cc%br    + dBR
-       cc%bsw   = cc%bsw   + dBSW
-       cc%seedC = cc%seedC + dSeed
-       cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
-       cc%leafage = (1.0 - dBL/cc%bl) * cc%leafage
-       cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
+      !! update plant architecture given increase of bsw
+      call BM2Architecture(cc, cc%bsw+cc%bHW)
 
-       !!update nitrogen pools, Nitrogen allocation
-       cc%leafN = cc%leafN + dBL   /sp%CNleaf0
-       cc%rootN = cc%rootN + dBR   /sp%CNroot0
-       cc%seedN = cc%seedN + dSeed /sp%CNseed0
-       cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
-          (cc%N_growth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
-       !extraN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
-       extraN   = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
-       cc%sapwN = cc%sapwN - extraN
-       cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - cc%N_growth !! update NSN
-       cc%N_growth = 0.0
-
-       ! accumulated C allocated to leaf, root, and wood
-       cc%NPPleaf = cc%NPPleaf + dBL
-       cc%NPProot = cc%NPProot + dBR
-       cc%NPPwood = cc%NPPwood + dBSW
-
-       ! Keep previous DBH
-       DBH1 = cc%DBH
-
-       !! update plant architecture given increase of bsw
-       BM        = cc%bsw + cc%bHW
-       call BM2Architecture(cc,BM)
-
-       ! Update bl_max, br_max, and NSNmax with shifts from understory to the top layer
-       call update_max_LFR_NSN(cc)
+      ! Update bl_max, br_max, and NSNmax with shifts from understory to the top layer
+      call update_max_LFR_NSN(cc)
+      call Update_hydraulic_vars(cc)
 
 #ifdef Hydro_test
-       ! Update plant hydraulic states
-       call Update_hydraulic_vars(cc)
-       if(cc%firstday)then
-         cc%psi_s0   = maxval(vegn%psi_soil(:))
-         cc%psi_stem = cc%psi_s0
-         cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
-       endif
+    ! Update plant hydraulic states
+    call Plant_water2psi_exp(cc)
+    if(cc%firstday)then
+      cc%psi_s0   = maxval(vegn%psi_soil(:))
+      cc%psi_stem = cc%psi_s0
+      cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
+    endif
 
-       ! Update Ktrunk with new sapwood
-       k = Max(MIN(cc%Nrings, Ysw_max),1)
-       cc%Kx(k)   = NewWoodKx(cc)
-       cc%Lring(k)= HT2Lpath(cc%height)
-       cc%Ktrunk  = cc%Ktrunk+ &
-             0.25*PI*(cc%DBH**2-DBH1**2)*cc%Kx(k)/cc%Lring(k)
-
-       ! Plant water status update
-       call Update_hydraulic_vars(cc)
-       call Plant_water2psi_exp(cc)
-#else
-       !Convert C and N from sapwood to heartwood
-       !call Sap2HeartWood_fixedHv(cc)
+    ! Update Ktrunk with new sapwood
+    k = Max(MIN(cc%Nrings, Ysw_max),1)
+    cc%Kx(k)   = NewWoodKx(cc)
+    cc%Lring(k)= HT2Lpath(cc%height)
+    cc%Ktrunk  = cc%Ktrunk+ &
+          0.25*PI*(cc%DBH**2-DBH0**2)*cc%Kx(k)/cc%Lring(k)
 #endif
-
-     elseif(cc%status == LEAF_OFF .and. cc%C_growth > 0.)then
-       cc%nsc = cc%nsc + cc%C_growth
-       cc%resg = 0.0
-     endif ! "cc%status == LEAF_ON"
-
-     ! reset carbon acculmulation terms
-     cc%C_growth = 0
-
-  end associate ! F2003
+    end associate ! F2003
   enddo
   cc => null()
 end subroutine vegn_growth ! daily
 
 !========= Calculate carbon and nitrogen supply ==========================
-subroutine fetch_CN_for_growth(cc)
+subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
   !@sum Fetch C from labile C pool according to the demand of leaves and fine roots,
   !@+   and the push of labile C pool
   !@+   Daily call.
@@ -726,6 +705,7 @@ subroutine fetch_CN_for_growth(cc)
 
   implicit none
   type(cohort_type), intent(inout) :: cc
+  real, intent(out):: Cgrowth, Ngrowth
 
   !------local var -----------
   logical :: woody
@@ -750,12 +730,12 @@ subroutine fetch_CN_for_growth(cc)
         C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
         N_push = cc%NSN/(days_per_year*sp%tauNSC)
 
-        cc%C_growth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
-        cc%N_growth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
+        Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
+        Ngrowth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
     else ! non-growing season
-        cc%C_growth = 0.0
-        cc%N_growth = 0.0
-        cc%resg     = 0.0
+        Cgrowth = 0.0
+        Ngrowth = 0.0
+        cc%resg = 0.0
     endif
   end associate
 
@@ -1918,26 +1898,6 @@ subroutine Plant_water2psi_exp(cc)
   end associate
 end subroutine Plant_water2psi_exp
 
-!===========================================================================
-subroutine Plant_water2psi_linear(cc)
-  implicit none
-  type(cohort_type), intent(inout) :: cc
-  !----local vars
-  real :: dW_L,dW_S
-
-  associate ( sp => spdata(cc%species) )
-    !dW_S =  Max(0.0,MIN(1.0,(cc%Wmax_S - cc%W_stem)/(cc%Wmax_S - cc%Wmin_S)))
-    dW_S =  (cc%Wmax_S - cc%W_stem)/(cc%Wmax_S - cc%Wmin_S)
-    cc%psi_stem = sp%psi0_WD * dW_S
-    if(cc%bl > 0.001)then
-      dW_L =  Max(0.0,MIN(1.0,(cc%Wmax_L - cc%W_leaf)/(cc%Wmax_L - cc%Wmin_L)))
-      cc%psi_leaf = sp%psi0_LF * dW_L
-    else
-      cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
-    endif
-  end associate
-end subroutine Plant_water2psi_linear
-
 !====================================
 subroutine plant_psi_s0(vegn,cc,psi_s0)
   !@sum calculate stem base water potential when water flux is zero
@@ -2706,7 +2666,6 @@ subroutine merge_cohorts(c1,c2) ! Put c1 into c2
      c2%nindivs = c1%nindivs + c2%nindivs
      c2%age = x1*c1%age + x2*c2%age
      c2%topyear = x1*c1%topyear + x2*c2%topyear
-     c2%C_growth = x1*c1%C_growth + x2*c2%C_growth
 
      !  Carbon
      c2%bl  = x1*c1%bl  + x2*c2%bl
@@ -3259,6 +3218,26 @@ subroutine plant_water_potential_equi(vegn,cc,Q_leaf,Q_stem,psi_leaf,psi_stem)
     psi_leaf = Max(sp%psi0_LF, psi_stem - Q_leaf/k_stem - psi_ht) ! Ktrunk: (mm/s)/(MPa/m)
   end associate
 end subroutine plant_water_potential_equi
+
+!===========================================================================
+subroutine Plant_water2psi_linear(cc)
+  implicit none
+  type(cohort_type), intent(inout) :: cc
+  !----local vars
+  real :: dW_L,dW_S
+
+  associate ( sp => spdata(cc%species) )
+    !dW_S =  Max(0.0,MIN(1.0,(cc%Wmax_S - cc%W_stem)/(cc%Wmax_S - cc%Wmin_S)))
+    dW_S =  (cc%Wmax_S - cc%W_stem)/(cc%Wmax_S - cc%Wmin_S)
+    cc%psi_stem = sp%psi0_WD * dW_S
+    if(cc%bl > 0.001)then
+      dW_L =  Max(0.0,MIN(1.0,(cc%Wmax_L - cc%W_leaf)/(cc%Wmax_L - cc%Wmin_L)))
+      cc%psi_leaf = sp%psi0_LF * dW_L
+    else
+      cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
+    endif
+  end associate
+end subroutine Plant_water2psi_linear
 
 ! ====================================
 

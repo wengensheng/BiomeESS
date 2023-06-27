@@ -178,8 +178,6 @@ subroutine Zero_diagnostics(vegn)
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     cc%C_growth = 0.0
-     cc%N_growth = 0.0
      cc%gpp      = 0.0
      cc%npp      = 0.0
      cc%resp     = 0.0

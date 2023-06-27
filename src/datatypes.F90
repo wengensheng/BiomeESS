@@ -311,8 +311,6 @@ type :: cohort_type
   real :: An_op = 0.0 ! mol C/(m2 of leaf per year)
   real :: An_cl = 0.0 ! mol C/(m2 of leaf per year)
   real :: w_scale =-9999
-  real :: C_growth = 0.0 ! carbon gain since last growth, kg C/individual
-  real :: N_growth = 0.0 ! Nitrogen used for plant tissue growth
   real :: extinct = 0.75     ! light extinction coefficient in the canopy for photosynthesis
 
 end type cohort_type
@@ -981,8 +979,8 @@ subroutine initialize_PFT_data()
    sp%alpha_L = 1.0/sp%leafLS * sp%phenotype
    !sp%leafTK = 4.0e-4 * SQRT(sp%LMA/0.02) ! Niinemets 2001, Ecology
    sp%leafTK = TK0_leaf * SQRT(sp%LMA) ! Leaf thickness, m
-   sp%rho_leaf = sp%LMA/sp%leafTK
-   sp%CR_Leaf  = CR0_LF  * (0.02/sp%LMA)
+   sp%rho_leaf= sp%LMA/sp%leafTK
+   sp%CR_Leaf = CR0_LF  * (0.02/sp%LMA)
    sp%w0L_max = rho_H2O*(1/sp%rho_leaf - 1/rho_cellwall) ! 18.0  ! leaf max. water/carbon ratio
    sp%w0S_max = rho_H2O*(1/sp%rho_wood - 1/rho_cellwall) ! 2.0   ! stem max. water/carbon ratio
 
