@@ -377,9 +377,9 @@ end subroutine daily_diagnostics
     integer :: i,j,iyr_out
 
     write(*,'(3(I6,","),3(F9.3,","))')vegn%tileID,iyears,vegn%n_cohorts
-    write(*,'(2(a5,","),2(a4,","),25(a10,","))')     &
-          'tile','cID','PFT','L', 'n','f_CA','dDBH', &
-          'DBH','Height','Acrown','NSC','GPP','mu',  &
+    write(*,'(3(a4,","),30(a9,","))')     &
+          'cc','PFT','L','n','f_CA','dDBH','dCA', &
+          'DBH','Height','Acrown','GPP','mu',     &
           'Atrunk','Asap','Ktree','treeHU','treeW0'
 
     ! Cohotrs ouput
@@ -419,11 +419,11 @@ end subroutine daily_diagnostics
 #endif
 
         ! Screen output
-        write(*,'(2(I5,","),2(I4,","),30(F10.3,","))') &
-          vegn%tileID,cc%ccID,cc%species,cc%layer,    &
+        write(*,'(3(I4,","),1(F9.1,","),30(F9.3,","))') &
+          i,cc%species,cc%layer,                      &
           cc%nindivs*10000, cc%layerfrac,             &
-          dDBH,cc%dbh,cc%height,cc%Acrown,            &
-          cc%nsc,cc%annualGPP,cc%mu,cc%Atrunk,        &
+          dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
+          cc%annualGPP,cc%mu,cc%Atrunk,               &
           cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
         end associate
     enddo

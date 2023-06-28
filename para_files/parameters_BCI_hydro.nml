@@ -60,7 +60,7 @@ N_input             = 0.0E-3, ! 20.E-3, ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8
 
 ! Model run
 runID = 'BCI_hydro',       ! for output file name
-model_run_years =  800,    ! 600, ! 1600,
+model_run_years =  200,    ! 600, ! 1600,
 filepath_in = './input/',  ! Climate forcing data
 filepath_out= './output/', ! Output files
 siteLAT = 9.25, ! Latitude of the grid that covers BCI

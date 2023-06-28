@@ -309,6 +309,10 @@ subroutine SoilWaterSupply(vegn) ! forcing,
      cc => vegn%cohorts(j)
      cc%W_supply = sum(cc%WupL(:))
 
+     ! Just fill water for plant water pool (for non-hydro only)
+     cc%W_leaf = cc%Wmax_L
+     cc%W_stem = cc%Wmax_s
+
      !------- Error check -----------------
      if(isnan(cc%W_supply))then
        write(*,*)'cc%WupL(:)',cc%WupL(:)
