@@ -1830,14 +1830,10 @@ subroutine Update_hydraulic_vars(cc)
        cc%ArootL(j) = cc%rootarea * sp%root_frac(j)
     enddo
     ! Plant hydraulics-related variables
-    cc%V_leaf = cc%bl/sp%LMA * sp%leafTK ! area * thicknees
-    cc%V_stem = cc%bsw/sp%rho_wood ! m^3  ! (cc%bsw+cc%bhw)
-    cc%Wmax_l = (cc%V_leaf - cc%bl /rho_cellwall)*rho_H2O ! max leaf water, kg H2O
-    cc%Wmax_s = (cc%V_stem - cc%bsw/rho_cellwall)*rho_H2O ! max stem water, kg H2O
+    cc%Wmax_l = cc%bl *(1.0/sp%rho_leaf - 1.0/rho_cellwall)*rho_H2O ! max leaf water, kg H2O
+    cc%Wmax_s = cc%bsw*(1.0/sp%rho_wood - 1.0/rho_cellwall)*rho_H2O ! max stem water, kg H2O
     cc%Wmin_l = cc%Wmax_l * exp(sp%psi0_LF*sp%CR_Leaf)
     cc%Wmin_s = cc%Wmax_s * exp(sp%psi0_WD*sp%CR_Wood)
-    !cc%H_leaf = (cc%Wmin_l - cc%Wmax_l)/sp%psi0_LF  ! Linearized Leaf Capacitance
-    !cc%H_stem = (cc%Wmin_s - cc%Wmax_s)/sp%psi0_WD  ! Linearized Stem capacitance
   end associate
 end subroutine Update_hydraulic_vars
 

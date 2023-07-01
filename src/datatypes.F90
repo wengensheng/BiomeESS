@@ -125,12 +125,8 @@ type spec_data_type
   real :: WTC0 ! xylem water transfer capacity, m/lifetime
   real :: CR_Leaf ! leaf compression ratio per MPa
   real :: CR_Wood ! Wood compression ratio per MPa
-  real :: w0L_max ! leaf maximum water/carbon ratio
-  real :: w0S_max ! stem maximum water/carbon ratio
-  real :: w0L_min ! leaf minimum water/carbon ratio
-  real :: w0S_min ! stem minimum water/carbon ratio
   real :: psi0_LF ! minimum leaf water potential
-  real :: psi0_WD ! minimum stem wood potential
+  real :: psi0_WD ! minimum stem water potential
   real :: psi50_WD !wood potential at which 50% conductivity lost, MPa
   real :: Kexp_WD  ! exponent of the PLC curve
   real :: f_supply ! fraction of stem water available for leaves per hour
@@ -244,8 +240,6 @@ type :: cohort_type
   real :: Wmax_s ! Stem max water content, kgH2O (per tree)
   real :: Wmin_l ! Leaf min water content, kgH2O (per tree)
   real :: Wmin_s ! Stem min water content, kgH2O (per tree)
-  real :: V_stem ! Volumn of stems (including trunk)
-  real :: V_leaf ! Volumn of leaves
   real :: Q_stem ! water flux from soil to stems (kg/tree/step)
   real :: Q_leaf ! water flux from stems to leaves (kg/tree/step)
 
@@ -682,8 +676,6 @@ real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr
 real :: WTC0(0:MSPECIES)     = 1200.0  ! 2000, m /lifetime
 real :: CR_Leaf(0:MSPECIES)  = 0.5 ! leaf compression ratio per MPa
 real :: CR_Wood(0:MSPECIES)  = 0.2 ! Wood compression ratio per MPa
-real :: w0L_max(0:MSPECIES)  = 18.0  ! leaf maximum water/carbon ratio ()
-real :: w0S_max(0:MSPECIES)  = 2.0   ! stem maximum water/carbon ratio
 real :: psi0_LF(0:MSPECIES)  = -3.0  ! MPa
 real :: psi0_WD(0:MSPECIES)  = -3.0  ! MPa
 real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
@@ -905,8 +897,6 @@ subroutine initialize_PFT_data()
   spdata%WTC0     = WTC0
   spdata%CR_Leaf  = CR_Leaf
   spdata%CR_Wood  = CR_Wood
-  spdata%w0L_max  = w0L_max
-  spdata%w0S_max  = w0S_max
   spdata%psi0_LF  = psi0_LF
   spdata%psi0_WD  = psi0_WD
   spdata%psi50_WD = psi50_WD
@@ -981,9 +971,6 @@ subroutine initialize_PFT_data()
    sp%leafTK = TK0_leaf * SQRT(sp%LMA) ! Leaf thickness, m
    sp%rho_leaf= sp%LMA/sp%leafTK
    sp%CR_Leaf = CR0_LF  * (0.02/sp%LMA)
-   sp%w0L_max = rho_H2O*(1/sp%rho_leaf - 1/rho_cellwall) ! 18.0  ! leaf max. water/carbon ratio
-   sp%w0S_max = rho_H2O*(1/sp%rho_wood - 1/rho_cellwall) ! 2.0   ! stem max. water/carbon ratio
-
    ! Wood hydraulic traits as functions of wood density, 06/30/2022, Weng
    R_WD        = sp%rho_wood/WDref0
    sp%kx0      = kx0_WD  * R_WD**(-1)  ! (mm/s)/(Mpa/m)
