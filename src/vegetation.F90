@@ -1,4 +1,3 @@
-!#define Hydro_test
 !---------------
 module esdvm
  use datatypes
@@ -667,10 +666,8 @@ subroutine vegn_growth(vegn)
       cc%NPProot = cc%NPProot + dBR
       cc%NPPwood = cc%NPPwood + dBSW
 
-      ! Keep previous DBH
-      DBH0 = cc%DBH
-
       !! update plant architecture given increase of bsw
+      DBH0 = cc%DBH   ! Keep previous DBH
       call BM2Architecture(cc, cc%bsw+cc%bHW)
 
       ! Update bl_max, br_max, and NSNmax with shifts from understory to the top layer
@@ -1285,7 +1282,7 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Kx(1)   = NewWoodKx(cc)
      cc%Lring(1)= HT2Lpath(cc%height)
      cc%Aring(1)= PI * 0.25*cc%DBH**2
-     cc%Ktrunk  = PI * 0.25*cc%DBH**2 * cc%Kx(1)/cc%Lring(1)
+     cc%Ktrunk  = cc%Aring(1) * cc%Kx(1)/cc%Lring(1)
      cc%treeHU  = 0.0
      cc%treeW0  = cc%WTC0(1) * cc%Aring(1)
      cc%Asap    = cc%Aring(1)
@@ -1542,11 +1539,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      end associate
 
      ! ----- Conversion of sapwood to heartwood -----
-#ifdef Hydro_test
      call Sap2HeartWood_Hydro(cc)
-#else
-     call Sap2HeartWood_fixedHv(cc)
-#endif
+     !call Sap2HeartWood_fixedHv(cc)
 
      ! Update other variables
      call Update_hydraulic_vars(cc)
@@ -1643,7 +1637,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        ! Next step water supply for regulating stomata conductance
        Q_tot = sum(cc%Q_soil)
        f_soil = 1.0 - Q_tot/vegn%soilwater ! only when Q_tot is close to soil water
-       cc%W_supply = f_soil*Q_tot + PlantWaterSupply(cc,step_seconds)
+       cc%W_supply = PlantWaterSupply(cc,step_seconds) ! + f_soil*Q_tot
      end associate
   enddo
   ! Update soil free water to make sure it is the sum of all layers'
@@ -1659,49 +1653,43 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
   real,             intent(in) :: step_seconds
 
   !----- Local vars ---------------
-  real :: expK,psi50, CR0, f0_sup
+  real :: f0_sup
   real :: W_stem,W_leaf
-  real :: k_stem,psi_stem
+  real :: k_stem,psi_stem,psi_leaf
   real :: psi0, dpsi
   real :: S_stem,S_leaf,wflux
-  real :: step_base = 600. ! Seconds
+  real :: step_base = 300. ! Seconds
   integer :: n_iterations,i
-  logical :: do_simple_W_supply = .True. ! .False. !
+  logical :: do_simple_W_supply = .False. ! .True. !
   !---------------------
 
   ! Prameters
   associate ( sp => spdata(cc%species) )
-    psi50  = sp%psi50_WD
-    expk   = sp%Kexp_WD
-    CR0    = sp%CR_Wood
     f0_sup = sp%f_supply * step_seconds/3600.0
+    ! Stem water supply
+    if(do_simple_W_supply)then ! An arbitrary assignment
+      S_stem = f0_sup * Max((cc%W_stem - cc%Wmin_s),0.0)
+    else ! Calculated as a function of woody properties
+      n_iterations = int(step_seconds/step_base)
+      psi_leaf = log(cc%W_leaf/cc%Wmax_l)/sp%CR_Leaf
+      W_stem = cc%W_stem
+      S_stem = 0.0
+      do i =1, n_iterations
+        psi_stem = log(W_stem/cc%Wmax_s)/sp%CR_Wood
+        dpsi     = max(0.0, psi_stem - psi_leaf) ! sp%psi50_WD
+        if(dpsi <= 0.02 .or. W_stem <= cc%Wmin_s)exit
+        k_stem = cc%Ktrunk * plc_function(psi_stem,sp%psi50_WD,sp%Kexp_WD)
+        wflux  = MIN(dpsi * k_stem * step_base, 0.5*(W_stem - cc%Wmin_S))
+        S_stem = S_stem + wflux
+        W_stem = W_stem - wflux
+        !if(S_stem >= f0_sup * (cc%W_stem - cc%Wmin_s))exit
+      enddo
+    endif
   end associate
-
   !Leaf water supply
-  S_leaf = f0_sup * (cc%W_leaf - cc%Wmin_L)
-  ! Stem water supply
-  if(do_simple_W_supply)then ! An arbitrary assignment
-    S_stem = f0_sup * Max((cc%W_stem - cc%Wmin_s),0.0) ! + (cc%psi_stem - cc%psi_leaf)* k_stem * step_seconds
-  else ! Calculated as a function of woody properties
-    n_iterations = int(step_seconds/step_base)
-    W_stem = cc%W_stem
-    psi0   = psi50 ! the hypothetical terminal branch water pressure
-    S_stem = 0.0
-    do i =1, n_iterations
-      W_stem = MIN(max(0.5*cc%Wmin_S, W_stem), cc%Wmax_s)
-      psi_stem = log(W_stem/cc%Wmax_s)/CR0
-      dpsi     = psi_stem - psi0
-      if(dpsi <= 0.02)exit
-      k_stem = cc%Ktrunk * plc_function(psi_stem,psi50,expK)
-      wflux  = MIN(dpsi * k_stem * step_base, 0.5 * (W_stem - cc%Wmin_S))
-      W_stem = W_stem - wflux
-      S_stem = S_stem + wflux
-      if(S_stem >= f0_sup * (cc%W_stem - cc%Wmin_s))exit
-    enddo
-  endif
-
+  S_leaf = max(f0_sup * (cc%W_leaf - cc%Wmin_L),0.0)
   ! Total plant water supply
-  pws = S_stem + S_leaf
+  pws = S_leaf + S_stem
 
   !------------------------
   if(isnan(pws))then
@@ -1732,13 +1720,12 @@ subroutine calculate_Asap_Ktrunk (cc)
   ! "Lring/Lmax" is the fraction of water lifts to tree height (or psi_wood)
   cc%Ktrunk = 0.0
   cc%Asap   = 0.0
-  cc%Atrunk = 0.0
   do i=1, MIN(cc%Nrings, Ysw_max)
     cc%Asap     = cc%Asap   + cc%Aring(i) * cc%farea(i)
-    cc%Atrunk   = cc%Atrunk + cc%Aring(i)
     cc%Kring(i) = cc%farea(i)*cc%Aring(i) * cc%Kx(i)/maxval(cc%Lring(:))
     cc%Ktrunk   = cc%Ktrunk + cc%Kring(i)
   enddo
+  cc%Atrunk = 0.25 * PI * cc%DBH**2 ! Just for updating merged cohorts
 end subroutine calculate_Asap_Ktrunk
 
 !=================================================
@@ -1784,7 +1771,7 @@ subroutine Sap2HeartWood_fixedHv(cc)
   real :: CSAtot ! total cross section area, m2
   real :: CSAsw  ! Sapwood cross sectional area, m2
   real :: CSAwd  ! Heartwood cross sectional area, m2
-  real :: DBHwd  ! diameter of heartwood at breast height, m
+  real :: D_hw   ! diameter of heartwood at breast height, m
   real :: BSWmax ! max sapwood biomass, kg C/individual
   real :: dSW    ! Sapwood to Heartwood, kgC/individual
   real :: dNS    ! Nitrogen from SW to HW
@@ -1795,8 +1782,8 @@ subroutine Sap2HeartWood_fixedHv(cc)
        CSAsw  = cc%bl_max/sp%LMA * sp%phiCSA * cc%height ! with Plant hydraulics, Weng, 2016-11-30
        CSAtot = 0.25 * PI * cc%DBH**2
        CSAwd  = max(0.0, CSAtot - CSAsw)
-       DBHwd  = 2*sqrt(CSAwd/PI)
-       BSWmax = sp%alphaBM * (cc%DBH**sp%thetaBM - DBHwd**sp%thetaBM)
+       D_hw  = 2*sqrt(CSAwd/PI)
+       BSWmax = sp%alphaBM * (cc%DBH**sp%thetaBM - D_hw**sp%thetaBM)
        dSW   = max(cc%bsw - BSWmax, 0.0)
        dNS    = dSW/cc%bsw *cc%sapwN
        ! update C and N of sapwood and wood
@@ -1808,9 +1795,9 @@ subroutine Sap2HeartWood_fixedHv(cc)
        cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
 
        !Update Atrunk and Asap
-       DBHwd = bm2dbh(cc%bHW,cc%species)
+       D_hw = bm2dbh(cc%bHW,cc%species)
        cc%Atrunk = PI*(cc%DBH/2)**2
-       cc%Asap = cc%Atrunk - PI*(DBHwd/2)**2
+       cc%Asap = cc%Atrunk - PI*(D_hw/2)**2
     endif
   end associate
 end subroutine Sap2HeartWood_fixedHv

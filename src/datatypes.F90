@@ -529,7 +529,7 @@ real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport us
 real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
 real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
 real :: ths0_WD  = 3.0     ! exponential of the PLC function for (psi/psi50)
-real :: f0_WD    = 0.8     ! Fraction of stem water for transpiration per hour at zero WD
+real :: f0_WD    = 1.0     ! Fraction of plant water for transpiration per hour at zero WD
 
 ! Mortality as a function of wood density
 real :: A_mort   = 0.2    ! mu = A_mort *exp(B_mort*WD/WDref)
