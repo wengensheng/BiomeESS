@@ -1272,6 +1272,7 @@ subroutine setup_seedling(cc,totC,totN)
      cc%Kx    = 0.0
      cc%farea = 1.0
      cc%accH  = 0.0
+     cc%plcH  = 0.0
      cc%Rring = 0.0
      cc%Lring = 0.0
      cc%Aring = 0.0
@@ -1478,6 +1479,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
           cc%Kx(1)   = NewWoodKx(cc)
           cc%farea(1) = 1.0
           cc%accH(1)  = 0.0
+          cc%plcH(1)  = 0.0
           cc%Rring(1) = cc%DBH/2.0
           cc%Lring(1) = HT2Lpath(cc%height)
           cc%Aring(1) = PI * cc%Rring(1)**2
@@ -1489,6 +1491,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
              cc%Kx(j-1)    = cc%Kx(j)
              cc%farea(j-1) = cc%farea(j)
              cc%accH(j-1)  = cc%accH(j)
+             cc%plcH(j-1)  = cc%plcH(j)
              cc%Rring(j-1) = cc%Rring(j)
              cc%Lring(j-1) = cc%Lring(j)
              cc%Aring(j-1) = cc%Aring(j)
@@ -1505,6 +1508,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
        ! Other cohort variables of the new ring
        cc%farea(k) = 1.0
        cc%accH(k)  = 0.0
+       cc%plcH(k)  = 0.0
        cc%Rring(k) = cc%DBH/2.0
        cc%Lring(k) = HT2Lpath(cc%height)
        if(k>1)then
@@ -1526,14 +1530,13 @@ subroutine vegn_hydraulic_states(vegn, deltat)
          endif
 
          ! Update each ring's functional fraction
-         cc%farea(k) = 1. - exp(-r_DF * (1. - MIN(1.0,cc%accH(k)/cc%WTC0(k))))
+         cc%farea(k) = 1. - exp(-r_DF * (1. - MIN(1.0,(cc%accH(k)+cc%plcH(k))/cc%WTC0(k))))
          !cc%farea(k) = 1. - 1./(1. + exp(r_DF * (1. - cc%accH(k)/cc%WTC0(k))))
 
          ! Update tree hydraulic usage and WTC0
          funcA = cc%farea(k) * cc%Aring(k)
          cc%treeHU   = cc%treeHU + funcA * cc%accH(k)
          cc%treeW0   = cc%treeW0 + funcA * cc%WTC0(k)
-
        enddo
        call calculate_Asap_Ktrunk (cc) ! Update Asap and Ktrunk
      end associate
@@ -1558,7 +1561,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   type(cohort_type),pointer :: cc
   real :: Q_air          ! transpiration amount in this step
   real :: psi_ht         ! Gravitational water pressure, MPa
-  real :: psi_leaf,psi_stem,psi_sl
+  real :: psi_leaf,psi_stem,psi_sl,plc
   real :: k_rs(soil_L)   ! soil-root water conductance by soil layer
   real :: k_stem         ! The conductance of the tree at current conditions
   real :: sumK, sumPK, dpsi, psi_soil
@@ -1566,7 +1569,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   real :: Q_tot  ! Total soil water uptake by a plant
   real :: W_maxL ! Maximum available water in a soil layer for an individual
   real :: f_soil ! Fraction of water left in soil for next step
-  integer :: i,j
+  integer :: i,j,k
 
   ! Plant water potentials, water fluxes and content
   do j = 1, vegn%n_cohorts
@@ -1581,7 +1584,8 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        ! Calculate ! Water flux from stems to leaves
        Q_air  = cc%transp   ! /step_seconds
        psi_sl = (cc%psi_stem + cc%psi_leaf)/2
-       k_stem = cc%Ktrunk * plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
+       plc = plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
+       k_stem = cc%Ktrunk * plc
        psi_ht = HT2MPa(cc%height) ! MPa
 
        !Approximately estimate psi_leaf and Q_leaf
@@ -1597,6 +1601,12 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        cc%W_leaf = cc%W_leaf + cc%Q_leaf - Q_air
        cc%W_stem = cc%W_stem - cc%Q_leaf
        cc%psi_leaf = psi_leaf
+
+       ! Xylem damage when plc is low
+       if(plc <= plc_crit)then
+         k = MIN(cc%Nrings, Ysw_max)
+         cc%plcH(1:k) = cc%plcH(1:k) + sp%f_plc*cc%WTC0(1:k) * step_seconds/seconds_per_day
+       endif
 
        ! Water fluxes from soil to stem base
        W_psi_s0 = cc%Wmax_s * exp(cc%psi_s0 * sp%CR_Wood)
@@ -2165,6 +2175,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%treeW0 = cc%WTC0(1) * cc%Aring(1)
     cc%farea(1)= 1.0
     cc%accH(1) = 0.0
+    cc%plcH(1) = 0.0
     ! Initial psi
     cc%psi_stem = psi_s0
     cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height) ! MPa

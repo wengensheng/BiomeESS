@@ -130,6 +130,7 @@ type spec_data_type
   real :: psi50_WD !wood potential at which 50% conductivity lost, MPa
   real :: Kexp_WD  ! exponent of the PLC curve
   real :: f_supply ! fraction of stem water available for leaves per hour
+  real :: f_plc    ! fraction of WTC loss due to low water potential (per day)
 
   ! Allometry
   real :: alphaHT, thetaHT ! height = alphaHT * DBH ** thetaHT
@@ -251,6 +252,7 @@ type :: cohort_type
   real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
   real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
   real :: accH(Ysw_max) = 0.0 ! m, total water transport for functional conduits
+  real :: plcH(Ysw_max) = 0.0 ! m, WTC cost at the low xylem water potential
   real :: farea(Ysw_max) = 0.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
   real :: Rring(Ysw_max) = 0.0 ! Radius to the outer edge
   real :: Lring(Ysw_max) = 0.0 ! Length of xylem conduits
@@ -529,7 +531,10 @@ real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport us
 real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
 real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
 real :: ths0_WD  = 3.0     ! exponential of the PLC function for (psi/psi50)
-real :: f0_WD    = 1.0     ! Fraction of plant water for transpiration per hour at zero WD
+real :: fsup0_WD = 1.0     ! Fraction of plant water for transpiration per hour at zero WD
+real :: fplc0_WD = 1.0     ! Fraction of WTC loss at low PLC at zero WD
+real :: A_plc0_WD= -3.0    ! Parameter in f_plc = fplc0_WD * exp(A*R_WD)
+real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 
 ! Mortality as a function of wood density
 real :: A_mort   = 0.2    ! mu = A_mort *exp(B_mort*WD/WDref)
@@ -681,6 +686,7 @@ real :: psi0_WD(0:MSPECIES)  = -3.0  ! MPa
 real :: psi50_WD(0:MSPECIES) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
 real :: Kexp_WD(0:MSPECIES)  = 3.0
 real :: f_supply(0:MSPECIES) = 0.5
+real :: f_plc(0:MSPECIES)    = 0.05  ! fraction of WTC loss due to low water potential (per day)
 
 ! C/N ratios for plant pools
 real :: CNleaf0(0:MSPECIES)   = 25. ! C/N ratios for leaves
@@ -786,8 +792,9 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
   ! Plant hydraulics
-  WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,f0_WD,CR0_LF,CR0_WD,          &
+  WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,fsup0_WD,CR0_LF,CR0_WD,       &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
+  fplc0_WD,A_plc0_WD,f_plc,plc_crit,                                  &
   ! Soil
   FLDCAP,WILTPT,LMAmin,fsc_fine,fsc_wood,                             &
   K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
@@ -901,6 +908,7 @@ subroutine initialize_PFT_data()
   spdata%psi0_WD  = psi0_WD
   spdata%psi50_WD = psi50_WD
   spdata%Kexp_WD  = Kexp_WD
+  spdata%f_plc    = f_plc
 
   spdata%LAImax   = LAImax
   spdata%LAImax_u = 1.2 ! LAImax
@@ -979,7 +987,8 @@ subroutine initialize_PFT_data()
    sp%psi50_WD = p50_WD  * R_WD**1.73 - 1.0 !- 1.09 - 3.57 * (sp%rho_wood/500.) ** 1.73
    sp%psi0_WD  = p50_WD  * R_WD**1.73 - 2.0
    sp%Kexp_WD  = ths0_WD * R_WD**(-0.5) ! rho_wood cannot be 200 for ths0_WD * R_WD**(-1)
-   sp%f_supply = f0_WD   /(R_WD+1.0)
+   sp%f_supply = fsup0_WD/(R_WD+1.0)
+   sp%f_plc    = fplc0_WD * exp(A_plc0_WD*R_WD)
 
    ! Mortality rate as a function of wood density
    if(do_WD_mort_function)then
