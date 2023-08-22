@@ -26,10 +26,14 @@
 
  ! Vegetation and soil types
  integer, parameter :: n_dim_soil_types = 9
- integer, parameter :: MSPECIES   = 15
+ integer, parameter :: MSPECIES   = 30 ! 15
  integer, parameter :: Nsoiltypes = 7
  integer, parameter :: LEAF_ON    = 1
  integer, parameter :: LEAF_OFF   = 0
+ integer, parameter :: NBANDS   = 2, & ! number of spectral bands for short-wave radiation calculations
+                       BAND_VIS = 1, & ! visible radiation (wavelenght range?)
+                       BAND_NIR = 2    ! near infra-red radiation (wavelenght range?)
+
  real,    parameter :: min_nindivs= 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
@@ -100,6 +104,10 @@ type spec_data_type
   real :: gamma_LN     ! leaf respiration coeficient per unit N
   real :: ps_wet       ! wet leaf photosynthesis down-regulation
   real :: LFR_rate     ! Leaf filling rate per day
+  ! radiation parameters for 2 bands, VIS and NIR
+  real    :: leaf_refl (NBANDS) = (/ 0.10, 0.50/) ! reflectance of leaf
+  real    :: leaf_tran (NBANDS) = (/ 0.05, 0.25/) ! transmittance of leaf
+  real    :: leaf_emis          = 1.00            ! emissivity of leaf
   ! root traits
   real :: rho_FR       ! material density of fine roots (kgC m-3)
   real :: root_r       ! radius of the fine roots, m
@@ -579,10 +587,8 @@ real :: tg_c4_thresh = 2.0 ! threshold biomass between tree and grass for C4 pla
 
 ! -------- PFT-specific parameters ----------
 ! c4grass  c3grass  temp-decid  tropical  evergreen  BE  BD  BN  NE  ND  G  D  T  A
-integer :: pt(0:MSPECIES) = 0
-!(/1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0/) ! 0 for C3, 1 for C4
-integer :: phenotype(0:MSPECIES)= 0
-! (/0,  0,  0,  0,  1,  1,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0 /) ! 0 for Deciduous, 1 for evergreen
+integer :: pt(0:MSPECIES)       = 0 ! 0 for C3, 1 for C4
+integer :: phenotype(0:MSPECIES)= 0 ! 0 for Deciduous, 1 for evergreen
 integer :: lifeform(0:MSPECIES) = 1 ! life form of PFTs: 0 for grasses, 1 for trees
 
 ! Allometry and whole tree parameters
@@ -602,10 +608,9 @@ real :: LFR_rate(0:MSPECIES)= 1.0
 
 ! Leaf parameters
 real :: leaf_size(0:MSPECIES)= 0.04 !
-real :: LAImax(0:MSPECIES)   = 3.5 ! maximum LAI for a tree
-real :: LAI_light(0:MSPECIES)= 4.0 ! maximum LAI limited by light
+real :: LAImax(0:MSPECIES)   = 3.5    ! maximum LAI for a tree
+real :: LAI_light(0:MSPECIES)= 4.0    ! maximum LAI limited by light
 real :: LMA(0:MSPECIES)      = 0.035  !  leaf mass per unit area, kg C/m2
-!(/0.04,    0.04,    0.035,   0.035,   0.140,  0.032, 0.032,  0.036,   0.036,   0.036,   0.036,   0.036,   0.036,   0.036,   0.036,   0.036  /)
 real :: leafLS(0:MSPECIES)   = 1.0
 real :: LNbase(0:MSPECIES)   = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
 real :: CN0leafST(0:MSPECIES)= 80.0 ! CN ratio of leaf supporting tissues
@@ -668,7 +673,7 @@ real :: prob_g(0:MSPECIES)   = 1.0
 real :: prob_e(0:MSPECIES)   = 1.0
 
 ! Mortality parameters
-real :: r0mort_c(0:MSPECIES) = 0.01 ! yearly
+real :: r0mort_c(0:MSPECIES) = 0.02 ! 0.01 ! yearly
 real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
 real :: A_un(0:MSPECIES)     = 1.0     ! Multiplier for understory mortality
 real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
@@ -698,16 +703,17 @@ real :: NfixRate0(0:MSPECIES) = 0.0  ! Reference N fixation rate (0.03 kgN kg ro
 real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
 
 !----- Initial conditions and model control -------------
-integer, parameter :: MAX_INIT_COHORTS = 10 ! Weng, 2014-10-01
-integer :: init_n_cohorts                        = MAX_INIT_COHORTS
-integer :: init_cohort_species(MAX_INIT_COHORTS) = 2
-real :: init_cohort_nindivs(MAX_INIT_COHORTS) = 1.0  ! initial individual density, individual/m2
-real :: init_cohort_bl(MAX_INIT_COHORTS)      = 0.0  ! initial biomass of leaves, kg C/individual
-real :: init_cohort_br(MAX_INIT_COHORTS)      = 0.0  ! initial biomass of fine roots, kg C/individual
-real :: init_cohort_bsw(MAX_INIT_COHORTS)     = 0.05 ! initial biomass of sapwood, kg C/individual
-real :: init_cohort_bHW(MAX_INIT_COHORTS)     = 0.0  ! initial biomass of heartwood, kg C/tree
-real :: init_cohort_seedC(MAX_INIT_COHORTS)   = 0.0  ! initial biomass of seeds, kg C/individual
-real :: init_cohort_nsc(MAX_INIT_COHORTS)     = 0.05 ! initial non-structural biomass, kg C/
+integer :: I
+integer, parameter :: N_IniCC_max = MSPECIES ! 5 ! Weng, 2014-10-01
+integer :: init_n_cohorts = N_IniCC_max
+integer :: init_cohort_species(N_IniCC_max) = (/ (I, I = 0, N_IniCC_max-1) /)
+real :: init_cohort_nindivs(N_IniCC_max) = 0.001  ! initial individual density, individual/m2
+real :: init_cohort_bl(N_IniCC_max)      = 0.0  ! initial biomass of leaves, kg C/individual
+real :: init_cohort_br(N_IniCC_max)      = 0.0  ! initial biomass of fine roots, kg C/individual
+real :: init_cohort_bsw(N_IniCC_max)     = 0.2  ! initial biomass of sapwood, kg C/individual
+real :: init_cohort_bHW(N_IniCC_max)     = 0.0  ! initial biomass of heartwood, kg C/tree
+real :: init_cohort_seedC(N_IniCC_max)   = 0.0  ! initial biomass of seeds, kg C/individual
+real :: init_cohort_nsc(N_IniCC_max)     = 0.5  ! initial non-structural biomass, kg C/
 
 ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
 real :: init_fast_soil_C  = 0.0  ! initial fast soil C, kg C/m2

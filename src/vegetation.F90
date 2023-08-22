@@ -430,6 +430,111 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   endif
 end subroutine gs_Leuning
 
+! ============================================================================
+! Copied from LM4-ESM4_2021.02: vegn_radiation.F90
+subroutine twostream( &
+   mu, mu_bar, LAI, albedo_g, phi1, phi2, rl, tl, transm_dir, scatter_dir, albedo_dir, &
+   transm_dif, albedo_dif )
+
+  real, intent(in)  :: mu         ! cosine of direct light zenith angle
+  real, intent(in)  :: mu_bar     ! average inverse diffuse optical depth per unit leaf area
+  real, intent(in)  :: LAI        ! leaf area index
+  real, intent(in)  :: albedo_g   ! ground surface albedo
+  real, intent(in)  :: phi1, phi2 ! coefficients of expression for G_mu
+  real, intent(in)  :: rl         ! reflectivity of leaves
+  real, intent(in)  :: tl         ! transmittance of leaves
+  ! output
+  real, intent(out) :: transm_dir ! canopy transmittance for direct beam -- that
+                                  ! is, the part of the beam that passes through
+                                  ! the canopy untouched
+  real, intent(out) :: scatter_dir! part of direct beam scattered down, at the
+                                  ! bottom of the canopy
+  real, intent(out) :: albedo_dir ! overall land surface albedo for direct beam
+  real, intent(out) :: transm_dif ! canopy transmittance for diffuse incident light
+  real, intent(out) :: albedo_dif ! overall land surface albedo for diffuse incident light
+
+  ! ---- local vars
+  real :: G_mu        ! relative projected leaf area in direction of direct beam
+  real :: K           ! optical depth for direct beam per unit LAI
+  real :: g1,g2,g3,g4 ! coefficients in the two-stream equation
+  real :: kappa       ! eigenvalue of free solution
+  real :: a_up, b_up, c_up ! coefficients of upward diffuse light flux
+  real :: a_dn, b_dn, c_dn ! coefficients of downward diffuse light flux
+  real :: x1,x2       ! intermediate coefficients
+  real :: a11,a12,a21,a22, d1,d2 ! coefficients of linear system
+  real :: D           ! determinant of the matrix
+  real :: A,B         ! coefficients of diffuse light function
+  real :: dif_dn_bot, dif_up_bot, dif_up_top
+
+  real, parameter :: eta = 6.0; ! this value is suitable only for uniform leaf
+                                ! angular distribution !!!
+
+  ! calculate coefficients of optical path
+  G_mu=phi1+phi2*mu;
+  K = G_mu/mu;
+
+  ! given optical parameters, calculate coefficients of basic equation
+  g1 = (1-(rl+tl)/2+(rl-tl)/eta)/mu_bar;
+  g2 = (  (rl+tl)/2+(rl-tl)/eta)/mu_bar;
+  g3 = G_mu*((rl+tl)/2+mu*(rl-tl)/eta/G_mu);
+  g4 = G_mu*((rl+tl)/2-mu*(rl-tl)/eta/G_mu);
+
+  ! calculate eigenvalue of free solution (=exponent coefficient of
+  ! free solution, notes 12)
+  kappa = sqrt(g1**2-g2**2);
+
+  ! calculate forced term coefficients for diffuse light intensity
+  c_up = ( K*g3-g1*g3-g2*g4)/(K*K-g1*g1+g2*g2);
+  c_dn = (-K*g4-g1*g4-g2*g3)/(K*K-g1*g1+g2*g2);
+  ! calculate intermediate coefficients for solution
+  x1 = g1+g2+kappa; x2 = g1+g2-kappa;
+
+  !write(*,*)mu,K,g1,g2,g3,g4,c_up,c_dn
+
+  ! calculate coefficients of the matrix
+  a11 = x2;
+  a12 = x1;
+  d1  = -c_dn;
+  a21 = exp(kappa*LAI)*(x1-albedo_g*x2);
+  a22 = exp(-kappa*LAI)*(x2-albedo_g*x1);
+  d2  = exp(-K*LAI)*(albedo_g*c_dn + albedo_g*mu - c_up);
+  ! solve the equation system
+  D = a11*a22-a12*a21;
+  A = (d1*a22-d2*a12)/D;
+  B = (a11*d2-a21*d1)/D;
+
+  ! calculate coefficients of the diffuse light solution
+  a_up = A*x1; b_up=B*x2;
+  a_dn = A*x2; b_dn=B*x1;
+
+  ! calculate downward diffuse light at the bottom of the canopy
+  dif_dn_bot = a_dn*exp(kappa*LAI) + b_dn*exp(-kappa*LAI)+c_dn*exp(-K*LAI);
+  dif_up_bot = a_up*exp(kappa*LAI) + b_up*exp(-kappa*LAI)+c_up*exp(-K*LAI);
+
+  ! calculate canopy transmittance and scattered part for direct light
+  scatter_dir = dif_dn_bot/mu; ! scatter
+  transm_dir  = exp(-K*LAI); ! transmittance for unmolested direct light
+
+  ! calculate canopy reflectance for direct light
+  dif_up_top = a_up + b_up + c_up;
+  albedo_dir = dif_up_top/mu;
+
+  ! calculate upward diffuse light at the top of the canopy
+  ! no need to recalculate D, since the matrix is the same
+  d1 = 1.0;
+  d2 = 0.0;
+  A = (d1*a22-d2*a12)/D;
+  B = (a11*d2-a21*d1)/D;
+
+  ! calculate coefficients of the diffuse light solution
+  a_up = A*x1; b_up=B*x2;
+  a_dn = A*x2; b_dn=B*x1;
+
+  transm_dif = a_dn*exp(kappa*LAI) + b_dn*exp(-kappa*LAI);
+  albedo_dif = a_up + b_up;
+
+end subroutine twostream
+
 !============================================================================
 subroutine vegn_respiration(forcing,vegn)
   type(climate_data_type),intent(in)  :: forcing
@@ -1121,8 +1226,8 @@ subroutine vegn_reproduction (vegn)
   ! ---- local vars
   type(cohort_type), pointer :: cc ! parent and child cohort pointers
   type(cohort_type), dimension(:),pointer :: ccold, ccnew   ! pointer to old cohort array
-  integer,dimension(16) :: reproPFTs
-  real,   dimension(16) :: seedC, seedN ! seed pool of productible PFTs
+  integer,dimension(MSPECIES) :: reproPFTs
+  real,   dimension(MSPECIES) :: seedC, seedN ! seed pool of productible PFTs
   real :: failed_seeds, N_failedseed !, prob_g, prob_e
   real :: totC,totN  ! the biomass of a new seedling
   integer :: newcohorts, matchflag, nPFTs ! number of new cohorts to be created
@@ -1589,6 +1694,8 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        psi_ht = HT2MPa(cc%height) ! MPa
 
        !Approximately estimate psi_leaf and Q_leaf
+       ! find out "psi_leaf" that makes water flux from stems to leaves equal
+       ! to Q_air (Transpiration)
        psi_leaf = (k_stem*step_seconds*(cc%psi_stem-psi_ht)+  &
             cc%H_leaf*cc%psi_leaf - Q_air) /(k_stem*step_seconds+cc%H_leaf)
        cc%Q_leaf = (cc%psi_stem - psi_leaf - psi_ht) * k_stem * step_seconds
@@ -2609,7 +2716,7 @@ subroutine vegn_fire (vegn, deltat)
   flmb_W = Ignition_W0 * f_wood
   fire_prob = 1.-(1.-flmb_G*envi_fire_prb)*(1.-flmb_W*envi_fire_prb)
   ! fire effects on vegetation and soil
-  r_fire    = rand(0) !CALL RANDOM_NUMBER(r_fire)
+  CALL RANDOM_NUMBER(r_fire) ! r_fire    = rand(0) !
   vegn%C_combusted = 0.0
   if(r_fire < fire_prob)then ! Fire_ON
     do i = 1, vegn%n_cohorts
