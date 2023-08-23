@@ -157,9 +157,9 @@ type spec_data_type
   real :: CNwood0
   real :: CNseed0
   ! phenology
-  real :: tc_crit_off    ! K, for turning OFF a growth season
-  real :: tc_crit_on     ! K, for turning ON a growth season
-  real :: gdd_crit       ! K, critical value of GDD5 for turning ON growth season
+  real :: tc_crit_off    ! C, for turning OFF a growth season
+  real :: tc_crit_on     ! C, for turning ON a growth season
+  real :: gdd_crit       ! C, critical value of GDD5 for turning ON growth season
   real :: gdd_par1
   real :: gdd_par2
   real :: gdd_par3
@@ -550,8 +550,8 @@ real :: B_mort   = -2.1
 
 ! Phenology parameters
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
-real :: T0_gdd   = 273.15 + 5.0 ! 5.d0
-real :: T0_chill = 273.15 + 10.0
+real :: T0_gdd   = 5.0 ! 5.d0
+real :: T0_chill = 10.0
 integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc_crit
 
 ! Fire regimes
@@ -870,8 +870,8 @@ subroutine initialize_PFT_data()
   !  spdata%N_roots0  = N_roots0
 
   ! Phenology
-  spdata%tc_crit_off = 273.15 + tc_crit_off ! C to K
-  spdata%tc_crit_on  = 273.15 + tc_crit_on  ! C to K
+  spdata%tc_crit_off = tc_crit_off ! C
+  spdata%tc_crit_on  = tc_crit_on  ! C
   spdata%gdd_crit    = gdd_crit
   spdata%gdd_par1    = gdd_par1
   spdata%gdd_par2    = gdd_par2

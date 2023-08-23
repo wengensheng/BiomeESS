@@ -889,7 +889,7 @@ subroutine vegn_phenology(vegn) ! daily step
 
   ! -------------- update vegn GDD and tc_pheno ---------------
   ! environmental factors for each cohort
-  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2 ! K
+  vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2 ! C
   do i = 1, vegn%n_cohorts
     cc=>vegn%cohorts(i)
     associate (sp => spdata(cc%species) )
@@ -918,7 +918,8 @@ subroutine vegn_phenology(vegn) ! daily step
       gdd_ON = sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd)
 
       PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)         &
-        .and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
+        !.and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
+        .and.(cc%gdd > gdd_ON    .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
         .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
         .and.(.NOT.(sp%lifeform==0 .and. cc%layer > GrassMaxL))     &  ! If grasses, layer< 3
          )

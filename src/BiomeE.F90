@@ -167,13 +167,12 @@ subroutine BiomeE_run()
   do idays =1, totdays ! 1*days_data ! days for the model run
     idoy = idoy + 1
     land%Tc_daily = 0.0 ! Zero daily mean temperature
-
     ! Fast-step update (hourly or half-hourly)
     do i=1,steps_per_day
       n_steps = n_steps + 1
       idata = MOD(n_steps-1, datalines) + 1
       year0 = forcingData(idata)%year  ! Current step year
-      land%Tc_daily = land%Tc_daily + forcingData(idata)%Tair
+      land%Tc_daily = land%Tc_daily + forcingData(idata)%Tair - 273.16
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
         call vegn_CNW_budget_fast(vegn,forcingData(idata))
