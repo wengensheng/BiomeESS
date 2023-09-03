@@ -678,7 +678,7 @@ real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
 real :: A_un(0:MSPECIES)     = 1.0     ! Multiplier for understory mortality
 real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
 real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
-real :: A_D(0:MSPECIES)      = 4.0   ! Sensitivity to dbh
+real :: A_D(0:MSPECIES)      = 8.0 !4.0   ! Sensitivity to dbh
 real :: s_hu(0:MSPECIES)     = -25.0 ! hydraulic mortality sensitivity
 
 ! Plant hydraulics parameters

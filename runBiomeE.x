@@ -17,7 +17,7 @@ echo $FSRCS
 
 gfortran $FSRCS $CPPFLAGS -o ess
 
-fparameter='./para_files/parameters_OR_FACE.nml'
+fparameter='./para_files/parameters_Oscillation.nml'
 echo $fparameter
 cat $fparameter > ./para_files/input.nml
 ./ess

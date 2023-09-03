@@ -414,8 +414,13 @@ end subroutine daily_diagnostics
           cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,  &
           cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf, &
           froot,fwood,cc%mu,cc%annualTrsp,cc%annualNup,&
-          cc%annualfixedN,cc%Atrunk,cc%Asap,cc%Ktrunk, &
-          cc%treeHU,cc%treeW0,(cc%farea(j),j=1,Ysw_max)
+          cc%annualfixedN,cc%Atrunk,cc%Asap            &
+#ifdef Hydro_test
+          ,cc%Ktrunk,cc%treeHU,cc%treeW0,(cc%farea(j),j=1,Ysw_max)
+#else
+          ,cc%Ktrunk,cc%treeHU,cc%treeW0
+#endif
+
 #endif
 
         ! Screen output

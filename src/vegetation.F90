@@ -1538,13 +1538,13 @@ real function mortality_rate(cc) result(mu) ! per year
 
     ! Size effect on the mortality of adult trees
     if(do_U_shaped_mortality)then
-       m_S = 5.0
+       m_S = 19.0 ! 4.0
+       expD = exp(sp%A_D * (cc%dbh - sp%D0mu))
+       f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
     else
-       m_S = 0.0
+       f_D  = 1.0
     endif
-    expD = exp(sp%A_D * (cc%dbh - sp%D0mu))
-    f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
-    mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
+    mu_bg = Min(0.999,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 
 #ifdef Hydro_test
     ! Trunk hydraulic failure probability
