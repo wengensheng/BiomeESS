@@ -18,8 +18,8 @@
  real, parameter :: mol_air = 28.96440e-3 ! molar mass of air, kg
  real, parameter :: mol_CO2 = 44.00995e-3 ! molar mass of CO2,kg
  real, parameter :: mol_h2o = 18.0e-3 ! molar mass of water, kg
- real, parameter :: cpair   = 1010.
- real, parameter :: H2OLv0  = 2.501e6   !latent heat H2O (J/kg)
+ real, parameter :: cpair   = 1010.     ! air heat capapcity (J/kg/K)
+ real, parameter :: H2OLv0  = 2.501e6   ! latent heat H2O (J/kg)
  real, parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
  real, parameter :: f_PAR   = 0.5  ! Fraction of PAR in total solar radiation
  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
@@ -34,7 +34,7 @@
                        BAND_VIS = 1, & ! visible radiation (wavelenght range?)
                        BAND_NIR = 2    ! near infra-red radiation (wavelenght range?)
 
- real,    parameter :: min_nindivs= 1e-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
+ real,    parameter :: min_nindivs= 0.5E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
  real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3
@@ -49,12 +49,12 @@
 
  ! Soil water hydrualics
  integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
- integer, parameter :: num_l   = soil_L ! Soil layers,
- real, parameter :: thksl(soil_L)=(/0.05,0.45,1.5,1.5,1.5/) ! m, thickness of soil layers
+ integer, parameter :: num_l  = soil_L ! Soil layers,
+ real, parameter :: thksl(soil_L)=(/0.1,0.2,0.5,1.0,1.2/) ! m, thickness of soil layers
  real, parameter :: rzone = sum(thksl) !m
  real, parameter :: psi_wilt  = -150.0  ! matric head at wilting
  real, parameter :: K_rel_min = 1.e-12
- real, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d drainage rate at FC
+ real, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d threshold drainage rate at Field Capacity
  real, parameter :: ws0 = 0.02 ! hygroscopic point
  real, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
  integer, parameter :: & ! soil types
@@ -307,6 +307,7 @@ type :: cohort_type
   real :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
   real :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
   real :: W_supply  ! potential water uptake rate per unit time per tree
+  real :: totDemand  = 0.0 ! Total water demand in a growing season
   real :: transp   ! transpiration rate per tree per hour
   real :: uptake_frac(soil_L) ! for LM3 soil water uptake, Weng, 2017-10-28
   real :: K_r,r_r
@@ -547,6 +548,8 @@ real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 ! Mortality as a function of wood density
 real :: A_mort   = 0.2    ! mu = A_mort *exp(B_mort*WD/WDref)
 real :: B_mort   = -2.1
+real :: alphaDrought = 15.0 ! UFL: sensitivity of mortality to drought,
+                            ! infinite: no effect, 15: medium, 10: high
 
 ! Phenology parameters
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
@@ -610,14 +613,14 @@ real :: LFR_rate(0:MSPECIES)= 1.0
 real :: leaf_size(0:MSPECIES)= 0.04 !
 real :: LAImax(0:MSPECIES)   = 3.5    ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)= 4.0    ! maximum LAI limited by light
-real :: LMA(0:MSPECIES)      = 0.035  !  leaf mass per unit area, kg C/m2
+real :: LMA(0:MSPECIES)      = 0.035  ! leaf mass per unit area, kg C/m2
 real :: leafLS(0:MSPECIES)   = 1.0
-real :: LNbase(0:MSPECIES)   = 0.8E-3 !functional nitrogen per unit leaf area, kg N/m2
+real :: LNbase(0:MSPECIES)   = 1.1E-3 !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 real :: CN0leafST(0:MSPECIES)= 80.0 ! CN ratio of leaf supporting tissues
 
 ! photosynthesis parameters
 real :: Vmax(0:MSPECIES)= 35.0E-6 ! mol m-2 s-1
-real :: m_cond(0:MSPECIES)= 7.0 !
+real :: m_cond(0:MSPECIES)= 9.0 ! 7.0 !
 real :: alpha_ps(0:MSPECIES)=  0.06 !
 real :: Vannual(0:MSPECIES) = 1.2 ! kgC m-2 yr-1
 real :: ps_wet(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 means
@@ -673,9 +676,9 @@ real :: prob_g(0:MSPECIES)   = 1.0
 real :: prob_e(0:MSPECIES)   = 1.0
 
 ! Mortality parameters
-real :: r0mort_c(0:MSPECIES) = 0.02 ! 0.01 ! yearly
+real :: r0mort_c(0:MSPECIES) = 0.012 ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
-real :: A_un(0:MSPECIES)     = 1.0     ! Multiplier for understory mortality
+real :: A_un(0:MSPECIES)     = 3.0     ! Multiplier for understory mortality
 real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
 real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
 real :: A_D(0:MSPECIES)      = 8.0 !4.0   ! Sensitivity to dbh
@@ -707,7 +710,7 @@ integer :: I
 integer, parameter :: N_IniCC_max = MSPECIES ! 5 ! Weng, 2014-10-01
 integer :: init_n_cohorts = N_IniCC_max
 integer :: init_cohort_species(N_IniCC_max) = (/ (I, I = 0, N_IniCC_max-1) /)
-real :: init_cohort_nindivs(N_IniCC_max) = 0.001  ! initial individual density, individual/m2
+real :: init_cohort_nindivs(N_IniCC_max) = 0.005  ! initial individual density, individual/m2
 real :: init_cohort_bl(N_IniCC_max)      = 0.0  ! initial biomass of leaves, kg C/individual
 real :: init_cohort_br(N_IniCC_max)      = 0.0  ! initial biomass of fine roots, kg C/individual
 real :: init_cohort_bsw(N_IniCC_max)     = 0.2  ! initial biomass of sapwood, kg C/individual
@@ -778,7 +781,7 @@ namelist /soil_data_nml/ soiltype,             &
      chb, alphaSoil,heat_capacity_dry
 
 ! --------- Vegetation parameter name list ---------
-namelist /vegn_parameters_nml/  diff_S0,                              &
+namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
   pt, phenotype, lifeform,                                            &
   alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,f_taper,f_cGap,     &
   ! Leaf
@@ -1098,6 +1101,9 @@ end subroutine qscomp
 
    associate(sp=>spdata(cc%species))
      BLmax = sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
+#ifdef UFL_test
+     if(cc%layer > 1) BLmax = sp%LMA  * 1.0 * cc%Acrown * (1.0-sp%f_cGap)
+#endif
    end associate
  end function
 
@@ -1108,6 +1114,9 @@ function BLmax2BRmax(cc) result (BRmax)
 
   associate(sp=>spdata(cc%species))
     BRmax = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
+#ifdef UFL_test
+    if(cc%layer > 1) BRmax = 0.5*cc%bl_max/(sp%LMA*sp%SRA)
+#endif
   end associate
 end function
 

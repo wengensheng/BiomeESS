@@ -199,6 +199,9 @@ subroutine Zero_diagnostics(vegn)
      cc%annualResp= 0.0
      cc%annualNup   = 0.0
      cc%annualfixedN = 0.0
+
+     ! For UFL test
+     cc%totDemand = 0.0
      ! Yearly variables
      cc%NPPleaf   = 0.0
      cc%NPProot   = 0.0
@@ -261,7 +264,12 @@ end subroutine Zero_diagnostics
           iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,  &
           cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,    &
           cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,           &
+#ifdef Hydro_test
           cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_stem
+#else
+          cc%W_supply,cc%W_scale
+#endif
+
     enddo
     ! Hourly tile
     associate ( cc1 => vegn%cohorts(1))
@@ -377,10 +385,9 @@ end subroutine daily_diagnostics
     integer :: i,j,iyr_out
 
     write(*,'(3(I6,","),3(F9.3,","))')vegn%tileID,iyears,vegn%n_cohorts
-    write(*,'(3(a4,","),30(a9,","))')     &
-          'cc','PFT','L','n','f_CA','dDBH','dCA', &
-          'DBH','Height','Acrown','GPP','mu',     &
-          'Atrunk','Asap','Ktree','treeHU','treeW0'
+    write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
+      'n','f_CA','dD','DBH','Ht','Atrunk','Asap','Ktree', &
+      'GPP','mu','Trsp','Demand','treeHU','treeW0'
 
     ! Cohotrs ouput
     !if(index(climfile,'DBEN')==0) &
@@ -408,28 +415,29 @@ end subroutine daily_diagnostics
           treeG,fseed,fleaf,froot,fwood,cc%mu
 #else
         write(f1,'(6(I8,","),300(E15.4,","))')vegn%tileID, &
-          iyears,i,cc%ccID,cc%species,cc%layer,        &
-          cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,  &
-          cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,&
-          cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,  &
-          cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf, &
-          froot,fwood,cc%mu,cc%annualTrsp,cc%annualNup,&
-          cc%annualfixedN,cc%Atrunk,cc%Asap            &
+          iyears,i,cc%ccID,cc%species,cc%layer,            &
+          cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,      &
+          cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,    &
+          cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,      &
+          cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf,     &
+          froot,fwood,cc%mu,cc%annualTrsp,cc%totDemand,    &
+          cc%annualNup,cc%annualfixedN,                    &
+          cc%Atrunk,cc%Asap,cc%Ktrunk,cc%treeHU,           &
 #ifdef Hydro_test
-          ,cc%Ktrunk,cc%treeHU,cc%treeW0,(cc%farea(j),j=1,Ysw_max)
+          cc%treeW0,(cc%farea(j),j=1,Ysw_max)
 #else
-          ,cc%Ktrunk,cc%treeHU,cc%treeW0
+          cc%treeW0
 #endif
 
 #endif
 
         ! Screen output
-        write(*,'(3(I4,","),1(F9.1,","),30(F9.3,","))') &
-          i,cc%species,cc%layer,                      &
-          cc%nindivs*10000, cc%layerfrac,             &
-          dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
-          cc%annualGPP,cc%mu,cc%Atrunk,               &
-          cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
+        write(*,'(3(I4,","),1(F9.1,","),9(F9.3,","),10(F9.1,","))') &
+          i,cc%species,cc%layer, &
+          cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%height, &
+          cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,      &
+          cc%annualTrsp,cc%totDemand,cc%treeHU,cc%treeW0
+
         end associate
     enddo
 
@@ -806,7 +814,12 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'year','doy','hour','cID','sp','layer', &
          'density','dbh','height','Acrown',      &
          'bl','LAI','GPP', 'NPP', 'Transp',      &
+#ifdef Hydro_test
          'Psi_L','Psi_W','W_leaf','W_stem'
+#else
+          'W_supply','W_scale'
+#endif
+
       open(fno2,file=trim(HourlyPatch), ACTION='write', IOSTAT=istat1)
       write(fno2,'(5(a8,","),30(a12,","))')    &       ! Hourly tile
          'tile','year','doy','hour','rad',     &
@@ -847,13 +860,13 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'GPP','NPP','dDBH','dBA','dCA',                   &
       'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
 #else
-    write(fno5,'(4(a5,","),40(a7,","))')'tile',        &    ! Yearly cohort
-      'yr','cNo.','cID', 'PFT','layer',                &
-      'N_ha','f_L','dDBH','dBA','dCA','dbh','height',  &
-      'Acrown','Aleaf','bl','br','bSW','bHW','seed',   &
-      'nsc','NSN','GPP','NPP','Gtree','f_sd','f_lf',   &
-      'f_fr','f_wd','mu','Transp','N_uptk','N_fix',    &
-      'Atrunk','Asap','Ktree','treeHU','treeW0',       &
+    write(fno5,'(4(a5,","),40(a7,","))')        &    ! Yearly cohort
+      'tile','yr','cNo.','cID', 'PFT','layer',          &
+      'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
+      'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
+      'GPP','NPP','Gtree','f_sd','f_lf','f_fr','f_wd',  &
+      'mu','Trsp','demandW','N_uptk','N_fix',           &
+      'Atrunk','Asap','Ktree','treeHU','treeW0',        &
       'farea1','farea2','farea3','farea4','farea5'
 #endif
     open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)

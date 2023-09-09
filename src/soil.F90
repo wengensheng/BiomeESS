@@ -145,7 +145,8 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   real    :: H2OLv
   real    :: slope
   real    :: psyc
-  real    :: Cmolar ! mole density of air (mol/m3)
+  !real    :: Cmolar ! mole density of air (mol/m3)
+  real    :: fw1 ! water fraction in the first layer
   real    :: rsoil  ! s m-1
   real    :: raero
   real    :: rLAI
@@ -161,22 +162,21 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   TairK = forcing%Tair
   Tair  = forcing%Tair - 273.16
   rhocp = cpair * forcing%P_air * mol_air / (Rgas*TairK)
-  H2OLv =H2oLv0 - 2.365e3*Tair
-  RH = forcing%RH  ! Check forcing's unit of humidity
+  H2OLv = H2oLv0 - 2.365e3*Tair
+  RH    = forcing%RH  ! Check forcing's unit of humidity
   Dair  = esat(Tair)*(1.0 - RH)
   slope = (esat(Tair+0.1)-esat(Tair))/0.1
-  psyc=forcing%P_air*cpair*mol_air/(H2OLv*mol_h2o)
-  Cmolar=forcing%P_air/(Rgas*TairK) ! mole density of air (mol/m3)
-  rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
-  !Rsoil=3.0E+10 * (FILDCP-vegn%wcl(1))**16 ! Kondo et al. 1990
-  !rsoil=7500 * exp(-50.0*vegn%wcl(1))  ! s m-1
-  raero=50./(forcing%windU + 0.2)
-  rLAI=exp(vegn%LAI)
+  psyc  = forcing%P_air*cpair*mol_air/(H2OLv*mol_h2o)
+  !Cmolar= forcing%P_air/(Rgas*TairK) ! mole density of air (mol/m3)
 
-  !latent heat flux into air from soil
-  !Eleaf(ileaf)=1.0*  &
-  !     (slope*Y*Rnstar(ileaf)+rhocp*Dair/(rbH_L+raero))/  &  !2* Weng 0215
-  !     (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))
+  ! Resistances (made-up, need an updated scheme, Decker et al. 2017)
+  rLAI  = 10. * vegn%LAI**2
+  raero = 20./(forcing%windU + 0.1) + rLAI
+  fw1   = Max((vegn%wcl(1)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT), .000001)
+  Rsoil = 15. * exp(0.12/fw1)
+  !rsoil=360000.0 * exp(-20.0*vegn%wcl(1)/vegn%FLDCAP)  ! s m-1
+  !rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
+  !Rsoil=3.0E+10 * (vegn%FLDCAP-vegn%wcl(1))**16 ! Kondo et al. 1990
 
   Esoil=(slope*Rsoilabs + rhocp*Dair/raero)/ &
         (slope + psyc*(1.0+rsoil/raero)) *   &
@@ -187,7 +187,6 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   !Calculate Esoil, kg m-2 step-1
   vegn%evap = min(Esoil/H2OLv * step_seconds, &
                   0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
-  !vegn%wcl(1) = vegn%wcl(1) - vegn%evap/(thksl(1) *1000.)
   WaterBudgetL(1) = WaterBudgetL(1) - vegn%evap
 
   !! soil water refill by precipitation

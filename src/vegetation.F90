@@ -134,10 +134,11 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: cana_co2 ! co2 concentration in canopy air space, mol CO2/mol dry air
   real :: p_surf   ! surface pressure, Pa
   real :: water_supply ! water supply per m2 of leaves
+  real :: water_demand
   real :: fw, fs ! wet and snow-covered fraction of leaves
   real :: psyn   ! net photosynthesis, mol C/(m2 of leaves s)
   real :: resp   ! leaf respiration, mol C/(m2 of leaves s)
-  real :: tempLAI,w_scale2, transp ! mol H20 per m2 of leaf per second
+  real :: tempLAI,wd, transp ! mol H20 per m2 of leaf per second
   real :: kappa  ! light extinction coefficient of corwn layers
   real :: f_light(10)=0.0      ! light fraction of each layer
   integer :: i, layer
@@ -181,18 +182,22 @@ subroutine vegn_photosynthesis (forcing, vegn)
          call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%lai, &
                          p_surf, water_supply, cc%species, sp%pt, &
                          cana_co2, cc%extinct, fs+fw, cc%layer,   &
-                         psyn, resp,w_scale2,transp ) ! output
+                         psyn,resp,wd,transp ) ! output
          ! put into cohort data structure for future use in growth
          cc%An_op  = psyn  ! molC s-1 m-2 of leaves
          cc%An_cl  = -resp  ! molC s-1 m-2 of leaves
-         cc%w_scale  = w_scale2
-         cc%transp = transp * mol_h2o * cc%Aleaf * step_seconds  ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
-         cc%gpp  = (psyn-resp) * mol_C * cc%Aleaf * step_seconds ! kgC step-1 tree-1
+         cc%w_scale= transp/wd
+         cc%transp = transp      * mol_h2o * cc%Aleaf * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
+         cc%gpp    = (psyn-resp) * mol_C   * cc%Aleaf * step_seconds ! kgC step-1 tree-1
+
+         ! For UFL mortality
+         Water_demand = wd * mol_h2o * cc%Aleaf * step_seconds ! Potential transp, kgH2O/(tree step)
+         cc%totDemand = cc%totDemand + Water_demand
 
          !if(isnan(cc%gpp))cc%gpp=0.0
          if(isnan(cc%gpp))stop '"gpp" is a NaN'
          if(isnan(cc%transp))then
-            write(*,*)'w_scale2,transp,lai',w_scale2,transp,cc%lai
+            write(*,*)'wd,transp,lai',wd,transp,cc%lai
             stop '"transp" is a NaN'
          endif
        else
@@ -210,7 +215,7 @@ end subroutine vegn_photosynthesis
 !============================================================================
 subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
                    p_surf, ws, pft, pt, ca, kappa, f_w, layer, &
-                   apot, acl,w_scale2, transp)
+                   apot, acl,wd, transp)
   real,    intent(in)   :: rad_top ! PAR dn on top of the canopy, w/m2
   real,    intent(in)   :: rad_net ! PAR net on top of the canopy, w/m2
   real,    intent(in)   :: tl   ! leaf temperature, degK
@@ -230,7 +235,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   !real,    intent(out)   :: gs   ! stomatal conductance, m/s
   real,    intent(out)   :: apot ! net photosynthesis, mol C/(m2 s)
   real,    intent(out)   :: acl  ! leaf respiration, mol C/(m2 s)
-  real,    intent(out)   :: w_scale2,transp  ! transpiration, mol H20/(m2 of leaf s)
+  real,    intent(out)   :: wd,transp  ! transpiration, mol H20/(m2 of leaf s)
 
   ! ---- local vars
   ! photosynthesis
@@ -415,13 +420,11 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   apot = an_w
   acl  = -Resp/lai
   transp = min(ws,Ed) ! mol H20/(m2 of leaf s)
+  wd = Ed
 
   ! Convert units of stomatal conductance to m/s from mol/(m2 s) by
   ! multiplying it by a volume of a mole of gas
   gs = gs * Rgas * Tl / p_surf
-
-  ! for reporting
-  w_scale2=min(1.0,ws/Ed)
 
   ! Error check
   if(isnan(transp))then
@@ -864,7 +867,9 @@ subroutine update_max_LFR_NSN(cc)
       BL_u = BL_c / (1+cc%layer)            ! Woody plants only
     endif
     cc%bl_max = BL_u + min(1., cc%topyear/sp%transT) * (BL_c - BL_u)
-
+#ifdef UFL_test
+    if(cc%layer > 1) cc%bl_max = sp%LMA * 1.0 * cc%Acrown * (1.0-sp%f_cGap)
+#endif
     ! Root max
     cc%br_max = BLmax2BRmax(cc)
     ! NSN max
@@ -1521,7 +1526,7 @@ real function mortality_rate(cc) result(mu) ! per year
   ! conditions. Here, we only used used a couple of parameters to calculate
   ! mortality as functions of social status, seedling size, and adult size.
   ! Grass is saprately defined.
-  type(cohort_type),intent(in) :: cc
+  type(cohort_type),intent(inout) :: cc
 
   !-------local var -------------
   integer :: n ! the latest ring
@@ -1555,7 +1560,12 @@ real function mortality_rate(cc) result(mu) ! per year
 
   end associate
   ! Return mortality rate:
+#ifdef UFL_test
+  cc%w_scale = cc%annualTrsp/cc%totDemand
+  mu = mu_bg + (0.5 - mu_bg)/(1+exp(-20.0*(1.0-cc%w_scale) + alphaDrought))
+#else
   mu = mu_bg + mu_hydro - mu_bg * mu_hydro ! Add hydraulic failure
+#endif
 
 end function mortality_rate
 
@@ -1870,11 +1880,6 @@ subroutine Sap2HeartWood_Hydro(cc)
     cc%bsw    = woodC - cc%bHW
     cc%sapwN  = woodN * cc%bsw/woodC
     cc%woodN  = woodN * cc%bHW/woodC
-
-    !Update Atrunk and Asap
-    D_hw = bm2dbh(cc%bHW,cc%species)
-    cc%Atrunk = PI*(cc%DBH/2)**2
-    cc%Asap = cc%Atrunk - PI*(D_hw/2)**2
   endif
   end associate
 end subroutine Sap2HeartWood_Hydro
@@ -2446,7 +2451,6 @@ subroutine vegn_mergecohorts(vegn)
   ! ---- local vars
   type(cohort_type), pointer :: cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
-  real, parameter :: mindensity = 1.0E-6
   integer :: i,j,k,m
 
   allocate(cc(vegn%n_cohorts))
@@ -2482,7 +2486,7 @@ subroutine kill_lowdensity_cohorts(vegn)
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
-  real, parameter :: mindensity = 0.25E-4
+  real    :: mindensity = 0.5*min_nindivs
   integer :: i,j,k
 
  ! calculate the number of cohorts with indivs>mindensity
@@ -2526,7 +2530,6 @@ subroutine kill_old_grass(vegn)
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
-  real, parameter :: mindensity = 0.25E-4
   logical :: OldGrass
   integer :: i,j,k
 
@@ -2640,9 +2643,8 @@ end subroutine merge_cohorts
 ! ============================================================================
 function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
    type(cohort_type), intent(in) :: c1,c2
-
-   real, parameter :: mindensity = 1.0E-4
    logical :: sameSpecies,sameLayer,sameSize,sameSizeTree,sameSizeGrass
+   logical :: c1_LowDensity
 
    sameSpecies  = c1%species == c2%species
    sameLayer    = (c1%layer == c2%layer) .or. &
@@ -2657,7 +2659,9 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (spdata(c2%species)%lifeform ==0) .and. &
                   (c1%DBH == c2%DBH)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
-   cohorts_can_be_merged = sameSpecies .and. sameLayer .and. sameSize
+   c1_LowDensity = c1%nindivs < min_nindivs
+   cohorts_can_be_merged = sameSpecies .and. sameLayer &
+                           .and. (sameSize .or. c1_LowDensity)
 end function
 
 !======================= Specific experiments ================================
