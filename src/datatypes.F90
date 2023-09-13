@@ -47,16 +47,14 @@
  real, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
  real, parameter :: CUEmax0 = 0.4 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
 
- ! Soil water hydrualics
+ ! Soil water layers
  integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
  integer, parameter :: num_l  = soil_L ! Soil layers,
- real, parameter :: thksl(soil_L)=(/0.1,0.2,0.5,1.0,1.2/) ! m, thickness of soil layers
- real, parameter :: rzone = sum(thksl) !m
  real, parameter :: psi_wilt  = -150.0  ! matric head at wilting
  real, parameter :: K_rel_min = 1.e-12
  real, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d threshold drainage rate at Field Capacity
  real, parameter :: ws0 = 0.02 ! hygroscopic point
- real, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
+ !real, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
  integer, parameter :: & ! soil types
               Sand        = 1,  LoamySand   = 2, &
               SandyLoam   = 3,  SiltLoam    = 4, &
@@ -118,7 +116,7 @@ type spec_data_type
   real :: gamma_FR     ! Fine root respiration rate, kgC kgC-1 yr-1
   real :: alpha_FR     ! Turnover rate of Fine roots, fraction yr-1
   real :: Kw_root      ! fine root water conductivity mol m m-2 s−1 Pa−1 !
-  real :: root_perm
+  real :: root_perm    ! assume it is a fraction of root area active for water flow
   !  real :: rho_N_up0   ! maximum N uptake rate
   !  real :: N_roots0    ! root biomass at half of max. N-uptake rate
   real :: NfixRate0    ! Reference N fixation rate (kgN kgC-1 root)
@@ -490,23 +488,29 @@ type :: climate_data_type
 end type climate_data_type
 
 ! -------------------------------------------
-! Soil parameters
+! Soil water parameters
+integer :: soiltype = SandyLoam  ! 1 Sand; 2
+real :: thksl(soil_L)=(/0.1,0.2,0.5,1.0,1.2/) ! m, thickness of soil layers
+real :: FLDCAP = 0.4  ! vol/vol
+real :: WILTPT = 0.05 ! vol/vol
+
 ! Coarse  Medium   Fine    CM     CF     MF    CMF    Peat    MCM
-  real :: GMD(n_dim_soil_types) = & ! geometric mean partice diameter, mm
+real :: GMD(n_dim_soil_types) = & ! geometric mean partice diameter, mm
   (/ 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007, 0.3, 0.3 /)
-  real :: GSD(n_dim_soil_types) = & ! geometric standard deviation of particle size
+real :: GSD(n_dim_soil_types) = & ! geometric standard deviation of particle size
   (/5.0, 5.3, 7.4, 6.1, 6.1, 14.0, 15.0, 7.4, 7.4 /)
-  real :: vwc_sat(n_dim_soil_types)= &
+real :: vwc_sat(n_dim_soil_types)= &
    (/ 0.380, 0.445, 0.448, 0.412, 0.414, 0.446, 0.424, 0.445, 0.445   /)
-  !real :: vlc_min(n_dim_soil_types)
-  real :: k_sat_ref(n_dim_soil_types)= & ! mol/(s MPa m) , hydraulic conductivity of saturated soil,
-  (/ 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2 /)
-  real :: psi_sat_ref(n_dim_soil_types) = & ! Pa
+!real :: vlc_min(n_dim_soil_types)
+real :: k_sat_ref(n_dim_soil_types)= & ! mol/(s MPa m) , hydraulic conductivity of saturated soil,
+  (/ 70.8, 75.1, 28.2, 12.1, 11.1, 12.7, 1.69, 28.2, 28.2 /)
+  !(/ 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2 /)
+real :: psi_sat_ref(n_dim_soil_types) = & ! Pa
   (/ -600., -790., -910., -1580., -1680., -1880., -5980., -790., -790./)
-  real :: chb(n_dim_soil_types) = &         ! Soil texture parameter
+real :: chb(n_dim_soil_types) = &         ! Soil texture parameter
   (/   3.5,   6.4,  11.0,   4.8,   6.3,   8.4,   6.3,   6.4,   6.4   /)
-  real :: alphaSoil(n_dim_soil_types) = 1.0       ! *** REPLACE LATER BY alpha(layer)
-  real :: heat_capacity_dry(n_dim_soil_types) = &
+real :: alphaSoil(n_dim_soil_types) = 1.0       ! *** REPLACE LATER BY alpha(layer)
+real :: heat_capacity_dry(n_dim_soil_types) = &
   (/ 1.2e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.1e6, 1.4e6,   1.0   /)
 
 ! -------------------------------------------
@@ -568,11 +572,6 @@ real :: r_BK0 = -240.0 ! -480.0  ! for bark resistance, exponential equation, 12
 real :: f_HT0 = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
 real :: h0_escape = 5.0 ! tree height that escapes direct burning of grass fires
 real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
-
-! Soil water properties
-real :: soiltype = SandyLoam  ! 1 Sand; 2
-real :: FLDCAP = 0.4  ! vol/vol
-real :: WILTPT = 0.05 ! vol/vol
 
 ! Soil organic matter decomposition
 real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
@@ -637,11 +636,13 @@ real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.29 !
+real :: root_perm(0:MSPECIES) = 0.5 ! % of area for water flow, Hack!
 real :: Kw_root(0:MSPECIES)= 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
 ! * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Pa)
 !Ref added by Weng, 2021-11-15
-! Sutka et al. 2011 Natural Variation of Root Hydraulics in Arabidopsis Grown in Normal and Salt-Stressed Conditions.
-! Plant Physiol. 155(3): 1264–1276. doi: 10.1104/pp.110.163113
+! Sutka et al. 2011 Natural Variation of Root Hydraulics in Arabidopsis Grown
+! in Normal and Salt-Stressed Conditions. Plant Physiol. 155(3): 1264–1276.
+! doi: 10.1104/pp.110.163113
 ! Miyamoto et al. 2001. Hydraulic conductivity of rice roots. J. Exp. Bot., 52: 1835–1846,
 ! doi: 10.1093/jexbot/52.362.1835
 
@@ -776,9 +777,9 @@ namelist /initial_state_nml/ &
     do_WD_mort_function,Sc_prcp,CO2_c
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
-namelist /soil_data_nml/ soiltype,             &
-     GMD, GSD, vwc_sat,k_sat_ref, psi_sat_ref, &
-     chb, alphaSoil,heat_capacity_dry
+namelist /soil_data_nml/ soiltype,thksl,         &
+     GMD, GSD, vwc_sat,FLDCAP,WILTPT,k_sat_ref,  &
+     psi_sat_ref, chb, alphaSoil,heat_capacity_dry
 
 ! --------- Vegetation parameter name list ---------
 namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
@@ -787,7 +788,8 @@ namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
   ! Leaf
   LAImax,LAI_light,LMA,Vmax,m_cond,Vannual,ps_wet,c_LLS,leaf_size,    &
   ! Wood and root
-  rho_wood,rho_FR,root_r,root_zeta,Kw_root,rho_N_up0, N_roots0,       &
+  rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,                &
+  rho_N_up0, N_roots0,                                                &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
   NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
@@ -805,7 +807,7 @@ namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                                  &
   ! Soil
-  FLDCAP,WILTPT,LMAmin,fsc_fine,fsc_wood,                             &
+  LMAmin,fsc_fine,fsc_wood,                             &
   K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
   ! Fire model parameters, Weng, 01/13/2021
   envi_fire_prb,Ignition_G0, Ignition_W0,m0_w_fire, m0_g_fire, r_BK0, &
@@ -837,11 +839,20 @@ subroutine initialize_soilpars()
   ! ---- derived constant soil parameters
   ! w_fc (field capacity) set to w at which hydraulic conductivity equals
   ! a nominal drainage rate "rate_fc". w_wilt set to w at which psi is psi_wilt
-  soilpars%vwc_wilt = soilpars%vwc_sat &
-          *(soilpars%psi_sat_ref/(psi_wilt*soilpars%alpha))**(1/soilpars%chb)
-  soilpars%vwc_fc = soilpars%vwc_sat &
-              *(rate_fc/(soilpars%k_sat_ref*soilpars%alpha**2))**(1/(3+2*soilpars%chb))
+  soilpars%vwc_fc = soilpars%vwc_sat !&
+          !*(rate_fc/(soilpars%k_sat_ref*soilpars%alpha**2))**(1/(3+2*soilpars%chb))
+  soilpars%vwc_wilt = soilpars%vwc_sat *0.12 !&
+          !*(soilpars%psi_sat_ref/(psi_wilt*soilpars%alpha))**(1/soilpars%chb)
   soilpars%vlc_min = soilpars%vwc_sat*K_rel_min**(1/(3+2*soilpars%chb))
+
+ ! Original LM3PPA codes
+ !  soil%w_wilt(:) = soil%pars%vwc_sat &
+ !       *(soil%pars%psi_sat_ref/(psi_wilt*soil%pars%alpha))**(1/soil%pars%chb)
+ !  soil%w_fc  (:) = soil%pars%vwc_sat &
+ !       *(rate_fc/(soil%pars%k_sat_ref*soil%pars%alpha**2))**(1/(3+2*soil%pars%chb))
+ !  soil%pars%vwc_wilt = soil%w_wilt(1)
+ !  soil%pars%vwc_fc   = soil%w_fc  (1)
+ !  soil%pars%vlc_min = soil%pars%vwc_sat*K_rel_min**(1/(3+2*soil%pars%chb))
 
 end subroutine initialize_soilpars
 
@@ -868,6 +879,7 @@ subroutine initialize_PFT_data()
   spdata%rho_FR   = rho_FR
   spdata%root_r   = root_r
   spdata%root_zeta= root_zeta
+  spdata%root_perm= root_perm
   spdata%Kw_root  = Kw_root
   !  spdata%rho_N_up0 = rho_N_up0
   !  spdata%N_roots0  = N_roots0

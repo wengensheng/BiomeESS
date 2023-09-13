@@ -20,11 +20,6 @@ real, public :: &
      clw = 4218.0, & ! specific heat of water (liquid)
      csw = 2106.0    ! specific heat of water (ice)
 
-! soil layer depth
-real     :: dz(soil_L) = thksl   ! thicknesses of layers
-real     :: zfull(soil_L)
-real     :: zhalf(soil_L+1)
-
 contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 ! =========================================================================
@@ -291,8 +286,13 @@ subroutine SoilWaterSupply(vegn) ! forcing,
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         ! Potential water uptake per soil layer by all cohorts
-        cc%WupL(i) = cc%ArootL(i) * vegn%K_soil(i) * dpsiSR(i) * step_seconds
-        LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
+        associate ( sp => spdata(cc%species) )
+          cc%WupL(i) = sp%Kw_root*vegn%K_soil(i)/(sp%Kw_root+vegn%K_soil(i)) * &
+                       cc%ArootL(i) * dpsiSR(i) * step_seconds
+          !cc%WupL(i) = sp%root_perm * vegn%K_soil(i) * &
+          !             cc%ArootL(i) * dpsiSR(i) * step_seconds
+          LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
+        end associate
      enddo
 
      ! Adjust cc%WupL(i) according to soil available water
@@ -459,7 +459,12 @@ subroutine darcy2d_uptake_lin ( soil, psi_x0, R, VRL, K_r, r_r,uptake_oneway, &
   real :: psi_root  ! water potential at the root/soil interface, m
   real :: psi_root0 ! initial guess of psi_root, m
 
+  ! soil layer depth
+  real     :: dz(soil_L)  ! thicknesses of layers
+  real     :: zfull(soil_L)
+  real     :: zhalf(soil_L+1)
 
+  dz(:) = thksl(:)   ! thicknesses of layers
   ! calculate some hydraulic properties common for all soil layers
   psi_sat = soil%pars%psi_sat_ref/soil%pars%alpha
   K_sat   = soil%pars%k_sat_ref*soil%pars%alpha**2

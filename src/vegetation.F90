@@ -2201,9 +2201,9 @@ subroutine initialize_soil(vegn)
    vegn%previousN = vegn%mineralN
    !Soil water
    vegn%soiltype = soiltype
-   vegn%FLDCAP   = FLDCAP
-   vegn%WILTPT   = WILTPT
-   vegn%wcl      = FLDCAP
+   vegn%FLDCAP   = soilpars(soiltype)%vwc_fc  !FLDCAP
+   vegn%WILTPT   = soilpars(soiltype)%vwc_wilt !WILTPT
+   vegn%wcl      = soilpars(soiltype)%vwc_sat  !FLDCAP
    vegn%thetaS   = 1.0
    call SoilWater_psi_K(vegn)
 end subroutine initialize_soil

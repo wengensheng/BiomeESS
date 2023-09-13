@@ -384,7 +384,7 @@ end subroutine daily_diagnostics
     real :: plantC, plantN, soilC, soilN
     integer :: i,j,iyr_out
 
-    write(*,'(3(I6,","),3(F9.3,","))')vegn%tileID,iyears,vegn%n_cohorts
+    write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
       'n','f_CA','dD','DBH','Ht','Atrunk','Asap','Ktree', &
       'GPP','mu','Trsp','Demand','treeHU','treeW0'
