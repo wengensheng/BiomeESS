@@ -1,4 +1,4 @@
-! The subroutines are from LM3PPA, the version used in Weng et al. 2016.
+! The subroutines are from LM3PPA, the version used in Weng et al. 2017, GCB
 ! This simulator can simulate evolutionarily stable strategy (ESS) of LMA
 ! and reproduce the forest succession patterns shown in Weng et al.,
 ! 2016 Global Change Biology along the graidient of temperature.
@@ -126,8 +126,8 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
 
   !----- local var --------------
   type(cohort_type),pointer :: cc
-  real    :: WaterBudgetL(soil_L)
-  real    :: rainwater,W_deficit(soil_L),W_add(soil_L)
+  real    :: WaterBudgetL(soil_L),LeakW(soil_L)
+  real    :: W_refill,W_def(soil_L),W_add(soil_L)
   real    :: kappa  ! light extinction coefficient of corwn layers
   real    :: Esoil      ! soil surface evaporation, kg m-2 s-1
   real    :: Hsoil      ! sensible heat from soil
@@ -184,29 +184,33 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
                   0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
   WaterBudgetL(1) = WaterBudgetL(1) - vegn%evap
 
-  !! soil water refill by precipitation
-  rainwater =  forcing%rain * step_seconds
-  if(rainwater > 0.0)then
-     do i=1, soil_L
-        W_deficit(i) = (vegn%FLDCAP - vegn%wcl(i)) * thksl(i)*1000.0
-        W_add(i) = min(rainwater, W_deficit(i))
-        rainwater = rainwater - W_add(i)
-        !vegn%wcl(i) = vegn%wcl(i) + W_add(i)/(thksl(i)*1000.0)
-        WaterBudgetL(i) = WaterBudgetL(i) + W_add(i)
+  !! soil water refill by precipitation and leaking from upper to lower layers
+  W_refill =  max(0.0, forcing%rain*step_seconds)
+  do i=1, soil_L
+    ! for non-leak setting (WaterLeakRate = 0.0) when rainfall is zero
+    if(W_refill <= 0.0 .and. WaterLeakRate <= 0.0) exit
 
-        if(rainwater<=0.0)exit
-     enddo
-  endif
-  vegn%runoff = rainwater ! mm step-1
+    ! Precipitation refill
+    W_def(i) = max(vegn%FLDCAP-vegn%wcl(i), 0.0) * thksl(i)*1000.
+    W_add(i) = min(W_refill, W_def(i))
 
-  ! Total soil water
-  do i=1,soil_L
-     vegn%wcl(i) = vegn%wcl(i) +  WaterBudgetL(i)/(thksl(i)*1000.0)
-     vegn%freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT)*thksl(i)*1000.0)) ! kg/m2, or mm
+    ! Water leaking, a hack for additional soil water loss!
+    LeakW(i) = Max(vegn%wcl(i)-vegn%WILTPT,0.0)*thksl(i)*1000. * &
+               WaterLeakRate * step_seconds/86400.
+
+    ! Water changes in layer i
+    WaterBudgetL(i) = WaterBudgetL(i) + W_add(i) - LeakW(i)
+
+    ! Next layer
+    W_refill= W_refill - W_add(i) + LeakW(i)
   enddo
+  ! total runoff
+  vegn%runoff = W_refill ! mm step-1
+  ! Total soil water
+  vegn%wcl(:) = vegn%wcl(:) +  WaterBudgetL(:)/(thksl(:)*1000.0)
+  vegn%freewater(:) = max(0.0,((vegn%wcl(:)-vegn%WILTPT)*thksl(:)*1000.0)) ! kg/m2, or mm
   vegn%soilwater = sum(vegn%freewater(:))
   vegn%thetaS = vegn%soilwater/(sum(thksl(:))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
-
 end subroutine SoilWaterDynamics
 
 !======================================================================
@@ -268,35 +272,43 @@ subroutine SoilWaterSupply(vegn) ! forcing,
   !----- local var --------------
   type(cohort_type),pointer :: cc
   real :: freewater(soil_L)
-  real :: thetaS(soil_L)   ! soil moisture index (0~1)
+  real :: thetaS(soil_L)   ! soil moisture index (0~1: (ws-wltpt)/(fldcap-wltpt)
   real :: dpsiSR(soil_L)   ! pressure difference between soil and root, MPa
   real :: LayerTot(soil_L) ! potential water uptake, kg H2O s-1 m-2
   real :: fWup(soil_L)     ! fraction to the actual soil water
+  real :: totRA(soil_L)            ! Total root area in a soil layer
   integer :: i,j
 
   ! Calculating soil water availability for transpiration in next step
+  totRA = 0.0
   do i=1, soil_L ! Calculate water uptake potential layer by layer
-     freewater(i) = max(0.0,((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
-     thetaS(i)    = max(0.0, (vegn%wcl(i)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT))
+     freewater(i) = max(0.0, ((vegn%wcl(i)-vegn%WILTPT) * thksl(i) * 1000.0)) ! kg/m2, or mm
+     thetaS(i)    = freewater(i)/((vegn%FLDCAP-vegn%WILTPT)*thksl(i)*1000.0)
      ! The difference of water potential between roots and soil
-     dpsiSR(i) = 1.5 * thetaS(i)**2 ! *1.0e6  MPa
+     !dpsiSR(i) = 1.2 * Min(1.0,3.333*thetaS(i)) ! thetaS(i)**2 ! *1.0e6  MPa
+     !dpsiSR(i) = 1.2 * thetaS(i)**2 ! *1.0e6  MPa
+     dpsiSR(i) = 1.2 * sqrt(thetaS(i)) ! *1.0e6  MPa
 
      ! Water uptake capacity
      LayerTot(i) = 0.0 ! Potential water uptake per layer by all cohorts
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
+        totRA(i)   = totRA(i) + cc%ArootL(i)
         ! Potential water uptake per soil layer by all cohorts
         associate ( sp => spdata(cc%species) )
           cc%WupL(i) = sp%Kw_root*vegn%K_soil(i)/(sp%Kw_root+vegn%K_soil(i)) * &
                        cc%ArootL(i) * dpsiSR(i) * step_seconds
-          !cc%WupL(i) = sp%root_perm * vegn%K_soil(i) * &
-          !             cc%ArootL(i) * dpsiSR(i) * step_seconds
+          !cc%WupL(i) = cc%ArootL(i) * sp%root_perm * thetaS(i) * (step_seconds/3600.0)
           LayerTot(i) = LayerTot(i) + cc%WupL(i) * cc%nindivs
         end associate
      enddo
 
      ! Adjust cc%WupL(i) according to soil available water
-     fWup(i) = max(0.0, min(1.0, (0.2*freewater(i)+1.0E-9)/(LayerTot(i)+1.0E-9)))
+     if(LayerTot(i)>1.0E-12)then
+       fWup(i) = max(0.0, min(1.0, (0.2*freewater(i))/(LayerTot(i))))
+     else
+       fWup(i) = 0.0
+     endif
      do j = 1, vegn%n_cohorts
         cc => vegn%cohorts(j)
         cc%WupL(i) = fWup(i) * cc%WupL(i) ! kg tree-1 step-1

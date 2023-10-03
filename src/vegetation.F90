@@ -7,9 +7,10 @@ module esdvm
  private
 
  !Core functions
- public :: initialize_vegn_tile
+ public :: initialize_vegn_tile,vegn_sum_tile
  public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics_annual
  public :: relayer_cohorts, vegn_hydraulic_states
+ public :: kill_lowdensity_cohorts,kill_old_grass,vegn_mergecohorts
 
  !For specific experiments
  public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
@@ -105,13 +106,6 @@ subroutine vegn_demographics_annual(vegn, deltat)
   call vegn_nat_mortality(vegn, deltat)
   call vegn_reproduction(vegn)
 #endif
-  ! Cohort management
-  call kill_lowdensity_cohorts(vegn)
-  call kill_old_grass(vegn)
-  !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
-  call relayer_cohorts(vegn)
-  call vegn_mergecohorts(vegn)
-  call vegn_sum_tile(vegn)
 
   !call check_N_conservation(vegn,totalN1,'annual')
 
@@ -276,7 +270,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
   b=0.01
   do1=0.09 ! kg/kg
-  if (pft < 2) do1=0.15
+  !if (pft < 2) do1=0.15 ! Commented out by Weng, 09/24/2023
 
   ! Convert Solar influx from W/(m^2s) to mol_of_quanta/(m^2s) PAR,
   ! empirical relationship from McCree is light=rn*0.0000046
@@ -359,7 +353,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              Ag=(Ag_l+Ag_rb)/ &
                ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
                *(1.0+exp(0.4*(tl-45.0-TFREEZE))))
-             An=Ag-Resp
+             An=Ag-Resp ! Resp includes all LAI. Weng, 09/24/2023
              anbar=An/lai
 
              if(anbar>0.0) then
@@ -566,8 +560,8 @@ subroutine vegn_respiration(forcing,vegn)
        !  tfs = thermal_inhibition(tsoil)  ! original
        tfs = tf ! Rm_T_response_function(tsoil) ! Weng 2014-01-14
        ! With nitrogen model, leaf respiration is a function of leaf nitrogen
-       NSCtarget = 0.5 * (cc%bl_max + cc%br_max)
-       fnsc = min(max(0.0,cc%nsc/NSCtarget),1.0)
+       NSCtarget = 3. * (cc%bl_max + cc%br_max)
+       fnsc = min(max(0.0,cc%nsc/NSCtarget-0.05),1.0)
        Acambium = PI * cc%DBH * cc%height * 1.2
 
        ! r_leaf = fnsc*sp%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
@@ -591,6 +585,7 @@ subroutine vegn_respiration(forcing,vegn)
        cc%resl = r_leaf + r_stem ! tree-1 step-1
        cc%resr = r_root + r_Nfix ! tree-1 step-1
        cc%resp = cc%resl + cc%resr + cc%resg/steps_per_day   !kgC tree-1 step-1
+       cc%resp = min(cc%resp,max(0.0,cc%nsc+cc%gpp-cc%resp)) ! Hack, Weng 09/24/2023
        cc%npp  = cc%gpp  - cc%resp ! kgC tree-1 step-1
 
        ! Update NSC and NSN
@@ -832,8 +827,8 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
         N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
                   Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-        C_push = cc%nsc/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        N_push = cc%NSN/(days_per_year*sp%tauNSC)
+        C_push = max(0.0,cc%nsc-0.1*NSCtarget)/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+        N_push = max(0.0,cc%NSN)/(days_per_year*sp%tauNSC)
 
         Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
         Ngrowth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
@@ -1085,6 +1080,7 @@ subroutine vegn_daily_starvation (vegn)
     if (cc%nsc < 0.01*cc%bl_max )then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
          deathrate = 1.0
          deadtrees = cc%nindivs * deathrate !individuals / m2
+         write(*,*)"Daily starvation is happening"
          ! Carbon and Nitrogen from plants to soil pools
          call plant2soil(vegn,cc,deadtrees)
          ! update cohort individuals
@@ -1441,6 +1437,7 @@ subroutine vegn_nat_mortality (vegn, deltat)
      cc => vegn%cohorts(i)
 
      cc%mu = mortality_rate(cc)
+     if(cc%mu>=0.9) write(*,*)"Bulk motality happens!!!",cc%species,i
      !deadtrees = cc%nindivs*(1.0-exp(0.0-cc%mu*deltat/seconds_per_year)) ! individuals / m2
      deadtrees = cc%nindivs * cc%mu * deltat/seconds_per_year ! individuals / m2
      ! Carbon and Nitrogen from dead plants to soil pools
@@ -1470,9 +1467,10 @@ subroutine vegn_annual_starvation (vegn)
        deathrate = 0.0
        !if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
        !if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
-       if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! annualNPP < 0 is for grasses only
+       if (cc%nsc < 0.01*cc%bl_max) then !  .OR. cc%annualNPP < 0.0, annualNPP < 0 is for grasses only
            deathrate = 1.0
            deadtrees = cc%nindivs * deathrate !individuals / m2
+           write(*,*)"Yearly starvation: cNo., PFT:",i,cc%species
            ! Carbon and Nitrogen from plants to soil pools
            call plant2soil(vegn,cc,deadtrees)
            ! update cohort individuals
@@ -1531,25 +1529,20 @@ real function mortality_rate(cc) result(mu) ! per year
   !-------local var -------------
   integer :: n ! the latest ring
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
-  real :: expD, m_S ! Mortality multiplier for size effects
   real :: mu_bg    = 0.0  ! Background mortality rate
   real :: mu_hydro = 0.0  ! Hydraulic failure
 
   !---------------------
   associate ( sp => spdata(cc%species))
     n = MIN(cc%Nrings, Ysw_max)
-    f_L  = sp%A_un * SQRT(Max(0.0, cc%layer - 1.0)) ! Layer effects (0~ infinite)
-    f_S  = sp%A_sd * exp(sp%B_sd*cc%dbh) + 1.0      ! Understory seedling
-
-    ! Size effect on the mortality of adult trees
-    if(do_U_shaped_mortality)then
-       m_S = 19.0 ! 4.0
-       expD = exp(sp%A_D * (cc%dbh - sp%D0mu))
-       f_D  = 1. + m_S * expD / (1. + expD) ! Size effects (big tees)
-    else
-       f_D  = 1.0
-    endif
-    mu_bg = Min(0.999,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
+    f_L = sp%A_un * SQRT(Max(0.0, cc%layer-1.0)) ! Layer effects (0~ infinite)
+    f_S = sp%A_sd * exp(sp%B_sd*cc%dbh) + 1.0    ! Understory seedling
+    f_D = 1.0
+    ! Size effects (adult trees only)
+    if(do_U_shaped_mortality) &
+       f_D  = 1. + sp%A_DBH/(1.+exp((sp%D0mu-cc%dbh)/sp%B_DBH)) ! Size effects (big tees)
+    ! Background mortality rate
+    mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 
 #ifdef Hydro_test
     ! Trunk hydraulic failure probability
@@ -2142,6 +2135,10 @@ subroutine reset_vegn_initial(vegn)
    call initialize_cohorts(vegn)
    ! Relayering and summary
    call relayer_cohorts(vegn)
+   ! For UFL test
+   !vegn%wcl = vegn%FLDCAP
+   !call initialize_soil(vegn)
+   ! End of UFL test
    call vegn_sum_tile(vegn)
    ! ID each cohort
    do i=1, vegn%n_cohorts
@@ -2201,9 +2198,9 @@ subroutine initialize_soil(vegn)
    vegn%previousN = vegn%mineralN
    !Soil water
    vegn%soiltype = soiltype
-   vegn%FLDCAP   = soilpars(soiltype)%vwc_fc  !FLDCAP
-   vegn%WILTPT   = soilpars(soiltype)%vwc_wilt !WILTPT
-   vegn%wcl      = soilpars(soiltype)%vwc_sat  !FLDCAP
+   vegn%FLDCAP   = soilpars(soiltype)%vwc_fc
+   vegn%WILTPT   = soilpars(soiltype)%vwc_wilt
+   vegn%wcl      = soilpars(soiltype)%vwc_sat
    vegn%thetaS   = 1.0
    call SoilWater_psi_K(vegn)
 end subroutine initialize_soil
@@ -2494,10 +2491,6 @@ subroutine kill_lowdensity_cohorts(vegn)
   do i = 1, vegn%n_cohorts
      if (vegn%cohorts(i)%nindivs > mindensity) k=k+1
   enddo
-  if (k==0)then
-     write(*,*)'in kill_lowdensity_cohorts: All cohorts < mindensity, No action!'
-     !stop
-  endif
 
   ! exclude cohorts that have low individuals
   if (k>0 .and. k<vegn%n_cohorts)then
@@ -2505,7 +2498,6 @@ subroutine kill_lowdensity_cohorts(vegn)
      j=0
      do i = 1,vegn%n_cohorts
         cp =>vegn%cohorts(i)
-        associate(sp=>spdata(cp%species))
         if (cp%nindivs > mindensity) then
            j=j+1
            cc(j) = cp
@@ -2513,11 +2505,10 @@ subroutine kill_lowdensity_cohorts(vegn)
            ! Carbon and Nitrogen from plants to soil pools
            call plant2soil(vegn,cp,cp%nindivs)
         endif
-        end associate
      enddo
-     vegn%n_cohorts = j
      deallocate (vegn%cohorts)
      vegn%cohorts=>cc
+     vegn%n_cohorts = k
   endif
 end subroutine kill_lowdensity_cohorts
 
@@ -2659,7 +2650,7 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (spdata(c2%species)%lifeform ==0) .and. &
                   (c1%DBH == c2%DBH)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
-   c1_LowDensity = c1%nindivs < min_nindivs
+   c1_LowDensity = .false. ! c1%nindivs < min_nindivs
    cohorts_can_be_merged = sameSpecies .and. sameLayer &
                            .and. (sameSize .or. c1_LowDensity)
 end function

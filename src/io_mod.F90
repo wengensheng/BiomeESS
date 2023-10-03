@@ -386,7 +386,7 @@ end subroutine daily_diagnostics
 
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
-      'n','f_CA','dD','DBH','Ht','Atrunk','Asap','Ktree', &
+      'n','f_CA','dD','DBH','NSC','Atrunk','Asap','Ktree', &
       'GPP','mu','Trsp','Demand','treeHU','treeW0'
 
     ! Cohotrs ouput
@@ -434,8 +434,8 @@ end subroutine daily_diagnostics
         ! Screen output
         write(*,'(3(I4,","),1(F9.1,","),9(F9.3,","),10(F9.1,","))') &
           i,cc%species,cc%layer, &
-          cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%height, &
-          cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,      &
+          cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%nsc, &
+          cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,   &
           cc%annualTrsp,cc%totDemand,cc%treeHU,cc%treeW0
 
         end associate

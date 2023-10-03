@@ -154,17 +154,16 @@ subroutine BiomeE_run()
   ! Weng 08/08/2022, for model run
   implicit none
   type(vegn_tile_type), pointer :: vegn => NULL()
-  integer :: i, idays, idata, idoy
+  integer :: i, k, idays, idata, idoy
   integer :: n_steps, n_yr, year0, year1
   real    :: r_d
   logical :: new_annual_cycle
 
   !----------------------
-  year0   = forcingData(1)%year
   n_yr    = 1
   idoy    = 0
-  n_steps = 0
-  do idays =1, totdays ! 1*days_data ! days for the model run
+  n_steps = StartLine - 1 ! steps skipped acc. the starting line, for UFL only
+  do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*days_data ! days for the model run
     idoy = idoy + 1
     land%Tc_daily = 0.0 ! Zero daily mean temperature
     ! Fast-step update (hourly or half-hourly)
@@ -201,6 +200,7 @@ subroutine BiomeE_run()
 
     ! Annual update
     if(new_annual_cycle)then
+      write(*,*)"year0=",year0
       idoy = 0
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
@@ -210,12 +210,28 @@ subroutine BiomeE_run()
 
         ! Case studies
         ! N is losing after changing the soil pool structure. Hack !!!!!
-        ! if(do_closedN_run) call Recover_N_balance(vegn)
+        if(do_closedN_run) call Recover_N_balance(vegn)
         ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
         if(do_migration) call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
         call vegn_demographics_annual(vegn,real(seconds_per_year))
+        ! Cohort management
+        call kill_lowdensity_cohorts(vegn)
+        ! calculate the number of cohorts with indivs>mindensity
+         k = 0
+         do i = 1, vegn%n_cohorts
+            if (vegn%cohorts(i)%nindivs > 0.5*min_nindivs) k=k+1
+         enddo
+         if(k==0)then
+           write(*,*)"zero cohorts, reset!"
+           call reset_vegn_initial(vegn)
+         endif
+         call kill_old_grass(vegn)
+         !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
+         call relayer_cohorts(vegn)
+         call vegn_mergecohorts(vegn)
+         call vegn_sum_tile(vegn)
 
         ! zero annual reporting variables
         call Zero_diagnostics(vegn)

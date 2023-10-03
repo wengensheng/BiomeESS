@@ -174,7 +174,8 @@ type spec_data_type
   real :: A_un         ! Parameter for understory mortality affected by layers
   real :: A_sd         ! Max multiplier for seedling mortality
   real :: B_sd         ! Mortality sensitivity for seedlings
-  real :: A_D          ! Sensitivity to dbh
+  real :: A_DBH        ! Max mulitplier for DBH-based mortality
+  real :: B_DBH        ! Sensitivity to dbh
   real :: s_hu         ! hydraulic mortality sensitivity
   ! Population level variables
   real :: LAImax    ! max. LAI
@@ -490,9 +491,8 @@ end type climate_data_type
 ! -------------------------------------------
 ! Soil water parameters
 integer :: soiltype = SandyLoam  ! 1 Sand; 2
-real :: thksl(soil_L)=(/0.1,0.2,0.5,1.0,1.2/) ! m, thickness of soil layers
-real :: FLDCAP = 0.4  ! vol/vol
-real :: WILTPT = 0.05 ! vol/vol
+real :: WaterLeakRate = 0.0 ! Soil water leak rate, fraction per day
+real :: thksl(soil_L)=(/0.05,0.25,0.5,1.0,1.2/) ! m, thickness of soil layers
 
 ! Coarse  Medium   Fine    CM     CF     MF    CMF    Peat    MCM
 real :: GMD(n_dim_soil_types) = & ! geometric mean partice diameter, mm
@@ -602,7 +602,7 @@ real :: thetaCA(0:MSPECIES) = 1.5
 real :: thetaBM(0:MSPECIES) = 2.5
 real :: phiRL(0:MSPECIES)   = 3.5 ! ratio of fine root area to leaf area
 real :: phiCSA(0:MSPECIES)  = 0.25E-4 ! ratio of sapwood area to leaf area
-real :: tauNSC(0:MSPECIES)  = 3 ! 3 ! NSC residence time,years
+real :: tauNSC(0:MSPECIES)  = 6 ! 3 ! NSC residence time,years
 real :: fNSNmax(0:MSPECIES) = 5 ! 5 ! multiplier for NSNmax as sum of potential bl and br
 real :: transT(0:MSPECIES)  = 3 ! Years
 real :: f_cGap(0:MSPECIES)  = 0.1  ! The gaps between trees
@@ -614,7 +614,7 @@ real :: LAImax(0:MSPECIES)   = 3.5    ! maximum LAI for a tree
 real :: LAI_light(0:MSPECIES)= 4.0    ! maximum LAI limited by light
 real :: LMA(0:MSPECIES)      = 0.035  ! leaf mass per unit area, kg C/m2
 real :: leafLS(0:MSPECIES)   = 1.0
-real :: LNbase(0:MSPECIES)   = 1.1E-3 !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+real :: LNbase(0:MSPECIES)   = 1.3E-3 !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 real :: CN0leafST(0:MSPECIES)= 80.0 ! CN ratio of leaf supporting tissues
 
 ! photosynthesis parameters
@@ -636,8 +636,8 @@ real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.29 !
-real :: root_perm(0:MSPECIES) = 0.5 ! % of area for water flow, Hack!
-real :: Kw_root(0:MSPECIES)= 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
+real :: root_perm(0:MSPECIES) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
+real :: Kw_root(0:MSPECIES)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
 ! * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Pa)
 !Ref added by Weng, 2021-11-15
 ! Sutka et al. 2011 Natural Variation of Root Hydraulics in Arabidopsis Grown
@@ -657,8 +657,8 @@ real :: Kw_root(0:MSPECIES)= 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3
 ! Respiration rates
 real :: gamma_L(0:MSPECIES)= 0.02 !
 real :: gamma_LN(0:MSPECIES)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
-real :: gamma_SW(0:MSPECIES)= 0.08 ! 5.0e-4 ! kgC m-2 Acambium yr-1
-real :: gamma_FR(0:MSPECIES)= 12.0 ! 15 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
+real :: gamma_SW(0:MSPECIES)= 0.02 ! 0.08 ! kgC m-2 Acambium yr-1
+real :: gamma_FR(0:MSPECIES)= 0.6 ! 12 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 
 ! Phenology parameters
 real :: tc_crit_off(0:MSPECIES)= 15. ! 283.16 ! OFF ! C for convenience
@@ -678,11 +678,12 @@ real :: prob_e(0:MSPECIES)   = 1.0
 
 ! Mortality parameters
 real :: r0mort_c(0:MSPECIES) = 0.012 ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-real :: D0mu(0:MSPECIES)     = 2.0     ! m, Mortality curve parameter
+real :: D0mu(0:MSPECIES)     = 1.2     ! m, Mortality curve parameter
 real :: A_un(0:MSPECIES)     = 3.0     ! Multiplier for understory mortality
 real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
 real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
-real :: A_D(0:MSPECIES)      = 8.0 !4.0   ! Sensitivity to dbh
+real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality
+real :: B_DBH(0:MSPECIES)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
 real :: s_hu(0:MSPECIES)     = -25.0 ! hydraulic mortality sensitivity
 
 ! Plant hydraulics parameters
@@ -732,6 +733,7 @@ character(len=80) :: runID = 'test'
 character(len=160) :: climfile = 'ORNL_forcing.txt'
 integer  :: N_VegTile = 1 ! Initial vegn tiles
 integer  :: datalines ! the total lines in forcing data file
+integer  :: StartLine = 1 ! the first step model run start with, for UFL only
 integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 real     :: siteLAT = 36.01 !site latitude, ORNL
@@ -753,7 +755,7 @@ logical  :: do_U_shaped_mortality = .False.
 logical  :: update_annualLAImax = .False.
 logical  :: do_migration = .False.
 logical  :: do_fire = .False.
-logical  :: do_closedN_run = .True. !.False.
+logical  :: do_closedN_run = .False.
 logical  :: do_VariedKx   = .True. ! trunk new xylem has the same kx or not
 logical  :: do_VariedWTC0 = .True.
 logical  :: do_WD_mort_function = .False.
@@ -770,16 +772,16 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
-    filepath_in,filepath_out,runID,N_VegTile,climfile,siteLAT,  &
-    model_run_years, yr_ResetVeg, outputhourly, outputdaily,    &
+    filepath_in,filepath_out,runID,N_VegTile,climfile,StartLine,&
+    siteLAT,model_run_years,yr_ResetVeg,outputhourly,outputdaily,&
     do_U_shaped_mortality,update_annualLAImax, do_fire,         &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
     do_WD_mort_function,Sc_prcp,CO2_c
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
-namelist /soil_data_nml/ soiltype,thksl,         &
-     GMD, GSD, vwc_sat,FLDCAP,WILTPT,k_sat_ref,  &
-     psi_sat_ref, chb, alphaSoil,heat_capacity_dry
+namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &
+     GMD, GSD, vwc_sat, k_sat_ref, psi_sat_ref, chb,    &
+     alphaSoil,heat_capacity_dry
 
 ! --------- Vegetation parameter name list ---------
 namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
@@ -799,7 +801,7 @@ namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
   T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
-  r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_D,s_hu,                &
+  r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_DBH, B_DBH,s_hu,       &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
   ! Plant hydraulics
@@ -917,7 +919,8 @@ subroutine initialize_PFT_data()
   spdata%A_un     = A_un
   spdata%A_sd     = A_sd
   spdata%B_sd     = B_sd
-  spdata%A_D      = A_D
+  spdata%A_DBH    = A_DBH
+  spdata%B_DBH    = B_DBH
   spdata%s_hu     = s_hu
   spdata%rho_wood = rho_wood
   spdata%f_taper  = f_taper
