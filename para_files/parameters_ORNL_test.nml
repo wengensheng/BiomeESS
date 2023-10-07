@@ -1,5 +1,7 @@
 &soil_data_nml
 soiltype = 3,
+WaterLeakRate = 0.0, ! fraction per day
+thksl    = 0.05, 0.25, 0.5, 1.0, 1.2,  ! m, soil layer thickness
 GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
 chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
 psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa

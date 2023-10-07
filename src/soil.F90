@@ -168,7 +168,7 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   rLAI  = 10. * vegn%LAI**2
   raero = 20./(forcing%windU + 0.1) + rLAI
   fw1   = Max((vegn%wcl(1)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT), .000001)
-  Rsoil = 15. * exp(0.12/fw1)
+  Rsoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
   !rsoil=360000.0 * exp(-20.0*vegn%wcl(1)/vegn%FLDCAP)  ! s m-1
   !rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
   !Rsoil=3.0E+10 * (vegn%FLDCAP-vegn%wcl(1))**16 ! Kondo et al. 1990

@@ -552,7 +552,7 @@ real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 ! Mortality as a function of wood density
 real :: A_mort   = 0.2    ! mu = A_mort *exp(B_mort*WD/WDref)
 real :: B_mort   = -2.1
-real :: alphaDrought = 15.0 ! UFL: sensitivity of mortality to drought,
+real :: alphaDrought = 50.0 ! UFL: sensitivity of mortality to drought,
                             ! infinite: no effect, 15: medium, 10: high
 
 ! Phenology parameters
@@ -635,7 +635,7 @@ real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
 real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
 real :: root_r(0:MSPECIES) = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
-real :: root_zeta(0:MSPECIES) = 0.29 !
+real :: root_zeta(0:MSPECIES) = 0.6 ! 0.29 !
 real :: root_perm(0:MSPECIES) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
 real :: Kw_root(0:MSPECIES)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
 ! * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Pa)

@@ -383,12 +383,12 @@ end subroutine daily_diagnostics
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
     real :: plantC, plantN, soilC, soilN
     integer :: i,j,iyr_out
-
+#ifndef UFL_test
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
       'n','f_CA','dD','DBH','NSC','Atrunk','Asap','Ktree', &
       'GPP','mu','Trsp','Demand','treeHU','treeW0'
-
+#endif
     ! Cohotrs ouput
     !if(index(climfile,'DBEN')==0) &
     !write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -431,12 +431,14 @@ end subroutine daily_diagnostics
 
 #endif
 
+#ifndef UFL_test
         ! Screen output
         write(*,'(3(I4,","),1(F9.1,","),9(F9.3,","),10(F9.1,","))') &
           i,cc%species,cc%layer, &
           cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%nsc, &
           cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,   &
           cc%annualTrsp,cc%totDemand,cc%treeHU,cc%treeW0
+#endif
 
         end associate
     enddo
@@ -557,7 +559,6 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
    datalines = totlines
    days_data = ndays
    yr_data   = nyear
-   write(*,*)"siteLAT:", siteLAT
    write(*,*)"runID:  ", runID
    write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
 
@@ -648,7 +649,6 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
    enddo
    forcingData => climateData
-   write(*,*)"siteLAT:", siteLAT
    write(*,*)"runID:  ", runID
    write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
 

@@ -44,6 +44,7 @@
 !----------------------------- END ----------------------------------
 
 !#define DemographyOFF
+!#define UFL_Monoculture
 
 !---------------
 module BiomeE_mod
@@ -139,7 +140,6 @@ subroutine BiomeE_initialization()
   enddo
   vegn => land%firstVegn
   pveg => NULL()
-  write(*,*)'total tiles:', N_VegTile
 
   ! --------- Setup output files ---------------
   call set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
@@ -154,6 +154,7 @@ subroutine BiomeE_run()
   ! Weng 08/08/2022, for model run
   implicit none
   type(vegn_tile_type), pointer :: vegn => NULL()
+  type(climate_data_type) :: climateData ! for UFL_test
   integer :: i, k, idays, idata, idoy
   integer :: n_steps, n_yr, year0, year1
   real    :: r_d
@@ -174,8 +175,14 @@ subroutine BiomeE_run()
       land%Tc_daily = land%Tc_daily + forcingData(idata)%Tair - 273.16
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
-        call vegn_CNW_budget_fast(vegn,forcingData(idata))
-        call hourly_diagnostics(vegn,forcingData(idata), &
+        climateData = forcingData(idata)
+#ifdef UFL_Monoculture
+        if(n_yr > 500)then
+          climateData%rain = forcingData(idata)%rain * 0.5
+        endif
+#endif
+        call vegn_CNW_budget_fast(vegn,climateData)
+        call hourly_diagnostics(vegn,climateData, &
                                 n_yr,idoy,i,idays,fno1,fno2)
 
         vegn => vegn%next
@@ -200,7 +207,6 @@ subroutine BiomeE_run()
 
     ! Annual update
     if(new_annual_cycle)then
-      write(*,*)"year0=",year0
       idoy = 0
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
@@ -236,15 +242,24 @@ subroutine BiomeE_run()
         ! zero annual reporting variables
         call Zero_diagnostics(vegn)
 
+#ifdef DBEN_runs
         !! Reset vegetation to initial conditions, for DBEN
         CALL RANDOM_NUMBER(r_d)
         if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
           call reset_vegn_initial(vegn)
+#endif
         vegn => vegn%next
       enddo
 
       ! update the years of model run
       n_yr = n_yr + 1
+
+#ifdef UFL_Monoculture
+      if(n_yr > 505)then
+        write(*,*)"505, UFL_Monoculture"
+        exit
+      endif
+#endif
     endif
   enddo
 end subroutine BiomeE_run

@@ -184,7 +184,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
          cc%transp = transp      * mol_h2o * cc%Aleaf * step_seconds ! Transpiration (kgH2O/(tree step), Weng, 2017-10-16
          cc%gpp    = (psyn-resp) * mol_C   * cc%Aleaf * step_seconds ! kgC step-1 tree-1
 
-         ! For UFL mortality
+         ! For UFL drought mortality
          Water_demand = wd * mol_h2o * cc%Aleaf * step_seconds ! Potential transp, kgH2O/(tree step)
          cc%totDemand = cc%totDemand + Water_demand
 
@@ -2074,7 +2074,7 @@ end function NewWoodKx
 !==============================================================
 !============= Vegetation initializations =====================
 subroutine initialize_vegn_tile(vegn)
-   type(vegn_tile_type),intent(inout),pointer :: vegn
+   type(vegn_tile_type),intent(inout) :: vegn
 
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc => null()
@@ -2122,7 +2122,7 @@ end subroutine initialize_vegn_tile
 !============================================================================
 !Weng, 12/20/2022, Reset to Initial Vegetation States
 subroutine reset_vegn_initial(vegn)
-   type(vegn_tile_type),intent(inout),pointer :: vegn
+   type(vegn_tile_type),intent(inout) :: vegn
 
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc1
@@ -2154,7 +2154,7 @@ end subroutine reset_vegn_initial
 
 !================================================================
 subroutine initialize_cohorts(vegn)
-   type(vegn_tile_type),intent(inout),pointer :: vegn
+   type(vegn_tile_type),intent(inout) :: vegn
 
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc
@@ -2186,7 +2186,7 @@ end subroutine initialize_cohorts
 
 !============================================================
 subroutine initialize_soil(vegn)
-   type(vegn_tile_type),intent(inout),pointer :: vegn
+   type(vegn_tile_type),intent(inout) :: vegn
 
    ! Initial Soil pools and environmental conditions
    vegn%SOC(4)    = init_fast_soil_C ! kgC m-2
@@ -2207,7 +2207,7 @@ end subroutine initialize_soil
 
 !=========================================================================
 subroutine initialize_vegn_random(vegn)
-   type(vegn_tile_type),intent(inout),pointer :: vegn
+   type(vegn_tile_type),intent(inout) :: vegn
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc
    type(cohort_type),pointer :: cp
@@ -2650,7 +2650,7 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (spdata(c2%species)%lifeform ==0) .and. &
                   (c1%DBH == c2%DBH)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
-   c1_LowDensity = .false. ! c1%nindivs < min_nindivs
+   c1_LowDensity = c1%nindivs < min_nindivs
    cohorts_can_be_merged = sameSpecies .and. sameLayer &
                            .and. (sameSize .or. c1_LowDensity)
 end function
