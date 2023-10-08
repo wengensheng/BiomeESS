@@ -1,5 +1,7 @@
 &soil_data_nml
 soiltype = 3,
+WaterLeakRate = 0.0, ! fraction per day
+thksl    = 0.05, 0.25, 0.5, 1.0, 1.2,  ! m, soil layer thickness
 GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
 chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
 psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
@@ -49,8 +51,8 @@ AgeRepro    = 0,       5,       5,       5,       5,       5
 !!   plant and soil
 init_n_cohorts      = 1, ! total 5
 init_cohort_species = 3,    2,    1,    4,    5,
-init_cohort_nindivs = .001, .001, .001, .001, .001,
-init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
+init_cohort_nindivs = .02, .001, .001, .001, .001,
+init_cohort_bsw     = 800.,  0.2,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,
 init_fast_soil_C    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
@@ -60,7 +62,7 @@ N_input             = 0.0E-3, ! 20.E-3, ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8
 
 ! Model run
 runID = 'BCI_hydro',       ! for output file name
-model_run_years =  200,    ! 600, ! 1600,
+model_run_years =  20,    ! 600, ! 1600,
 filepath_in = './input/',  ! Climate forcing data
 filepath_out= './output/', ! Output files
 siteLAT = 9.25, ! Latitude of the grid that covers BCI

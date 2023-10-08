@@ -107,11 +107,6 @@ subroutine BiomeE_initialization()
   totdays   = INT(totyears/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
 
-  ! Set up scenarios for rainfall and CO2 concentration
-  forcingData%rain = forcingData%rain * Sc_prcp
-  forcingData%CO2  = CO2_c * 1.0e-6
-  !stop
-
   ! ------ Soil and PFT parameters ------
   call initialize_soilpars()
   call initialize_PFT_data()
@@ -171,20 +166,22 @@ subroutine BiomeE_run()
     do i=1,steps_per_day
       n_steps = n_steps + 1
       idata = MOD(n_steps-1, datalines) + 1
-      year0 = forcingData(idata)%year  ! Current step year
-      land%Tc_daily = land%Tc_daily + forcingData(idata)%Tair - 273.16
+      climateData = forcingData(idata)
+      ! Set up scenarios for rainfall and CO2 concentration
+      climateData%rain = forcingData(idata)%rain * Sc_prcp
+      climateData%CO2  = CO2_c * 1.0e-6
+#ifdef UFL_Monoculture
+      if(n_yr > 500)then
+        climateData%rain = 0.5 * forcingData(idata)%rain * Sc_prcp
+      endif
+#endif
+      land%Tc_daily = land%Tc_daily + climateData%Tair - 273.16
+
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
-        climateData = forcingData(idata)
-#ifdef UFL_Monoculture
-        if(n_yr > 500)then
-          climateData%rain = forcingData(idata)%rain * 0.5
-        endif
-#endif
         call vegn_CNW_budget_fast(vegn,climateData)
         call hourly_diagnostics(vegn,climateData, &
                                 n_yr,idoy,i,idays,fno1,fno2)
-
         vegn => vegn%next
       enddo
     enddo ! steps_per_day
@@ -195,25 +192,36 @@ subroutine BiomeE_run()
     do while(ASSOCIATED(vegn))
       call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
       vegn%Tc_daily = land%Tc_daily
+#ifdef DO_FixedTrees
+      call vegn_phenology(vegn)
+      call vegn_sum_tile(vegn)  ! Update tile variables
+#else
       call vegn_daily_update(vegn,dt_daily_yr)
-
+#endif
       vegn => vegn%next
     enddo
 
-    !! Check if the next step is a new year
+    ! Annual update
+    ! Check if the next step is a new year
+    year0 = forcingData(idata)%year  ! Current step year
     idata = MOD(n_steps, datalines) + 1
     year1 = forcingData(idata)%year  ! Nex step year
     new_annual_cycle = ((year0 /= year1) .OR. (MOD(n_steps,datalines)==0))
-
-    ! Annual update
     if(new_annual_cycle)then
       idoy = 0
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
         ! Update plant hydraulic states, for the last year
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
+#ifndef DO_FixedTrees
+        call vegn_SW2HW_hydro(vegn)
+#endif
+        call vegn_sum_tile(vegn)
         call annual_diagnostics(vegn,n_yr,fno5,fno6)
 
+#ifndef DO_FixedTrees
+        call vegn_demographics_annual(vegn,real(seconds_per_year))
+#endif
         ! Case studies
         ! N is losing after changing the soil pool structure. Hack !!!!!
         if(do_closedN_run) call Recover_N_balance(vegn)
@@ -221,7 +229,6 @@ subroutine BiomeE_run()
         if(do_migration) call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
-        call vegn_demographics_annual(vegn,real(seconds_per_year))
         ! Cohort management
         call kill_lowdensity_cohorts(vegn)
         ! calculate the number of cohorts with indivs>mindensity
@@ -237,9 +244,8 @@ subroutine BiomeE_run()
          !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
          call relayer_cohorts(vegn)
          call vegn_mergecohorts(vegn)
-         call vegn_sum_tile(vegn)
-
-        ! zero annual reporting variables
+        ! Summarize tile and zero annual reporting variables
+        call vegn_sum_tile(vegn)
         call Zero_diagnostics(vegn)
 
 #ifdef DBEN_runs
@@ -255,10 +261,7 @@ subroutine BiomeE_run()
       n_yr = n_yr + 1
 
 #ifdef UFL_Monoculture
-      if(n_yr > 505)then
-        write(*,*)"505, UFL_Monoculture"
-        exit
-      endif
+      if(n_yr > 505)exit
 #endif
     endif
   enddo
