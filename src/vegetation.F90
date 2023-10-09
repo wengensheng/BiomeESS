@@ -752,7 +752,7 @@ subroutine vegn_growth(vegn)
       cc%bsw   = cc%bsw   + dBSW
       cc%seedC = cc%seedC + dSeed
       ! Update leaf age
-      cc%leafage = cc%leafage + 1.0/365.0 - dBL/cc%bl * cc%leafage
+      cc%leafage = (1.0 - dBL/cc%bl)*cc%leafage + 1.0/365.0
 
       !!update nitrogen pools, Nitrogen allocation
       cc%leafN = cc%leafN + dBL   /sp%CNleaf0
