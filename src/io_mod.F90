@@ -108,8 +108,7 @@ subroutine vegn_sum_tile(vegn)
        vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
                               cc%Acrown * cc%nindivs * sp%f_cGap
 
-      ! For reporting
-      ! Vegn C pools:
+      ! Vegn C, N, and water pools
        vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
        vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
        vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
@@ -119,14 +118,14 @@ subroutine vegn_sum_tile(vegn)
        vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
        vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
        vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
-      ! Vegn N pools
+
        vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
        vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
        vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
        vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
        vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
        vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
-       ! Vegn water pools
+
        vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
        vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
        vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs

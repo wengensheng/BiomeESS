@@ -167,6 +167,7 @@ subroutine BiomeE_run()
       n_steps = n_steps + 1
       idata = MOD(n_steps-1, datalines) + 1
       climateData = forcingData(idata)
+
       ! Set up scenarios for rainfall and CO2 concentration
       climateData%rain = forcingData(idata)%rain * Sc_prcp
       climateData%CO2  = CO2_c * 1.0e-6
@@ -190,14 +191,9 @@ subroutine BiomeE_run()
     ! Daily update
     vegn => land%firstVegn
     do while(ASSOCIATED(vegn))
-      call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
       vegn%Tc_daily = land%Tc_daily
-#ifdef DO_FixedTrees
-      call vegn_phenology(vegn)
-      call vegn_sum_tile(vegn)  ! Update tile variables
-#else
       call vegn_daily_update(vegn,dt_daily_yr)
-#endif
+      call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
       vegn => vegn%next
     enddo
 
@@ -213,14 +209,10 @@ subroutine BiomeE_run()
       do while(ASSOCIATED(vegn))
         ! Update plant hydraulic states, for the last year
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
-#ifndef DO_FixedTrees
-        call vegn_SW2HW_hydro(vegn)
-#endif
-        call vegn_sum_tile(vegn)
         call annual_diagnostics(vegn,n_yr,fno5,fno6)
 
-#ifndef DO_FixedTrees
-        call vegn_demographics_annual(vegn,real(seconds_per_year))
+#ifndef DemographyOFF
+        call vegn_demographics(vegn,real(seconds_per_year))
 #endif
         ! Case studies
         ! N is losing after changing the soil pool structure. Hack !!!!!

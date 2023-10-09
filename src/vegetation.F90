@@ -1,3 +1,4 @@
+!#define GrowthOFF
 !---------------
 module esdvm
  use datatypes
@@ -9,7 +10,7 @@ module esdvm
  !Core functions
  public :: initialize_vegn_tile,vegn_sum_tile
  public :: vegn_phenology
- public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics_annual
+ public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics
  public :: relayer_cohorts, vegn_hydraulic_states, vegn_SW2HW_hydro
  public :: kill_lowdensity_cohorts,kill_old_grass,vegn_mergecohorts
 
@@ -87,14 +88,16 @@ subroutine vegn_daily_update(vegn, deltat)
 
   call vegn_age(vegn,deltat) ! Update vegn age
   call vegn_phenology(vegn)
+#ifndef GrowthOFF
   call vegn_growth(vegn)
   !call vegn_daily_starvation(vegn)
+#endif
   call Vegn_N_deposition(vegn,deltat) ! Daily N deposition
   call vegn_sum_tile(vegn)  ! Update tile variables
 end subroutine vegn_daily_update
 
 !==========================================================================
-subroutine vegn_demographics_annual(vegn, deltat)
+subroutine vegn_demographics(vegn, deltat)
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds of a year
   !-------- local vars ----------
@@ -104,16 +107,16 @@ subroutine vegn_demographics_annual(vegn, deltat)
   !call vegn_sum_tile(vegn)
   !totN0 = TotalN(vegn)
 
-#ifndef DemographyOFF
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
   call vegn_reproduction(vegn)
-#endif
 
   !call check_N_conservation(vegn,totalN1,'annual')
 
-end subroutine vegn_demographics_annual
+  !Update
+
+end subroutine vegn_demographics
 
 !=============== Plant physiology =======================================
 !=============== Hourly subroutines =====================================
@@ -1569,9 +1572,8 @@ end function mortality_rate
 !============================================================================
 !-----------------------Plant Hydraulics------------------------------
 subroutine vegn_hydraulic_states(vegn, deltat)
-  ! Update plant hydraulic states and coverstion of sapwood to heartwood
-  ! yearly time step
-  ! Author: Ensheng Weng, 2021-03-15, updated 2021-12-8
+  ! Update plant hydraulic states, yearly time step
+  ! Author: Ensheng Weng, 2021-03-15, updated 2023-10-8
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
@@ -1657,6 +1659,10 @@ subroutine vegn_hydraulic_states(vegn, deltat)
        call calculate_Asap_Ktrunk (cc) ! Update Asap and Ktrunk
      end associate
   enddo
+#ifndef GrowthOFF
+     call vegn_SW2HW_hydro(vegn)
+#endif
+     call vegn_sum_tile(vegn)
 end subroutine vegn_hydraulic_states
 
 !========================================================================
