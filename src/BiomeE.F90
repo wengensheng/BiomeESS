@@ -42,8 +42,6 @@
 !     Soil water dynamics: soil surface evaporation, infiltration, runoff
 !
 !----------------------------- END ----------------------------------
-
-!#define DemographyOFF
 !#define UFL_Monoculture
 
 !---------------
@@ -210,10 +208,8 @@ subroutine BiomeE_run()
         ! Update plant hydraulic states, for the last year
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
         call annual_diagnostics(vegn,n_yr,fno5,fno6)
-
-#ifndef DemographyOFF
         call vegn_demographics(vegn,real(seconds_per_year))
-#endif
+
         ! Case studies
         ! N is losing after changing the soil pool structure. Hack !!!!!
         if(do_closedN_run) call Recover_N_balance(vegn)

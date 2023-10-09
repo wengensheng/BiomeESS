@@ -1,4 +1,5 @@
 !#define GrowthOFF
+!#define DemographyOFF
 !---------------
 module esdvm
  use datatypes
@@ -88,10 +89,8 @@ subroutine vegn_daily_update(vegn, deltat)
 
   call vegn_age(vegn,deltat) ! Update vegn age
   call vegn_phenology(vegn)
-#ifndef GrowthOFF
   call vegn_growth(vegn)
   !call vegn_daily_starvation(vegn)
-#endif
   call Vegn_N_deposition(vegn,deltat) ! Daily N deposition
   call vegn_sum_tile(vegn)  ! Update tile variables
 end subroutine vegn_daily_update
@@ -107,14 +106,14 @@ subroutine vegn_demographics(vegn, deltat)
   !call vegn_sum_tile(vegn)
   !totN0 = TotalN(vegn)
 
+#ifndef DemographyOFF
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
   call vegn_reproduction(vegn)
+#endif
 
   !call check_N_conservation(vegn,totalN1,'annual')
-
-  !Update
 
 end subroutine vegn_demographics
 
@@ -678,10 +677,6 @@ subroutine vegn_growth(vegn)
   real :: r_N_SD
   integer :: i,j,k
 
-  ! Turnover of leaves and fine roots
-  call vegn_tissue_turnover(vegn)
-  call SoilWater_psi_K(vegn)
-
   !Allocate C_gain to tissues
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
@@ -689,8 +684,6 @@ subroutine vegn_growth(vegn)
     ! Skip non-growing season
     if(cc%status == LEAF_OFF) cycle
 
-    ! Update leaf age
-    cc%leafage = cc%leafage + 1.0/365.0
     ! Get carbon from NSC pool
     call fetch_CN_for_growth(cc,Cgrowth,Ngrowth) ! Weng, 2017-10-19
     associate (sp => spdata(cc%species))
@@ -750,15 +743,16 @@ subroutine vegn_growth(vegn)
            dSeed=  Nsupplyratio * dSeed
         endif
       endif
-
+      cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
+      cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
+#ifndef GrowthOFF
       !update biomass pools
       cc%bl    = cc%bl    + dBL
       cc%br    = cc%br    + dBR
       cc%bsw   = cc%bsw   + dBSW
       cc%seedC = cc%seedC + dSeed
-      cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
-      cc%leafage = (1.0 - dBL/cc%bl) * cc%leafage
-      cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
+      ! Update leaf age
+      cc%leafage = cc%leafage + 1.0/365.0 - dBL/cc%bl * cc%leafage
 
       !!update nitrogen pools, Nitrogen allocation
       cc%leafN = cc%leafN + dBL   /sp%CNleaf0
@@ -797,10 +791,15 @@ subroutine vegn_growth(vegn)
       cc%Lring(k)= HT2Lpath(cc%height)
       cc%Ktrunk  = cc%Ktrunk+ &
             0.25*PI*(cc%DBH**2-DBH0**2)*cc%Kx(k)/cc%Lring(k)
-
+#endif
     end associate ! F2003
   enddo
   cc => null()
+#ifndef GrowthOFF
+  ! Turnover of leaves and fine roots
+  call vegn_tissue_turnover(vegn)
+  call SoilWater_psi_K(vegn)
+#endif
 end subroutine vegn_growth ! daily
 
 !========= Calculate carbon and nitrogen supply ==========================
