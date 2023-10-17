@@ -119,12 +119,12 @@ subroutine vegn_sum_tile(vegn)
        vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
        vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
 
-       vegn%NSN     = vegn%NSN   + cc%NSN      * cc%nindivs
-       vegn%SeedN   = vegn%SeedN + cc%seedN    * cc%nindivs
-       vegn%leafN   = vegn%leafN + cc%leafN    * cc%nindivs
-       vegn%rootN   = vegn%rootN + cc%rootN    * cc%nindivs
-       vegn%SapwoodN= vegn%SapwoodN + cc%sapwN * cc%nindivs
-       vegn%woodN   = vegn%woodN    + cc%woodN * cc%nindivs
+       vegn%NSN     = vegn%NSN     + cc%NSN   * cc%nindivs
+       vegn%SeedN   = vegn%SeedN   + cc%seedN * cc%nindivs
+       vegn%leafN   = vegn%leafN   + cc%leafN * cc%nindivs
+       vegn%rootN   = vegn%rootN   + cc%rootN * cc%nindivs
+       vegn%SapwoodN= vegn%SapwoodN+ cc%sapwN * cc%nindivs
+       vegn%woodN   = vegn%woodN   + cc%woodN * cc%nindivs
 
        vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
        vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
@@ -412,6 +412,17 @@ end subroutine daily_diagnostics
           cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,   &
           cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
+#elif FACE_run
+        write(f1,'(4(I8,","),300(E15.4,","))')iyears,i,     &
+          cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
+          cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
+          cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
+          cc%nsc,cc%leafN*1000,cc%rootN*1000,cc%sapwN*1000, &
+          cc%woodN*1000,cc%seedN*1000, cc%NSN*1000,         &
+          cc%annualNup*1000,cc%annualGPP,cc%annualNPP,      &
+          cc%NPPleaf,cc%NPProot,cc%NPPwood,cc%annualTrsp,   &
+          cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
+
 #else
         write(f1,'(6(I8,","),300(E15.4,","))')vegn%tileID, &
           iyears,i,cc%ccID,cc%species,cc%layer,            &
@@ -443,13 +454,27 @@ end subroutine daily_diagnostics
     enddo
 
     ! tile pools output
-    plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
-             vegn%SapwoodC + vegn%woodC
-    soilC  = sum(vegn%SOC(:))
-    plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
-             vegn%rootN + vegn%SapwoodN + vegn%woodN
-    soilN  = sum(vegn%SON(:)) + vegn%mineralN
-    if(iyr_out > 0) &
+
+    if(iyr_out > 0) then
+      call vegn_sum_tile(vegn)
+      plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
+               vegn%SapwoodC + vegn%woodC
+      soilC  = sum(vegn%SOC(:))
+      plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
+               vegn%rootN + vegn%SapwoodN + vegn%woodN
+      soilN  = sum(vegn%SON(:)) + vegn%mineralN
+#ifdef FACE_run
+      write(f2,'(1(I5,","),80(F12.4,","))') iyears, &
+       vegn%CAI, vegn%LAI, vegn%annualGPP, vegn%annualResp, vegn%annualRh, &
+       vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
+       vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
+       vegn%leafC, vegn%rootC, vegn%SapwoodC, vegn%woodC, vegn%SeedC,      &
+       vegn%NSC, vegn%leafN*1000,vegn%rootN*1000,vegn%SapwoodN*1000,       &
+       vegn%WoodN*1000, vegn%SeedN*1000, vegn%NSN*1000,                    &
+       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
+       vegn%mineralN*1000, vegn%annualN*1000, vegn%annualNup*1000,         &
+       vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
+#else
       write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')  &
         vegn%tileID,iyears,vegn%CAI,vegn%LAI,vegn%treecover,vegn%grasscover,&
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_combusted,  &
@@ -461,6 +486,8 @@ end subroutine daily_diagnostics
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
         vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
+#endif
+endif
 
  end subroutine annual_diagnostics
 
@@ -858,6 +885,15 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'bl','br','bSW','bHW','seed','nsc',               &
       'GPP','NPP','dDBH','dBA','dCA',                   &
       'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
+#elif FACE_run
+    write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
+      'yr','cNo.','PFT','layer','f_L','N_ha','mu',      &
+      'dD','dCA','dbh','ht','Acrown','Aleaf',           &
+      'bl','br','bSW','bHW','seed','nsc',               &
+      'N_lf','N_fr','N_SW','N_HW','N_sd','NSN','N_up',  &
+      'GPP','NPP','NPPl','NPPfr','NPPw','Trsp',         &
+      'demandW','Asap','Ktree','treeHU','treeW0'
+
 #else
     write(fno5,'(4(a5,","),40(a7,","))')        &    ! Yearly cohort
       'tile','yr','cNo.','cID', 'PFT','layer',          &
@@ -869,6 +905,17 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'farea1','farea2','farea3','farea4','farea5'
 #endif
     open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
+#ifdef FACE_run
+    write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile
+         'CAI', 'LAI', 'GPP', 'Rauto', 'Rh',               &
+         'rain','SiolWater','Transp','Evap','Runoff',      &
+         'plantC', 'soilC', 'plantN', 'soilN',             &
+         'leafC', 'rootC', 'swC', 'hwC', 'SeedC', 'NSC',   &
+         'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
+         'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
+         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
+         'mineralN','N_yrMin', 'N_up', 'N_P2S', 'N_loss'
+#else
     write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
              'CAI','LAI','treecover', 'grasscover',            &
              'GPP', 'Rauto', 'Rh', 'burned',                   &
@@ -880,6 +927,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
              'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
              'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S',  &
              'N_loss'
+#endif
 
 end subroutine set_up_output_files
 

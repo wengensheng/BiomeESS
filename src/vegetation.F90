@@ -1036,6 +1036,7 @@ subroutine vegn_tissue_turnover(vegn)
      !    update leaf area and LAI
      cc%Aleaf= BL2Aleaf(cc%bl,cc)
      cc%lai     = cc%Aleaf/(cc%Acrown *(1.0-sp%f_cGap))
+     cc%Aleafmax  = Max(cc%Aleafmax, cc%Aleaf)
 
      !    update NPP for leaves, fine roots, and wood
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
