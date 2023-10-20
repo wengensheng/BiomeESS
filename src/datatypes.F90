@@ -444,7 +444,7 @@ type :: soil_pars_type
   real :: psi_sat_ref ! saturation soil water potential, m
   real :: chb         ! Soil texture parameter
   real :: alpha       ! vertical changes of soil property, 1: no change
-  real :: heat_capacity_dry
+  real :: heat_capacity_dry ! J m-3 k-1
   real :: tfreeze
 end type soil_pars_type
 
@@ -577,7 +577,7 @@ real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
 real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
 real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON       = 0.02    ! fraction of DON production in decomposition
-real :: rho_SON    = 0.05    ! SON release rate
+real :: rho_SON    = 0.05    ! SON release rate per year
 real :: f_M2SOM    = 0.8     ! the ratio of C and N returned to litters from microbes
 real :: etaN       = 0.025   ! N loss through runoff (organic and mineral)
 
@@ -748,7 +748,7 @@ real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
 real     :: dt_daily_yr  = 1.0/365.0 ! Daily
 real     :: step_seconds = 1.0 * 3600.0
 
-!Special test controls
+! Model test controls
 logical  :: outputhourly = .True.
 logical  :: outputdaily  = .True.
 logical  :: do_U_shaped_mortality = .False.
@@ -772,11 +772,12 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
-    filepath_in,filepath_out,runID,N_VegTile,climfile,StartLine,&
-    siteLAT,model_run_years,yr_ResetVeg,outputhourly,outputdaily,&
-    do_U_shaped_mortality,update_annualLAImax, do_fire,         &
+    filepath_in,filepath_out,runID,climfile,StartLine,          &
+    N_VegTile,siteLAT,model_run_years,yr_ResetVeg,              &
+    outputhourly,outputdaily,Sc_prcp,CO2_c,                     &
+    do_U_shaped_mortality, update_annualLAImax, do_fire,        &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
-    do_WD_mort_function,Sc_prcp,CO2_c
+    do_WD_mort_function
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
 namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &

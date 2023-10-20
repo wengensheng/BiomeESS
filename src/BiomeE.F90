@@ -92,6 +92,15 @@ subroutine BiomeE_initialization()
   ! ---------------------- Read the namelist file -----------------
   call read_namelist(fnml)
 
+  !! Hack for closedN setting
+  !if(do_closedN_run) then
+  !  K_nitrogen = 0.0 ! rate of a year, 2.5
+  !  rho_SON    = 0.0 ! organic nitrogen release rate
+  !  etaN       = 0.0 ! Nitrogen loss rate with runoff
+  !  fDON       = 0.0 ! DON fraction
+  !  N_input    = 0.0 ! N input, kg N m-2 yr-1
+  !endif
+
   ! --------- Read forcing data ----------------------
   call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
@@ -211,8 +220,6 @@ subroutine BiomeE_run()
         call vegn_demographics(vegn,real(seconds_per_year))
 
         ! Case studies
-        ! N is losing after changing the soil pool structure. Hack !!!!!
-        if(do_closedN_run) call Recover_N_balance(vegn)
         ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
         if(do_migration) call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)

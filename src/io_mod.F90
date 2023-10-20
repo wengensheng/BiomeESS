@@ -297,9 +297,8 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      write(fno3,'(10(I5,","),1(F12.4,","),50(F12.4,","))') &
-            vegn%tileID,iyears,idoy,i, cc%ccID,cc%species,  &
-            cc%layer,cc%status, cc%ndm, cc%ncd,             &
+      write(fno3,'(8(I5,","),60(F12.4,","))')iyears,idoy,i, &
+            cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,    &
             cc%nindivs*10000, cc%layerfrac, cc%LAI,         &
             cc%dailygpp,cc%dailyresp,cc%dailytrsp,          &
             cc%NPPleaf,cc%NPProot,cc%NPPwood,               &
@@ -310,8 +309,8 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             cc%gdd,cc%ALT
     enddo
     !! Tile daily
-    write(fno4,'(3(I5,","),65(F12.4,","))')vegn%tileID,         &
-       iyears,idoy, vegn%tc_pheno, vegn%dailyPrcp, vegn%thetaS, &
+    write(fno4,'(2(I5,","),65(F12.4,","))')iyears,idoy,         &
+       vegn%tc_pheno, vegn%dailyPrcp, vegn%thetaS,              &
        vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,           &
        vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000.,   &
        vegn%wcl(3)*thksl(3)*1000.,                              &
@@ -322,7 +321,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
        vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,         &
        vegn%rootN*1000, vegn%SapwoodN *1000, vegn%WoodN *1000,  &
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),           &
-       vegn%mineralN*1000,vegn%dailyNup*1000,vegn%kp(1)
+       vegn%mineralN*1000,vegn%dailyNup*1000 !,vegn%kp(1)
   endif
 
   ! Update yearly and zero daily, cohorts
@@ -857,24 +856,24 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
     if(outputdaily)then
       open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
-      write(fno3,'(9(a6,","),45(a8,","))')'tile',      &  ! Daily cohort
-         'year','doy','c_No','cID','PFT','layer',      &
-         'Pheno','ndm','ncd','density','flayer','LAI', &
+      write(fno3,'(60(a8,","))')'year','doy',          &  ! Daily cohort
+         'c_No','PFT','layer','Pheno','ndm','ncd',     &
+         'density','flayer','LAI', &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
          'W_LF','W_SW','W_HW',                         &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
          'GDD','ALT'
       open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
-      write(fno4,'(2(a5,","),55(a10,","))')'tile','year',   &  ! Daily tile
-         'doy','Tc','Prcp','thetaS','Trsp', 'Evap','Roff',  &
+      write(fno4,'(2(a5,","),55(a10,","))')'year', 'doy',   &  ! Daily tile, 'tile',
+         'Tc','Prcp','thetaS','Trsp', 'Evap','Roff',        &
          'ws1','ws2','ws3','LAI','GPP','Rauto','Rh',        &
          'W_LF','W_SW','W_HW',                              &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
          'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
-         'mineralN', 'N_uptk','Kappa'
+         'mineralN', 'N_uptk' !,'Kappa'
     endif
 
     open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)

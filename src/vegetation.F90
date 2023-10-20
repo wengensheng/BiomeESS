@@ -16,8 +16,9 @@ module esdvm
  public :: kill_lowdensity_cohorts,kill_old_grass,vegn_mergecohorts
 
  !For specific experiments
- public :: vegn_fire, vegn_migration, vegn_species_switch, Recover_N_balance
- public :: vegn_annualLAImax_update,vegn_gap_fraction_update,reset_vegn_initial
+ public :: vegn_fire, vegn_migration, vegn_species_switch
+ public :: vegn_annualLAImax_update, vegn_gap_fraction_update
+ public :: reset_vegn_initial
 
  integer :: MaxCohortID = 0
 
@@ -45,8 +46,8 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   integer :: layer
 
   ! Climatic variable
-  tair   = forcing%Tair -273.16   ! degC
-  tsoil  = forcing%tsoil -273.16  ! degC
+  tair   = forcing%Tair  - 273.16   ! degC
+  tsoil  = forcing%tsoil - 273.16  ! degC
   thetaS = (vegn%wcl(2)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT)
 
   ! Water supply for leaves
@@ -3086,19 +3087,6 @@ subroutine vegn_gap_fraction_update(vegn)
   write(*,*)'PFT1_gap,PFT2_gap,f_keep',spdata(1)%f_cGap,spdata(2)%f_cGap,f_keep
 
 end subroutine vegn_gap_fraction_update
-
-!==========================================================================
- ! Hack !!!!!
- subroutine Recover_N_balance(vegn)
-   type(vegn_tile_type), intent(inout) :: vegn
-
-   vegn%totN = TotalN(vegn)
-   if(abs(vegn%totN-vegn%initialN0)*1000>0.001)then
-     vegn%SON(5) = vegn%SON(5) - vegn%totN + vegn%initialN0
-     vegn%totN =  vegn%initialN0
-   endif
-
- end subroutine
 
 !========================================================================
 !=====================Plant hydraulics testing codes, not used =============
