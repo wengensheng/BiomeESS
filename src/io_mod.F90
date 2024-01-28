@@ -381,12 +381,12 @@ end subroutine daily_diagnostics
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
     real :: plantC, plantN, soilC, soilN
     integer :: i,j,iyr_out
-#ifndef UFL_test
+!#ifndef UFL_test
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
       'n','f_CA','dD','DBH','NSC','Atrunk','Asap','Ktree', &
       'GPP','mu','Trsp','Demand','treeHU','treeW0'
-#endif
+!#endif
     ! Cohotrs ouput
     !if(index(climfile,'DBEN')==0) &
     !write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
@@ -440,14 +440,14 @@ end subroutine daily_diagnostics
 
 #endif
 
-#ifndef UFL_test
+!#ifndef UFL_test
         ! Screen output
         write(*,'(3(I4,","),1(F9.1,","),9(F9.3,","),10(F9.1,","))') &
           i,cc%species,cc%layer, &
           cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%nsc, &
           cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,   &
           cc%annualTrsp,cc%totDemand,cc%treeHU,cc%treeW0
-#endif
+!#endif
 
         end associate
     enddo
@@ -907,7 +907,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 #ifdef FACE_run
     write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile
          'CAI', 'LAI', 'GPP', 'Rauto', 'Rh',               &
-         'rain','SiolWater','Transp','Evap','Runoff',      &
+         'rain','SoilWater','Transp','Evap','Runoff',      &
          'plantC', 'soilC', 'plantN', 'soilN',             &
          'leafC', 'rootC', 'swC', 'hwC', 'SeedC', 'NSC',   &
          'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
@@ -918,7 +918,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
              'CAI','LAI','treecover', 'grasscover',            &
              'GPP', 'Rauto', 'Rh', 'burned',                   &
-             'rain','SiolWater','Transp','Evap','Runoff',      &
+             'rain','SoilWater','Transp','Evap','Runoff',      &
              'plantC', 'soilC', 'plantN', 'soilN',             &
              'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',   &
              'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',   &
