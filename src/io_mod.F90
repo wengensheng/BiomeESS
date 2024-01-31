@@ -185,6 +185,7 @@ subroutine Zero_diagnostics(vegn)
      cc%resg     = 0.0
      cc%transp   = 0.0
      !daily
+     cc%dailyWdmd = 0.0
      cc%dailyTrsp = 0.0
      cc%dailyGPP = 0.0
      cc%dailyNPP = 0.0
@@ -306,7 +307,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
             cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,      &
             cc%NSN*1000, cc%seedN*1000, cc%leafN*1000,      &
             cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,      &
-            cc%gdd,cc%ALT
+            cc%gdd,cc%ALT,cc%AWD
     enddo
     !! Tile daily
     write(fno4,'(2(I5,","),65(F12.4,","))')iyears,idoy,         &
@@ -335,6 +336,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
       cc%annualfixedN = cc%annualfixedN + cc%dailyfixedN
       cc%Aleafmax  = Max(cc%Aleafmax, cc%Aleaf)
       ! Zero Daily variables
+      cc%dailyWdmd = 0.0
       cc%dailyTrsp = 0.0
       cc%dailyGPP = 0.0
       cc%dailyNPP = 0.0
@@ -863,7 +865,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'W_LF','W_SW','W_HW',                         &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
-         'GDD','ALT'
+         'GDD','ALT','AWD'
       open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
       write(fno4,'(2(a5,","),55(a10,","))')'year', 'doy',   &  ! Daily tile, 'tile',
          'Tc','Prcp','thetaS','Trsp', 'Evap','Roff',        &

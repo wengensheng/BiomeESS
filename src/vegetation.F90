@@ -194,6 +194,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
          ! For UFL drought mortality
          Water_demand = wd * mol_h2o * cc%Aleaf * step_seconds ! Potential transp, kgH2O/(tree step)
          cc%totDemand = cc%totDemand + Water_demand
+         cc%dailyWdmd = cc%dailyWdmd + Water_demand
 
          !if(isnan(cc%gpp))cc%gpp=0.0
          if(isnan(cc%gpp))stop '"gpp" is a NaN'
@@ -903,6 +904,7 @@ subroutine vegn_phenology(vegn) ! daily step
       if(cc%status == LEAF_ON)then
          cc%ngd = Min(366, cc%ngd + 1)
          if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
+         if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1*(cc%dailyWdmd-cc%dailyTrsp)/cc%dailyWdmd
       else  ! cc%status == LEAF_OFF
          cc%ndm = cc%ndm + 1
          if(vegn%tc_pheno<T0_chill)then
@@ -938,6 +940,7 @@ subroutine vegn_phenology(vegn) ! daily step
           cc%gdd = 0.0
           cc%ncd = 0
           cc%ndm = 0
+          cc%AWD = 0.0 ! Accumulative water deficit ratio
       endif
 
       ! Reset grass density at the first day of a growing season
@@ -962,8 +965,10 @@ subroutine vegn_phenology(vegn) ! daily step
      ! Critical temperature trigering offset of phenology
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
-          ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or. &
-          (vegn%thetaS < sp%betaOFF .and. cc%NGD > Days_thld))
+          ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
+          !(vegn%thetaS < sp%betaOFF .or. cc%AWD > 0.3))      .and. & ! Drought-deciduous
+          ( cc%AWD > sp%AWD_crit))                           .and. & ! Drought-deciduous
+          cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate
 
      if(PhenoOFF )then
@@ -995,7 +1000,7 @@ subroutine vegn_tissue_turnover(vegn)
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
      ! leave turnover rate, fraction per day
-     alpha_L = MIN(.2,Max(2.*cc%leafage/sp%leafLS-1.,0.))
+     alpha_L = MIN(.2, Max(2.*cc%leafage/sp%leafLS-1., 0.))
 
      ! Stem turnover
      if(sp%lifeform == 0)then
@@ -1034,12 +1039,12 @@ subroutine vegn_tissue_turnover(vegn)
      cc%sapwN = cc%sapwN - dNStem
      cc%rootN = cc%rootN - dNR
 
-     !    update leaf area and LAI
-     cc%Aleaf= BL2Aleaf(cc%bl,cc)
-     cc%lai     = cc%Aleaf/(cc%Acrown *(1.0-sp%f_cGap))
-     cc%Aleafmax  = Max(cc%Aleafmax, cc%Aleaf)
+     ! update leaf area and LAI
+     cc%Aleaf = BL2Aleaf(cc%bl,cc)
+     cc%lai   = cc%Aleaf/(cc%Acrown *(1.0-sp%f_cGap))
+     cc%Aleafmax = Max(cc%Aleafmax, cc%Aleaf)
 
-     !    update NPP for leaves, fine roots, and wood
+     ! update NPP for leaves, fine roots, and wood
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
      cc%NPProot = cc%NPProot - l_fract * dBR
      cc%NPPwood = cc%NPPwood - l_fract * dBStem
@@ -1475,10 +1480,10 @@ subroutine vegn_annual_starvation (vegn)
        deathrate = 0.0
        !if (cc%bsw<0 .or. cc%nsc < 0.00001*cc%bl_max .OR.(cc%layer >1 .and. sp%lifeform ==0)) then
        !if (cc%nsc < 0.01*cc%bl_max .OR. cc%annualNPP < 0.0) then ! .OR. cc%NSN < 0.01*cc%bl_max/sp%CNleaf0
-       if (cc%nsc < 0.01*cc%bl_max) then !  .OR. cc%annualNPP < 0.0, annualNPP < 0 is for grasses only
+       if (cc%nsc < 0.0001*cc%bl_max) then !  .OR. cc%annualNPP < 0.0, annualNPP < 0 is for grasses only
            deathrate = 1.0
            deadtrees = cc%nindivs * deathrate !individuals / m2
-           write(*,*)"Yearly starvation: cNo., PFT:",i,cc%species
+           write(*,*)"Yearly starvation: cNo., PFT:",i,cc%species,deathrate
            ! Carbon and Nitrogen from plants to soil pools
            call plant2soil(vegn,cc,deadtrees)
            ! update cohort individuals
@@ -1541,6 +1546,8 @@ real function mortality_rate(cc) result(mu) ! per year
   real :: mu_hydro = 0.0  ! Hydraulic failure
 
   !---------------------
+  mu_bg    = 0.0  ! Background mortality rate
+  mu_hydro = 0.0
   associate ( sp => spdata(cc%species))
     n = MIN(cc%Nrings, Ysw_max)
     f_L = sp%A_un * SQRT(Max(0.0, cc%layer-1.0)) ! Layer effects (0~ infinite)
@@ -1562,7 +1569,11 @@ real function mortality_rate(cc) result(mu) ! per year
   end associate
   ! Return mortality rate:
 #ifdef UFL_test
-  cc%w_scale = cc%annualTrsp/cc%totDemand
+  if(cc%totDemand>0.00001)then
+    cc%w_scale = cc%annualTrsp/cc%totDemand
+  else
+    cc%w_scale = 1.0
+  endif
   mu = mu_bg + (0.5 - mu_bg)/(1+exp(-20.0*(1.0-cc%w_scale) + alphaDrought))
 #else
   mu = mu_bg + mu_hydro - mu_bg * mu_hydro ! Add hydraulic failure

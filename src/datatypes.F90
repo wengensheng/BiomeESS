@@ -163,6 +163,7 @@ type spec_data_type
   real :: gdd_par3
   real :: betaON       ! Critical soil moisture for phenology ON
   real :: betaOFF      ! Critical soil moisture for phenology OFF
+  real :: AWD_crit     ! Critical plant water deficit, transp/W_demand
   !  vital rates
   real :: AgeRepro     ! the age that can reproduce
   real :: v_seed       ! fracton of G_SF to G_F
@@ -197,6 +198,7 @@ type :: cohort_type
   integer :: species= 0   ! PFT type
   real :: gdd       = 0.0 ! for phenology
   real :: ALT       = 0.0 ! growing season accumulative cold temperature
+  real :: AWD       = 0.0 ! Accumulative water deficit (Demand - Transp)/Demand
   integer :: Ngd    = 0   ! growing days
   integer :: Ndm    = 0   ! dormant days
   integer :: Ncd    = 0   ! number of cold days in non-growing season
@@ -268,7 +270,8 @@ type :: cohort_type
 
   ! for diagnostics
   real :: Aleafmax = 0.0  ! Yearly maximum leaf area
-  real :: dailyTrsp
+  real :: dailyTrsp ! Daily transpiration
+  real :: dailyWdmd ! Plant water demand
   real :: dailyGPP   ! kgC/tree day-1
   real :: dailyNPP
   real :: dailyResp
@@ -664,6 +667,7 @@ real :: gamma_FR(0:MSPECIES)= 0.6 ! 12 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 real :: tc_crit_off(0:MSPECIES)= 15. ! 283.16 ! OFF ! C for convenience
 real :: tc_crit_on(0:MSPECIES) = 10. ! 280.16 ! ON  ! C for convenience
 real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
+real :: AWD_crit(0:MSPECIES)= 0.3  ! Critical plant water deficit factor (0~1)
 real :: betaON(0:MSPECIES)  = 0.2  ! Critical soil moisture for phenology ON
 real :: betaOFF(0:MSPECIES) = 0.1  ! Critical soil moisture for phenology OFF
 real :: gdd_par1(0:MSPECIES) = 30.0   !50.d0   ! -68.d0
@@ -798,7 +802,7 @@ namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
   NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
   retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
   ! Phenology
-  gdd_crit,tc_crit_off,tc_crit_on,betaON,betaOFF,                     &
+  gdd_crit,tc_crit_off,tc_crit_on,betaON,betaOFF,AWD_crit,            &
   T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
@@ -896,6 +900,7 @@ subroutine initialize_PFT_data()
   spdata%gdd_par3    = gdd_par3
   spdata%betaON      = betaON
   spdata%betaOFF     = betaOFF
+  spdata%AWD_crit    = AWD_crit
 
   ! Plant traits
   spdata%LMA        = LMA      ! leaf mass per unit area, kg C/m2
