@@ -311,10 +311,9 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
     enddo
     !! Tile daily
     write(fno4,'(2(I5,","),65(F12.4,","))')iyears,idoy,         &
-       vegn%tc_pheno, vegn%dailyPrcp, vegn%thetaS,              &
-       vegn%dailyTrsp, vegn%dailyEvap,vegn%dailyRoff,           &
-       vegn%wcl(1)*thksl(1)*1000.,vegn%wcl(2)*thksl(2)*1000.,   &
-       vegn%wcl(3)*thksl(3)*1000.,                              &
+       vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
+       vegn%dailyEvap,vegn%dailyRoff,                           &
+       vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
        vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh,    &
        vegn%W_leaf,vegn%W_stem,vegn%W_dead,                     &
        vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,            &
@@ -387,7 +386,7 @@ end subroutine daily_diagnostics
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
       'n','f_CA','dD','DBH','NSC','Atrunk','Asap','Ktree', &
-      'GPP','mu','Trsp','Demand','treeHU','treeW0'
+      'GPP','mu','W_scale','treeHU','treeW0'
 !#endif
     ! Cohotrs ouput
     !if(index(climfile,'DBEN')==0) &
@@ -444,11 +443,11 @@ end subroutine daily_diagnostics
 
 !#ifndef UFL_test
         ! Screen output
-        write(*,'(3(I4,","),1(F9.1,","),9(F9.3,","),10(F9.1,","))') &
+        write(*,'(3(I4,","),1(F9.1,","),10(F9.3,","),10(F9.1,","))') &
           i,cc%species,cc%layer, &
           cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%nsc, &
           cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,   &
-          cc%annualTrsp,cc%totDemand,cc%treeHU,cc%treeW0
+          cc%annualTrsp/cc%totDemand,cc%treeHU,cc%treeW0
 !#endif
 
         end associate
@@ -860,7 +859,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
       write(fno3,'(60(a8,","))')'year','doy',          &  ! Daily cohort
          'c_No','PFT','layer','Pheno','ndm','ncd',     &
-         'density','flayer','LAI', &
+         'density','flayer','LAI',                     &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
          'W_LF','W_SW','W_HW',                         &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
@@ -868,8 +867,9 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'GDD','ALT','AWD'
       open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
       write(fno4,'(2(a5,","),55(a10,","))')'year', 'doy',   &  ! Daily tile, 'tile',
-         'Tc','Prcp','thetaS','Trsp', 'Evap','Roff',        &
-         'ws1','ws2','ws3','LAI','GPP','Rauto','Rh',        &
+         'Tc','Prcp','Trsp', 'Evap','Roff',                 &
+         'WaterS','thetaS','wc1','wc2','wc3','wc4','wc5',   &
+         'LAI','GPP','Rauto','Rh',                          &
          'W_LF','W_SW','W_HW',                              &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
@@ -896,7 +896,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'demandW','Asap','Ktree','treeHU','treeW0'
 
 #else
-    write(fno5,'(4(a5,","),40(a7,","))')        &    ! Yearly cohort
+    write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
       'tile','yr','cNo.','cID', 'PFT','layer',          &
       'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
       'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
@@ -905,6 +905,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'Atrunk','Asap','Ktree','treeHU','treeW0',        &
       'farea1','farea2','farea3','farea4','farea5'
 #endif
+
     open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
 #ifdef FACE_run
     write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile

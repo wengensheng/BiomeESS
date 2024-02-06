@@ -1544,10 +1544,12 @@ real function mortality_rate(cc) result(mu) ! per year
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
   real :: mu_bg    = 0.0  ! Background mortality rate
   real :: mu_hydro = 0.0  ! Hydraulic failure
+  real :: d_drought, mu_drought ! for UFL drought mortality
 
   !---------------------
   mu_bg    = 0.0  ! Background mortality rate
   mu_hydro = 0.0
+  mu_drought = 0.0
   associate ( sp => spdata(cc%species))
     n = MIN(cc%Nrings, Ysw_max)
     f_L = sp%A_un * SQRT(Max(0.0, cc%layer-1.0)) ! Layer effects (0~ infinite)
@@ -1574,7 +1576,11 @@ real function mortality_rate(cc) result(mu) ! per year
   else
     cc%w_scale = 1.0
   endif
-  mu = mu_bg + (0.5 - mu_bg)/(1+exp(-20.0*(1.0-cc%w_scale) + alphaDrought))
+  d_drought = 1.0-cc%w_scale
+  mu_drought = 1.0/(1.0 + exp(-20.0*d_drought + alphaDrought))
+  !mu = mu_bg + (0.5 - mu_bg) * mu_drought ! 1.0/(1+exp(-20.0*d_drought + alphaDrought))
+  mu = mu_bg + (1.0 - mu_bg) * mu_drought
+  !write(*,*)"w_scale,mu_drought,mu",cc%w_scale,mu_drought,mu
 #else
   mu = mu_bg + mu_hydro - mu_bg * mu_hydro ! Add hydraulic failure
 #endif
@@ -1668,8 +1674,13 @@ subroutine vegn_hydraulic_states(vegn, deltat)
          cc%treeHU   = cc%treeHU + funcA * cc%accH(k)
          cc%treeW0   = cc%treeW0 + funcA * cc%WTC0(k)
        enddo
-       call calculate_Asap_Ktrunk (cc) ! Update Asap and Ktrunk
      end associate
+
+     ! Update Asap and Ktrunk
+     call calculate_Asap_Ktrunk (cc)
+
+     ! This year's mortality rate, calculation only, for output
+     cc%mu = mortality_rate(cc)
   enddo
 #ifndef GrowthOFF
      call vegn_SW2HW_hydro(vegn)
