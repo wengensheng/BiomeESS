@@ -178,6 +178,7 @@ type spec_data_type
   real :: A_DBH        ! Max mulitplier for DBH-based mortality
   real :: B_DBH        ! Sensitivity to dbh
   real :: s_hu         ! hydraulic mortality sensitivity
+  real :: W_mu0        ! Half-mortality transp deficit ratio, 0.5, 0.75, 2.5
   ! Population level variables
   real :: LAImax    ! max. LAI
   real :: LAImax_u  ! max. LAI understorey
@@ -198,7 +199,7 @@ type :: cohort_type
   integer :: species= 0   ! PFT type
   real :: gdd       = 0.0 ! for phenology
   real :: ALT       = 0.0 ! growing season accumulative cold temperature
-  real :: AWD       = 0.0 ! Accumulative water deficit (Demand - Transp)/Demand
+  real :: AWD       = 1.0 ! Accumulative water deficit (Demand - Transp)/Demand
   integer :: Ngd    = 0   ! growing days
   integer :: Ndm    = 0   ! dormant days
   integer :: Ncd    = 0   ! number of cold days in non-growing season
@@ -552,12 +553,6 @@ real :: fplc0_WD = 1.0     ! Fraction of WTC loss at low PLC at zero WD
 real :: A_plc0_WD= -3.0    ! Parameter in f_plc = fplc0_WD * exp(A*R_WD)
 real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 
-! Mortality as a function of wood density
-real :: A_mort   = 0.2    ! mu = A_mort *exp(B_mort*WD/WDref)
-real :: B_mort   = -2.1
-real :: alphaDrought = 50.0 ! UFL: sensitivity of mortality to drought,
-                            ! infinite: no effect, 15: medium, 10: high
-
 ! Phenology parameters
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
 real :: T0_gdd   = 5.0 ! 5.d0
@@ -667,7 +662,7 @@ real :: gamma_FR(0:MSPECIES)= 0.6 ! 12 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 real :: tc_crit_off(0:MSPECIES)= 15. ! 283.16 ! OFF ! C for convenience
 real :: tc_crit_on(0:MSPECIES) = 10. ! 280.16 ! ON  ! C for convenience
 real :: gdd_crit(0:MSPECIES)= 300. ! 280.0 !
-real :: AWD_crit(0:MSPECIES)= 0.3  ! Critical plant water deficit factor (0~1)
+real :: AWD_crit(0:MSPECIES)= 0.7  ! Critical plant water availability factor (0~1)
 real :: betaON(0:MSPECIES)  = 0.2  ! Critical soil moisture for phenology ON
 real :: betaOFF(0:MSPECIES) = 0.1  ! Critical soil moisture for phenology OFF
 real :: gdd_par1(0:MSPECIES) = 30.0   !50.d0   ! -68.d0
@@ -689,6 +684,7 @@ real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
 real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality
 real :: B_DBH(0:MSPECIES)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
 real :: s_hu(0:MSPECIES)     = -25.0 ! hydraulic mortality sensitivity
+real :: W_mu0(0:MSPECIES)    = 0.5 ! Jeremy's half-mortality transp deficit, 0.5, 0.75, 2.5
 
 ! Plant hydraulics parameters
 real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
@@ -789,7 +785,7 @@ namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &
      alphaSoil,heat_capacity_dry
 
 ! --------- Vegetation parameter name list ---------
-namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
+namelist /vegn_parameters_nml/  diff_S0,                              &
   pt, phenotype, lifeform,                                            &
   alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,f_taper,f_cGap,     &
   ! Leaf
@@ -806,7 +802,7 @@ namelist /vegn_parameters_nml/  diff_S0, alphaDrought,                &
   T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
-  r0mort_c,D0mu,A_un,A_sd,B_sd,A_mort,B_mort,A_DBH, B_DBH,s_hu,       &
+  r0mort_c,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,                &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
   ! Plant hydraulics
@@ -928,6 +924,7 @@ subroutine initialize_PFT_data()
   spdata%A_DBH    = A_DBH
   spdata%B_DBH    = B_DBH
   spdata%s_hu     = s_hu
+  spdata%W_mu0    = W_mu0
   spdata%rho_wood = rho_wood
   spdata%f_taper  = f_taper
   spdata%kx0      = kx0
@@ -1022,7 +1019,6 @@ subroutine initialize_PFT_data()
 
    ! Mortality rate as a function of wood density
    if(do_WD_mort_function)then
-      !sp%r0mort_c = A_mort * exp(B_mort*R_WD)
       sp%r0mort_c = 0.048 - 0.024 * R_WD
    endif
    !write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%r0mort_c

@@ -107,16 +107,174 @@ subroutine vegn_demographics(vegn, deltat)
   !call vegn_sum_tile(vegn)
   !totN0 = TotalN(vegn)
 
+#ifdef SingleTreeTest
+  call vegn_reprod_samesized(vegn)
+  call vegn_Wood_turnover(vegn)
+  call vegn_selfthinning(vegn)
+#else
 #ifndef DemographyOFF
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
   call vegn_reproduction(vegn)
 #endif
+#endif
 
   !call check_N_conservation(vegn,totalN1,'annual')
 
 end subroutine vegn_demographics
+
+!================ For single cohort test 02/21/2024 =====================
+!========================================================================
+subroutine vegn_reprod_samesized(vegn)
+  ! This subroutine only generates the exact same individuals as parents
+  ! Annual time step. (02/21/2024)
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !-----local--------
+  type(cohort_type), pointer :: cc ! parent and child cohort pointers
+  integer :: i
+  real :: plantC, plantN
+  real :: n_new, n_newC, n_newN
+  real :: N_demand, N_left, C_demand, C_left
+
+  !--------- Reproduction ---------------
+  !looping through cohorts and convert their C_seed to plants
+  !by increasing cc%n
+  ! Looping through all cohorts
+  do i=1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     !Carbon content of a current individual of this cohort
+     plantC = cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc
+     plantN = cc%leafN+cc%rootN+cc%sapwN+cc%woodN+cc%NSN
+     n_newC  = cc%seedC * cc%nindivs / plantC
+     n_newN  = cc%seedN * cc%nindivs / plantN
+     n_new = min(n_newC, n_newN)
+
+     N_demand = n_new * plantN
+     C_demand = n_new * plantC
+     N_left = cc%seedN * cc%nindivs - N_demand
+     C_left = cc%seedC * cc%nindivs - C_demand
+
+     ! Update density and seed pools
+     if(n_new > 0.0)then
+        cc%nindivs  = cc%nindivs + n_new
+        cc%NSN = cc%NSN + N_left/cc%nindivs ! put the left N back to NSN pool
+        cc%NSC = cc%NSC + C_left/cc%nindivs
+        cc%seedC = 0.0
+        cc%seedN = 0.0
+     endif
+  enddo
+end subroutine vegn_reprod_samesized
+
+!========================================================================
+subroutine vegn_Wood_turnover(vegn)
+  ! Mortality for the single cohort test, 02/21/2024
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !-------local var----------
+  type(cohort_type), pointer :: cc    ! current cohort
+  real :: loss_coarse, lossN_coarse, loss_fine, lossN_fine
+  real :: alpha_WD ! turnover rate, fraction per day
+  real :: dCSW, dCHW, dNHW, dNSW  ! Turnover of tissues
+  real :: dAleaf, dBL,dBR,dNL,dNR
+  integer :: i
+
+  ! update plant carbon and nitrogen for all cohorts
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate ( sp => spdata(cc%species) )
+
+     ! Wood turnover
+     alpha_WD = mortality_rate(cc)
+     dCSW = cc%bsw   * alpha_WD
+     dNSW = cc%sapwN * alpha_WD
+     dCHW = cc%bHW   * alpha_WD
+     dNHW = cc%woodN * alpha_WD
+
+     ! Update plant C and N pools
+     cc%bsw    = cc%bsw   - dCSW
+     cc%bHW    = cc%bHW   - dCHW
+     cc%sapwN  = cc%sapwN - dNSW
+     cc%woodN  = cc%woodN - dNHW
+
+     !! update plant architecture given increase of bsw
+     call BM2Architecture(cc, cc%bsw+cc%bHW)
+
+     ! Update bl_max, br_max, and NSNmax with shifts from understory to the top layer
+     call update_max_LFR_NSN(cc)
+
+     ! Update leaves and fine roots
+     dBL = max(0.0, cc%bl - cc%bl_max)
+     dBR = max(0.0, cc%br - cc%br_max)
+     dNL = dBL/sp%CNleaf0
+     dNR = dBR/sp%CNroot0
+
+     cc%bl    = cc%bl    - dBL
+     cc%br    = cc%br    - dBR
+     cc%leafN = cc%leafN - dNL
+     cc%rootN = cc%rootN - dNR
+
+     ! Update leaf area and LAI
+     cc%Aleaf = BL2Aleaf(cc%bl,cc)
+     cc%lai   = cc%Aleaf/(cc%Acrown *(1.0-sp%f_cGap))
+
+     ! put C and N into soil pools
+     dAleaf = BL2Aleaf(dBL,cc)
+     loss_coarse  = (1.-l_fract) * cc%nindivs * (dBL - dAleaf * LMAmin + dCSW + dCHW)
+     loss_fine    = (1.-l_fract) * cc%nindivs * (dBR + dAleaf * LMAmin)
+     lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNSW + dNHW)
+     lossN_fine   = (1.-retransN)* cc%nindivs * (dNR + dAleaf * sp%LNbase)
+
+     vegn%SOC(1) = vegn%SOC(1)   +  &
+                   fsc_fine * loss_fine + fsc_wood * loss_coarse
+     vegn%SOC(2) = vegn%SOC(2) +  &
+                   ((1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse)
+     vegn%SON(1)  = vegn%SON(1) +    &
+                   fsc_fine * lossN_fine + fsc_wood * lossN_coarse
+     vegn%SON(2) = vegn%SON(2) + &
+                   (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
+
+     !    annual N from plants to soil
+     vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
+
+    END ASSOCIATE
+  enddo
+end subroutine vegn_Wood_turnover
+
+!========================================================================
+subroutine vegn_selfthinning(vegn)
+  ! Selfthinning removes the individuals that cannot be hold.
+  ! Daily time step. 02/21/2024
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !-----local--------
+  type(cohort_type), pointer :: cc ! parent and child cohort pointers
+  real  :: totalCA, CAcrown, dn
+  integer :: L = 1
+
+  totalCA  = 0.d0
+  do i=1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     associate (sp => spdata(cc%species) )
+       CAcrown  = (1.0 + sp%f_cGap) * cc%Acrown
+       totalCA  = totalCA + cc%nindivs * CAcrown
+       cc%layer = L
+       if(totalCA .gt. L) then
+           ! selfthinning
+           dn = MIN(cc%nindivs,(totalCA - L) / CAcrown)
+           ! Kill some trees in this cohort to let totalCA = L
+           cc%nindivs = cc%nindivs - dn
+           totalCA = totalCA - dn * CAcrown
+           ! Put the dead trees carbon to soil pools, pp%Tpool (1,12,1)
+           call plant2soil(vegn,cc,dn)
+       endif
+     end associate
+  enddo
+end subroutine vegn_selfthinning
+!========================================================================
 
 !=============== Plant physiology =======================================
 !=============== Hourly subroutines =====================================
@@ -904,7 +1062,7 @@ subroutine vegn_phenology(vegn) ! daily step
       if(cc%status == LEAF_ON)then
          cc%ngd = Min(366, cc%ngd + 1)
          if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
-         if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1*(cc%dailyWdmd-cc%dailyTrsp)/cc%dailyWdmd
+         if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1 * (cc%dailyTrsp/cc%dailyWdmd)
       else  ! cc%status == LEAF_OFF
          cc%ndm = cc%ndm + 1
          if(vegn%tc_pheno<T0_chill)then
@@ -940,7 +1098,7 @@ subroutine vegn_phenology(vegn) ! daily step
           cc%gdd = 0.0
           cc%ncd = 0
           cc%ndm = 0
-          cc%AWD = 0.0 ! Accumulative water deficit ratio
+          cc%AWD = 1.0 ! Accumulative water available ratio
       endif
 
       ! Reset grass density at the first day of a growing season
@@ -966,8 +1124,8 @@ subroutine vegn_phenology(vegn) ! daily step
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
           ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          !(vegn%thetaS < sp%betaOFF .or. cc%AWD > 0.3))      .and. & ! Drought-deciduous
-          ( cc%AWD > sp%AWD_crit))                           .and. & ! Drought-deciduous
+          !(vegn%thetaS < sp%betaOFF .or. cc%AWD < 0.7))      .and. & ! Drought-deciduous
+          ( cc%AWD < sp%AWD_crit))                           .and. & ! Drought-deciduous
           cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate
 
@@ -976,6 +1134,7 @@ subroutine vegn_phenology(vegn) ! daily step
         cc%gdd = 0.0          ! Start to count a new cycle of GDD
         cc%ngd = 0
         cc%ALT = 0.0
+        cc%AWD = 1.0 ! Accumulative water available ratio
      endif
      ! leaf fall
      call Seasonal_fall(cc,vegn)
@@ -1018,8 +1177,6 @@ subroutine vegn_tissue_turnover(vegn)
      dBR    = cc%br    * alpha_R
      dNR    = cc%rootN * alpha_R
 
-     dAleaf = BL2Aleaf(dBL,cc)
-
      !    Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
      cc%NSN = cc%NSN + retransN * (dNL + dNR + dNStem)
@@ -1050,6 +1207,7 @@ subroutine vegn_tissue_turnover(vegn)
      cc%NPPwood = cc%NPPwood - l_fract * dBStem
 
      !    put C and N into soil pools
+     dAleaf = BL2Aleaf(dBL,cc)
      loss_coarse  = (1.-l_fract) * cc%nindivs * (dBL - dAleaf * LMAmin    + dBStem)
      loss_fine    = (1.-l_fract) * cc%nindivs * (dBR + dAleaf * LMAmin)
      lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNStem)
@@ -1542,9 +1700,10 @@ real function mortality_rate(cc) result(mu) ! per year
   !-------local var -------------
   integer :: n ! the latest ring
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
-  real :: mu_bg    = 0.0  ! Background mortality rate
-  real :: mu_hydro = 0.0  ! Hydraulic failure
-  real :: d_drought, mu_drought ! for UFL drought mortality
+  real :: mu_bg      ! Background mortality rate
+  real :: mu_hydro   ! Hydraulic failure
+  real :: mu_drought ! for UFL drought mortality
+  real :: mu_add
 
   !---------------------
   mu_bg    = 0.0  ! Background mortality rate
@@ -1568,22 +1727,19 @@ real function mortality_rate(cc) result(mu) ! per year
     !mu_hydro = Max(0., 1. - cc%Asap/cc%Acrown/(sp%LAImax*sp%phiCSA))
 #endif
 
-  end associate
-  ! Return mortality rate:
 #ifdef UFL_test
   if(cc%totDemand>0.00001)then
     cc%w_scale = cc%annualTrsp/cc%totDemand
   else
     cc%w_scale = 1.0
   endif
-  d_drought = 1.0-cc%w_scale
-  mu_drought = 1.0/(1.0 + exp(-20.0*d_drought + alphaDrought))
-  !mu = mu_bg + (0.5 - mu_bg) * mu_drought ! 1.0/(1+exp(-20.0*d_drought + alphaDrought))
-  mu = mu_bg + (1.0 - mu_bg) * mu_drought
-  !write(*,*)"w_scale,mu_drought,mu",cc%w_scale,mu_drought,mu
-#else
-  mu = mu_bg + mu_hydro - mu_bg * mu_hydro ! Add hydraulic failure
+  mu_drought = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
 #endif
+
+  ! Total mortality rate:
+  mu_add = mu_hydro + mu_drought - mu_hydro*mu_drought
+  mu = mu_bg + (1.0 - mu_bg) * mu_add
+  end associate
 
 end function mortality_rate
 

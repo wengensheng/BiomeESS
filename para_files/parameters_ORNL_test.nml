@@ -44,7 +44,7 @@ LAI_light   = 3.5,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limi
 Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
 NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
 phiCSA      = 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, ! ratio of Asap/Acrown
-r0mort_c    = 0.02,    0.024,   0.024,   0.024,   0.024,   0.024,   ! canopy tree mortality rate, year-1
+r0mort_c    = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    ! canopy tree mortality rate, year-1
 A_sd        = 4.0,     9.0,     9.0,     9.0,     9.0,     9.0,     ! Seedling mortality parameter
 AgeRepro    = 0,       5,       5,       5,       5,       5
 /
@@ -53,7 +53,7 @@ AgeRepro    = 0,       5,       5,       5,       5,       5
 !!   plant
 init_n_cohorts      = 1, ! total 5
 init_cohort_species = 3,    2,    1,    4,    5,
-init_cohort_nindivs = .001, .001, .001, .001, .001,
+init_cohort_nindivs = .002, .001, .001, .001, .001,
 init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.5,  0.5,  0.5,  0.5,  0.5,
@@ -69,11 +69,11 @@ N_input             = 20.E-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/',
-runID       = 'ORNL_test', ! Output file name
+runID       = 'ORNL_test_ST', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years     =  600, ! 1600,
+model_run_years     =  1200, ! 1600,
 outputhourly        =  .True.  ! .False. !
 outputdaily         =  .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
