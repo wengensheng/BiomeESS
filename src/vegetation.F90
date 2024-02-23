@@ -12,6 +12,7 @@ module esdvm
  public :: initialize_vegn_tile,vegn_sum_tile
  public :: vegn_phenology
  public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics
+ public :: vegn_SingleCohort_annual_update
  public :: relayer_cohorts, vegn_hydraulic_states, vegn_SW2HW_hydro
  public :: kill_lowdensity_cohorts,kill_old_grass,vegn_mergecohorts
 
@@ -76,10 +77,10 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   call vegn_respiration(forcing,vegn)
 
   ! Soil organic matter decomposition
-   call Soil_BGC(vegn, forcing%tsoil, thetaS)
+  call Soil_BGC(vegn, forcing%tsoil, thetaS)
 
   !! Nitrogen uptake
-   call vegn_N_uptake(vegn, forcing%tsoil)
+  call vegn_N_uptake(vegn, forcing%tsoil)
 
 end subroutine vegn_CNW_budget_fast
 
@@ -106,23 +107,24 @@ subroutine vegn_demographics(vegn, deltat)
   !! Total N balance checking
   !call vegn_sum_tile(vegn)
   !totN0 = TotalN(vegn)
-
-#ifdef SingleTreeTest
-  call vegn_reprod_samesized(vegn)
-  call vegn_Wood_turnover(vegn)
-  call vegn_selfthinning(vegn)
-#else
 #ifndef DemographyOFF
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
   call vegn_reproduction(vegn)
 #endif
-#endif
-
   !call check_N_conservation(vegn,totalN1,'annual')
 
 end subroutine vegn_demographics
+
+!========================================================================
+subroutine vegn_SingleCohort_annual_update(vegn)
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  call vegn_reprod_samesized(vegn)
+  call vegn_Wood_turnover(vegn)
+  call vegn_selfthinning(vegn)
+end subroutine vegn_SingleCohort_annual_update
 
 !================ For single cohort test 02/21/2024 =====================
 !========================================================================
@@ -239,6 +241,18 @@ subroutine vegn_Wood_turnover(vegn)
      !    annual N from plants to soil
      vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
 
+     ! Update plant hydraulic states
+     call Update_cohort_vars(cc)
+     call Plant_water2psi_exp(cc)
+
+#ifdef Hydro_test
+     ! Assume water in plants goes to first layer of soil
+     vegn%wcl(1) = vegn%wcl(1) + cc%nindivs * &
+                   (cc%W_leaf * dBL /(cc%bl +dBL) + &
+                    cc%W_stem * dCSW/(cc%bsw+dCSW)+ &
+                    cc%W_dead * dCHW/(cc%bhw+dCHW))/(thksl(1)*1000.0)
+#endif
+
     END ASSOCIATE
   enddo
 end subroutine vegn_Wood_turnover
@@ -265,6 +279,8 @@ subroutine vegn_selfthinning(vegn)
        if(totalCA .gt. L) then
            ! selfthinning
            dn = MIN(cc%nindivs,(totalCA - L) / CAcrown)
+           ! Record the actual mortality rate for output
+           cc%mu = mortality_rate(cc) + dn/cc%nindivs
            ! Kill some trees in this cohort to let totalCA = L
            cc%nindivs = cc%nindivs - dn
            totalCA = totalCA - dn * CAcrown
@@ -833,7 +849,7 @@ subroutine vegn_growth(vegn)
   real :: Cgrowth, Ngrowth
   real :: dBL, dBR, dBSW, dSeed ! growth of leaf, root, sapwood, and seeds, kgC/individual
   real :: DBH0 ! the DBH before grwoth
-  real :: N_demand, Nsupplyratio, extraN
+  real :: N_demand, Nsupplyratio, extraN, N_used
   real :: r_N_SD
   integer :: i,j,k
 
@@ -905,7 +921,16 @@ subroutine vegn_growth(vegn)
       endif
       cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
       cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
-#ifndef GrowthOFF
+#ifdef GrowthOFF
+      ! Update NSN
+      N_used = dBL/sp%CNleaf0+dBR/sp%CNroot0+dSeed/sp%CNseed0+dBSW/sp%CNsw0
+      cc%NSN = cc%NSN - N_used
+      ! Put the C and N to soil directly
+      vegn%SOC(1) = vegn%SOC(1) + cc%nindivs * (dBL+dBR+dSeed)
+      vegn%SOC(2) = vegn%SOC(2) + cc%nindivs * dBSW
+      vegn%SON(1) = vegn%SON(1) + cc%nindivs * (N_used - dBSW/sp%CNsw0)
+      vegn%SON(2) = vegn%SON(2) + cc%nindivs * dBSW/sp%CNsw0
+#else
       !update biomass pools
       cc%bl    = cc%bl    + dBL
       cc%br    = cc%br    + dBR
@@ -1608,7 +1633,7 @@ subroutine vegn_nat_mortality (vegn, deltat)
      cc => vegn%cohorts(i)
 
      cc%mu = mortality_rate(cc)
-     if(cc%mu>=0.9) write(*,*)"Bulk motality happens!!!",cc%species,i
+     !if(cc%mu>=0.9) write(*,*)"Bulk motality happens!!!",cc%species,i
      !deadtrees = cc%nindivs*(1.0-exp(0.0-cc%mu*deltat/seconds_per_year)) ! individuals / m2
      deadtrees = cc%nindivs * cc%mu * deltat/seconds_per_year ! individuals / m2
      ! Carbon and Nitrogen from dead plants to soil pools
