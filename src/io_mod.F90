@@ -493,7 +493,8 @@ endif
 
 !========================================================================
 ! read in forcing data (Users need to write their own data input procedure)
-subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
+subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timestep)
+   character(len=*),intent(in) :: fdata
    type(climate_data_type),pointer,intent(inout) :: forcingData(:)
    integer,intent(inout) :: datalines,days_data,yr_data
    real, intent(inout)   :: timestep
@@ -511,7 +512,7 @@ subroutine read_FACEforcing(forcingData,datalines,days_data,yr_data,timestep)
    integer :: m,n,i
 
    ! Open forcing data
-   climfile=trim(filepath_in)//trim(climfile)
+   climfile=trim(filepath_in)//trim(fdata)
    ! Check whether file exists
    inquire (file=climfile, iostat=istat2)
    if (istat2 /= 0) then

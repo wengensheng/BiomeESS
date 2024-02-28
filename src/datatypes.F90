@@ -731,6 +731,7 @@ character(len=80) :: filepath_in = './input/'
 character(len=80) :: filepath_out = './output/'
 character(len=80) :: runID = 'test'
 character(len=160) :: climfile = 'ORNL_forcing.txt'
+character(len=160) :: Scefile = 'ORNL_forcing.txt'
 integer  :: N_VegTile = 1 ! Initial vegn tiles
 integer  :: datalines ! the total lines in forcing data file
 integer  :: StartLine = 1 ! the first step model run start with, for UFL only
@@ -772,7 +773,7 @@ namelist /initial_state_nml/ &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
-    filepath_in,filepath_out,runID,climfile,StartLine,          &
+    filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,              &
     outputhourly,outputdaily,Sc_prcp,CO2_c,                     &
     do_U_shaped_mortality, update_annualLAImax, do_fire,        &

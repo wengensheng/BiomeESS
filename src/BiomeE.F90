@@ -69,11 +69,32 @@ module BiomeE_mod
 !================== BiomeE Driver ===========================================
  subroutine BiomeE_main() ! Weng 03/20/2023, main BiomeE module
   implicit none
+  !=============== Namelist file (must be hardwired) ===============
+  character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
+  call read_namelist(fnml)
+  call read_forcingdata(climfile)
   call BiomeE_initialization()
   call BiomeE_run()
   call BiomeE_end()
 end subroutine BiomeE_main
+
+! --------- Read forcing data ----------------------
+subroutine read_forcingdata(fdata)
+  character(len=*),intent(in) :: fdata
+
+  ! -------- read forcing data --------------
+  call read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,step_hour)
+  !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
+
+  ! ------ Setup steps for model run ------
+  steps_per_day = int(24.0/step_hour)
+  dt_fast_yr    = step_hour/(365.0 * 24.0)
+  step_seconds  = step_hour*3600.0
+  write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
+
+end subroutine
 
 !----------------------------------------------------------------------------
 subroutine BiomeE_initialization()
@@ -82,15 +103,11 @@ subroutine BiomeE_initialization()
   type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
   integer :: timeArray(3),i
-  !=============== Namelist file (must be hardwired) ===============
-  character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
   ! ---------- Time stamp -------------
   call itime(timeArray)     ! Get current time
   write(*,'(a6,3(I2,":"))')'Time: ', timeArray
 
-  ! ---------------------- Read the namelist file -----------------
-  call read_namelist(fnml)
   ! Hack for closedN setting
   if(do_closedN_run) then
     K_nitrogen = 0.0 ! rate of a year, 2.5
@@ -100,17 +117,8 @@ subroutine BiomeE_initialization()
     N_input    = 0.0 ! N input, kg N m-2 yr-1
   endif
 
-  ! --------- Read forcing data ----------------------
-  call read_FACEforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  steps_per_day = int(24.0/step_hour)
-  dt_fast_yr    = step_hour/(365.0 * 24.0)
-  step_seconds  = step_hour*3600.0
-  write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
-  ! total years of model run
-  totyears  = model_run_years
-  totdays   = INT(totyears/yr_data+1)*days_data
+  ! Setup total days of model run
+  totdays   = INT(model_run_years/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
 
   ! ------ Soil and PFT parameters ------
@@ -160,6 +168,7 @@ subroutine BiomeE_run()
   integer :: n_steps, n_yr, year0, year1
   real    :: r_d
   logical :: new_annual_cycle
+  logical :: BaseLineClimate = .True.
 
   !----------------------
   n_yr    = 1
@@ -206,7 +215,7 @@ subroutine BiomeE_run()
     ! Annual update
     ! Check if the next step is a new year
     year0 = forcingData(idata)%year  ! Current step year
-    idata = MOD(n_steps, datalines) + 1
+    idata = MOD(n_steps, datalines) + 1 ! Next step idata
     year1 = forcingData(idata)%year  ! Nex step year
     new_annual_cycle = ((year0 /= year1) .OR. (MOD(n_steps,datalines)==0))
     if(new_annual_cycle)then
@@ -259,6 +268,14 @@ subroutine BiomeE_run()
 
       ! update the years of model run
       n_yr = n_yr + 1
+
+#ifdef DroughtMIP
+      if(n_yr == 501 .and. BaseLineClimate)then
+        call read_forcingdata(Scefile)
+        n_steps = 0
+        BaseLineClimate = .False.
+      endif
+#endif
 
 #ifdef UFL_Monoculture
       if(n_yr > 505)exit
