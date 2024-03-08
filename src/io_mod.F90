@@ -476,14 +476,15 @@ end subroutine daily_diagnostics
        vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
 #else
       write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')  &
-        vegn%tileID,iyears,vegn%CAI,vegn%LAI,vegn%treecover,vegn%grasscover,&
-        vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_combusted,  &
+        vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           & ! vegn%treecover,vegn%grasscover,
+        vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
         vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
         vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SapwoodC,vegn%woodC,      &
         vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
         vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
+        (vegn%wcl(j),j=1,soil_L),                                       &
         vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
 #endif
@@ -868,8 +869,8 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'GDD','ALT','AWD'
       open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
       write(fno4,'(2(a5,","),55(a10,","))')'year', 'doy',   &  ! Daily tile, 'tile',
-         'Tc','Prcp','Trsp', 'Evap','Roff',                 &
-         'WaterS','thetaS','wc1','wc2','wc3','wc4','wc5',   &
+         'Tc','Prcp','Trsp','Evap','Roff','WaterS','thetaS',&
+         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',     &
          'LAI','GPP','Rauto','Rh',                          &
          'W_LF','W_SW','W_HW',                              &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
@@ -920,16 +921,17 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'mineralN','N_yrMin', 'N_up', 'N_P2S', 'N_loss'
 #else
     write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
-             'CAI','LAI','treecover', 'grasscover',            &
-             'GPP', 'Rauto', 'Rh', 'burned',                   &
-             'rain','SoilWater','Transp','Evap','Runoff',      &
-             'plantC', 'soilC', 'plantN', 'soilN',             &
-             'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',   &
-             'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',   &
-             'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
-             'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
-             'mineralN', 'N_fxed','N_uptk','N_yrMin','N_P2S',  &
-             'N_loss'
+        'CAI','LAI',            & ! 'treecover', 'grasscover',
+        'GPP', 'Rauto', 'Rh', 'burned',                              &
+        'rain','SoilWater','Transp','Evap','Runoff',                 &
+        'plantC', 'soilC', 'plantN', 'soilN',                        &
+        'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',              &
+        'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',              &
+        'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',            &
+        'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
+        'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
+        'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss'
+
 #endif
 
 end subroutine set_up_output_files

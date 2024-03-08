@@ -2971,7 +2971,7 @@ subroutine vegn_fire (vegn, deltat)
   fire_prob = 1.-(1.-flmb_G*envi_fire_prb)*(1.-flmb_W*envi_fire_prb)
   ! fire effects on vegetation and soil
   CALL RANDOM_NUMBER(r_fire) ! r_fire    = rand(0) !
-  vegn%C_combusted = 0.0
+  vegn%C_burned = 0.0
   if(r_fire < fire_prob)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
@@ -3002,7 +3002,7 @@ subroutine vegn_fire (vegn, deltat)
       ! Burned vegetation and soils
       deadtrees = cc%nindivs * MIN(1.0,mu_fire * deltat/seconds_per_year) ! individuals / m2
       ! Carbon and Nitrogen release by burning
-      vegn%C_combusted = vegn%C_combusted + &
+      vegn%C_burned = vegn%C_burned + &
             (cc%NSC+cc%bl+cc%bsw+cc%bHW+cc%br+cc%seedC)*deadtrees
       vegn%mineralN = vegn%mineralN + &
             (cc%NSN+cc%leafN+cc%rootN+cc%sapwN+cc%woodN+cc%seedN)*deadtrees
@@ -3012,8 +3012,8 @@ subroutine vegn_fire (vegn, deltat)
       end associate
     enddo
     ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
-    vegn%C_combusted = vegn%C_combusted + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2)
-    vegn%mineralN    = vegn%mineralN    + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
+    vegn%C_burned = vegn%C_burned + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2)
+    vegn%mineralN = vegn%mineralN    + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
     vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1); vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2)
     vegn%SON(1) = (1.0-0.7)*vegn%SON(1); vegn%SON(2) = (1.0-0.2)*vegn%SON(2)
     write(*,*)"fire, treecover, grasscover", &
