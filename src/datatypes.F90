@@ -683,8 +683,8 @@ real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
 real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
 real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality
 real :: B_DBH(0:MSPECIES)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
-real :: s_hu(0:MSPECIES)     = -25.0 ! hydraulic mortality sensitivity
-real :: W_mu0(0:MSPECIES)    = 0.5 ! Jeremy's half-mortality transp deficit, 0.5, 0.75, 2.5
+real :: s_hu(0:MSPECIES)     = -25.0   ! hydraulic mortality sensitivity
+real :: W_mu0(0:MSPECIES)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 
 ! Plant hydraulics parameters
 real :: kx0(0:MSPECIES)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)

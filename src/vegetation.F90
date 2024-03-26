@@ -1053,9 +1053,9 @@ subroutine update_max_LFR_NSN(cc)
       BL_u = BL_c / (1+cc%layer)            ! Woody plants only
     endif
     cc%bl_max = BL_u + min(1., cc%topyear/sp%transT) * (BL_c - BL_u)
-#ifdef UFL_test
-    if(cc%layer > 1) cc%bl_max = sp%LMA * 1.0 * cc%Acrown * (1.0-sp%f_cGap)
-#endif
+!#ifdef UFL_test
+!    if(cc%layer > 1) cc%bl_max = sp%LMA * 1.0 * cc%Acrown * (1.0-sp%f_cGap)
+!#endif
     ! Root max
     cc%br_max = BLmax2BRmax(cc)
     ! NSN max
@@ -1745,20 +1745,22 @@ real function mortality_rate(cc) result(mu) ! per year
     ! Background mortality rate
     mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 
+#ifdef DroughtMu
+    ! Annual drought mortality, From Jeremy Lichstein (for NE forest)
+    ! It can be turnoed off by setting a large sp%W_mu0
+    if(cc%totDemand>0.00001)then
+      cc%w_scale = cc%annualTrsp/cc%totDemand
+    else
+      cc%w_scale = 1.0
+    endif
+    mu_drought = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
+#endif
+
 #ifdef Hydro_test
     ! Trunk hydraulic failure probability
     mu_hydro = exp(sp%s_hu * (1.0 - min(1.,cc%treeHU/cc%treeW0)))
     !mu_hydro = Max(0., 1. - cc%farea(n))
     !mu_hydro = Max(0., 1. - cc%Asap/cc%Acrown/(sp%LAImax*sp%phiCSA))
-#endif
-
-#ifdef UFL_test
-  if(cc%totDemand>0.00001)then
-    cc%w_scale = cc%annualTrsp/cc%totDemand
-  else
-    cc%w_scale = 1.0
-  endif
-  mu_drought = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
 #endif
 
   ! Total mortality rate:
