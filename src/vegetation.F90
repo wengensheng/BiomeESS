@@ -9,7 +9,7 @@ module esdvm
  private
 
  !Core functions
- public :: initialize_vegn_tile,vegn_sum_tile
+ public :: initialize_vegn_tile
  public :: vegn_phenology
  public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics
  public :: vegn_SingleCohort_annual_update
@@ -2577,7 +2577,7 @@ subroutine relayer_cohorts (vegn)
 
   ! rank cohorts in descending order by height
   N0 = vegn%n_cohorts
-  cc=>vegn%cohorts
+  cc => vegn%cohorts
   call rank_descending(cc(1:N0)%height,idx)
 
   ! calculate max possible number of new cohorts : it is equal to the number of
@@ -2615,14 +2615,18 @@ subroutine relayer_cohorts (vegn)
   enddo
 
   ! replace the array of cohorts
-  deallocate(vegn%cohorts)
   vegn%cohorts => new
   vegn%n_cohorts = i
+
   ! update layer fraction for each cohort
   do i=1, vegn%n_cohorts
      vegn%cohorts(i)%layerfrac = vegn%cohorts(i)%nindivs * vegn%cohorts(i)%Acrown
   enddo
 
+  ! Release old cohort array
+  deallocate(cc)
+  cc  => null()
+  new => null()
 end subroutine relayer_cohorts
 
 ! ======================================================================
@@ -2928,9 +2932,10 @@ subroutine vegn_fire (vegn, deltat)
   ! -- fire effects variables --
   real :: fire_prob, r_fire
   real :: f_bk, r_bk ! coefficient of bark thickness, bark resistance to fire
-  real :: s_fire ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
+  real :: d_tree ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
   real :: flmb_G,flmb_W
   real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
+  real :: s_fireG ! Grass fire severity
   real :: mu_fire ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
@@ -2951,19 +2956,6 @@ subroutine vegn_fire (vegn, deltat)
   !  D_BK0: Bark thickness at half survival rate.
   ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
   f_bk  = 0.1105
-  vegn%treecover = 0.0
-  vegn%grasscover = 0.0
-  do i = 1, vegn%n_cohorts
-     cc => vegn%cohorts(i)
-     associate ( sp => spdata(cc%species))
-     if(cc%layer == 1)then
-       if(sp%lifeform==0) &
-          vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
-       if(sp%lifeform==1) &
-          vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
-     endif
-     end associate
-  enddo
   ! Fire spread parameters for grasses and trees
   f_grass  = min(1.0, vegn%grasscover)
   f_wood   = min(1.0, vegn%treecover)
@@ -2984,20 +2976,25 @@ subroutine vegn_fire (vegn, deltat)
          if(r_fire < flmb_W*envi_fire_prb)then
             mu_fire = 0.99 * f_wood   ! tree canopy fire
          else ! grass fire
+            ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass
+            ! When grass biomass is high, the fire has higher serverity and kills
+            ! more shrubs. So, extreme droughts can trigger expansion of shrubs.
+            ! s_fireG should be a function of vegn%SOC(1), such as
+            s_fireG = max(0.0,min(1.0,vegn%BM_G_gs/0.4)) ! grass fire severity
             cc%D_bark = f_bk * cc%dbh    ! bark thickness,
-            s_fire = exp(r_BK0*cc%D_bark)
-            !s_fire = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
-            mu_fire = m0_w_fire * s_fire * (1.0-f_wood)
+            d_tree = exp(r_BK0*cc%D_bark)
+            !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
+            mu_fire = m0_w_fire * d_tree * f_grass * s_fireG
          endif
 
          !!!!----- Old scheme -------- !!!!!!
-         ! s_fire = 1.0 - cc%height/(cc%height+f_HT0)
+         ! d_tree = 1.0 - cc%height/(cc%height+f_HT0)
          !if(cc%height < h0_escape) then ! Short trees
-         !   mu_fire = m0_w_fire * s_fire * f_grass
+         !   mu_fire = m0_w_fire * d_tree * f_grass
          !   ! Didn't consider the probability of protection of big trees over small trees
          !   ! by excluding grasses and it leads to heterogeinity.
          !else  ! Tall trees
-         !   mu_fire = m0_w_fire * s_fire * f_wood
+         !   mu_fire = m0_w_fire * d_tree * f_wood
          !endif
       endif
 
@@ -3169,8 +3166,8 @@ subroutine vegn_migration (vegn)
         do n=1, vegn%n_initialCC
             if(vegn%initialCC(n)%species == missingPFTs(i))then
                ! update new cohort parameters
-               cc = vegn%initialCC(n)
-               cc%nindivs = 0.01 ! a small number of individuals
+               cc = vegn%initialCC(n) ! Reset the missing PFT to the initial
+               !cc%nindivs = 0.01 ! a small number of individuals
                exit
             endif
         enddo

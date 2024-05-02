@@ -96,8 +96,6 @@ subroutine vegn_sum_tile(vegn)
 
   vegn%LAIlayer = 0.0
   vegn%f_gap    = 0.0
-  vegn%treecover = 0.0
-  vegn%grasscover = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
@@ -129,15 +127,28 @@ subroutine vegn_sum_tile(vegn)
        vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
        vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
        vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs
-
-       ! Update tree and grass cover
-       if(sp%lifeform==0) then
-           if(cc%layer == 1)vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
-       elseif(sp%lifeform==1 .and. cc%height > 4.0)then ! for trees in the top layer
-           vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
-       endif
      end associate
   enddo
+
+  ! Update grass vs. tree coverage when all cohorts are LEAF_ON
+  if(all(vegn%cohorts(:)%status == LEAF_ON))then ! All cohorts are "LEAF_ON"
+    vegn%treecover = 0.0
+    vegn%grasscover= 0.0
+    vegn%BM_G_gs   = 0.0
+    do i = 1, vegn%n_cohorts
+       cc => vegn%cohorts(i)
+       associate ( sp => spdata(cc%species))
+         if(sp%lifeform==0) &
+            vegn%BM_G_gs = vegn%BM_G_gs + (cc%bl+cc%br+cc%bsw)*cc%nindivs
+       if(cc%layer == 1)then
+         if(sp%lifeform==0) &
+            vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
+         if(sp%lifeform==1) &
+            vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
+       endif
+       end associate
+    enddo
+  endif
 end subroutine vegn_sum_tile
 
 !================= Diagnostics============================================
@@ -476,7 +487,7 @@ end subroutine daily_diagnostics
        vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
 #else
       write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')  &
-        vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           & ! vegn%treecover,vegn%grasscover,
+        vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
         vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
@@ -486,7 +497,8 @@ end subroutine daily_diagnostics
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
         (vegn%wcl(j),j=1,soil_L),                                       &
         vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
-        vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
+        vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,       &
+        vegn%treecover,vegn%grasscover,vegn%BM_G_gs
 #endif
 endif
 
@@ -921,8 +933,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'mineralN','N_yrMin', 'N_up', 'N_P2S', 'N_loss'
 #else
     write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
-        'CAI','LAI',            & ! 'treecover', 'grasscover',
-        'GPP', 'Rauto', 'Rh', 'burned',                              &
+        'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
         'rain','SoilWater','Transp','Evap','Runoff',                 &
         'plantC', 'soilC', 'plantN', 'soilN',                        &
         'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',              &
@@ -930,7 +941,8 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
         'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',            &
         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
-        'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss'
+        'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss',                &
+        'treecover','grasscover','BMgrass'
 
 #endif
 

@@ -224,6 +224,8 @@ subroutine BiomeE_run()
       do while(ASSOCIATED(vegn))
         ! Update plant hydraulic states, for the last year
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
+        ! Fire disturbance
+        if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
 #ifdef SingleTreeTest
         call vegn_SingleCohort_annual_update(vegn)
         call annual_diagnostics(vegn,n_yr,fno5,fno6)
@@ -232,9 +234,7 @@ subroutine BiomeE_run()
         call vegn_demographics(vegn,real(seconds_per_year))
 #endif
 
-
         ! Case studies
-        ! if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
         if(do_migration) call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 

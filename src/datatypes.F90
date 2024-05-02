@@ -400,6 +400,7 @@ type :: vegn_tile_type
   real :: C_burned  = 0.0 ! Carbon released to atmosphere via fire
   real :: treecover = 0.0 ! tree CAI in the top layer, for fire spread
   real :: grasscover= 0.0 ! grass CAI, for the initial fire severity
+  real :: BM_G_gs   = 0.0 ! Grass biomass at the end of growing season, for fire severity
   ! daily diagnostics
   real :: dailyGPP
   real :: dailyNPP
