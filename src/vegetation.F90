@@ -2980,7 +2980,7 @@ subroutine vegn_fire (vegn, deltat)
             ! When grass biomass is high, the fire has higher serverity and kills
             ! more shrubs. So, extreme droughts can trigger expansion of shrubs.
             ! s_fireG should be a function of vegn%SOC(1), such as
-            s_fireG = max(0.0,min(1.0,vegn%BM_G_gs/0.4)) ! grass fire severity
+            s_fireG = max(0.0,min(1.0,(vegn%BM_G_gs/0.4)**2)) ! grass fire severity
             cc%D_bark = f_bk * cc%dbh    ! bark thickness,
             d_tree = exp(r_BK0*cc%D_bark)
             !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
@@ -3015,9 +3015,12 @@ subroutine vegn_fire (vegn, deltat)
     vegn%mineralN = vegn%mineralN    + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
     vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1); vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2)
     vegn%SON(1) = (1.0-0.7)*vegn%SON(1); vegn%SON(2) = (1.0-0.2)*vegn%SON(2)
+#ifdef ScreenOutput
     write(*,*)"fire, treecover, grasscover", &
         r_fire < fire_prob, vegn%treecover, vegn%grasscover
+#endif
   endif
+
 
 end subroutine vegn_fire
 
@@ -3183,8 +3186,8 @@ subroutine vegn_migration (vegn)
      ccnew => null()
 
      ! Make carbon and nitrogen balance
-     vegn%SOC(2) = vegn%SOC(2) - min(0.05*vegn%SOC(2),addedC)
-     vegn%SON(2) = vegn%SON(2) - min(0.05*vegn%SON(2),addedN)
+     vegn%SOC(2) = vegn%SOC(2) - min(0.99*vegn%SOC(2),addedC)
+     vegn%SON(2) = vegn%SON(2) - min(0.99*vegn%SON(2),addedN)
   endif ! set up newly moved-in cohorts
 
 end subroutine vegn_migration
