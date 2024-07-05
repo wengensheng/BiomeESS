@@ -6,6 +6,7 @@
  logical, parameter :: read_from_parameter_file = .TRUE.
  integer, parameter :: days_per_year    = 365
  integer, parameter :: hours_per_year   = 365 * 24  ! 8760
+ integer, parameter :: MonthDOY(0:12)    =(/0,31,59,90,120,151,181,212,243,273,304,334,366/)
  real,    parameter :: seconds_per_year = 365. * 24. * 3600.
  real,    parameter :: seconds_per_day  = 24. * 3600.
 
@@ -408,6 +409,7 @@ type :: vegn_tile_type
   real :: dailyRh
   real :: dailyNup
   real :: dailyfixedN
+  real :: dailyLFLIT = 0.0   !kgC day-1, leaf litter flux
   ! for annual diagnostics
   real :: dailyPrcp = 0.0, annualPrcp = 0.0 ! mm m-2 yr-1
   real :: dailyTrsp = 0.0, dailyEvap  = 0.0, dailyRoff = 0.0 ! mm m-2 yr-1

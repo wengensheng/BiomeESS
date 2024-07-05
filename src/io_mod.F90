@@ -298,14 +298,46 @@ end subroutine Zero_diagnostics
 end subroutine hourly_diagnostics
 
 !============================================
-subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
+subroutine daily_diagnostics(vegn,iyears,idoy,iday,MonthDays,fno3,fno4)
   type(vegn_tile_type), intent(inout) :: vegn
   integer, intent(in) :: iyears,idoy,iday,fno3,fno4
+  integer, intent(in) :: MonthDays(0:12)
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
+  !integer, parameter :: MonthDays(0:12) =(/0,31,59,90,120,151,181,212,243,273,304,334,365)
   integer :: i,j
+  integer :: f_eco,iyr_out
+  integer :: iMonth, iDate
 
   ! Output daily cohorts
+#ifdef DroughtMIP
+if(iyears > 900)then
+  !Write to two files
+  if (iyears <= 1000) then
+    f_eco = fno4
+    iyr_out = iyears - 900
+  else
+    f_eco = fno4 + 10
+    iyr_out = iyears - 1000
+  endif
+
+  !Convert doy to Month and Date
+  do i=1,12
+    if(idoy <= MonthDays(i))then
+      iMonth = i
+      iDate  = idoy - MonthDays(i-1)
+      exit
+    endif
+  enddo
+
+  !! Tile daily
+  write(f_eco,'(3(I5,","),65(F12.4,","))')iyr_out,iMonth,iDate,    &
+     vegn%dailyGPP*1000., vegn%dailyNPP*1000., &
+     vegn%dailyTrsp+vegn%dailyEvap,   &
+     vegn%LAI,vegn%dailyLFLIT*1000., (vegn%wcl(i),i=2,5)
+endif
+
+#else
   if(outputdaily.and. iday>equi_days)then
     !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
     do i = 1, vegn%n_cohorts
@@ -335,6 +367,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),           &
        vegn%mineralN*1000,vegn%dailyNup*1000 !,vegn%kp(1)
   endif
+#endif
 
   ! Update yearly and zero daily, cohorts
   do i = 1, vegn%n_cohorts
@@ -378,6 +411,7 @@ subroutine daily_diagnostics(vegn,iyears,idoy,iday,fno3,fno4)
   vegn%dailyEvap = 0.0
   vegn%dailyRoff = 0.0
   vegn%dailyfixedN = 0.0
+  vegn%dailyLFLIT  = 0.0
 
   ! Daily vegn state
   call vegn_sum_tile(vegn)
@@ -392,8 +426,8 @@ end subroutine daily_diagnostics
     ! --------local var --------
     type(cohort_type), pointer :: cc
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
-    real :: plantC, plantN, soilC, soilN
-    integer :: i,j,iyr_out
+    real :: plantC, plantN, soilC, soilN,BMtot
+    integer :: f_cht,i,j,iyr_out
 #ifdef ScreenOutput
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
@@ -401,8 +435,6 @@ end subroutine daily_diagnostics
       'GPP','mu','W_scale','treeHU','treeW0'
 #endif
     ! Cohotrs ouput
-    !if(index(climfile,'DBEN')==0) &
-    !write(f1,'(2(I6,","),1(F9.2,","))')iyears, vegn%n_cohorts
     iyr_out = iyears-yr_ResetVeg+30
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
@@ -415,7 +447,25 @@ end subroutine daily_diagnostics
         dDBH  = (cc%DBH - cc%DBH_ys) * 1000.0 ! mm
         dBA   = 3.1415926 * (cc%DBH**2 - cc%DBH_ys**2)/4.0
         dCA   = cc%Acrown - DBH2CA(cc%DBH_ys,cc%species)
-#ifdef DBEN_run
+
+#ifdef DroughtMIP
+        if(iyears > 900)then
+          if (iyears <= 1000) then
+            f_cht = f1
+            iyr_out = iyears - 900
+          else
+            f_cht = f1 + 10
+            iyr_out = iyears - 1000
+          endif
+
+          BMtot = cc%bl+cc%br+cc%bsw+cc%bHW+cc%seedC+cc%nsc
+          write(f_cht,'(3(I8,","),300(E15.4,","))')        &
+            iyr_out,cc%species,i,                          &
+            cc%nindivs*10000*(1.0-cc%mu),cc%dbh*100.,cc%height, &
+            BMtot,BMtot*0.7,2.0*sp%rho_wood,1.0/(2.0*sp%LMA)
+        endif
+
+#elif DBEN_run
         if(iyr_out > 0) &
         write(f1,'(7(I8,","),300(E15.4,","))')vegn%tileID, &
           iyr_out,i,cc%ccID,cc%species,sp%lifeform,    &
@@ -501,6 +551,7 @@ end subroutine daily_diagnostics
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,       &
         vegn%treecover,vegn%grasscover,vegn%BM_G_gs
 #endif
+
 endif
 
  end subroutine annual_diagnostics
@@ -834,18 +885,22 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
    ! ----------Local vars ------------
    character(len=150) :: YearlyCohort,DailyCohort,HourlyCohort ! Output file names
    character(len=150) :: YearlyPatch, DailyPatch, HourlyPatch  ! output file names
+   character(len=150) :: YearlyCohort2,DailyPatch2  ! For DroughtMIP only
    character(len=50)  :: filesuffix,fpath
    integer :: istat1, istat2, istat3
 
     ! File path and names
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
-    HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'   ! hourly
+    HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
     HourlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
-    DailyCohort  = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'    ! daily
+    DailyCohort  = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
     DailyPatch   = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
-    YearlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'   ! Yearly
+    YearlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
     YearlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
+    ! For DroughtMIP
+    YearlyCohort2 = trim(fpath)//trim(filesuffix)//'2_Cohort_yearly.csv'       ! Yearly
+    DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'    ! Daily
 
     ! Open files
     fno1=91; fno2=92; fno3=103; fno4=104; fno5=105; fno6=106
@@ -893,15 +948,36 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'mineralN', 'N_uptk' !,'Kappa'
     endif
 
+#ifdef DroughtMIP
+    !For baseline runs
+    open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
+    write(fno4,'(3(a5,","),55(a10,","))')'YEAR', 'Month','DAY',   &  ! Daily tile, 'tile',
+    'GPP','NPP','ET','LAI','LFLIT','SW1','SW2','SW3','SW4'
+
+     ! for scenario runs
+     open(fno4+10,file=trim(DailyPatch2),  ACTION='write', IOSTAT=istat2)
+     write(fno4+10,'(2(a5,","),55(a10,","))')'YEAR', 'Month','DAY',   &  ! Daily tile, 'tile',
+     'GPP','NPP','ET','LAI','LFLIT','SW1','SW2','SW3','SW4'
+
+     open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
+     write(fno5,'(3(a5,","),55(a10,","))')'YEAR', 'SP','ID',   &
+        'NLIVE','DBH','HT','TB','AGB','WD','SLA'
+
+     open(fno5+10,file=trim(YearlyCohort2),ACTION='write', IOSTAT=istat3)
+     write(fno5+10,'(3(a5,","),55(a10,","))')'YEAR', 'SP','ID',   &
+        'NLIVE','DBH','HT','TB','AGB','WD','SLA'
+
+#elif DBEN_run
     open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
-#ifdef DBEN_run
     write(fno5,'(4(a5,","),40(a9,","))')'tile',         &    ! Yearly cohort
       'yr','cNo.','cID','PFT','Woody','Layer',          &
       'Density','f_L','dbh','height','Acrown','Aleaf',  &
       'bl','br','bSW','bHW','seed','nsc',               &
       'GPP','NPP','dDBH','dBA','dCA',                   &
       'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
+
 #elif FACE_run
+    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
       'yr','cNo.','PFT','layer','f_L','N_ha','mu',      &
       'dD','dCA','dbh','ht','Acrown','Aleaf',           &
@@ -911,6 +987,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'demandW','Asap','Ktree','treeHU','treeW0'
 
 #else
+    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
       'tile','yr','cNo.','cID', 'PFT','layer',          &
       'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&

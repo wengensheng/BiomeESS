@@ -1238,6 +1238,7 @@ subroutine vegn_tissue_turnover(vegn)
      lossN_coarse = (1.-retransN)* cc%nindivs * (dNL - dAleaf * sp%LNbase + dNStem)
      lossN_fine   = (1.-retransN)* cc%nindivs * (dNR + dAleaf * sp%LNbase)
 
+     vegn%dailyLFLIT = vegn%dailyLFLIT + (1.-l_fract) * cc%nindivs * dBL
      vegn%SOC(1) = vegn%SOC(1)   +  &
                         fsc_fine * loss_fine + fsc_wood * loss_coarse
      vegn%SOC(2) = vegn%SOC(2) +  &
@@ -1362,6 +1363,7 @@ subroutine Seasonal_fall(cc,vegn)
      lossN_coarse = (1.-retransN)* cc%nindivs * (dNStem+dNL - dAleaf * sp%LNbase)
      lossN_fine   = (1.-retransN)* cc%nindivs * (dNR        + dAleaf * sp%LNbase)
 
+     vegn%dailyLFLIT = vegn%dailyLFLIT + (1.-l_fract) * cc%nindivs * dBL
      vegn%SOC(1) = vegn%SOC(1) +  &
                       fsc_fine * loss_fine + fsc_wood * loss_coarse
      vegn%SOC(2) = vegn%SOC(2) +   &

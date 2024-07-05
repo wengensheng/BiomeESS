@@ -106,7 +106,7 @@ subroutine BiomeE_initialization()
 
   ! ---------- Time stamp -------------
   call itime(timeArray)     ! Get current time
-  write(*,'(a6,3(I2,":"))')'Time: ', timeArray
+  write(*,'(a12,3(I2,":"))')'Start time: ', timeArray
 
   ! Hack for closedN setting
   if(do_closedN_run) then
@@ -164,8 +164,9 @@ subroutine BiomeE_run()
   implicit none
   type(vegn_tile_type), pointer :: vegn => NULL()
   type(climate_data_type) :: climateData ! for UFL_test
-  integer :: i, k, idays, idata, idoy
+  integer :: i, k, idays, idata, jdata, idoy
   integer :: n_steps, n_yr, year0, year1
+  integer :: MonthDays(0:12)
   real    :: r_d
   logical :: new_annual_cycle
   logical :: BaseLineClimate = .True.
@@ -173,16 +174,26 @@ subroutine BiomeE_run()
   !----------------------
   n_yr    = 1
   idoy    = 0
+  MonthDays = MonthDOY
   n_steps = StartLine - 1 ! steps skipped acc. the starting line, for UFL only
   do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*days_data ! days for the model run
     idoy = idoy + 1
+    ! Leap year or not
+    if(idoy == 1)then
+      jdata = MIN(datalines,MOD(n_steps, datalines) + 59*steps_per_day+1)
+      if(forcingData(jdata)%doy>28)then
+        MonthDays(2:12) = MonthDOY(2:12)+1!leap year
+      else
+        MonthDays = MonthDOY!Non-leap year
+      endif
+    endif
+
     land%Tc_daily = 0.0 ! Zero daily mean temperature
     ! Fast-step update (hourly or half-hourly)
     do i=1,steps_per_day
       n_steps = n_steps + 1
       idata = MOD(n_steps-1, datalines) + 1
       climateData = forcingData(idata)
-
       ! Set up scenarios for rainfall and CO2 concentration
       climateData%rain = forcingData(idata)%rain * Sc_prcp
       climateData%CO2  = CO2_c * 1.0e-6
@@ -208,7 +219,7 @@ subroutine BiomeE_run()
     do while(ASSOCIATED(vegn))
       vegn%Tc_daily = land%Tc_daily
       call vegn_daily_update(vegn,dt_daily_yr)
-      call daily_diagnostics(vegn,n_yr,idoy,idays,fno3,fno4)
+      call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays,fno3,fno4)
       vegn => vegn%next
     enddo
 
@@ -270,7 +281,7 @@ subroutine BiomeE_run()
       n_yr = n_yr + 1
 
 #ifdef DroughtMIP
-      if(n_yr == 501 .and. BaseLineClimate)then
+      if(n_yr == 1001 .and. BaseLineClimate)then
         call read_forcingdata(Scefile)
         n_steps = 0
         BaseLineClimate = .False.
@@ -288,6 +299,8 @@ end subroutine BiomeE_run
 subroutine BiomeE_end
   type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
+  integer :: timeArray(3)
+
   !------------ Close output files and release memory
   close(fno1); close(fno2); close(fno3)
   close(fno4); close(fno5); close(fno6)
@@ -301,6 +314,10 @@ subroutine BiomeE_end
   enddo
   deallocate(land)
   deallocate(forcingData)
+
+  ! ---------- Time stamp -------------
+  call itime(timeArray)     ! Get current time
+  write(*,'(a12,3(I2,":"))')'End time: ', timeArray
 end subroutine BiomeE_end
 
 !----------------------------------------------------------------------------
