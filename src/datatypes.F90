@@ -482,16 +482,17 @@ end type soil_tile_type
 type :: climate_data_type
    integer :: year       ! Year
    integer :: doy        ! day of the year
-   real :: hod           ! hour of the day
+   !real :: hod           ! hour of the day
    real :: PAR           ! umol m-2 s-1
    real :: radiation     ! W/m2
    real :: Tair          ! air temperature,  K
    real :: Tsoil         ! soil temperature, K
-   real :: RH            ! relative humidity
+   real :: RH            ! relative humidity, 0~1
    real :: rain          ! kgH2O m-2 s-1
    real :: windU         ! wind velocity (m s-1)
    real :: P_air         ! pa
-   real :: CO2           ! ppm
+   real :: CO2           ! mol/mol
+   real :: eCO2          ! mol/mol
    real :: soilwater     ! soil moisture, vol/vol
 end type climate_data_type
 
@@ -746,6 +747,7 @@ real     :: siteLAT = 36.01 !site latitude, ORNL
 integer  :: model_run_years = 100
 integer  :: totyears, totdays, steps_per_day ! 24 or 48
 integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
+integer  :: yr_Baseline  = 1000 ! for DroughtMIP baseline model run years
 integer  :: equi_days    = 0 ! 100 * 365
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
 real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
@@ -763,6 +765,7 @@ logical  :: do_closedN_run = .False.
 logical  :: do_VariedKx   = .True. ! trunk new xylem has the same kx or not
 logical  :: do_VariedWTC0 = .True.
 logical  :: do_WD_mort_function = .False.
+character(len=4)  :: CO2Tag = 'aCO2' ! only takes 'aCO2' or 'eCO2', for FACE-MDS-3
 
 ! Scenarios
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
@@ -777,8 +780,8 @@ namelist /initial_state_nml/ &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
-    N_VegTile,siteLAT,model_run_years,yr_ResetVeg,              &
-    outputhourly,outputdaily,Sc_prcp,CO2_c,                     &
+    N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
+    outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,             &
     do_U_shaped_mortality, update_annualLAImax, do_fire,        &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
     do_WD_mort_function

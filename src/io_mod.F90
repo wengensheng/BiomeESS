@@ -427,7 +427,7 @@ end subroutine daily_diagnostics
     type(cohort_type), pointer :: cc
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
     real :: plantC, plantN, soilC, soilN,BMtot
-    integer :: f_cht,i,j,iyr_out
+    integer :: f_cht,i,j,iyr_out,yr_Eq,yr_Sc
 #ifdef ScreenOutput
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
@@ -449,20 +449,24 @@ end subroutine daily_diagnostics
         dCA   = cc%Acrown - DBH2CA(cc%DBH_ys,cc%species)
 
 #ifdef DroughtMIP
-        if(iyears > 900)then
-          if (iyears <= 1000) then
+        yr_Sc = yr_Baseline
+        yr_Eq = yr_Sc - yr_Baseline ! 100
+        if(iyears > yr_Eq)then
+          if (iyears <= yr_Sc) then
             f_cht = f1
-            iyr_out = iyears - 900
+            iyr_out = iyears - yr_Eq
           else
             f_cht = f1 + 10
-            iyr_out = iyears - 1000
+            iyr_out = iyears - yr_Sc
           endif
 
           BMtot = cc%bl+cc%br+cc%bsw+cc%bHW+cc%seedC+cc%nsc
           write(f_cht,'(3(I8,","),300(E15.4,","))')        &
             iyr_out,cc%species,i,                          &
             cc%nindivs*10000*(1.0-cc%mu),cc%dbh*100.,cc%height, &
-            BMtot,BMtot*0.7,2.0*sp%rho_wood,1.0/(2.0*sp%LMA)
+            BMtot,BMtot*0.7,2.0*sp%rho_wood,1.0/(2.0*sp%LMA),   &
+            cc%Acrown
+
         endif
 
 #elif DBEN_run
@@ -526,6 +530,7 @@ end subroutine daily_diagnostics
                vegn%rootN + vegn%SapwoodN + vegn%woodN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
 #ifdef FACE_run
+
       write(f2,'(1(I5,","),80(F12.4,","))') iyears, &
        vegn%CAI, vegn%LAI, vegn%annualGPP, vegn%annualResp, vegn%annualRh, &
        vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
@@ -536,6 +541,19 @@ end subroutine daily_diagnostics
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
        vegn%mineralN*1000, vegn%annualN*1000, vegn%annualNup*1000,         &
        vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
+#elif DroughtMIP
+      if (iyears > yr_Eq) &
+        write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')&
+        vegn%tileID,iyears - yr_Sc,vegn%CAI,vegn%LAI,                   &
+        vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
+        vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
+        vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
+        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SapwoodC,vegn%woodC,      &
+        vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
+        vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
+        (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
+        (vegn%wcl(j),j=1,soil_L)
+
 #else
       write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')  &
         vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
@@ -566,10 +584,15 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
    !------------local var -------------------
    type(climate_data_type), pointer :: climateData(:)
    character(len=80)  commts
-   integer, parameter :: niterms=9       ! MDK data for Oak Ridge input
 
-   integer, allocatable :: doy_data(:),year_data(:)
-   real,    allocatable :: hour_data(:),input_data(:,:)
+#ifdef FACE_run
+   integer, parameter :: niterms=26 ! 30 columns in FACEMDS-2
+#else
+   integer, parameter :: niterms=9 ! 9 columns in FACEMDS-1
+#endif
+
+   integer, allocatable :: HRMIN(:),doy_data(:),year_data(:)
+   real,    allocatable :: DTIME(:),hour_data(:),input_data(:,:)
    real    :: hr, clim(niterms)
    integer :: yr,dy
    integer :: istat1,istat2,istat3
@@ -587,10 +610,13 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
    open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
    ! Skip 1 line of input met data file
    read(11,'(a160)') commts ! MDK data only has one line comments
+#ifdef FACE_run
+   read(11,'(a160)') commts ! Two lines of head in FACDMDS-2
+#endif
    ! Count total lines
    totlines = 0  ! to record the lines in a file
    do
-     read(11,*,IOSTAT=istat3)yr,dy !,hr,(clim(n),n=1,niterms)
+     read(11,*,IOSTAT=istat3)yr !,hr,(clim(n),n=1,niterms)
      if(istat3 < 0)exit
      totlines = totlines + 1
    enddo ! end of reading the forcing file
@@ -598,18 +624,27 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
 
    ! Allocate arrays for reading in data
    allocate(doy_data(totlines),year_data(totlines),hour_data(totlines))
+   allocate(DTIME(totlines),HRMIN(totlines))
    allocate(input_data(niterms,totlines))
 
    ! Read forcing files
    rewind 11
    read(11,'(a160)') commts
+#ifdef FACE_run
+   read(11,'(a160)') commts ! Two lines of head in FACDMDS-2
+#endif
    ndays = 0 ! the total days in this data file
    nyear = 0 ! the total years of this data file
    dy    = -1  ! Initial value
    yr    = -1
    do m = 1, totlines
+#ifdef FACE_run
+     read(11,*,IOSTAT=istat3)year_data(m),DTIME(m),doy_data(m),HRMIN(m),   &
+                         (input_data(n,m),n=1,niterms)
+#else
      read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
                          (input_data(n,m),n=1,niterms)
+#endif
      ! Count days
      if(m > 1) then
        dy = doy_data(m-1)
@@ -619,7 +654,11 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
      if(yr /= year_data(m))nyear = nyear + 1
    enddo
    ! Check fast time step
+#ifdef FACE_run
+   timestep = (HRMIN(2) - HRMIN(1))/60.0
+#else
    timestep = hour_data(2) - hour_data(1)
+#endif
    if (timestep==1.0)then
        write(*,*)"the data freqency is hourly"
    elseif(timestep==0.5)then
@@ -633,9 +672,23 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
    ! Put the data into forcing
    allocate(climateData(totlines))
    do i=1,totlines
+#ifdef FACE_run
       climateData(i)%year      = year_data(i)          ! Year
       climateData(i)%doy       = doy_data(i)           ! day of the year
-      climateData(i)%hod       = hour_data(i)          ! hour of the day
+      climateData(i)%PAR       = input_data(15,i)      ! umol/m2/s
+      climateData(i)%radiation = input_data(13,i)      ! W/m2
+      climateData(i)%Tair      = input_data(3,i)       ! air temperature, K
+      climateData(i)%Tsoil     = input_data(3,i)       ! soil temperature, K
+      climateData(i)%RH        = input_data(5,i)*0.01  ! relative humidity (0.xx)
+      climateData(i)%rain      = input_data(1,i)       ! kgH2O m-2 s-1
+      climateData(i)%windU     = input_data(11,i)      ! wind velocity (m s-1)
+      climateData(i)%P_air     = input_data(19,i)      ! pa
+      climateData(i)%CO2       = input_data(21,i) * 1.0e-6       ! mol/mol
+      climateData(i)%eCO2      = input_data(22,i) * 1.0e-6       ! mol/mol
+      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+#else
+      climateData(i)%year      = year_data(i)          ! Year
+      climateData(i)%doy       = doy_data(i)           ! day of the year
       climateData(i)%PAR       = input_data(1,i)       ! umol/m2/s
       climateData(i)%radiation = input_data(2,i)       ! W/m2
       climateData(i)%Tair      = input_data(3,i) + 273.16  ! air temperature, K
@@ -646,6 +699,8 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
       climateData(i)%P_air     = input_data(8,i)        ! pa
       climateData(i)%CO2       = input_data(9,i) * 1.0e-6       ! mol/mol
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+#endif
+
    enddo
    forcingData => climateData
    datalines = totlines
@@ -727,7 +782,6 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
    do i=1,datalines
       climateData(i)%year      = year_data(i)          ! Year
       climateData(i)%doy       = doy_data(i)           ! day of the year
-      climateData(i)%hod       = hour_data(i)          ! hour of the day
       climateData(i)%PAR       = input_data(11,i)*2.0  ! umol/m2/s
       climateData(i)%radiation = input_data(11,i)      ! W/m2
       climateData(i)%Tair      = input_data(1,i)       ! air temperature, K
@@ -842,7 +896,6 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
       !'tmp','pre','tswrf','spfh','pres','windU'
       climateData(i)%year      = year_data(i)          ! Year
       climateData(i)%doy       = doy_data(i)           ! day of the year
-      climateData(i)%hod       = hour_data(i)          ! hour of the day
       climateData(i)%Tair      = input_data(1,i)       ! air temperature, K
       climateData(i)%Tsoil     = input_data(1,i)*0.8 + 273.16*0.2  ! soil temperature, K
       climateData(i)%rain      = input_data(2,i)/(timestep * 3600)! ! kgH2O m-2 s-1
@@ -865,7 +918,7 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
    !write(14,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
    !do i=1,totlines
    !    write(14,'(2(I4,","),30(f15.4,","))') &
-   !      climateData(i)%year, climateData(i)%doy, climateData(i)%hod, &
+   !      climateData(i)%year, climateData(i)%doy, &
    !      climateData(i)%PAR, climateData(i)%radiation, &
    !      climateData(i)%Tair-273.16, climateData(i)%Tsoil-273.16,  &
    !      climateData(i)%RH*100.,climateData(i)%rain*3600, &
@@ -961,11 +1014,11 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
      open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
      write(fno5,'(3(a5,","),55(a10,","))')'YEAR', 'SP','ID',   &
-        'NLIVE','DBH','HT','TB','AGB','WD','SLA'
+        'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
      open(fno5+10,file=trim(YearlyCohort2),ACTION='write', IOSTAT=istat3)
      write(fno5+10,'(3(a5,","),55(a10,","))')'YEAR', 'SP','ID',   &
-        'NLIVE','DBH','HT','TB','AGB','WD','SLA'
+        'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
 #elif DBEN_run
     open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)

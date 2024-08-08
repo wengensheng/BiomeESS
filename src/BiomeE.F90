@@ -163,7 +163,7 @@ subroutine BiomeE_run()
   ! Weng 08/08/2022, for model run
   implicit none
   type(vegn_tile_type), pointer :: vegn => NULL()
-  type(climate_data_type) :: climateData ! for UFL_test
+  type(climate_data_type) :: climateData
   integer :: i, k, idays, idata, jdata, idoy
   integer :: n_steps, n_yr, year0, year1
   integer :: MonthDays(0:12)
@@ -197,6 +197,13 @@ subroutine BiomeE_run()
       ! Set up scenarios for rainfall and CO2 concentration
       climateData%rain = forcingData(idata)%rain * Sc_prcp
       climateData%CO2  = CO2_c * 1.0e-6
+#ifdef FACE_run
+      if(CO2Tag == 'aCO2')then
+        climateData%CO2 = forcingData(idata)%CO2
+      else
+        climateData%CO2 = forcingData(idata)%eCO2
+      endif
+#endif
 #ifdef UFL_Monoculture
       if(n_yr > 500)then
         climateData%rain = 0.5 * forcingData(idata)%rain * Sc_prcp
@@ -281,7 +288,7 @@ subroutine BiomeE_run()
       n_yr = n_yr + 1
 
 #ifdef DroughtMIP
-      if(n_yr == 1001 .and. BaseLineClimate)then
+      if(n_yr == yr_Baseline + 1 .and. BaseLineClimate)then
         call read_forcingdata(Scefile)
         n_steps = 0
         BaseLineClimate = .False.
