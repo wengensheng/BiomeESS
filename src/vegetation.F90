@@ -322,7 +322,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
   vegn%kp = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     layer = Max (1, Min(cc%layer,9))
+     layer = Max (1, Min(cc%layer,5))
      ! Calculate kappa according to sun zenith angle ! kappa = cc%extinct/max(cosz,0.01) !
      vegn%kp(layer) = vegn%kp(layer)  &  ! -0.75
                     + cc%extinct * cc%Acrown * cc%nindivs
@@ -349,7 +349,7 @@ subroutine vegn_photosynthesis (forcing, vegn)
           TairK   = forcing%Tair ! K
           Tair    = forcing%Tair - 273.16 ! degC
           cana_q  = (esat(Tair)*forcing%RH*mol_h2o)/(p_surf*mol_air)  ! air specific humidity, kg/kg
-          cana_co2= forcing%CO2 ! co2 concentration in canopy air space, mol CO2/mol dry air
+          cana_co2= forcing%CO2 * 1.0e-6 ! co2 concentration in canopy, ppm -> mol CO2/mol dry air
          ! recalculate the water supply to mol H20 per m2 of leaf per second
           water_supply = cc%W_supply/(cc%Aleaf*step_seconds*mol_h2o) ! mol m-2 leafarea s-1
 
@@ -469,9 +469,9 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     !  vm=sp%Vmax*exp(3000.0*(1.0/288.2-1.0/tl))
 
     ! Weng, 2013-01-10
-    ko=0.248    * exp(35948/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
-    kc=0.000404 * exp(59356/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
-    vm=sp%Vmax*exp(24920/Rgas*(1.0/298.2-1.0/tl)) ! / ((layer-1)*1.0+1.0) ! Ea = 33920
+    ko = 0.248    * exp(35948.0/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
+    kc = 0.000404 * exp(59356.0/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
+    vm = sp%Vmax  * exp(24920.0/Rgas*(1.0/298.2-1.0/tl)) ! / ((layer-1)*1.0+1.0) ! Ea = 33920
 
     !decrease Vmax due to aging of temperate deciduous leaves
     !(based on Wilson, Baldocchi and Hanson (2001)."Plant,Cell, and Environment", vol 24, 571-583)
@@ -481,7 +481,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     !  endif
 
     ! capgam=0.209/(9000.0*exp(-5000.0*(1.0/288.2-1.0/tl))); - Foley formulation, 1986
-    capgam=0.5*kc/ko*0.21*0.209 ! Farquhar & Caemmerer 1982
+    capgam = 0.5 * kc / ko * 0.21 * 0.209 ! Farquhar & Caemmerer 1982
 
     ! Find respiration for the whole canopy layer
     !  Resp=sp%gamma_resp*vm*lai /((layer-1)*1.0+1.0)  ! Weng, 2013-01-17 add '/ ((layer-1)*1.0+1.0)'
@@ -611,9 +611,9 @@ end subroutine gs_Leuning
 
 ! ============================================================================
 ! Copied from LM4-ESM4_2021.02: vegn_radiation.F90
-subroutine twostream( &
-   mu, mu_bar, LAI, albedo_g, phi1, phi2, rl, tl, transm_dir, scatter_dir, albedo_dir, &
-   transm_dif, albedo_dif )
+subroutine twostream(mu,mu_bar,LAI,albedo_g,phi1,phi2,rl,tl, &
+                     transm_dir, scatter_dir, albedo_dir,    &
+                     transm_dif, albedo_dif )
 
   real, intent(in)  :: mu         ! cosine of direct light zenith angle
   real, intent(in)  :: mu_bar     ! average inverse diffuse optical depth per unit leaf area
@@ -645,12 +645,12 @@ subroutine twostream( &
   real :: A,B         ! coefficients of diffuse light function
   real :: dif_dn_bot, dif_up_bot, dif_up_top
 
-  real, parameter :: eta = 6.0; ! this value is suitable only for uniform leaf
+  real, parameter :: eta = 6.0  ! this value is suitable only for uniform leaf
                                 ! angular distribution !!!
 
   ! calculate coefficients of optical path
-  G_mu=phi1+phi2*mu;
-  K = G_mu/mu;
+  G_mu = phi1 + phi2 * mu
+  K = G_mu/mu
 
   ! given optical parameters, calculate coefficients of basic equation
   g1 = (1-(rl+tl)/2+(rl-tl)/eta)/mu_bar;
@@ -1040,13 +1040,14 @@ subroutine update_max_LFR_NSN(cc)
   type(cohort_type), intent(inout) :: cc
 
   !----- local vars ---------
-  real :: BL_c, BL_u
+  real :: BL_c, BL_u, f_CO2
 
   ! Update bl_max and br_max daily, Weng 2014-01-23, 2021-06-04, 08/24/2022
   ! The new updates allow a gradual increase of BLmax when a tree enters
   ! the canopy layer and a abrupt increase for grasses.
   associate ( sp => spdata(cc%species) )
-    BL_c = sp%LMA * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)
+    f_CO2 =Min(Max(SQRT(cc%CO2_c/400.0), 0.5),2.0) ! CO2 effects on max LAI, for FACE-MDS
+    BL_c = f_CO2 * sp%LAImax * sp%LMA * cc%Acrown * (1.0-sp%f_cGap)
     if (cc%layer > 1) then
       BL_u = BL_c/cc%layer
     else ! cc%layer = 1
@@ -1395,6 +1396,7 @@ subroutine vegn_age (vegn,t_yr) ! daily
   ! Update cohort ages
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
+     cc%CO2_c = vegn%CO2_c ! for FACE-MDS
      ! Update cohort age
      cc%age = cc%age + t_yr
      ! Update time in the top layer
@@ -2518,7 +2520,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     call update_max_LFR_NSN(cc)
     if(sp%leafLS>1.0)then
       cc%leafage = 1.0
-      cc%bl      = sp%LMA * sp%LAImax * cc%Acrown
+      cc%bl      = cc%bl_max
     else
       cc%leafage = 0.0
       cc%bl      = 0.0

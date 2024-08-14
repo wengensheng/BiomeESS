@@ -167,9 +167,31 @@ subroutine BiomeE_run()
   integer :: i, k, idays, idata, jdata, idoy
   integer :: n_steps, n_yr, year0, year1
   integer :: MonthDays(0:12)
+  integer :: iCO2_hist, CO2_start_yr, CO2_end_yr, CO2_yrs, skip_yrs
+  integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
   real    :: r_d
   logical :: new_annual_cycle
   logical :: BaseLineClimate = .True.
+
+#ifdef FACE_run
+  ! History CO2 concentration, data from 1700 to 2024 (325 years)
+  CO2_start_yr = 1850 ! Minimum 1700
+  CO2_end_yr   = 1997
+  CO2_yrs      = Max(CO2_end_yr - CO2_start_yr + 1, 1)
+  skip_yrs     = Max(CO2_start_yr - 1700, 0)
+  iCO2_hist= skip_yrs + 1
+  !Total years, CO2-history years, and experiment years
+  tot_yrs  = INT(model_run_years/yr_data+1)*yr_data
+  hist_yrs = CO2_yrs
+  spin_yrs = tot_yrs ! in case there is unrecognizable CO2Tag
+  if(CO2Tag == 'Init')then
+    spin_yrs = tot_yrs
+  elseif(CO2Tag == 'Hist')then
+    spin_yrs = tot_yrs - hist_yrs
+  elseif(CO2Tag == 'aCO2' .OR. CO2Tag == 'eCO2')then
+    spin_yrs = INT(750/yr_data)*yr_data - hist_yrs
+  endif
+#endif
 
   !----------------------
   n_yr    = 1
@@ -196,12 +218,18 @@ subroutine BiomeE_run()
       climateData = forcingData(idata)
       ! Set up scenarios for rainfall and CO2 concentration
       climateData%rain = forcingData(idata)%rain * Sc_prcp
-      climateData%CO2  = CO2_c * 1.0e-6
+      climateData%CO2  = CO2_c ! ppm
 #ifdef FACE_run
-      if(CO2Tag == 'aCO2')then
-        climateData%CO2 = forcingData(idata)%CO2
-      else
-        climateData%CO2 = forcingData(idata)%eCO2
+      if(n_yr <= spin_yrs)then
+        climateData%CO2  = CO2_c ! ppm
+      elseif(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then ! Treatment CO2 (Hist, aCO2, eCO2)
+        climateData%CO2  = CO2_Hist(iCO2_hist)
+      elseif(n_yr > spin_yrs+hist_yrs)then
+        if(CO2Tag == 'aCO2')then
+          climateData%CO2 = forcingData(idata)%CO2
+        elseif(CO2Tag == 'eCO2')then
+          climateData%CO2 = forcingData(idata)%eCO2
+        endif
       endif
 #endif
 #ifdef UFL_Monoculture
@@ -213,6 +241,7 @@ subroutine BiomeE_run()
 
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
+        if(i == INT(steps_per_day/2) .and. idoy == 181)vegn%CO2_c = climateData%CO2 ! * 1.0e6
         call vegn_CNW_budget_fast(vegn,climateData)
         call hourly_diagnostics(vegn,climateData, &
                                 n_yr,idoy,i,idays,fno1,fno2)
@@ -286,6 +315,12 @@ subroutine BiomeE_run()
 
       ! update the years of model run
       n_yr = n_yr + 1
+
+#ifdef FACE_run
+      if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then
+        iCO2_hist = Min(iCO2_hist + 1, CO2_end_yr)
+      endif
+#endif
 
 #ifdef DroughtMIP
       if(n_yr == yr_Baseline + 1 .and. BaseLineClimate)then

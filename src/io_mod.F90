@@ -428,6 +428,13 @@ end subroutine daily_diagnostics
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
     real :: plantC, plantN, soilC, soilN,BMtot
     integer :: f_cht,i,j,iyr_out,yr_Eq,yr_Sc
+
+    ! Max LAI
+    vegn%LAImax = 0.0
+    do i = 1, vegn%n_cohorts
+       cc => vegn%cohorts(i)
+       vegn%LAImax = vegn%LAImax + cc%Aleafmax * cc%nindivs
+    enddo
 #ifdef ScreenOutput
     write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
@@ -530,9 +537,8 @@ end subroutine daily_diagnostics
                vegn%rootN + vegn%SapwoodN + vegn%woodN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
 #ifdef FACE_run
-
       write(f2,'(1(I5,","),80(F12.4,","))') iyears, &
-       vegn%CAI, vegn%LAI, vegn%annualGPP, vegn%annualResp, vegn%annualRh, &
+       vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
        vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
        vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
        vegn%leafC, vegn%rootC, vegn%SapwoodC, vegn%woodC, vegn%SeedC,      &
@@ -540,7 +546,7 @@ end subroutine daily_diagnostics
        vegn%WoodN*1000, vegn%SeedN*1000, vegn%NSN*1000,                    &
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
        vegn%mineralN*1000, vegn%annualN*1000, vegn%annualNup*1000,         &
-       vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000
+       vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,vegn%CO2_c
 #elif DroughtMIP
       if (iyears > yr_Eq) &
         write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')&
@@ -676,15 +682,15 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
       climateData(i)%year      = year_data(i)          ! Year
       climateData(i)%doy       = doy_data(i)           ! day of the year
       climateData(i)%PAR       = input_data(15,i)      ! umol/m2/s
-      climateData(i)%radiation = input_data(13,i)      ! W/m2
+      climateData(i)%radiation = input_data(15,i)/2.   ! W/m2, input_data(13,i), factor
       climateData(i)%Tair      = input_data(3,i)       ! air temperature, K
       climateData(i)%Tsoil     = input_data(3,i)       ! soil temperature, K
       climateData(i)%RH        = input_data(5,i)*0.01  ! relative humidity (0.xx)
       climateData(i)%rain      = input_data(1,i)       ! kgH2O m-2 s-1
       climateData(i)%windU     = input_data(11,i)      ! wind velocity (m s-1)
       climateData(i)%P_air     = input_data(19,i)      ! pa
-      climateData(i)%CO2       = input_data(21,i) * 1.0e-6       ! mol/mol
-      climateData(i)%eCO2      = input_data(22,i) * 1.0e-6       ! mol/mol
+      climateData(i)%CO2       = input_data(21,i) !ppm
+      climateData(i)%eCO2      = input_data(22,i) !ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
 #else
       climateData(i)%year      = year_data(i)          ! Year
@@ -697,7 +703,7 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
       climateData(i)%rain      = input_data(6,i)/(timestep * 3600)! ! kgH2O m-2 s-1
       climateData(i)%windU     = input_data(7,i)        ! wind velocity (m s-1)
       climateData(i)%P_air     = input_data(8,i)        ! pa
-      climateData(i)%CO2       = input_data(9,i) * 1.0e-6       ! mol/mol
+      climateData(i)%CO2       = input_data(9,i)        !ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
 #endif
 
@@ -791,7 +797,7 @@ subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
       climateData(i)%P_air     = input_data(9,i)        ! pa
       climateData(i)%RH        = input_data(3,i)/mol_h2o*mol_air* & ! relative humidity (0.xx)
                                  climateData(i)%P_air/esat(climateData(i)%Tair-273.16)
-      climateData(i)%CO2       = input_data(15,i) * 1.0e-6       ! mol/mol
+      climateData(i)%CO2       = input_data(15,i) ! ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
    enddo
    forcingData => climateData
@@ -903,7 +909,7 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
       climateData(i)%windU     = input_data(6,i)        ! wind velocity (m s-1)
       climateData(i)%RH        = input_data(4,i)/mol_h2o*mol_air* & ! relative humidity (0.xx)
                                  climateData(i)%P_air/esat(climateData(i)%Tair-273.16)
-      climateData(i)%CO2       = CO2_c * 1.0e-6       ! mol/mol
+      climateData(i)%CO2       = CO2_c ! ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
    enddo
    forcingData => climateData
@@ -1061,7 +1067,8 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
          'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
-         'mineralN','N_yrMin', 'N_up', 'N_P2S', 'N_loss'
+         'mineralN','N_yrMin', 'N_up', 'N_P2S', 'N_loss',  &
+         'CO2'
 #else
     write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
         'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
