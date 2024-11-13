@@ -656,7 +656,7 @@ real :: LAI_light(0:MSPECIES)= 4.0    ! maximum LAI limited by light
 real :: LMA(0:MSPECIES)      = 0.035  ! leaf mass per unit area, kg C/m2
 real :: leafLS(0:MSPECIES)   = 1.0
 real :: LNbase(0:MSPECIES)   = 1.3E-3 !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
-real :: CN0leafST(0:MSPECIES)= 80.0 ! CN ratio of leaf supporting tissues
+real :: CN0leafST(0:MSPECIES)= 40.0 ! 80.0 ! CN ratio of leaf supporting tissues
 
 ! photosynthesis parameters
 real :: Vmax(0:MSPECIES)= 35.0E-6 ! mol m-2 s-1

@@ -937,7 +937,8 @@ subroutine vegn_growth(vegn)
       cc%bsw   = cc%bsw   + dBSW
       cc%seedC = cc%seedC + dSeed
       ! Update leaf age
-      cc%leafage = (1.0 - dBL/cc%bl)*cc%leafage + 1.0/365.0
+      !cc%leafage = (1.0 - dBL/cc%bl)*cc%leafage + 1.0/365.0
+      cc%leafage = cc%bl/(dBL+cc%bl)*cc%leafage + 1.0/365.0
 
       !!update nitrogen pools, Nitrogen allocation
       cc%leafN = cc%leafN + dBL   /sp%CNleaf0
@@ -1150,8 +1151,8 @@ subroutine vegn_phenology(vegn) ! daily step
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
           ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          !(vegn%thetaS < sp%betaOFF .or. cc%AWD < 0.7))      .and. & ! Drought-deciduous
-          ( cc%AWD < sp%AWD_crit))                           .and. & ! Drought-deciduous
+          (vegn%thetaS < sp%betaOFF .or. cc%AWD < 0.7))      .and. & ! Drought-deciduous
+          !( cc%AWD < sp%AWD_crit))                           .and. & ! Drought-deciduous
           cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate
 
@@ -2519,7 +2520,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     call BM2Architecture(cc,btot)
     call update_max_LFR_NSN(cc)
     if(sp%leafLS>1.0)then
-      cc%leafage = 1.0
+      cc%leafage = 0.5 ! 1.0
       cc%bl      = cc%bl_max
     else
       cc%leafage = 0.0

@@ -343,15 +343,15 @@ endif
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       write(fno3,'(8(I5,","),60(F12.4,","))')iyears,idoy,i, &
-            cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,    &
-            cc%nindivs*10000, cc%layerfrac, cc%LAI,         &
-            cc%dailygpp,cc%dailyresp,cc%dailytrsp,          &
-            cc%NPPleaf,cc%NPProot,cc%NPPwood,               &
-            cc%W_leaf,cc%W_stem,cc%W_dead,                  &
-            cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,      &
-            cc%NSN*1000, cc%seedN*1000, cc%leafN*1000,      &
-            cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,      &
-            cc%gdd,cc%ALT,cc%AWD
+          cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,     &
+          cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
+          cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
+          cc%NPPleaf,cc%NPProot,cc%NPPwood,                &
+          cc%W_leaf,cc%W_stem,cc%W_dead,                   &
+          cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
+          cc%NSN*1000, cc%seedN*1000, cc%leafN*1000,       &
+          cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,       &
+          cc%gdd,cc%ALT,cc%AWD
     enddo
     !! Tile daily
     write(fno4,'(2(I5,","),65(F12.4,","))')iyears,idoy,         &
@@ -988,7 +988,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
       write(fno3,'(60(a8,","))')'year','doy',          &  ! Daily cohort
          'c_No','PFT','layer','Pheno','ndm','ncd',     &
-         'density','flayer','LAI',                     &
+         'density','Acrown','LAI','LeafAge',           &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
          'W_LF','W_SW','W_HW',                         &
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &

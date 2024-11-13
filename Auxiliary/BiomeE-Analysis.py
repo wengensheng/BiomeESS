@@ -23,13 +23,13 @@ fpath = '../output/'
 #fpath = './BiomeESimulations/'
 fout  = '../output/'
 dtype = ['Ecosystem_yearly','Cohort_yearly']
-N_pfts = 4 # total PFTs at one site, 4
+N_pfts = 2 # total PFTs at one site, 4
 N_Layers = 3
 PI = 3.1415926
 DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
 
 # Site and experiments
-siteID = 'BCI_hydro' #'ORNL_test'
+siteID = 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
 PFTID = ['PFT1','PFT2','PFT3','PFT4']
 
 #%% Retrieve data
@@ -64,7 +64,8 @@ CCYr = CCYrV[0:rows,0:col].astype(np.float)
 totCCL = rows
 
 #% Data calculation and analysis
-LandC = np.copy(LandYr[:,[5,6,7,14,15]]) # GPP, Rauto, Rh, PlantC, SoilC
+#LandC = np.copy(LandYr[:,[5,6,7,14,15]]) # GPP, Rauto, Rh, PlantC, SoilC
+LandC = np.copy(LandYr[:,[3,4,5,12,13]]) # GPP, Rauto, Rh, PlantC, SoilC
 
 AGB = np.zeros(totYrs)
 Rh  = np.zeros(totYrs)
@@ -285,12 +286,12 @@ plt.ylabel('Wood C (KgC m$^{-2}$)', fontdict=font)
 plt.figure(7) #
 plt.clf()
 plt.subplot(221)
-plt.plot(xyear, CA[:,2])
+plt.plot(xyear, CA[:,1])
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Crown area (m$^{2}$/ha)', fontdict=font)
 
 plt.subplot(222)
-plt.plot(xyear, DEN_L[:,0:2])
+plt.plot(xyear, DEN_L[:,0:1])
 plt.legend(('1st layer','2nd layer'),loc=0,ncol=1)
 plt.yscale('log')
 plt.xlabel('Year', fontdict=font)
@@ -302,7 +303,7 @@ plt.legend(('CA_grow','CA_mort'),loc=0,ncol=1)
 #plt.yscale('log')
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('dCA-Layer1 (m$^{2}$/ha)', fontdict=font)
-plt.ylim((0,400))
+#plt.ylim((0,400))
 
 plt.subplot(224)
 plt.plot(xyear, CA_grow[:,1], CA_mort[:,1])
