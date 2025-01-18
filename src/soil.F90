@@ -28,6 +28,24 @@ contains ! -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ! Nitrogen mineralization and immoblization with microbial C & N pools
 ! it's a new decomposition model with coupled C & N pools and variable
 ! carbon use efficiency
+
+! Discussion with J. Hickman about "Birch effects":
+! For realistically representing SOM decomposition at different soil water
+! conditions, we'd better consider to add a couple of processes:
+! 1) the base decomposition rate (organic matter consumption rate per unit of
+!    microbes) as a function of soil moisture to represent the physiological
+!    activity of microbes ()
+! 2) microbial mortality at drought (dry conditions increase microbial
+!    mortality rates and reduce reproduction, and thus reduce microbes)
+! 3) accumulation of fast-turnover organic matter (from dead microbes,
+!    fine roots, exudates, etc.)
+! Reference:
+! https://www.science.org/doi/10.1126/science.add7833
+! Li et al., 2010, Adding an empirical factor to better represent the rewetting
+! pulse mechanism in a soil biogeochemical modelGeoderma 159 (2010) 440–451
+! The influence of precipitation pulses on soil respiration – Assessing the “Birch effect” by stable carbon isotopes
+! https://www.sciencedirect.com/science/article/pii/S0038071710002282
+
 subroutine Soil_BGC (vegn, tsoil, thetaS)
   type(vegn_tile_type), intent(inout) :: vegn
   real                , intent(in)    :: tsoil ! soil temperature, deg K

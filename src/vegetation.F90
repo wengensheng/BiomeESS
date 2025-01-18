@@ -1151,7 +1151,7 @@ subroutine vegn_phenology(vegn) ! daily step
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
           ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          (vegn%thetaS < sp%betaOFF .or. cc%AWD < 0.7))      .and. & ! Drought-deciduous
+          (vegn%thetaS < sp%betaOFF .or. cc%AWD < sp%AWD_crit)).and. & ! Drought-deciduous
           !( cc%AWD < sp%AWD_crit))                           .and. & ! Drought-deciduous
           cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate
@@ -1751,7 +1751,7 @@ real function mortality_rate(cc) result(mu) ! per year
     mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 
 #ifdef DroughtMu
-    ! Annual drought mortality, From Jeremy Lichstein (for NE forest)
+    ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)
     ! It can be turnoed off by setting a large sp%W_mu0
     if(cc%totDemand>0.00001)then
       cc%w_scale = cc%annualTrsp/cc%totDemand
