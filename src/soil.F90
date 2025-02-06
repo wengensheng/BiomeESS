@@ -59,6 +59,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   real :: runoff ! kg m-2 /step
   real :: dN_SOM4,dN_SOM5 ! Dissolved organic N loss, kg N m-2 step-1
   real :: A  ! decomp rate reduction due to moisture and temperature
+  real :: McrbMax,fm_dcmp,fm_grow ! Test for microbial controls on decomposition
   integer :: i
 
   ! Default microbial CUE for fast and slow SOM
@@ -79,11 +80,23 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
     vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
   enddo
 
-  ! Turnover in SOM4 and SOM5
-  do i=3, 5
+  !For microbial controlled decomposition (Birch effect) ! Weng, 02/05/2025
+  fm_grow = 1.0
+  fm_dcmp = 1.0
+#ifdef MicrobialDecomposition
+  McrbMax = Max(0.002,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/5.0)
+  fm_dcmp = Max(0.1,MIN(1.0,vegn%SOC(3)/McrbMax))
+  fm_grow = Min(1.0,Max(0.2,1.0 - vegn%SOC(3)/McrbMax))
+#endif
+
+  ! Turnover of SOM3 (microbial)
+  d_C(3) = vegn%SOC(3) * A * K0SOM(3) * dt_fast_yr
+  d_N(3) = vegn%SON(3) * A * K0SOM(3) * dt_fast_yr
+  ! Turnover rates of SOM4 and SOM5
+  do i=4, 5
      !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
-     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr
-     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr
+     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr * fm_grow
+     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr * fm_grow
   enddo
 
   ! New microbes grown from SOM decomposition

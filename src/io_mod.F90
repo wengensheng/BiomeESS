@@ -342,7 +342,7 @@ endif
     !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      write(fno3,'(8(I5,","),60(F12.4,","))')iyears,idoy,i, &
+      write(fno3,'(8(I5,","),60(E12.4,","))')iyears,idoy,i, &
           cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,     &
           cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
           cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
@@ -354,7 +354,7 @@ endif
           cc%gdd,cc%ALT,cc%AWD
     enddo
     !! Tile daily
-    write(fno4,'(2(I5,","),65(F12.4,","))')iyears,idoy,         &
+    write(fno4,'(2(I5,","),65(E12.4,","))')iyears,idoy,         &
        vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
        vegn%dailyEvap,vegn%dailyRoff,                           &
        vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
@@ -658,6 +658,12 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
      endif
      if(dy /= doy_data(m)) ndays = ndays + 1
      if(yr /= year_data(m))nyear = nyear + 1
+     !Remove -9999
+     do n=1,niterms
+       if(input_data(n,m)<-900.0)then
+         input_data(n,m) = input_data(n,m-1) ! remove -9999
+       endif
+     enddo
    enddo
    ! Check fast time step
 #ifdef FACE_run

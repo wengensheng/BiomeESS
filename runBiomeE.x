@@ -8,7 +8,8 @@ FSRCS="src/datatypes.F90 \
 
 CPPFLAGS=''
 #CPPFLAGS+="-DHydro_test"
-CPPFLAGS+=' -DSingleTreeTest'
+#CPPFLAGS+=' -DSingleTreeTest'
+CPPFLAGS+=" -DScreenOutput"
 
 echo $FSRCS
 
@@ -18,7 +19,8 @@ echo $FSRCS
 
 gfortran $FSRCS $CPPFLAGS -o ess
 
-fparameter='./para_files/parameters_ORNL_test.nml'
+#fparameter='./para_files/parameters_ORNL_test.nml'
+fparameter='./para_files/parameters_Vairo.nml'
 echo $fparameter
 cat $fparameter > ./para_files/input.nml
 ./ess

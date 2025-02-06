@@ -217,7 +217,7 @@ subroutine BiomeE_run()
       idata = MOD(n_steps-1, datalines) + 1
       climateData = forcingData(idata)
       ! Set up scenarios for rainfall and CO2 concentration
-      climateData%rain = forcingData(idata)%rain * Sc_prcp
+      climateData%rain = forcingData(idata)%rain !* Sc_prcp
       climateData%CO2  = CO2_c ! ppm
 #ifdef FACE_run
       if(n_yr <= spin_yrs)then
