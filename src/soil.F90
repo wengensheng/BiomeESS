@@ -59,7 +59,9 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   real :: runoff ! kg m-2 /step
   real :: dN_SOM4,dN_SOM5 ! Dissolved organic N loss, kg N m-2 step-1
   real :: A  ! decomp rate reduction due to moisture and temperature
-  real :: McrbMax,fm_dcmp,fm_grow ! Test for microbial controls on decomposition
+  real :: McrbMax = 0.2 ! kgC m-2, Maximum microbial biomass (as a function of SON)
+  real :: fm_dcmp = 1.0
+  real :: fm_grow = 1.0 ! microbial growth rate, !Test for microbial controls on decomposition
   integer :: i
 
   ! Default microbial CUE for fast and slow SOM
@@ -74,48 +76,45 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   do i=1, 2
     d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
     d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
-    vegn%SOC(i)  = vegn%SOC(i) - d_C(i)
-    vegn%SON(i)  = vegn%SON(i) - d_N(i)
+    vegn%SOC(i)   = vegn%SOC(i)   - d_C(i)
+    vegn%SON(i)   = vegn%SON(i)   - d_N(i)
     vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
     vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
   enddo
 
   !For microbial controlled decomposition (Birch effect) ! Weng, 02/05/2025
-  fm_grow = 1.0
-  fm_dcmp = 1.0
-#ifdef MicrobialDecomposition
-  McrbMax = Max(0.002,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/5.0)
-  fm_dcmp = Max(0.1,MIN(1.0,vegn%SOC(3)/McrbMax))
-  fm_grow = Min(1.0,Max(0.2,1.0 - vegn%SOC(3)/McrbMax))
-#endif
+  McrbMax = Max(2.0E-5,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/2.0)
+  !fm_dcmp = Min(1.0,Max(0.05,vegn%SOC(3)/McrbMax))
+  fm_dcmp = 1.0 - exp(-5.0 * Max(0.05,vegn%SOC(3)/McrbMax))
+  fm_grow = Max(0.0,1.0 - vegn%SOC(3)/McrbMax)
 
   ! Turnover of SOM3 (microbial)
-  d_C(3) = vegn%SOC(3) * A * K0SOM(3) * dt_fast_yr
-  d_N(3) = vegn%SON(3) * A * K0SOM(3) * dt_fast_yr
+  d_C(3) = vegn%SOC(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
+  d_N(3) = vegn%SON(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
   ! Turnover rates of SOM4 and SOM5
   do i=4, 5
      !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
-     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr * fm_grow
-     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr * fm_grow
+     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr * fm_dcmp
+     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr * fm_dcmp
   enddo
 
   ! New microbes grown from SOM decomposition
-  newM(4) = Min(CUEf0*d_C(4), d_N(4)/CN0SOM(3))
-  newM(5) = Min(CUEs0*d_C(5), d_N(5)/CN0SOM(3))
+  newM(4) = Min(CUEf0*d_C(4), d_N(4)/CN0SOM(3)) * fm_grow
+  newM(5) = Min(CUEs0*d_C(5), d_N(5)/CN0SOM(3)) * fm_grow
   newM(3) = (newM(4)+newM(5)) * (1.-f_M2SOM)
 
   ! Update C and N pools
   vegn%SOC(3) = vegn%SOC(3) - d_C(3) + newM(3)
-  vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM
+  vegn%SOC(4) = vegn%SOC(4) - d_C(4) + d_C(3) + newM(4) * f_M2SOM
   vegn%SOC(5) = vegn%SOC(5) - d_C(5) + newM(5) * f_M2SOM
 
   vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3)/CN0SOM(3)
-  vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4)/CN0SOM(3) * f_M2SOM
+  vegn%SON(4) = vegn%SON(4) - d_N(4) + d_N(3) + newM(4)/CN0SOM(3) * f_M2SOM
   vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5)/CN0SOM(3) * f_M2SOM
 
   ! Mineralized nitrogen and Heterotrophic respiration, kg m-2 step-1
-  vegn%rh = d_C(3) + d_C(4) + d_C(5) - newM(4) - newM(5) !
-  N_m = d_N(3) + d_N(4)+d_N(5) - (newM(4)+newM(5))/CN0SOM(3)
+  vegn%rh = d_C(4) + d_C(5) - newM(4) - newM(5) !
+  N_m     = d_N(4)+d_N(5) - (newM(4)+newM(5))/CN0SOM(3)
 
   ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
   dN_SOM4 = fDON * d_N(4) * (etaN*runoff) + vegn%SON(4) * rho_SON * A * dt_fast_yr

@@ -342,7 +342,7 @@ endif
     !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      write(fno3,'(8(I5,","),60(E12.4,","))')iyears,idoy,i, &
+      write(fno3,'(8(I5,","),60(E12.6,","))')iyears,idoy,i, &
           cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,     &
           cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
           cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
@@ -354,7 +354,7 @@ endif
           cc%gdd,cc%ALT,cc%AWD
     enddo
     !! Tile daily
-    write(fno4,'(2(I5,","),65(E12.4,","))')iyears,idoy,         &
+    write(fno4,'(2(I5,","),65(E12.6,","))')iyears,idoy,         &
        vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
        vegn%dailyEvap,vegn%dailyRoff,                           &
        vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
@@ -486,7 +486,7 @@ end subroutine daily_diagnostics
           cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
 #elif FACE_run
-        write(f1,'(4(I8,","),300(E15.4,","))')iyears,i,     &
+        write(f1,'(4(I8,","),300(E15.6,","))')iyears,i,     &
           cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
           cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
           cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
@@ -497,7 +497,7 @@ end subroutine daily_diagnostics
           cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
 
 #else
-        write(f1,'(6(I8,","),300(E15.4,","))')vegn%tileID, &
+        write(f1,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
           iyears,i,cc%ccID,cc%species,cc%layer,            &
           cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,      &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,    &
@@ -537,7 +537,7 @@ end subroutine daily_diagnostics
                vegn%rootN + vegn%SapwoodN + vegn%woodN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
 #ifdef FACE_run
-      write(f2,'(1(I5,","),80(F12.4,","))') iyears, &
+      write(f2,'(1(I5,","),80(E15.6,","))') iyears, &
        vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
        vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
        vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
@@ -549,7 +549,7 @@ end subroutine daily_diagnostics
        vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,vegn%CO2_c
 #elif DroughtMIP
       if (iyears > yr_Eq) &
-        write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')&
+        write(f2,'(2(I5,","),80(E15.6,","))')&
         vegn%tileID,iyears - yr_Sc,vegn%CAI,vegn%LAI,                   &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
@@ -561,7 +561,7 @@ end subroutine daily_diagnostics
         (vegn%wcl(j),j=1,soil_L)
 
 #else
-      write(f2,'(2(I5,","),30(F12.4,","),6(F12.4,","),30(F12.4,","))')  &
+      write(f2,'(2(I5,","),80(E15.6,","))')  &
         vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &

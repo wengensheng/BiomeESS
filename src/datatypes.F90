@@ -615,7 +615,7 @@ real :: h0_escape = 5.0 ! tree height that escapes direct burning of grass fires
 real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
 
 ! Soil organic matter decomposition
-real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 2.0, 0.05/) ! turnover rate of SOM pools (yr-1)
+real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
 real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON       = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON    = 0.05    ! SON release rate per year
