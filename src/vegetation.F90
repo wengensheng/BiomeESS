@@ -1149,11 +1149,11 @@ subroutine vegn_phenology(vegn) ! daily step
      associate (sp => spdata(cc%species) )
      ! Critical temperature trigering offset of phenology
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
-     PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. &
-          ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          (vegn%thetaS < sp%betaOFF .or. cc%AWD < sp%AWD_crit)).and. & ! Drought-deciduous
-          !( cc%AWD < sp%AWD_crit))                           .and. & ! Drought-deciduous
-          cc%NGD > Days_thld  ! Minimum days of a growing season
+     PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. (&
+          (cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
+          (vegn%thetaS <sp%betaOFF .or. cc%AWD<sp%AWD_crit)       & ! Drought-deciduous
+          !(cc%AWD < sp%AWD_crit) & ! Drought-deciduous
+          ).and. cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate
 
      if(PhenoOFF )then

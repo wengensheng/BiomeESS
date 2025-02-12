@@ -1236,6 +1236,7 @@ end function
    else
       Wd = 1.0 ! exp(2.3*(0.6-thetaS)); ! Weng, 2016-11-26
    endif
+   WD = 1.0/(1.0 + exp(12.0*(0.5-thetaS))) ! Weng, 2025-02-11
 
    A = (Td*Wd)  ! the combined (multiplicative) effect of temp and water
                 ! on decomposition rates
