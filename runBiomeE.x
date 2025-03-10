@@ -19,8 +19,7 @@ echo $FSRCS
 
 gfortran $FSRCS $CPPFLAGS -o ess
 
-#fparameter='./para_files/parameters_ORNL_test.nml'
-fparameter='./para_files/parameters_Vairo.nml'
+fparameter='./para_files/parameters_STEI_test.nml'
 echo $fparameter
 cat $fparameter > ./para_files/input.nml
 ./ess

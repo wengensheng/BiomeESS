@@ -647,7 +647,7 @@ real :: tauNSC(0:MSPECIES)  = 6 ! 3 ! NSC residence time,years
 real :: fNSNmax(0:MSPECIES) = 5 ! 5 ! multiplier for NSNmax as sum of potential bl and br
 real :: transT(0:MSPECIES)  = 3 ! Years
 real :: f_cGap(0:MSPECIES)  = 0.1  ! The gaps between trees
-real :: LFR_rate(0:MSPECIES)= 1.0
+real :: LFR_rate(0:MSPECIES)= 1.0/21.0
 
 ! Leaf parameters
 real :: leaf_size(0:MSPECIES)= 0.04 !

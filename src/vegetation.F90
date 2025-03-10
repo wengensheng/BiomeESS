@@ -856,9 +856,11 @@ subroutine vegn_growth(vegn)
   !Allocate C_gain to tissues
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
-
     ! Skip non-growing season
-    if(cc%status == LEAF_OFF) cycle
+    if(cc%status == LEAF_OFF)then
+      cc%resg = 0.0 ! Zero growth respiration
+      cycle
+    endif
 
     ! Get carbon from NSC pool
     call fetch_CN_for_growth(cc,Cgrowth,Ngrowth) ! Weng, 2017-10-19
@@ -1006,29 +1008,23 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
   real :: C_push, C_pull, growthC
   real :: N_push, N_pull, growthN
   real :: LFR_rate
-  real :: resp_growth
 
   associate ( sp => spdata(cc%species) )
-    LFR_rate = sp%LFR_rate ! 1.0 !  1.0/16.0 ! filling rate/day
-    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
-
     ! Fetch C from labile C pool if it is in the growing season
-    if (cc%status == LEAF_ON) then ! growing season
-        C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
-                  Max(cc%br_max - cc%br,0.0))
-        N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
-                  Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
+    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
+    LFR_rate = sp%LFR_rate ! 1.0 !  1.0/16.0 ! filling rate/day
 
-        C_push = max(0.0,cc%nsc-0.1*NSCtarget)/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
-        N_push = max(0.0,cc%NSN)/(days_per_year*sp%tauNSC)
+    C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
+              Max(cc%br_max - cc%br,0.0))
+    N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
+              Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-        Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
-        Ngrowth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
-    else ! non-growing season
-        Cgrowth = 0.0
-        Ngrowth = 0.0
-        cc%resg = 0.0
-    endif
+    C_push = max(0.0,cc%nsc-0.1*NSCtarget)/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+    N_push = max(0.0,cc%NSN)/(days_per_year*sp%tauNSC)
+
+    Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
+    Ngrowth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
+
   end associate
 
 end subroutine fetch_CN_for_growth
@@ -1073,7 +1069,7 @@ subroutine vegn_phenology(vegn) ! daily step
   ! ---- local vars
   type(cohort_type), pointer :: cc
   integer :: i,j
-  integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
+  integer :: Days_thld = 30 ! minimum days of the growing or non-growing season
   real    :: cold_thld = -20.  ! threshold of accumulative low temperature
   integer :: GrassMaxL = 3   ! Maximal layers that grasses can survive
   real    :: Tk_OFF, Tk_ON, gdd_ON
@@ -1151,7 +1147,7 @@ subroutine vegn_phenology(vegn) ! daily step
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. (&
           (cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          (vegn%thetaS <sp%betaOFF .or. cc%AWD<sp%AWD_crit)       & ! Drought-deciduous
+          (vegn%thetaS < sp%betaOFF)       & ! Drought-deciduous !
           !(cc%AWD < sp%AWD_crit) & ! Drought-deciduous
           ).and. cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate

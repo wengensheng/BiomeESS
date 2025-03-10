@@ -84,7 +84,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
 
   !For microbial controlled decomposition (Birch effect) ! Weng, 02/05/2025
   McrbMax = Max(2.0E-5,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/2.0)
-  fm_dcmp = 1.0 - exp(-5.0 * Max(0.05,vegn%SOC(3)/McrbMax))
+  fm_dcmp = 1.0 ! 1.0 - exp(-5.0 * Max(0.05,vegn%SOC(3)/McrbMax))
   fm_grow = 1.0 ! Max(0.0,1.0 - vegn%SOC(3)/McrbMax)
 
   ! Turnover of SOM3 (microbial)
