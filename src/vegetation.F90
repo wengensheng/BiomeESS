@@ -1070,7 +1070,7 @@ subroutine vegn_phenology(vegn) ! daily step
   type(cohort_type), pointer :: cc
   integer :: i,j
   integer :: Days_thld = 30 ! minimum days of the growing or non-growing season
-  real    :: cold_thld = -20.  ! threshold of accumulative low temperature
+  real    :: cold_thld = -20.  ! threshold of accumulative low temperature (sum(dT*day)
   integer :: GrassMaxL = 3   ! Maximal layers that grasses can survive
   real    :: Tk_OFF, Tk_ON, gdd_ON
   real    :: totC, totN, ccNSC, ccNSN
@@ -1091,7 +1091,7 @@ subroutine vegn_phenology(vegn) ! daily step
          if(vegn%tc_pheno<T0_chill)then
             cc%ncd = cc%ncd + 1
          endif
-         ! Keep gdd as zero in early non-growing season when days < 60
+         ! Keep gdd as zero in early non-growing season when days < Days_thld
          if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
       endif ! cc%status
     end associate
@@ -1182,7 +1182,7 @@ subroutine vegn_tissue_turnover(vegn)
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
      ! leave turnover rate, fraction per day
-     alpha_L = MIN(.2, Max(2.*cc%leafage/sp%leafLS-1., 0.))
+     alpha_L = MIN(.2, Max(2.*cc%leafage/sp%leafLS - 1., 0.))
 
      ! Stem turnover
      if(sp%lifeform == 0)then

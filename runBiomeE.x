@@ -19,9 +19,14 @@ echo $FSRCS
 
 gfortran $FSRCS $CPPFLAGS -o ess
 
-fparameter='./para_files/parameters_STEI_test.nml'
+# namelist file (Parameter and model setting file)
+fparameter='./para_files/parameters_DSNY_test.nml'
 echo $fparameter
+
+# Write to the file that will be read by the model
 cat $fparameter > ./para_files/input.nml
+
+# Run model
 ./ess
 
 rm ./para_files/input.nml
