@@ -1069,7 +1069,7 @@ subroutine vegn_phenology(vegn) ! daily step
   ! ---- local vars
   type(cohort_type), pointer :: cc
   integer :: i,j
-  integer :: Days_thld = 30 ! minimum days of the growing or non-growing season
+  integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
   real    :: cold_thld = -20.  ! threshold of accumulative low temperature (sum(dT*day)
   integer :: GrassMaxL = 3   ! Maximal layers that grasses can survive
   real    :: Tk_OFF, Tk_ON, gdd_ON
