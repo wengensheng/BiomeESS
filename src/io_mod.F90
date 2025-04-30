@@ -338,6 +338,16 @@ if(iyears > 900)then
      vegn%LAI,vegn%dailyLFLIT*1000., (vegn%wcl(i),i=2,5)
 endif
 
+#elif DroughtPaleo
+  if(outputdaily.and. iday>equi_days)then
+    !! Tile daily
+    write(fno4,'(2(I5,","),65(E12.6,","))')iyears,idoy,         &
+       vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
+       vegn%dailyEvap,vegn%dailyRoff,                           &
+       vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
+       vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh
+  endif
+
 #else
   if(outputdaily.and. iday>equi_days)then
     !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
@@ -665,7 +675,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    allocate(climateData(PaleoForcingLines))
    iBase = 0
    iLine = 0
-   do iY =1,PaleoYears ! 901
+   do iY =1, PaleoYears ! 901
      iBY = MOD(iY-1,yr_data)+1 ! Corresponding base data year
      do iM=1,12
        ! Calculate ratios of Paleo P and T to the base data's
@@ -682,8 +692,13 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
      enddo   ! Months
    enddo     ! years
    deallocate(forcingdata)
+   ! Update data array for model run
    forcingData => climateData
+   datalines = iLine
+   days_data = PaleoYears * 365
+   yr_data   = PaleoYears
 
+#ifdef CheckInput
    ! Write climateData to a csv file, for checking only
    write(DrawID, '(I0)')iDraw
    fname3 = trim(filepath_out)//trim(fPaleoP(1:3))//'_Hourly_'//trim(DrawID)//'.csv'
@@ -698,6 +713,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
          forcingData(i)%windU, forcingData(i)%P_air,forcingData(i)%CO2
    enddo
    close(15)
+#endif
 
  end subroutine set_PaleoForcing
 
