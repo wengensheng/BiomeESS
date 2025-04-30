@@ -14,6 +14,7 @@ module io_mod
 public :: read_namelist, vegn_sum_tile, Zero_diagnostics
 public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
 public :: read_FACEforcing, read_NACPforcing, set_up_output_files
+public :: set_PaleoForcing ! for Kate's 1000 years' P and T
 
 !---------------------------------
 contains
@@ -581,6 +582,125 @@ endif
  end subroutine annual_diagnostics
 
 !========================================================================
+! Set up forcing data with paleo precipitation and temperature (monthly)
+subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
+              forcingData,datalines,days_data,yr_data,timestep)
+   implicit none
+   character(len=*),intent(in) :: fdata ! Base climate data
+   character(len=*),intent(in) :: fPaleoP,fPaleoT ! Paleo inversion data
+   integer,intent(in) :: iDraw
+   type(climate_data_type),pointer,intent(inout) :: forcingData(:)
+   integer,intent(inout) :: datalines,days_data,yr_data
+   real, intent(inout)   :: timestep
+
+   !------------local var -------------------
+   integer, parameter :: PaleoYears  = 901
+   integer, parameter :: PaleoMonths = 10812
+   integer, parameter :: MonthDays(12)=(/31,28,31,30,31,30,31,31,30,31,30,31/)
+   character(len=160)  commts,PaleoPfile,PaleoTfile,fname3
+   character(len=4)  tags,mAbv
+   type(climate_data_type), pointer :: climateData(:)
+   real :: monthlyP(30,12),monthlyT(30,12)
+   real :: PaleoP(10812,1000),PaleoT(10812,1000)
+   real :: fPrcp,dTmp
+   integer :: PaleoForcingLines
+   integer :: Lines_skip = 3 + 4 ! three lines of comments and 4 lines of data, Sep - Dec
+   integer :: istat1,istat2,istat3
+   integer :: i,j,k,m,n
+   real :: iYear
+   integer :: iLine,iBase,iBY,iY,iM,iD,iH ! Year, Month, Day, Hour
+
+   ! Read in fdata
+   call read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timestep)
+   ! Calculate monthely P and T
+   monthlyP = 0.0
+   monthlyT = 0.0
+   iBase = 0
+   do iY =1,yr_data
+     do iM=1,12
+       n =  0
+       do iD=1, MonthDays(iM) * int(24.0/timestep)
+         n = n + 1
+         iBase = iBase + 1
+         if(iBase > datalines) exit
+         monthlyP(iY,iM) = monthlyP(iY,iM) + forcingData(iBase)%rain
+         monthlyT(iY,iM) = monthlyT(iY,iM) + forcingData(iBase)%Tair
+       enddo
+       if(monthlyP(iY,iM)<1.0E-9)then ! Assign a very small value for zero rainfall month
+         monthlyP(iY,iM) = 1.0E-9     ! just for put the paleo rainfall at the last hour
+         forcingData(iBase)%rain = 1.0E-9
+       endif
+       monthlyP(iY,iM) = monthlyP(iY,iM) * (timestep * 3600) ! Monthly total
+       monthlyT(iY,iM) = monthlyT(iY,iM) /n - 273.16 ! K to C
+     enddo
+   enddo
+
+   ! Read in fPaleoP and fPaleoT
+   PaleoPfile=trim(filepath_in)//trim(fPaleoP)
+   PaleoTfile=trim(filepath_in)//trim(fPaleoT)
+   inquire (file=PaleoPfile, iostat=istat2)
+   if (istat2 /= 0) then
+       write (*, '("Error: input file ", a, " does not exist")') PaleoPfile
+       stop
+   endif
+   inquire (file=PaleoTfile, iostat=istat2)
+   if (istat2 /= 0) then
+       write (*, '("Error: input file ", a, " does not exist")') PaleoTfile
+       stop
+   endif
+   open(21,file=PaleoPfile,status='old',ACTION='read',IOSTAT=istat2)
+   open(22,file=PaleoTfile,status='old',ACTION='read',IOSTAT=istat2)
+   do i=1,Lines_skip
+     read(21,*) commts
+     read(22,*) commts
+   enddo
+
+   do i=1,10812
+     read(21,*,IOSTAT=istat2)iYear, mAbv,(PaleoP(i,j),j=1,1000)
+     read(22,*,IOSTAT=istat2)iYear, mAbv,(PaleoT(i,j),j=1,1000)
+   enddo
+
+   ! Replace base data's P and T
+   PaleoForcingLines = INT(10812/12*365*24/timestep)
+   allocate(climateData(PaleoForcingLines))
+   iBase = 0
+   iLine = 0
+   do iY =1,30 ! 901
+     iBY = MOD(iY-1,yr_data)+1 ! Corresponding base data year
+     do iM=1,12
+       ! Calculate ratios of Paleo P and T to the base data's
+       fPrcp = PaleoP((iY-1)*12+iM,iDraw) / monthlyP(iBY,iM)
+       dTmp  = PaleoT((iY-1)*12+iM,iDraw) - monthlyT(iBY,iM)
+       do iD=1, MonthDays(iM) * int(24.0/timestep)
+         iBase = MOD(iLine,datalines) + 1
+         iLine = iLine + 1
+         climateData(iline)       = forcingData(iBase)
+         climateData(iline)%rain  = forcingData(iBase)%rain * fPrcp
+         climateData(iline)%Tair  = forcingData(iBase)%Tair + dTmp
+         climateData(iline)%Tsoil = forcingData(iBase)%Tsoil+ dTmp
+       enddo ! month hours
+     enddo   ! Months
+   enddo     ! years
+   deallocate(forcingdata)
+   forcingData => climateData
+
+   ! Write climateData to a csv file
+   fname3 = trim(filepath_in)//'RMA_hourly_iDraw1.csv'
+   open(15,file=trim(fname3))
+   write(15,*)"YEAR,DOY,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,CO2"
+   do i=1,30*365*24 ! PaleoForcingLines
+       write(15,'(2(I4,","),6(E15.4,","),1(E15.4,","),30(f15.4,","))') &
+         forcingData(i)%year, forcingData(i)%doy, &
+         forcingData(i)%PAR, forcingData(i)%radiation, &
+         forcingData(i)%Tair, forcingData(i)%Tsoil,  &
+         forcingData(i)%RH, forcingData(i)%rain, &
+         forcingData(i)%windU, forcingData(i)%P_air,forcingData(i)%CO2
+   enddo
+   close(15)
+
+ end subroutine set_PaleoForcing
+
+!=============================================================================
 ! read in forcing data (Users need to write their own data input procedure)
 subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timestep)
    character(len=*),intent(in) :: fdata
@@ -705,7 +825,7 @@ subroutine read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timest
       climateData(i)%radiation = input_data(2,i)       ! W/m2
       climateData(i)%Tair      = input_data(3,i) + 273.16  ! air temperature, K
       climateData(i)%Tsoil     = input_data(4,i) + 273.16  ! soil temperature, K
-      climateData(i)%RH        = input_data(5,i) * 0.01    ! relative humidity (0.xx)
+      climateData(i)%RH        = min(input_data(5,i),99.9) * 0.01    ! relative humidity (0.xx)
       climateData(i)%rain      = input_data(6,i)/(timestep * 3600)! ! kgH2O m-2 s-1
       climateData(i)%windU     = input_data(7,i)        ! wind velocity (m s-1)
       climateData(i)%P_air     = input_data(8,i)        ! pa
