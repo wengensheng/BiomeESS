@@ -598,7 +598,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    integer, parameter :: PaleoMonths = 10812
    integer, parameter :: MonthDays(12)=(/31,28,31,30,31,30,31,31,30,31,30,31/)
    character(len=160)  commts,PaleoPfile,PaleoTfile,fname3
-   character(len=4)  tags,mAbv
+   character(len=10)  tags,mAbv,DrawID
    type(climate_data_type), pointer :: climateData(:)
    real :: monthlyP(30,12),monthlyT(30,12)
    real :: PaleoP(10812,1000),PaleoT(10812,1000)
@@ -610,7 +610,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    real :: iYear
    integer :: iLine,iBase,iBY,iY,iM,iD,iH ! Year, Month, Day, Hour
 
-   ! Read in fdata
+   ! Read in baseline forcing data (1901~1930, 30 years)
    call read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timestep)
    ! Calculate monthely P and T
    monthlyP = 0.0
@@ -635,7 +635,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
      enddo
    enddo
 
-   ! Read in fPaleoP and fPaleoT
+   ! Read in Paleo precipitation and temperature data, monthly, 1001~1901
    PaleoPfile=trim(filepath_in)//trim(fPaleoP)
    PaleoTfile=trim(filepath_in)//trim(fPaleoT)
    inquire (file=PaleoPfile, iostat=istat2)
@@ -655,7 +655,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
      read(22,*) commts
    enddo
 
-   do i=1,10812
+   do i=1,PaleoMonths
      read(21,*,IOSTAT=istat2)iYear, mAbv,(PaleoP(i,j),j=1,1000)
      read(22,*,IOSTAT=istat2)iYear, mAbv,(PaleoT(i,j),j=1,1000)
    enddo
@@ -665,7 +665,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    allocate(climateData(PaleoForcingLines))
    iBase = 0
    iLine = 0
-   do iY =1,30 ! 901
+   do iY =1,PaleoYears ! 901
      iBY = MOD(iY-1,yr_data)+1 ! Corresponding base data year
      do iM=1,12
        ! Calculate ratios of Paleo P and T to the base data's
@@ -684,8 +684,9 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    deallocate(forcingdata)
    forcingData => climateData
 
-   ! Write climateData to a csv file
-   fname3 = trim(filepath_in)//'RMA_hourly_iDraw1.csv'
+   ! Write climateData to a csv file, for checking only
+   write(DrawID, '(I0)')iDraw
+   fname3 = trim(filepath_out)//trim(fPaleoP(1:3))//'_Hourly_'//trim(DrawID)//'.csv'
    open(15,file=trim(fname3))
    write(15,*)"YEAR,DOY,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,CO2"
    do i=1,30*365*24 ! PaleoForcingLines

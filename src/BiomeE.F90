@@ -95,9 +95,7 @@ subroutine setup_forcingdata()
   dt_fast_yr    = step_hour/(365.0 * 24.0)
   step_seconds  = step_hour*3600.0
   write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
-
-  stop ! just testing data setup
-
+  !stop ! just testing data setup
 end subroutine
 
 !----------------------------------------------------------------------------
