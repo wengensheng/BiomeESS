@@ -72,26 +72,23 @@ module BiomeE_mod
   character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
   call read_namelist(fnml)
-
-#ifdef DroughtPaleo
-  call setup_DroughtPaleoForcing(climfile,PaleoPfile,PaleoTfile,iDraw)
-#else
-  call setup_forcingdata(climfile)
-#endif
-
+  call setup_forcingdata()
   call BiomeE_initialization()
   call BiomeE_run()
   call BiomeE_end()
 end subroutine BiomeE_main
 
-! --------- Read forcing data ----------------------
-subroutine setup_forcingdata(fdata)
-  character(len=*),intent(in) :: fdata
+! --------- Setup forcing data and step lenght ----------------------
+subroutine setup_forcingdata()
 
-  ! -------- read forcing data --------------
-  call read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,step_hour)
+#ifdef DroughtPaleo
+  call set_PaleoForcing(climfile,PaleoPfile,PaleoTfile,iDraw, &
+        forcingData,datalines,days_data,yr_data,step_hour)
+#else
+  call read_FACEforcing(climfile,forcingData,datalines,days_data,yr_data,step_hour)
   !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
   !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
+#endif
 
   ! ------ Setup steps for model run ------
   steps_per_day = int(24.0/step_hour)
@@ -99,23 +96,7 @@ subroutine setup_forcingdata(fdata)
   step_seconds  = step_hour*3600.0
   write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
 
-end subroutine
-
-! --------- Set forcing data for DroughtPaleo ----------------------
-subroutine setup_DroughtPaleoForcing(fdata,fPaleoP,fPaleoT,iDraw)
-  implicit none
-  character(len=*),intent(in) :: fdata,fPaleoP,fPaleoT
-  integer, intent(in) :: iDraw
-
-  ! -------- read forcing data --------------
-  call set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
-          forcingData,datalines,days_data,yr_data,step_hour)
-
-  ! ------ Setup steps for model run ------
-  steps_per_day = int(24.0/step_hour)
-  dt_fast_yr    = step_hour/(365.0 * 24.0)
-  step_seconds  = step_hour*3600.0
-  write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
+  stop ! just testing data setup
 
 end subroutine
 
