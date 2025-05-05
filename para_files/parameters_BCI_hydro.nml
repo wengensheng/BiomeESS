@@ -18,7 +18,7 @@ etaN       = 0.0,  ! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8,  ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
-diff_S0    = 0.2,  ! critical difference for merging of two cohorts
+diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 kx0_WD     = 5.0,  ! kx0 at reference WD
 p50_WD     = -1.565,  ! stem psi50 at reference WD
 ths0_WD    = 3.0,    ! exponential of the PLC function for (psi/psi50)
@@ -61,8 +61,8 @@ init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
 N_input             = 0.0E-3, ! 20.E-3, ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
-runID = 'BCI_hydro',       ! for output file name
-model_run_years =  20,    ! 600, ! 1600,
+runID = 'BCI_hydro_250403',     ! for output file name
+model_run_years =  600, ! 20,   ! 1600,
 filepath_in = './input/',  ! Climate forcing data
 filepath_out= './output/', ! Output files
 siteLAT = 9.25, ! Latitude of the grid that covers BCI
