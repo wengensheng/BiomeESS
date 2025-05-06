@@ -6,8 +6,10 @@ FSRCS="src/datatypes.F90 \
        src/BiomeE.F90 \
        src/main.F90"
 
-CPPFLAGS=' -DDroughtPaleo'
-#CPPFLAGS+=' -DScreenOutput'
+CPPFLAGS=''
+CPPFLAGS+=' -DScreenOutput'
+CPPFLAGS+=' -DDroughtFMT'
+#CPPFLAGS+=' -DDroughtPaleo'
 #CPPFLAGS+=" -DHydro_test"
 #CPPFLAGS+=" -DDroughtMu"
 
@@ -20,13 +22,18 @@ echo $FSRCS
 gfortran $FSRCS $CPPFLAGS -o ess
 
 fparameter='./para_files/parameters_DroughtPaleo.nml'
+ClimFile='DroughtPaleo_RMA_yrs1514_forcing.csv'
+Run_years='700'
 echo $fparameter
-for iDraw in {1..50}; do
+#for iDraw in {1..100}; do
+for iDraw in {0..0}; do
   runID='Paleo_RMA_'$iDraw
   fp2='./para_files/Paleo_nml/parameters_'$runID'.nml'
   echo "Model run: " $runID
   sed -e "s/Draw_No/$iDraw/g" \
       -e "s/PaleoRunID/$runID/g" \
+      -e "s/ForcingFileName/$ClimFile/g" \
+      -e "s/RunYears/$Run_years/g" \
       $fparameter > $fp2
 
   cat $fp2 > ./para_files/input.nml

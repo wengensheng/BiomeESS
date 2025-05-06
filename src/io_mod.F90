@@ -338,7 +338,7 @@ if(iyears > 900)then
      vegn%LAI,vegn%dailyLFLIT*1000., (vegn%wcl(i),i=2,5)
 endif
 
-#elif DroughtPaleo
+#elif DroughtFMT
   if(outputdaily.and. iday>equi_days)then
     !! Tile daily
     write(fno4,'(2(I5,","),65(E12.6,","))')iyears,idoy,         &
