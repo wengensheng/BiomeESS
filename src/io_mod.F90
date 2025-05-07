@@ -604,14 +604,16 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    real, intent(inout)   :: timestep
 
    !------------local var -------------------
-   integer, parameter :: PaleoYears  = 901
-   integer, parameter :: PaleoMonths = 10812
+   integer, parameter :: N_draws = 1000
+   integer, parameter :: N_months = 12
+   integer, parameter :: PaleoYears  = 900 ! 901
+   integer, parameter :: PaleoMonths = PaleoYears * 12 ! 10812
    integer, parameter :: MonthDays(12)=(/31,28,31,30,31,30,31,31,30,31,30,31/)
    character(len=160)  commts,PaleoPfile,PaleoTfile,fname3
    character(len=10)  tags,mAbv,DrawID
    type(climate_data_type), pointer :: climateData(:)
-   real :: monthlyP(30,12),monthlyT(30,12)
-   real :: PaleoP(10812,1000),PaleoT(10812,1000)
+   real, pointer :: monthlyP(:,:),monthlyT(:,:)
+   real, dimension(PaleoMonths,N_draws) :: PaleoP,PaleoT
    real :: fPrcp,dTmp
    integer :: PaleoForcingLines
    integer :: Lines_skip = 3 + 4 ! three lines of comments and 4 lines of data, Sep - Dec
@@ -623,6 +625,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    ! Read in baseline forcing data (1901~1930, 30 years)
    call read_FACEforcing(fdata,forcingData,datalines,days_data,yr_data,timestep)
    ! Calculate monthely P and T
+   allocate(monthlyP(yr_data,12),monthlyT(yr_data,12))
    monthlyP = 0.0
    monthlyT = 0.0
    iBase = 0
@@ -671,7 +674,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    enddo
 
    ! Replace base data's P and T
-   PaleoForcingLines = INT(10812/12*365*24/timestep)
+   PaleoForcingLines = INT(PaleoYears*365*24/timestep)
    allocate(climateData(PaleoForcingLines))
    iBase = 0
    iLine = 0
@@ -690,7 +693,9 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
          climateData(iline)%Tsoil = forcingData(iBase)%Tsoil+ dTmp
        enddo ! month hours
      enddo   ! Months
+     !if(iBY==yr_data)write(*,*)'iY,iLine:',iY,iLine
    enddo     ! years
+   deallocate(monthlyP,monthlyT)
    deallocate(forcingdata)
    ! Update data array for model run
    forcingData => climateData
@@ -704,7 +709,7 @@ subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
    fname3 = trim(filepath_out)//trim(fPaleoP(1:3))//'_Hourly_'//trim(DrawID)//'.csv'
    open(15,file=trim(fname3))
    write(15,*)"YEAR,DOY,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,CO2"
-   do i=1,30*365*24 ! PaleoForcingLines
+   do i=1,PaleoForcingLines
        write(15,'(2(I4,","),6(E15.4,","),1(E15.4,","),30(f15.4,","))') &
          forcingData(i)%year, forcingData(i)%doy, &
          forcingData(i)%PAR, forcingData(i)%radiation, &

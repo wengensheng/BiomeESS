@@ -221,7 +221,7 @@ subroutine BiomeE_run()
       climateData = forcingData(idata)
       ! Set up scenarios for rainfall and CO2 concentration
       climateData%rain = forcingData(idata)%rain !* Sc_prcp
-#ifedf DroughtPaleo
+#ifdef DroughtPaleo
       climateData%CO2  = CO2_c ! ppm
 #endif
 

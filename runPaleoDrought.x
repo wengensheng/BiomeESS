@@ -7,9 +7,9 @@ FSRCS="src/datatypes.F90 \
        src/main.F90"
 
 CPPFLAGS=''
-CPPFLAGS+=' -DScreenOutput'
+#CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DDroughtFMT'
-#CPPFLAGS+=' -DDroughtPaleo'
+CPPFLAGS+=' -DDroughtPaleo'
 #CPPFLAGS+=" -DHydro_test"
 #CPPFLAGS+=" -DDroughtMu"
 
@@ -22,11 +22,13 @@ echo $FSRCS
 gfortran $FSRCS $CPPFLAGS -o ess
 
 fparameter='./para_files/parameters_DroughtPaleo.nml'
-ClimFile='DroughtPaleo_RMA_yrs1514_forcing.csv'
-Run_years='700'
 echo $fparameter
-#for iDraw in {1..100}; do
-for iDraw in {0..0}; do
+ClimFile='DroughtPaleo_RMA_yrs1514_forcing.csv'
+#ClimFile='DroughtPaleo_RMA_forcing.csv'
+Run_years='1600'
+
+#for iDraw in {1..1000}; do
+for iDraw in {1..10}; do
   runID='Paleo_RMA_'$iDraw
   fp2='./para_files/Paleo_nml/parameters_'$runID'.nml'
   echo "Model run: " $runID
