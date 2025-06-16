@@ -95,6 +95,7 @@ subroutine setup_forcingdata()
   dt_fast_yr    = step_hour/(365.0 * 24.0)
   step_seconds  = step_hour*3600.0
   write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
+  write(*,*)'Datalines,days_data,yr_data,step_hour',datalines,days_data,yr_data,step_hour
   !stop ! just testing data setup
 end subroutine
 
@@ -220,7 +221,10 @@ subroutine BiomeE_run()
       climateData = forcingData(idata)
       ! Set up scenarios for rainfall and CO2 concentration
       climateData%rain = forcingData(idata)%rain !* Sc_prcp
+#ifdef DroughtPaleo
       climateData%CO2  = CO2_c ! ppm
+#endif
+
 #ifdef FACE_run
       if(n_yr <= spin_yrs)then
         climateData%CO2  = CO2_c ! ppm
