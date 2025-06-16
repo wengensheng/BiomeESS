@@ -27,6 +27,7 @@ CR0_LF     = 0.5,
 CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
+Ignition_W0 = 0.05
 envi_fire_prb = 0.0, ! No disturbance
 ! species     0        1        2        3        4        5
 lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
@@ -82,6 +83,7 @@ outputhourly    =  .True.  ! .False. !
 outputdaily     =  .True.  ! .False. !
 do_closedN_run  = .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
+do_fire =  .False. ! .True.  !
 do_WD_mort_function   = .False. ! .True. !
 do_VariedWTC0 = .True. ! .False. !
 do_VariedKx   = .True. ! .False. !

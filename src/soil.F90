@@ -98,8 +98,9 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   enddo
 
   ! New microbes grown from SOM decomposition
-  newM(4) = Min(CUEf0*d_C(4), d_N(4)/CN0SOM(3)) * fm_grow
-  newM(5) = Min(CUEs0*d_C(5), d_N(5)/CN0SOM(3)) * fm_grow
+  ! "d_N(i)/CN0SOM(3)" --> "d_N(i)*CN0SOM(3)", found by Qi Yang (06/16/2025)
+  newM(4) = Min(CUEf0*d_C(4), d_N(4)*CN0SOM(3)) * fm_grow
+  newM(5) = Min(CUEs0*d_C(5), d_N(5)*CN0SOM(3)) * fm_grow
   newM(3) = (newM(4)+newM(5)) * (1.-f_M2SOM)
 
   ! Update C and N pools
