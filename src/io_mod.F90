@@ -573,7 +573,7 @@ end subroutine daily_diagnostics
 
 #else
       write(f2,'(2(I5,","),80(E15.6,","))')  &
-        vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
+        vegn%tileID,iyears,vegn%CAI,vegn%LAImax,                        &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
         vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &

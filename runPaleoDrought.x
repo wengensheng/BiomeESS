@@ -25,17 +25,19 @@ fparameter='./para_files/parameters_DroughtPaleo.nml'
 echo $fparameter
 ClimFile='DroughtPaleo_RMA_yrs1514_forcing.csv'
 #ClimFile='DroughtPaleo_RMA_forcing.csv'
-Run_years='1600'
+Run_years='899'
+PFT_No=2
 
 #for iDraw in {1..1000}; do
-for iDraw in {1..10}; do
-  runID='Paleo_RMA_'$iDraw
+for iDraw in {1..1}; do
+  runID='Paleo_RMA_PFT'$PFT_No'_'$iDraw
   fp2='./para_files/Paleo_nml/parameters_'$runID'.nml'
   echo "Model run: " $runID
   sed -e "s/Draw_No/$iDraw/g" \
       -e "s/PaleoRunID/$runID/g" \
       -e "s/ForcingFileName/$ClimFile/g" \
       -e "s/RunYears/$Run_years/g" \
+      -e "s/PFTID/$PFT_No/g" \
       $fparameter > $fp2
 
   cat $fp2 > ./para_files/input.nml
