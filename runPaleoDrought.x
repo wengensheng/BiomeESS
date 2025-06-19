@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 FSRCS="src/datatypes.F90 \
        src/io_mod.F90 \
        src/soil.F90 \

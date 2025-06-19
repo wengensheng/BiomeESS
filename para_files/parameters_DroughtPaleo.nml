@@ -70,7 +70,7 @@ init_Nmineral       = 20.0E-3,! 402.5E-3, ! kg N m-2
 N_input             = 0.0E-3 ! 2.4E-3 ! N deposit, kg N m-2 yr-1,
 
 ! Model run
-filepath_in = '/Users/eweng/Documents/BiomeESS/forcingData/PaleoDrought/' ! './input/',
+filepath_in = '../forcingData/PaleoDrought/' ! './input/',
 filepath_out = './output/PaleoDrought/',
 climfile    = 'ForcingFileName', ! 'DroughtPaleo_RMA_yrs1514_forcing.csv',  ! 'DroughtPaleo_RMA_forcing.csv', ! DCK, RMA, SJC
 PaleoPfile  = 'RMA_P.csv',
