@@ -35,20 +35,20 @@ envi_fire_prb = 0.0, ! No disturbance
 ! species     0        1        2        3        4        5
 lifeform    = 0,       0,       1,       1,       1,       1,       ! 0: grass; 1 Woody
 phenotype   = 0,       0,       1,       1,       0,       0,       ! 0: Deciduous; 1 Evergreen
-pt          = 0,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
-s0_plant    = 0.001,   0.002,   0.002,    0.05,   0.05,    0.05,    ! initial size of seedlings
-tauNSC      = 3.0,     6.0,     1.2,     2.0,     2.0,     2.0,     ! NSC residence time
-alphaCA     = 200.,    400.,    400.,    150.,    150.,    150.,    ! Crown area parameter
+pt          = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
+s0_plant    = 0.002,   0.002,   0.002,    0.05,   0.05,    0.05,    ! initial size of seedlings
+tauNSC      = 6.0,     6.0,     1.2,     2.0,     2.0,     2.0,     ! NSC residence time
+alphaCA     = 400.,    400.,    400.,    150.,    150.,    150.,    ! Crown area parameter
 LMA         = 0.02,    0.02,    0.09,    0.114,   0.03,    0.03,    ! Leaf mass per unit area
-phiRL       = 1.2,     0.8,     0.8,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
+phiRL       = 0.8,     0.8,     0.8,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
 rho_wood    = 120.,    120.,    300.,    300.,    300.,    300.,
-LNbase      = 1.5E-3,  1.8E-3,  1.8E-3,  0.8E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+LNbase      = 1.8E-3,  1.8E-3,  1.8E-3,  0.8E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 gdd_par2    = 300.,    300.,    600.,    600.,    600.,    600.,    ! Variation of GDD as a function of NCD
 tc_crit_on  = 8.0,     8.0,     10.0,    12.0,    12.0,    12.0,    ! Critical T for PhenoON
 betaON      = 0.1,     0.1,     0.1,     0.0,     0.1,     0.1
 gamma_LN    = 20.0,    20.0,    20.0,    20.0,    25.0,    25.0,    ! Leaf Resp., kgC kgN-1 yr-1
 m_cond      = 7.0,     7.0,     7.0,     9.0,     9.0,     9.0,
-laimax      = 2.0,     2.5,     2.5,     3.0,     3.2,     3.2,     ! maximum crown LAI
+laimax      = 2.5,     2.5,     2.5,     3.0,     3.2,     3.2,     ! maximum crown LAI
 Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
 NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
 r0mort_c    = 0.01,    0.01,    0.01,    0.01,    0.01,    0.01,    ! canopy tree mortality rate, year-1

@@ -26,7 +26,7 @@ echo $fparameter
 ClimFile='DroughtPaleo_RMA_yrs1514_forcing.csv'
 #ClimFile='DroughtPaleo_RMA_forcing.csv'
 Run_years='899'
-PFT_No=2
+PFT_No=0
 
 #for iDraw in {1..1000}; do
 for iDraw in {1..1}; do
