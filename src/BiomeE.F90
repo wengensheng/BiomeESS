@@ -62,6 +62,7 @@ module BiomeE_mod
  type(climate_data_type), pointer :: forcingData(:)
  ! output files
  integer :: fno1, fno2, fno3, fno4, fno5, fno6
+ integer :: timeArray0(3),timeArray1(3)
 
  contains
 
@@ -105,11 +106,11 @@ subroutine BiomeE_initialization()
   implicit none
   type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
-  integer :: timeArray(3),i
+  integer :: i
 
   ! ---------- Time stamp -------------
-  call itime(timeArray)     ! Get current time
-  write(*,'(a12,3(I2,":"))')'Start time: ', timeArray
+  call itime(timeArray0)     ! Get current time
+  write(*,'(a12,3(I2,":"))')'Start time: ', timeArray0
 
   ! Hack for closedN setting
   if(do_closedN_run) then
@@ -291,8 +292,7 @@ subroutine BiomeE_run()
         if(do_migration) call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
-        ! Cohort management
-        call kill_lowdensity_cohorts(vegn)
+        ! --------- Cohort management ---------
         ! calculate the number of cohorts with indivs>mindensity
          k = 0
          do i = 1, vegn%n_cohorts
@@ -306,6 +306,7 @@ subroutine BiomeE_run()
          !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
          call relayer_cohorts(vegn)
          call vegn_mergecohorts(vegn)
+         call kill_lowdensity_cohorts(vegn)
         ! Summarize tile and zero annual reporting variables
         call vegn_sum_tile(vegn)
         call Zero_diagnostics(vegn)
@@ -347,7 +348,6 @@ end subroutine BiomeE_run
 subroutine BiomeE_end
   type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
-  integer :: timeArray(3)
 
   !------------ Close output files and release memory
   close(fno1); close(fno2); close(fno3)
@@ -364,8 +364,14 @@ subroutine BiomeE_end
   deallocate(forcingData)
 
   ! ---------- Time stamp -------------
-  call itime(timeArray)     ! Get current time
-  write(*,'(a12,3(I2,":"))')'End time: ', timeArray
+  call itime(timeArray1)     ! Get current time
+  write(*,'(a12,3(I2,":"))')'End time: ', timeArray1
+
+  ! Calculate model run time
+  if (timeArray1(1)<timeArray0(1)) timeArray1(1) = timeArray1(1) + 24
+  write(*,'(a22,I8)')'Run time (seconds): ',  &
+        (timeArray1(1)*3600+timeArray1(2)*60 + timeArray1(3)) -  &
+        (timeArray0(1)*3600+timeArray0(2)*60 + timeArray0(3))
 end subroutine BiomeE_end
 
 !----------------------------------------------------------------------------

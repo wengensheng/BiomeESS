@@ -1,5 +1,6 @@
 !#define GrowthOFF
 !#define DemographyOFF
+#define MergeLowDensityCohorts
 !---------------
 module esdvm
  use datatypes
@@ -2707,35 +2708,25 @@ end subroutine mergerank
 
 !============================================================================
 ! Merge similar cohorts in a tile
+! Only merge cohorts within current cohort array, Weng, 06/21/2025
 subroutine vegn_mergecohorts(vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
-  type(cohort_type), pointer :: cc(:) ! array to hold new cohorts
   logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
-  integer :: i,j,k,m
+  integer :: i, j
 
-  allocate(cc(vegn%n_cohorts))
   merged(:) = .FALSE.
-  k = 0
   do i = 1, vegn%n_cohorts
      if(merged(i)) cycle ! skip cohorts that were already merged
-     k = k+1
-     cc(k) = vegn%cohorts(i)
-     ! try merging the rest of the cohorts into current one
+     ! Go through rest cohorts for merging them into the current one
      do j = i+1, vegn%n_cohorts
-        if (merged(j)) cycle ! skip cohorts that are already merged
-        if (cohorts_can_be_merged(vegn%cohorts(j),cc(k))) then
-           call merge_cohorts(vegn%cohorts(j),cc(k))
+        if (Mergeable_cohorts(vegn%cohorts(j),vegn%cohorts(i))) then
+           call merge_cohorts(vegn%cohorts(j),vegn%cohorts(i))
            merged(j) = .TRUE.
-
         endif
      enddo
   enddo
-  ! at this point, k is the number of new cohorts
-  vegn%n_cohorts = k
-  deallocate(vegn%cohorts)
-  vegn%cohorts=>cc
 
 end subroutine vegn_mergecohorts
 
@@ -2747,8 +2738,7 @@ subroutine kill_lowdensity_cohorts(vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
-  logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
-  real    :: mindensity = 0.5*min_nindivs
+  real    :: mindensity = min_nindivs
   integer :: i,j,k
 
  ! calculate the number of cohorts with indivs>mindensity
@@ -2785,7 +2775,7 @@ subroutine kill_old_grass(vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
-  logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
+  !logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
   logical :: OldGrass
   integer :: i,j,k
 
@@ -2827,23 +2817,25 @@ subroutine kill_old_grass(vegn)
 end subroutine kill_old_grass
 
 ! ============================================================================
+! Just merge cohorts c1 into c2, regardless of their sizes and densities
 subroutine merge_cohorts(c1,c2) ! Put c1 into c2
-  type(cohort_type), intent(in) :: c1
+  type(cohort_type), intent(inout) :: c1
   type(cohort_type), intent(inout) :: c2
 
   real :: x1, x2 ! normalized relative weights
-  real :: btot, c2H, c2DBH
+  real :: Ntot, btot, c2H, c2DBH
   integer :: i
 
-  if(c1%nindivs > 0.0 .or. c2%nindivs > 0.0)then
-     x1 = c1%nindivs/(c1%nindivs+c2%nindivs)
-     x2 = c2%nindivs/(c1%nindivs+c2%nindivs)
-     c2%ccID = c1%ccID
+     ! Set up merging weights (x1 and x2)
+     Ntot = c1%nindivs + c2%nindivs
+     x1 = c1%nindivs/Ntot
+     x2 = c2%nindivs/Ntot
      c2DBH = c2%dbh
      c2H   = c2%height
 
-  ! update number of individuals in merged cohort
-     c2%nindivs = c1%nindivs + c2%nindivs
+     ! Update c2 (merging c1 into c2)
+     c2%ccID = c1%ccID
+     c2%nindivs = Ntot
      c2%age = x1*c1%age + x2*c2%age
      c2%topyear = x1*c1%topyear + x2*c2%topyear
 
@@ -2893,15 +2885,21 @@ subroutine merge_cohorts(c1,c2) ! Put c1 into c2
      ! Update tree trunk sapwood area and conductance
      call calculate_Asap_Ktrunk (c2)
 
-  endif
+     ! Zero c1's desnity so that it can be removed by kill_lowdensity_cohorts
+     c1%nindivs = 0.0
+
 end subroutine merge_cohorts
 
 ! ============================================================================
-function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
+function Mergeable_cohorts(c1,c2); logical Mergeable_cohorts
    type(cohort_type), intent(in) :: c1,c2
    logical :: sameSpecies,sameLayer,sameSize,sameSizeTree,sameSizeGrass
-   logical :: c1_LowDensity
+   logical :: LowDensity, Not_ZeroDensity
 
+   LowDensity = .False. ! Default
+
+   ! Mergeable criteria:
+   Not_ZeroDensity = c1%nindivs > 0.0 .and. c2%nindivs > 0.0
    sameSpecies  = c1%species == c2%species
    sameLayer    = (c1%layer == c2%layer) .or. &
                   ((spdata(c1%species)%lifeform ==0) .and. &
@@ -2915,9 +2913,14 @@ function cohorts_can_be_merged(c1,c2); logical cohorts_can_be_merged
                   (spdata(c2%species)%lifeform ==0) .and. &
                   (c1%DBH == c2%DBH)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
-   c1_LowDensity = c1%nindivs < min_nindivs
-   cohorts_can_be_merged = sameSpecies .and. sameLayer &
-                           .and. (sameSize .or. c1_LowDensity)
+
+#ifdef MergeLowDensityCohorts
+   LowDensity = c1%nindivs < min_nindivs .OR. c2%nindivs < min_nindivs
+#endif
+
+   Mergeable_cohorts = sameSpecies .and. sameLayer &
+                      .and. Not_ZeroDensity       &
+                      .and. (sameSize .or. LowDensity)
 end function
 
 !======================= Specific experiments ================================

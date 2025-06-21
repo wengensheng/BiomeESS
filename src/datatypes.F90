@@ -35,7 +35,7 @@
                        BAND_VIS = 1, & ! visible radiation (wavelenght range?)
                        BAND_NIR = 2    ! near infra-red radiation (wavelenght range?)
 
- real,    parameter :: min_nindivs= 0.5E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
+ real,    parameter :: min_nindivs= 0.1E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
  real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3

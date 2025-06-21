@@ -12,13 +12,13 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW = 0.1,
 K0SOM    = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_nitrogen = ! 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
-rho_SON    = 0.0 ! organic nitrogen release rate
+K_nitrogen = 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
+rho_SON    = 0.0, ! organic nitrogen release rate
 etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
-diff_S0    = 0.2,  ! critical difference for merging of two cohorts
+diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 kx0_WD     = 5.0,  ! kx0 at reference WD
 p50_WD     = -1.565,  ! stem psi50 at reference WD
 ths0_WD    = 3.0,    ! exponential of the PLC function for (psi/psi50)
@@ -57,7 +57,7 @@ AgeRepro    = 0,       5,       5,       5,       5,       5
 &initial_state_nml
 !!   plant
 init_n_cohorts      = 1, ! total 5
-init_cohort_species = 2,    2,    1,    4,    5,
+init_cohort_species = 1,    2,    1,    4,    5,
 init_cohort_nindivs = .002, .001, .001, .001, .001,
 init_cohort_bsw     = 0.2,  0.2,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
