@@ -62,7 +62,6 @@ module BiomeE_mod
  type(climate_data_type), pointer :: forcingData(:)
  ! output files
  integer :: fno1, fno2, fno3, fno4, fno5, fno6
- integer :: timeArray0(3),timeArray1(3)
 
  contains
 
@@ -107,10 +106,6 @@ subroutine BiomeE_initialization()
   type(vegn_tile_type), pointer :: vegn => NULL()
   type(vegn_tile_type), pointer :: pveg => NULL()
   integer :: i
-
-  ! ---------- Time stamp -------------
-  call itime(timeArray0)     ! Get current time
-  write(*,'(a12,3(I2,":"))')'Start time: ', timeArray0
 
   ! Hack for closedN setting
   if(do_closedN_run) then
@@ -362,16 +357,6 @@ subroutine BiomeE_end
   enddo
   deallocate(land)
   deallocate(forcingData)
-
-  ! ---------- Time stamp -------------
-  call itime(timeArray1)     ! Get current time
-  write(*,'(a12,3(I2,":"))')'End time: ', timeArray1
-
-  ! Calculate model run time
-  if (timeArray1(1)<timeArray0(1)) timeArray1(1) = timeArray1(1) + 24
-  write(*,'(a22,I8)')'Run time (seconds): ',  &
-        (timeArray1(1)*3600+timeArray1(2)*60 + timeArray1(3)) -  &
-        (timeArray0(1)*3600+timeArray0(2)*60 + timeArray0(3))
 end subroutine BiomeE_end
 
 !----------------------------------------------------------------------------
