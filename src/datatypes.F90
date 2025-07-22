@@ -521,7 +521,7 @@ end type soil_tile_type
 type :: climate_data_type
    integer :: year       ! Year
    integer :: doy        ! day of the year
-   !real :: hod           ! hour of the day
+   real :: hod           ! hour of the day
    real :: PAR           ! umol m-2 s-1
    real :: radiation     ! W/m2
    real :: Tair          ! air temperature,  K
@@ -534,6 +534,13 @@ type :: climate_data_type
    real :: eCO2          ! mol/mol
    real :: soilwater     ! soil moisture, vol/vol
 end type climate_data_type
+
+ !-------------Vars for the model -------------
+ type(land_grid_type), pointer :: land ! Land grid
+ ! Input forcing data
+ type(climate_data_type), pointer :: forcingData(:)
+ ! output files
+ integer :: fno1, fno2, fno3, fno4, fno5, fno6
 
 ! -------------------------------------------
 ! Soil water parameters
@@ -785,16 +792,23 @@ integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 real     :: siteLAT = 36.01 !site latitude, ORNL
 
+! For global/regional run
+integer :: LowerLon=215,UpperLon=216, LowerLat=263, UpperLat=264
+integer :: yr_start = 2010, yr_end = 2011
+integer :: iLon = 216, iLat = 264
+
 ! Model run control
 integer  :: model_run_years = 100
-integer  :: totyears, totdays, steps_per_day ! 24 or 48
+integer  :: totyears, totdays
+integer  :: steps_per_day = 24 ! 24 or 48
 integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
 integer  :: yr_Baseline  = 1000 ! for DroughtMIP baseline model run years
 integer  :: equi_days    = 0 ! 100 * 365
+real     :: steps_per_hour = 1.0
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
+real     :: step_seconds = 1.0 * 3600.0
 real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
 real     :: dt_daily_yr  = 1.0/365.0 ! Daily
-real     :: step_seconds = 1.0 * 3600.0
 
 ! Model test controls
 logical  :: outputhourly = .True.
@@ -823,6 +837,7 @@ namelist /initial_state_nml/ &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw, &
+    LowerLon, UpperLon, LowerLat, UpperLat, yr_start, yr_end,   & ! Regional-Global run
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,             &
     do_U_shaped_mortality, update_annualLAImax, do_fire,        &

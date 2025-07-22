@@ -11,10 +11,9 @@ module io_mod
  implicit none
 
 ! ------ public subroutines ---------
-public :: read_namelist, vegn_sum_tile, Zero_diagnostics
+public :: read_namelist, setup_forcingdata, setup_output_files
+public :: vegn_sum_tile, Zero_diagnostics
 public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
-public :: read_FACEforcing, read_NACPforcing, set_up_output_files
-public :: set_PaleoForcing ! for Kate's 1000 years' P and T
 
 !---------------------------------
 contains
@@ -64,6 +63,26 @@ subroutine read_namelist(fnml)
   close (fu)
 
 end subroutine read_namelist
+
+! --------- Setup forcing data and step lenght ----------------------
+subroutine setup_forcingdata()
+
+#ifdef DroughtPaleo
+  call set_PaleoForcing(climfile,PaleoPfile,PaleoTfile,iDraw, &
+        forcingData,datalines,days_data,yr_data,step_hour)
+#else
+  call read_FACEforcing(climfile,forcingData,datalines,days_data,yr_data,step_hour)
+  !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
+  !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
+#endif
+
+  ! ------ Setup steps for model run ------
+  steps_per_day = int(24.0/step_hour)
+  dt_fast_yr    = step_hour/(365.0 * 24.0)
+  step_seconds  = step_hour*3600.0
+  write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
+  write(*,*)'Datalines,days_data,yr_data,step_hour',datalines,days_data,yr_data,step_hour
+end subroutine
 
 !=================================================
 ! Weng, 2021-06-02
@@ -1086,19 +1105,25 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
 end subroutine read_CRUforcing
 
 !=========== Write output file header ====================
-subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
+subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
    integer,intent(inout):: fno1,fno2,fno3,fno4,fno5,fno6
 
    ! ----------Local vars ------------
    character(len=150) :: YearlyCohort,DailyCohort,HourlyCohort ! Output file names
    character(len=150) :: YearlyPatch, DailyPatch, HourlyPatch  ! output file names
    character(len=150) :: YearlyCohort2,DailyPatch2  ! For DroughtMIP only
-   character(len=50)  :: filesuffix,fpath
-   integer :: istat1, istat2, istat3
+   character(len=120)  :: filesuffix,fpath
+   character(len=6) :: LonLat
+   integer :: iLonLat, istat1, istat2, istat3
 
     ! File path and names
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
+#ifdef GlobalRun
+    iLonLat = iLon * 1000 + iLat
+    write(LonLat, '(I6)') iLonLat
+    filesuffix = trim(filesuffix)//trim(LonLat)
+#endif
     HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
     HourlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
     DailyCohort  = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
@@ -1232,7 +1257,7 @@ subroutine set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
 #endif
 
-end subroutine set_up_output_files
+end subroutine setup_output_files
 
 !===========for netcdf IO ============================
 #ifdef USE_NETCDF

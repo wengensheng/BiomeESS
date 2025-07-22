@@ -56,48 +56,16 @@ module BiomeE_mod
  public :: BiomeE_main
  public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
 
- !-------------Vars for the model -------------
- type(land_grid_type), pointer :: land ! Land grid
- ! Input forcing data
- type(climate_data_type), pointer :: forcingData(:)
- ! output files
- integer :: fno1, fno2, fno3, fno4, fno5, fno6
-
  contains
 
 !================== BiomeE Driver ===========================================
  subroutine BiomeE_main() ! Weng 03/20/2023, main BiomeE module
   implicit none
-  !=============== Namelist file (must be hardwired) ===============
-  character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
 
-  call read_namelist(fnml)
-  call setup_forcingdata()
   call BiomeE_initialization()
   call BiomeE_run()
   call BiomeE_end()
 end subroutine BiomeE_main
-
-! --------- Setup forcing data and step lenght ----------------------
-subroutine setup_forcingdata()
-
-#ifdef DroughtPaleo
-  call set_PaleoForcing(climfile,PaleoPfile,PaleoTfile,iDraw, &
-        forcingData,datalines,days_data,yr_data,step_hour)
-#else
-  call read_FACEforcing(climfile,forcingData,datalines,days_data,yr_data,step_hour)
-  !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
-  !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
-#endif
-
-  ! ------ Setup steps for model run ------
-  steps_per_day = int(24.0/step_hour)
-  dt_fast_yr    = step_hour/(365.0 * 24.0)
-  step_seconds  = step_hour*3600.0
-  write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
-  write(*,*)'Datalines,days_data,yr_data,step_hour',datalines,days_data,yr_data,step_hour
-  !stop ! just testing data setup
-end subroutine
 
 !----------------------------------------------------------------------------
 subroutine BiomeE_initialization()
@@ -148,9 +116,6 @@ subroutine BiomeE_initialization()
   enddo
   vegn => land%firstVegn
   pveg => NULL()
-
-  ! --------- Setup output files ---------------
-  call set_up_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
   ! ------ Start a new random number series ------
   call RANDOM_SEED()

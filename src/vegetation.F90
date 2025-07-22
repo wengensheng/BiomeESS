@@ -1,6 +1,6 @@
 !#define GrowthOFF
 !#define DemographyOFF
-#define MergeLowDensityCohorts
+!#define MergeLowDensityCohorts
 !---------------
 module esdvm
  use datatypes
@@ -2733,18 +2733,21 @@ end subroutine vegn_mergecohorts
 ! ============================================================================
 ! kill low density cohorts, a new function seperated from vegn_mergecohorts
 ! Weng, 2014-07-22
+! If MergeLowDensityCohorts is defined, this routine only remove zero density
+! cohorts and the low density cohorts that have no other cohorts with the
+! same PFT in a layer. Weng, 06/25/2025
+
 subroutine kill_lowdensity_cohorts(vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
-  real    :: mindensity = min_nindivs
   integer :: i,j,k
 
- ! calculate the number of cohorts with indivs>mindensity
+ ! calculate the number of cohorts with indivs>min_nindivs
   k = 0
   do i = 1, vegn%n_cohorts
-     if (vegn%cohorts(i)%nindivs > mindensity) k=k+1
+     if (vegn%cohorts(i)%nindivs > min_nindivs) k=k+1
   enddo
 
   ! exclude cohorts that have low individuals
@@ -2753,7 +2756,7 @@ subroutine kill_lowdensity_cohorts(vegn)
      j=0
      do i = 1,vegn%n_cohorts
         cp =>vegn%cohorts(i)
-        if (cp%nindivs > mindensity) then
+        if (cp%nindivs > min_nindivs) then
            j=j+1
            cc(j) = cp
         else
