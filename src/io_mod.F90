@@ -12,7 +12,7 @@ module io_mod
 
 ! ------ public subroutines ---------
 public :: read_namelist, setup_forcingdata, setup_output_files
-public :: vegn_sum_tile, Zero_diagnostics
+public :: vegn_sum_tile, Zero_diagnostics, zip_output_files
 public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
 
 !---------------------------------
@@ -1114,14 +1114,14 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
    character(len=150) :: YearlyCohort2,DailyPatch2  ! For DroughtMIP only
    character(len=120)  :: filesuffix,fpath
    character(len=6) :: LonLat
-   integer :: iLonLat, istat1, istat2, istat3
+   integer :: istat1, istat2, istat3
 
     ! File path and names
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
 #ifdef GlobalRun
-    iLonLat = iLon * 1000 + iLat
-    write(LonLat, '(I6)') iLonLat
+    GridID = iLon * 1000 + iLat
+    write(LonLat, '(I6)') GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
 #endif
     HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
@@ -1259,58 +1259,46 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
 end subroutine setup_output_files
 
-!===========for netcdf IO ============================
-#ifdef USE_NETCDF
+!================================================
+subroutine zip_output_files()
+   character(len=256) :: command, fname(6)
+   character(len=200) :: filesuffix,fpath
+   character(len=6)   :: LonLat
+   integer :: I0, i, iostat
 
- !=====================================================
-   subroutine nc_read_3D(FILE_NAME,field_idx,NX,NY,Ntime,DA)
-   ! This is the name of the data file we will create.
-   character (len = *), intent(in) :: FILE_NAME,field_idx
-   integer, intent(in) :: NX, NY, Ntime
-   real, intent(inout) :: DA(:,:,:)
-   !------local vars ----------------
-   ! When we create netCDF files, variables and dimensions, we get back
-   ! an ID for each one.
-   integer :: ncid, varid
-
-   ! Loop indexes, and error handling.
-   integer :: x, y, t
-
-   ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
-   ! the file.
-   call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-   print *, 'ncid=',ncid
-   ! Get the varid of the data variable, based on its name.
-   call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
-   print *, 'varid=',varid
-   ! Read the data.
-   call check( nf90_get_var(ncid, varid, DA) )
-
-   ! Check the data.
-   !do x = 1, NX
-   !   do y = 1, NY
-   !      print *, "DA(", x, ", ", y, ") = ", DA(x,y,1)
-   !   end do
-   !end do
-
-   ! Close the file, freeing all resources.
-   call check( nf90_close(ncid) )
-
-   print *,"*** SUCCESS reading example file ", FILE_NAME, "! "
-
-   end subroutine nc_read_3D
-
- !=================================================================
-   subroutine check(status)
-     integer, intent ( in) :: status
-
-     if(status /= nf90_noerr) then
-       print *, trim(nf90_strerror(status))
-       stop "Stopped"
-     end if
-   end subroutine check
- !=================================================================
+    ! File path and names
+    fpath = trim(filepath_out)
+    filesuffix   = trim(runID) ! tag for simulation experiments
+#ifdef GlobalRun
+    GridID = iLon * 1000 + iLat
+    write(LonLat, '(I6)') GridID
+    filesuffix = trim(filesuffix)//trim(LonLat)
 #endif
+    fname(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
+    fname(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
+    fname(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
+    fname(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
+    fname(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
+    fname(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
+
+    ! Zip files
+    if(outputhourly)then
+      I0 = 1
+    else if(outputdaily)then
+      I0 = 3
+    else
+      I0 = 5
+    endif
+    do i = I0, 6
+      command = 'gzip -f ' // trim(fname(i))
+      call execute_command_line(command, exitstat=iostat)
+      if (iostat == 0) then
+        print *, 'Successfully zipped: ', trim(fname(i))
+      else
+        print *, 'Error zipping: ', trim(fname(i)), ' (Exit status: ', iostat, ')'
+      end if
+    enddo
+end subroutine zip_output_files
 
 !================================================
 end module io_mod

@@ -3,7 +3,8 @@
 
 program BiomeE_global_driver
   use BiomeE_mod, only: BiomeE_main
-  use io_mod, only: read_namelist,setup_forcingdata,setup_output_files
+  use io_mod, only: read_namelist,setup_forcingdata, &
+                    setup_output_files, zip_output_files
   use netcdf_io
   use datatypes
 
@@ -33,18 +34,19 @@ program BiomeE_global_driver
   datalines = N_yrs * 365 * int(24.0/step_hour)
   days_data = N_yrs * 365
   yr_data   = N_yrs
-  call ReadNCfiles(yr_start, yr_end)
+  call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 
   !------------ Forcing data interpolation and model run
   do iLon = LowerLon, UpperLon
     do iLat = LowerLat, UpperLat
-      GridData(:,:) = CRUData(iLon, iLat, :, :)
-      if(CRUData(iLon, iLat, 1, 1)< 99999.0)then
-        write(*,*)'model run at grid: ', iLon, iLat
+      if(CRUData(iLon, iLat, 1, 3)< 9999.0)then
+        write(*,*)'model run at grid (iLon, iLat): ', iLon, iLat
+        GridID = iLon * 1000 + iLat
         GridData(:,:) = CRUData(iLon, iLat, :, :)
         call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
         call CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
         call BiomeE_main()
+        call zip_output_files()
       endif
     enddo
   enddo

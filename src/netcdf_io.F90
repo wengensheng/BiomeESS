@@ -31,17 +31,18 @@ module netcdf_io
   real, pointer :: CRUData(:,:,:,:) ! Nlon,Nlat,N_yr*Ntime,N_vars
   real, pointer :: GridData(:,:)    ! N_yr*Ntime, N_vars
 
-
   public ReadNCfiles
   public unzip_gzip_file
 
 contains
 !===================================================
-  subroutine ReadNCfiles (yr_start, yr_end)
+  subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     implicit none
+    character(len=*), intent(in) :: fpath
+    character(len=*), intent(in) :: fields(:)
     integer, intent(in) :: yr_start, yr_end
-    character (len = *), parameter :: path = "/Users/eweng/Documents/Data/CRU/zipped/"
-    character(len=5), dimension(4) :: fields
+
+    !-------- local vars -----------------
     character(len=256) :: command
     character (len =256) :: fname,fnc,fgz
     character (len =20) :: field_idx
@@ -51,8 +52,7 @@ contains
     integer :: iostat,i,j,k,m,n
     real :: dataarray(Nlon,Nlat,Ntime), timearray(Ntime)
 
-    fields = [character(len=5) :: 'tmp', 'pre', 'tswrf', 'spfh']
-
+    !fields = [character(len=5) :: 'tmp', 'pre', 'tswrf', 'spfh']
     N_yrs = yr_end - yr_start + 1
     totL = N_yrs*Ntime
     ! Allocate data arrays
@@ -73,10 +73,10 @@ contains
         fgz = trim(fnc)//'.gz'
 
         ! Unzip a file
-        fgz = path//trim(fgz)
+        fgz = trim(fpath)//trim(fgz)
         call unzip_gzip_file(trim(fgz))
 
-        fnc = path//trim(fnc)
+        fnc = trim(fpath)//trim(fnc)
 
         write(*,*)'read nc file:', fnc
         call nc_read_3D(fnc,trim(field_idx),Nlon,Nlat,Ntime,dataarray)
@@ -88,7 +88,7 @@ contains
           !write(*,*)"Time Data"
           !write(*,'(360(f15.2,","))')  timearray(1:360)
           !write(*,*)"tswrf DataArray"
-          !write(*,'(360(f15.2,","))')dataarray(216,264,1:150)
+          !write(*,'(720(E15.4,","))')dataarray(:,264,3)
           !write(*,*)"tswrfCRUData"
           !write(*,'(360(f15.2,","))')  CRUData(216,264,1:150,j)
         endif
@@ -136,21 +136,17 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
   year0 = int(tswrfH(1)/(365*24)) + 1850
   year1 = year0 + totyr - 1
 
-  ! Define allocatable variables
+  ! Allocate allocatable variables
   allocate(fdSW(Nlines))
   allocate(timecols(Nlines,3)) ! year, doy, hour
   allocate(hourly_data(totalL,10)) ! Interpolated data (hourly)
   timecols(:,:) = 0
   do m=1, Nlines
-    timecols(m,1) = int(tswrfH(m)/(365*24)) + 1850.0
-    timecols(m,2) = int(tswrfH(m)/24) - int(tswrfH(m)/(365*24)) * 365 + 1.0
-    timecols(m,3) = MODULO(tswrfH(m), 24.0) ! tswrfH(m) - int(tswrfH(m)/24.0)*24.0
-    ! Change to local time
-    LT = timecols(m,3) + int(Longi/15.0)
-    timecols(m,3) = MODULO(LT, 24.0)
+    timecols(m,1) = int(tswrfH(m)/(365*24)) + 1850.0       ! Year
+    timecols(m,2) = MODULO(int(tswrfH(m)/24),365) + 1.0    ! Day of the year
+    timecols(m,3) = MODULO(tswrfH(m), 24.0) + int(Longi/15.0) ! Local time
+    timecols(m,3) = MODULO(timecols(m,3), 24.0) ! 0~23
   enddo
-  !write(*,*)"Local Time Data"
-  !write(*,'(360(f12.2,","))')  timecols(1:360,3)
 
   ! Fraction of solar radiation
   do m=1, Nlines
@@ -228,18 +224,19 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
        climateData(i)%PAR       = 0.0 ! umol/m2/s
      endif
      !'tmp','pre','tswrf','spfh','pres','windU'
-     climateData(i)%year      = int(hourly_data(i,1))     ! Year
-     climateData(i)%doy       = int(hourly_data(i,2))     ! day of the year
-     climateData(i)%hod       = hourly_data(i,3)          ! hour of the day
-     climateData(i)%Tair      = hourly_data(i,4)          ! air temperature, K
-     climateData(i)%Tsoil     = (climateData(i)%Tair - 273.16) * 0.8 + 273.16 ! soil temperature, C
-     climateData(i)%rain      = hourly_data(i,5)          ! kgH2O m-2 second-1
-     climateData(i)%P_air     = hourly_data(i,8)          ! pa
-     climateData(i)%windU     = hourly_data(i,9)          ! wind velocity (m s-1)
-     climateData(i)%RH =  hourly_data(i,7)/mol_h2o * mol_air * &
-                         climateData(i)%P_air/esat(climateData(i)%Tair-273.16) ! relative humidity (0.xx)
-
-     climateData(i)%CO2       = CO2_Hist(climateData(i)%year-1700)       ! ppm
+     climateData(i)%year  = int(hourly_data(i,1))     ! Year
+     climateData(i)%doy   = int(hourly_data(i,2))     ! day of the year
+     climateData(i)%hod   = hourly_data(i,3)          ! hour of the day
+     climateData(i)%Tair  = hourly_data(i,4)          ! air temperature, K
+     climateData(i)%Tsoil = (climateData(i)%Tair - 273.16) * 0.8 + 273.16 ! soil temperature, C
+     climateData(i)%rain  = hourly_data(i,5)          ! kgH2O m-2 second-1
+     climateData(i)%P_air = hourly_data(i,8)          ! pa
+     climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1)
+     climateData(i)%RH    = hourly_data(i,7) / mol_h2o * mol_air * &
+                            climateData(i)%P_air/  &
+                            esat(climateData(i)%Tair-273.16) ! relative humidity (0.xx)
+     climateData(i)%CO2   = CO2_Hist(climateData(i)%year-1700)       ! ppm
+     climateData(i)%eCO2  = climateData(i)%CO2 + 200.       ! ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
   enddo
   forcingData => climateData
@@ -250,6 +247,7 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
   dt_fast_yr    = step_hour/(365.0 * 24.0)
   step_seconds  = step_hour*3600.0
 
+#ifdef CheckInterpolatedData
   ! Write out a sample file
   if(iLon == 216 .and. iLat == 264)then
     fname3 = 'CRU_interpo_test_forcing.csv'
@@ -257,18 +255,17 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
     write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
     do i=1,totalL
         write(15,'(2(I4,","),1(f8.2,","),30(E15.6,","))') &
-          climateData(i)%year, climateData(i)%doy, climateData(i)%hod, &
-          climateData(i)%PAR, climateData(i)%radiation, &
-          climateData(i)%Tair, climateData(i)%Tsoil,  &
-          climateData(i)%RH, climateData(i)%rain, &
-          climateData(i)%windU, climateData(i)%P_air,  &
-          CO2_Hist(climateData(i)%year-1699), CO2_Hist(climateData(i)%year-1699)+200.
+          climateData(i)%year, climateData(i)%doy,      climateData(i)%hod,  &
+          climateData(i)%PAR,  climateData(i)%radiation,climateData(i)%Tair, &
+          climateData(i)%Tsoil,climateData(i)%RH,       climateData(i)%rain, &
+          climateData(i)%windU,climateData(i)%P_air, &
+          climateData(i)%CO2,  climateData(i)%eCO2
     enddo
     close(15)
   endif
+#endif
 
   !Release memory
-  !deallocate(climateData)
   deallocate(hourly_data)
   deallocate(fdSW)
   deallocate(timecols)
@@ -287,7 +284,6 @@ end subroutine CRU_Interpolation
 
     ! Execute the command
     call execute_command_line(command, exitstat=iostat)
-
     if (iostat == 0) then
       print *, 'Successfully unzipped ', trim(filename_gz)
     else
@@ -324,7 +320,7 @@ end subroutine CRU_Interpolation
   ! Close the file, freeing all resources.
   call check( nf90_close(ncid) )
 
-  print *,"*** SUCCESS reading example file ", FILE_NAME, "! "
+  print *,"*** SUCCESS reading ncfile ", FILE_NAME, "! "
 
   end subroutine nc_read_3D
 
@@ -352,7 +348,7 @@ end subroutine CRU_Interpolation
     ! Close the file, freeing all resources.
     call check( nf90_close(ncid) )
 
-    print *,"*** SUCCESS reading example file ", FILE_NAME, "! "
+    print *,"*** SUCCESS reading ncfile ", FILE_NAME, "! "
 
   end subroutine nc_read_1D
 
@@ -419,7 +415,7 @@ end subroutine CRU_Interpolation
     ! associated with the file, and flushes any buffers.
     call check( nf90_close(ncid) )
     write(*,*)data_out
-    print *, "*** SUCCESS writing example file simple_xy.nc! "
+    print *, "*** SUCCESS writing ncfile simple_xy.nc! "
 
     deallocate(data_out)
     deallocate(dimids)
@@ -462,7 +458,7 @@ end subroutine CRU_Interpolation
     ! Close the file, freeing all resources.
     call check( nf90_close(ncid) )
 
-    print *,"*** SUCCESS reading example file ", FILE_NAME, "! "
+    print *,"*** SUCCESS reading ncfile ", FILE_NAME, "! "
 
     deallocate(data_in)
   end subroutine nc_read

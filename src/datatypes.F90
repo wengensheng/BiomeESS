@@ -792,10 +792,14 @@ integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 real     :: siteLAT = 36.01 !site latitude, ORNL
 
-! For global/regional run
-integer :: LowerLon=215,UpperLon=216, LowerLat=263, UpperLat=264
+! For global/regional run, Weng, 2025-07-22
+character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
+character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','tswrf','spfh']
+integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
+integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
-integer :: iLon = 216, iLat = 264
+integer :: iLon = 216, iLat = 264 ! Used in diagnostic subroutines
+integer :: GridID                 ! = iLon*1000 + iLat
 
 ! Model run control
 integer  :: model_run_years = 100
@@ -837,7 +841,7 @@ namelist /initial_state_nml/ &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw, &
-    LowerLon, UpperLon, LowerLat, UpperLat, yr_start, yr_end,   & ! Regional-Global run
+    ncfilepath,LowerLon,UpperLon,LowerLat,UpperLat,yr_start,yr_end,   & ! Regional-Global run
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,             &
     do_U_shaped_mortality, update_annualLAImax, do_fire,        &
