@@ -76,10 +76,10 @@ filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
 ! Regional grids setting
 ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
-LowerLon = 213,  ! Grid No. through longitude (-179.75 ~ 179.75)
-UpperLon = 216,
-LowerLat = 262,  ! Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 265,
+LowerLon = 161,  ! Grid No. through longitude (-179.75 ~ 179.75)
+UpperLon = 210,
+LowerLat = 249,  ! Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 252,
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
 ! End of regional setting
@@ -87,7 +87,7 @@ runID       = 'GlobalTest', ! Output file name
 climfile    = 'ORNL_forcing_2yrs.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years =  200, ! 1600,
+model_run_years =  800, ! 1600,
 outputhourly    =  .False. !  .True.
 outputdaily     =  .True.  ! .False. !
 do_closedN_run  = .True.  ! .False. !

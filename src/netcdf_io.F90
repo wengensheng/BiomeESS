@@ -28,8 +28,7 @@ module netcdf_io
   integer, parameter :: NDIMS = 3
   integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
   real, pointer :: tswrfH(:) ! Hours of tswrf (hours since 1850-01-01)
-  real, pointer :: CRUData(:,:,:,:) ! Nlon,Nlat,N_yr*Ntime,N_vars
-  real, pointer :: GridData(:,:)    ! N_yr*Ntime, N_vars
+  real, pointer :: CRUData(:,:,:,:) ! N_yr*Ntime, N_vars, Nlon, Nlat
 
   public ReadNCfiles
   public unzip_gzip_file
@@ -57,8 +56,7 @@ contains
     totL = N_yrs*Ntime
     ! Allocate data arrays
     allocate(tswrfH(totL))
-    allocate(GridData(totL, 4))
-    allocate(CRUData(Nlon, Nlat, totL, 4))
+    allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
     !allocate(forcingData(totL * 6)) ! hourly, 4*6 =24 (hours/day)
 
     do j= 1, 4
@@ -80,7 +78,11 @@ contains
 
         write(*,*)'read nc file:', fnc
         call nc_read_3D(fnc,trim(field_idx),Nlon,Nlat,Ntime,dataarray)
-        CRUData(:,:,(i-1)*Ntime+1:i*Ntime,j) = dataarray
+        do iLon = LowerLon, UpperLon
+          do iLat = LowerLat, UpperLat
+            CRUData((i-1)*Ntime+1:i*Ntime,j,iLon,iLat) = dataarray(iLon,iLat,:)
+          enddo
+        enddo
 
         if(field_idx == 'tswrf')then
           call nc_read_1D(fnc,'time',Ntime,timearray)
@@ -90,7 +92,7 @@ contains
           !write(*,*)"tswrf DataArray"
           !write(*,'(720(E15.4,","))')dataarray(:,264,3)
           !write(*,*)"tswrfCRUData"
-          !write(*,'(360(f15.2,","))')  CRUData(216,264,1:150,j)
+          !write(*,'(360(f15.2,","))')  CRUData(1:150,j,216,264)
         endif
 
         ! Remove unziped file
@@ -303,9 +305,6 @@ end subroutine CRU_Interpolation
   ! When we create netCDF files, variables and dimensions, we get back
   ! an ID for each one.
   integer :: ncid, varid
-
-  ! Loop indexes, and error handling.
-  integer :: x, y, t
 
   ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
   ! the file.

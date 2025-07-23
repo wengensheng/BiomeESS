@@ -14,6 +14,7 @@ program BiomeE_global_driver
   !type(climate_data_type), pointer :: forcing1(:),forcing2(:),forcing3(:)
   character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
   real :: start_time, end_time, elapsed_time
+  real, pointer :: GridData(:,:)    ! N_yr*Ntime, N_vars
   integer :: N_yrs, totL
   integer :: timeArray(3)
 
@@ -39,10 +40,10 @@ program BiomeE_global_driver
   !------------ Forcing data interpolation and model run
   do iLon = LowerLon, UpperLon
     do iLat = LowerLat, UpperLat
-      if(CRUData(iLon, iLat, 1, 3)< 9999.0)then
+      if(CRUData(1, 3, iLon, iLat)< 9999.0)then
         write(*,*)'model run at grid (iLon, iLat): ', iLon, iLat
         GridID = iLon * 1000 + iLat
-        GridData(:,:) = CRUData(iLon, iLat, :, :)
+        GridData => CRUData(:,:,iLon, iLat)
         call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
         call CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
         call BiomeE_main()
@@ -50,6 +51,10 @@ program BiomeE_global_driver
       endif
     enddo
   enddo
+
+  ! Release netcdf-related allocatable data arrays
+  deallocate(tswrfH)
+  deallocate(CRUData)
 
 #else
   ! Single site run
