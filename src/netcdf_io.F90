@@ -29,6 +29,10 @@ module netcdf_io
   integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
   real, pointer :: tswrfH(:) ! Hours of tswrf (hours since 1850-01-01)
   real, pointer :: CRUData(:,:,:,:) ! N_yr*Ntime, N_vars, Nlon, Nlat
+  real, pointer :: GridClimateData(:,:,:)  ! N_yr*Ntime, N_vars, N_VegGrids, for land grids
+  integer, pointer :: GridLonLat(:) ! iLon, iLat
+  logical :: WriteSample = .True.
+  integer :: N_VegGrids
 
   public ReadNCfiles
   public unzip_gzip_file
@@ -45,20 +49,84 @@ contains
     character(len=256) :: command
     character (len =256) :: fname,fnc,fgz
     character (len =20) :: field_idx
+    character (len =3) :: PFTID(9)
     character (len =4) :: yr_str
 
-    integer :: N_yrs,totL
-    integer :: iostat,i,j,k,m,n
-    real :: dataarray(Nlon,Nlat,Ntime), timearray(Ntime)
+    integer, pointer :: GridMask(:,:)
+    integer :: N_yrs,totL,N_vars
+    integer :: iostat,i,j,k,m,iLon,iLat
+    real :: dataarray(Nlon,Nlat,Ntime),timearray(Ntime)
+    real :: PFTdata(144,90,9),VegFraction(144,90)
+
+    ! Read in PFT map
+    PFTID = [character(len=3) :: 'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G']
+    fnc = trim(fpath)//'BiomeE-PFTs.nc'
+    write(*,*)trim(fnc)
+    do i=1, 9
+      write(*,*)"read PFT: ", PFTID(i)
+      call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
+      VegFraction(:,:) = VegFraction(:,:) + PFTdata(:,:,i)
+    enddo
+    do i =1, 144
+      do j=1, 90
+        VegFraction(i,j) = max(0.0,min(1.0, VegFraction(i,j)))
+      enddo
+    enddo
+    !write(*,'(360(E10.4,","))')  VegFraction(:,70)
+    !write(*,'(360(f22.2,","))')  PFTdata(:,70,3)
 
     !fields = [character(len=5) :: 'tmp', 'pre', 'tswrf', 'spfh']
+    N_vars = size(fields)
     N_yrs = yr_end - yr_start + 1
     totL = N_yrs*Ntime
+
+    ! Open a file for identifying valid grids
+    fgz = trim(fpath)//'tswrf_v12_2010.nc.gz'
+    fnc = trim(fpath)//'tswrf_v12_2010.nc'
+    write(*,*)trim(fgz)
+
+    call unzip_gzip_file(trim(fgz))
+    call nc_read_3D(fnc,'tswrf',Nlon,Nlat,Ntime,dataarray)
+    ! Remove unziped file
+    command = 'rm ' // trim(fnc)
+    call execute_command_line(command)
+
+    ! Calculate number of vegetated grids
+    allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
+    GridMask = 0
+    m = 0
+    do iLon = LowerLon, UpperLon
+      do iLat = LowerLat, UpperLat
+        i = iLon/5 + 1
+        j = iLat/4 + 1
+        if(dataarray(ilon,ilat,1) < 9999.0 .and. VegFraction(i,j)>0.1)then
+          m = m + 1
+          GridMask(ilon,ilat) = 1
+        endif
+      enddo
+    enddo
+    N_VegGrids = m
+    write(*,*)"Valid grids: ",N_VegGrids
+
     ! Allocate data arrays
     allocate(tswrfH(totL))
-    allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
-    !allocate(forcingData(totL * 6)) ! hourly, 4*6 =24 (hours/day)
+    !allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
+    allocate(GridClimateData(totL, N_vars, N_VegGrids))
+    allocate(GridLonLat(N_VegGrids))
 
+    ! Record LonLat in GridLonLat
+    m = 0
+    do iLon = LowerLon, UpperLon
+      do iLat = LowerLat, UpperLat
+        if(GridMask(ilon,ilat) > 0)then
+          m = m + 1
+          GridLonLat(m) = iLon * 1000 + iLat
+        endif
+      enddo
+    enddo
+    write(*,*)"Re-counted: ", sum(GridMask), m
+
+    ! Read in all data
     do j= 1, 4
       field_idx = fields(j) ! 'tmp'
       do i =1, N_yrs
@@ -78,9 +146,14 @@ contains
 
         write(*,*)'read nc file:', fnc
         call nc_read_3D(fnc,trim(field_idx),Nlon,Nlat,Ntime,dataarray)
+        m = 0
         do iLon = LowerLon, UpperLon
           do iLat = LowerLat, UpperLat
-            CRUData((i-1)*Ntime+1:i*Ntime,j,iLon,iLat) = dataarray(iLon,iLat,:)
+            !CRUData((i-1)*Ntime+1:i*Ntime,j,iLon,iLat) = dataarray(iLon,iLat,:)
+            if(GridMask(iLon,iLat) > 0)then
+              m = m + 1
+              GridClimateData((i-1)*Ntime+1:i*Ntime,j,m)  = dataarray(iLon,iLat,:)
+            endif
           enddo
         enddo
 
@@ -88,19 +161,15 @@ contains
           call nc_read_1D(fnc,'time',Ntime,timearray)
           tswrfH((i-1)*Ntime+1: i*Ntime) = timearray
           !write(*,*)"Time Data"
-          !write(*,'(360(f15.2,","))')  timearray(1:360)
-          !write(*,*)"tswrf DataArray"
-          !write(*,'(720(E15.4,","))')dataarray(:,264,3)
-          !write(*,*)"tswrfCRUData"
-          !write(*,'(360(f15.2,","))')  CRUData(1:150,j,216,264)
+          !write(*,'(360(E15.4,","))')  timearray(1:360)
         endif
 
         ! Remove unziped file
         command = 'rm ' // trim(fnc)
-        ! Execute the command
         call execute_command_line(command)
       enddo
     enddo
+    deallocate(GridMask)
   end subroutine ReadNCfiles
 
 !=============================================================================
@@ -249,10 +318,9 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
   dt_fast_yr    = step_hour/(365.0 * 24.0)
   step_seconds  = step_hour*3600.0
 
-#ifdef CheckInterpolatedData
   ! Write out a sample file
-  if(iLon == 216 .and. iLat == 264)then
-    fname3 = 'CRU_interpo_test_forcing.csv'
+  if(WriteSample)then
+    fname3 = 'CRU_interpo_0724_forcing.csv'
     open(15,file=trim(fname3))
     write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
     do i=1,totalL
@@ -264,8 +332,8 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
           climateData(i)%CO2,  climateData(i)%eCO2
     enddo
     close(15)
+    WriteSample = .False.
   endif
-#endif
 
   !Release memory
   deallocate(hourly_data)
@@ -323,6 +391,34 @@ end subroutine CRU_Interpolation
 
   end subroutine nc_read_3D
 
+  !==============================================
+  subroutine nc_read_2D(FILE_NAME,field_idx,NX,NY,DA)
+    character (len = *), intent(in) :: FILE_NAME,field_idx
+    integer, intent(in) :: NX, NY
+    real, intent(inout) :: DA(:,:)
+
+    ! When we create netCDF files, variables and dimensions, we get back
+    ! an ID for each one.
+    integer :: ncid, varid
+
+    ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
+    ! the file.
+    call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
+    print *, 'ncid=',ncid
+    ! Get the varid of the data variable, based on its name.
+    call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
+    print *, 'varid=',varid
+    ! Read the data.
+    call check( nf90_get_var(ncid, varid, DA) )
+
+    ! Close the file, freeing all resources.
+    call check( nf90_close(ncid) )
+
+    print *,"SUCCESS reading ncfile ", FILE_NAME, ". "
+
+
+
+  end subroutine nc_read_2D
   !==============================================
     subroutine nc_read_1D(FILE_NAME,field_idx,Ntime,DA)
 

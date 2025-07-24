@@ -1120,7 +1120,6 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
 #ifdef GlobalRun
-    GridID = iLon * 1000 + iLat
     write(LonLat, '(I6)') GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
 #endif
@@ -1270,7 +1269,6 @@ subroutine zip_output_files()
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
 #ifdef GlobalRun
-    GridID = iLon * 1000 + iLat
     write(LonLat, '(I6)') GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
 #endif
@@ -1292,9 +1290,7 @@ subroutine zip_output_files()
     do i = I0, 6
       command = 'gzip -f ' // trim(fname(i))
       call execute_command_line(command, exitstat=iostat)
-      if (iostat == 0) then
-        print *, 'Successfully zipped: ', trim(fname(i))
-      else
+      if (iostat /= 0) then
         print *, 'Error zipping: ', trim(fname(i)), ' (Exit status: ', iostat, ')'
       end if
     enddo

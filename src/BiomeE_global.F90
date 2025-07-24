@@ -15,7 +15,8 @@ program BiomeE_global_driver
   character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
   real :: start_time, end_time, elapsed_time
   real, pointer :: GridData(:,:)    ! N_yr*Ntime, N_vars
-  integer :: N_yrs, totL
+  integer :: N_yrs, totL, iLon, iLat
+  integer :: m, n
   integer :: timeArray(3)
 
   ! ---------- Time stamp -------------
@@ -38,23 +39,26 @@ program BiomeE_global_driver
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 
   !------------ Forcing data interpolation and model run
-  do iLon = LowerLon, UpperLon
-    do iLat = LowerLat, UpperLat
-      if(CRUData(1, 3, iLon, iLat)< 9999.0)then
-        write(*,*)'model run at grid (iLon, iLat): ', iLon, iLat
-        GridID = iLon * 1000 + iLat
-        GridData => CRUData(:,:,iLon, iLat)
-        call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
-        call CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
-        call BiomeE_main()
-        call zip_output_files()
-      endif
-    enddo
+  do m = 1, N_VegGrids
+    ! Data interpolated to hourly
+    GridID   =  GridLonLat(m)
+    iLon = GridID/1000
+    iLat = GridID - iLon * 1000
+    GridData => GridClimateData(:,:,m)
+    call CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
+
+    ! Run model
+    write(*,*)'At grid (iLon, iLat): ', GridLonLat(m), iLon, iLat
+    call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
+    call BiomeE_main()
+    call zip_output_files()
   enddo
 
   ! Release netcdf-related allocatable data arrays
   deallocate(tswrfH)
-  deallocate(CRUData)
+  !deallocate(CRUData)
+  deallocate(GridClimateData)
+  deallocate(GridLonLat)
 
 #else
   ! Single site run

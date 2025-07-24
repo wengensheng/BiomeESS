@@ -792,14 +792,20 @@ integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 real     :: siteLAT = 36.01 !site latitude, ORNL
 
+! For global/regional forcing data
+type :: grid_climate_type
+   integer :: iLon ! grid number along Longitude (from -180 to 180)
+   integer :: iLat ! grid number along Latitude (from -90 to 90)
+   real, pointer :: climate(:,:)       ! Ntimes, Nvars
+end type grid_climate_type
+
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
 character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','tswrf','spfh']
 integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
-integer :: iLon = 216, iLat = 264 ! Used in diagnostic subroutines
-integer :: GridID                 ! = iLon*1000 + iLat
+integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
 
 ! Model run control
 integer  :: model_run_years = 100
