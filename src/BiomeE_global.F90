@@ -2,6 +2,7 @@
 ! Ensheng Weng, 07/18/2025
 
 program BiomeE_global_driver
+  !use omp_lib
   use BiomeE_mod, only: BiomeE_main
   use io_mod, only: read_namelist,setup_forcingdata, &
                     setup_output_files, zip_output_files
@@ -15,7 +16,7 @@ program BiomeE_global_driver
   character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
   real :: start_time, end_time, elapsed_time
   real, pointer :: GridData(:,:)    ! N_yr*Ntime, N_vars
-  integer :: N_yrs, totL, iLon, iLat
+  integer :: N_yrs, totL
   integer :: m, n
   integer :: timeArray(3)
 
@@ -39,25 +40,23 @@ program BiomeE_global_driver
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 
   !------------ Forcing data interpolation and model run
+  !$omp parallel do private(i, GPP, NPP, Tr) shared(climate, veg_state, fluxes)
   do m = 1, N_VegGrids
+    GridID = GridLonLat(m) ! for file names
+    write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
+               GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
     ! Data interpolated to hourly
-    GridID   =  GridLonLat(m)
-    iLon = GridID/1000
-    iLat = GridID - iLon * 1000
-    GridData => GridClimateData(:,:,m)
-    call CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
-
-    ! Run model
-    write(*,*)'At grid (iLon, iLat): ', GridLonLat(m), iLon, iLat
+    call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     call BiomeE_main()
     call zip_output_files()
   enddo
+  !$omp end parallel do
 
   ! Release netcdf-related allocatable data arrays
   deallocate(tswrfH)
   !deallocate(CRUData)
-  deallocate(GridClimateData)
+  deallocate(GridClimateData, CRUgrid)
   deallocate(GridLonLat)
 
 #else
@@ -70,6 +69,6 @@ program BiomeE_global_driver
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
-  write(*,'(a24,3(f8.2,","))')'Time taken (seconds):', elapsed_time
+  write(*,'(a24,3(f12.1,","))')'Time taken (seconds):', elapsed_time
 
 end program BiomeE_global_driver

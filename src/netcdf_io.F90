@@ -31,7 +31,7 @@ module netcdf_io
   real, pointer :: CRUData(:,:,:,:) ! N_yr*Ntime, N_vars, Nlon, Nlat
   real, pointer :: GridClimateData(:,:,:)  ! N_yr*Ntime, N_vars, N_VegGrids, for land grids
   integer, pointer :: GridLonLat(:) ! iLon, iLat
-  logical :: WriteSample = .True.
+  type(grid_climate_type), pointer :: CRUgrid(:)
   integer :: N_VegGrids
 
   public ReadNCfiles
@@ -113,6 +113,7 @@ contains
     !allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
     allocate(GridClimateData(totL, N_vars, N_VegGrids))
     allocate(GridLonLat(N_VegGrids))
+    allocate(CRUgrid(N_VegGrids))
 
     ! Record LonLat in GridLonLat
     m = 0
@@ -121,6 +122,9 @@ contains
         if(GridMask(ilon,ilat) > 0)then
           m = m + 1
           GridLonLat(m) = iLon * 1000 + iLat
+          CRUgrid(m)%iLon = iLon
+          CRUgrid(m)%iLat = iLat
+          CRUgrid(m)%climate => GridClimateData(:,:,m)
         endif
       enddo
     enddo
@@ -173,32 +177,42 @@ contains
   end subroutine ReadNCfiles
 
 !=============================================================================
-subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
+subroutine CRU_Interpolation(CRUgrid,steps_per_hour,forcingData)
   implicit none
-  real, intent(in) :: GridData(:,:), steps_per_hour
-  integer, intent(in) :: iLon,iLat ! Column and Lines (started from -179.75 and -89.75)
+  type(grid_climate_type), pointer, intent(in) :: CRUgrid
+  real, intent(in) :: steps_per_hour
   type(climate_data_type), pointer :: forcingData(:) ! output
 
-  ! Define local variables
-  type(climate_data_type), pointer :: climateData(:)
-  character(len=120) :: fname3
+  !---------- local variables ------------------
+  real, pointer :: GridData(:,:)
+  integer :: iLon, iLat ! Column and Lines (started from -179.75 and -89.75)
+  type(climate_data_type), pointer :: climateData(:) ! will be linked to forcingData
+  character(len=120) :: fname ! For testing output
+  character(len=6) :: LonLat  ! Used in output file name
+
   real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
   real, allocatable :: hourly_data(:,:)
   real    :: ShiftData(12,10) ! To make the first hour is hour 0
-  real    :: LT ! Local time
   real    :: Lati, Longi
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
   integer :: ndays,nyear,totalL
-  integer :: m,n,i,j,k,steps_per_day
+  integer :: m,i,j,k,steps_per_day
   integer :: totyr, Nlines
+  logical :: WriteSample = .False.
+
+  ! Assigne CRUgrid data to local variables
+  GridData => CRUgrid%climate
+  iLon = CRUgrid%iLon
+  iLat = CRUgrid%iLat
 
   ! Latitude and Longitude of this grid
   Longi = (iLon-1)*0.5 - 179.75
   Lati = (iLat-1) *0.5 - 89.75
+
   ! Data lines
   Nlines = SIZE(tswrfH)
   steps_per_day = int(steps_per_hour * 24)
@@ -320,8 +334,9 @@ subroutine CRU_Interpolation(GridData,iLon,iLat,steps_per_hour,forcingData)
 
   ! Write out a sample file
   if(WriteSample)then
-    fname3 = 'CRU_interpo_0724_forcing.csv'
-    open(15,file=trim(fname3))
+    write(LonLat, '(I6)') GridID
+    fname = 'CRU_'//trim(LonLat)//'_forcing.csv'
+    open(15,file=trim(fname))
     write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
     do i=1,totalL
         write(15,'(2(I4,","),1(f8.2,","),30(E15.6,","))') &
@@ -351,43 +366,30 @@ end subroutine CRU_Interpolation
 
     ! Construct the gunzip command. The -k option keeps the original .gz file.
     command = 'gunzip -k ' // trim(filename_gz)
-
-    ! Execute the command
     call execute_command_line(command, exitstat=iostat)
     if (iostat == 0) then
       print *, 'Successfully unzipped ', trim(filename_gz)
     else
       print *, 'Error unzipping ', trim(filename_gz), ' (Exit status: ', iostat, ')'
     end if
-
   end subroutine unzip_gzip_file
 
 !==============================================
   subroutine nc_read_3D(FILE_NAME,field_idx,NX,NY,Ntime,DA)
+    ! This is the name of the data file we will create.
+    character (len = *), intent(in) :: FILE_NAME,field_idx
+    integer, intent(in) :: NX, NY, Ntime
+    real, intent(inout) :: DA(:,:,:)
 
-  ! This is the name of the data file we will create.
-  character (len = *), intent(in) :: FILE_NAME,field_idx
-  integer, intent(in) :: NX, NY, Ntime
-  real, intent(inout) :: DA(:,:,:)
+    !----- Local vars ----------------
+    integer :: ncid, varid  ! IDs were created with netCDF files
 
-  ! When we create netCDF files, variables and dimensions, we get back
-  ! an ID for each one.
-  integer :: ncid, varid
-
-  ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
-  ! the file.
-  call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-  print *, 'ncid=',ncid
-  ! Get the varid of the data variable, based on its name.
-  call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
-  print *, 'varid=',varid
-  ! Read the data.
-  call check( nf90_get_var(ncid, varid, DA) )
-
-  ! Close the file, freeing all resources.
-  call check( nf90_close(ncid) )
-
-  print *,"*** SUCCESS reading ncfile ", FILE_NAME, "! "
+    ! Open the file with NF90_NOWRITE as read-only access
+    call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
+    call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
+    call check( nf90_get_var(ncid, varid, DA) )
+    call check( nf90_close(ncid) )
+    print *, 'Read file: ncid=',ncid, 'varid=',varid
 
   end subroutine nc_read_3D
 
@@ -397,54 +399,32 @@ end subroutine CRU_Interpolation
     integer, intent(in) :: NX, NY
     real, intent(inout) :: DA(:,:)
 
-    ! When we create netCDF files, variables and dimensions, we get back
-    ! an ID for each one.
-    integer :: ncid, varid
+    !----- Local vars ----------------
+    integer :: ncid, varid ! IDs were created with netCDF files
 
-    ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
-    ! the file.
+    ! Open the file with NF90_NOWRITE as read-only access
     call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-    print *, 'ncid=',ncid
-    ! Get the varid of the data variable, based on its name.
-    call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
-    print *, 'varid=',varid
-    ! Read the data.
-    call check( nf90_get_var(ncid, varid, DA) )
-
-    ! Close the file, freeing all resources.
-    call check( nf90_close(ncid) )
-
-    print *,"SUCCESS reading ncfile ", FILE_NAME, ". "
-
-
-
+    call check( nf90_inq_varid(ncid, trim(field_idx), varid) ) ! Get the varid of the data variable
+    call check( nf90_get_var(ncid, varid, DA) )  ! Read the data.
+    call check( nf90_close(ncid) ) ! Close the file, freeing all resources.
+    print *, 'Read file: ncid=',ncid, 'varid=',varid
   end subroutine nc_read_2D
   !==============================================
-    subroutine nc_read_1D(FILE_NAME,field_idx,Ntime,DA)
-
+  subroutine nc_read_1D(FILE_NAME,field_idx,Ntime,DA)
     ! This is the name of the data file we will read
     character (len = *), intent(in) :: FILE_NAME,field_idx
     integer, intent(in) :: Ntime
     real, intent(inout) :: DA(:)
 
-    ! When we create netCDF files, variables and dimensions, we get back
-    ! an ID for each one.
-    integer :: ncid, varid
+    !----- Local vars ----------------
+    integer :: ncid, varid ! IDs were created with netCDF files
 
-    ! Open NF90_NOWRITE with read-only access to the file.
+    ! Open the file with NF90_NOWRITE as read-only access
     call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-    print *, 'ncid=',ncid
-    ! Get the varid of the data variable, based on its name.
     call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
-    print *, 'varid=',varid
-    ! Read the data.
     call check( nf90_get_var(ncid, varid, DA) )
-
-    ! Close the file, freeing all resources.
     call check( nf90_close(ncid) )
-
-    print *,"*** SUCCESS reading ncfile ", FILE_NAME, "! "
-
+    print *, 'Read file: ncid=',ncid, 'varid=',varid
   end subroutine nc_read_1D
 
 !===================================================
