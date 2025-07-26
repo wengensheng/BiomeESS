@@ -1120,7 +1120,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
 #ifdef GlobalRun
-    write(LonLat, '(I6)') GridID
+    write(LonLat, '(I0)') GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
 #endif
     HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly

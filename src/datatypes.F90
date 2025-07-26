@@ -792,12 +792,20 @@ integer  :: yr_data   ! Years of the forcing data
 integer  :: days_data ! days of the forcing data
 real     :: siteLAT = 36.01 !site latitude, ORNL
 
-! For global/regional forcing data
-type :: grid_climate_type
+! For global/regional forcing data, soil conditions, and initial conditions
+integer, parameter :: N_PFTs   = 9
+type :: grid_initial_type
    integer :: iLon ! grid number along Longitude (from -180 to 180)
    integer :: iLat ! grid number along Latitude (from -90 to 90)
+   real    :: fPFT(N_PFTs) = 0.0 ! Fraction of each PFT's coverage
+   real    :: SOM(5) ! Soil organic matter (kgC m-2)
+   real    :: SON(5) ! Soil organic nitrogen
+   real    :: mineralN ! Soil mineral N
+   real    :: soiltexture(3)
+   real    :: WLTPT, FLDCP ! soil wilting point and field capacity (0.xx)
    real, pointer :: climate(:,:)       ! Ntimes, Nvars
-end type grid_climate_type
+end type grid_initial_type
+type(grid_initial_type), pointer :: CRUgrid(:) => null()
 
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
@@ -853,6 +861,12 @@ namelist /initial_state_nml/ &
     do_U_shaped_mortality, update_annualLAImax, do_fire,        &
     do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
     do_WD_mort_function
+
+! ------------- Global setting name list ------------
+namelist /global_setting_nml/ &
+    ! global data and model run settings
+    ncfilepath,LowerLon,UpperLon,LowerLat,UpperLat, &
+    yr_start,yr_end
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
 namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &
