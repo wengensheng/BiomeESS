@@ -1129,6 +1129,15 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     DailyPatch   = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
     YearlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
     YearlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
+
+    ! For being used in other subroutines (zip_output_files)
+    file_out(1) = trim(HourlyCohort)
+    file_out(2) = trim(HourlyPatch)
+    file_out(3) = trim(DailyCohort)
+    file_out(4) = trim(DailyPatch)
+    file_out(5) = trim(YearlyCohort)
+    file_out(6) = trim(YearlyPatch)
+
     ! For DroughtMIP
     YearlyCohort2 = trim(fpath)//trim(filesuffix)//'2_Cohort_yearly.csv'       ! Yearly
     DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'    ! Daily
@@ -1260,38 +1269,26 @@ end subroutine setup_output_files
 
 !================================================
 subroutine zip_output_files()
-   character(len=256) :: command, fname(6)
-   character(len=200) :: filesuffix,fpath
-   character(len=6)   :: LonLat
-   integer :: I0, i, iostat
-
-    ! File path and names
-    fpath = trim(filepath_out)
-    filesuffix   = trim(runID) ! tag for simulation experiments
-#ifdef GlobalRun
-    write(LonLat, '(I6)') GridID
-    filesuffix = trim(filesuffix)//trim(LonLat)
-#endif
-    fname(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
-    fname(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
-    fname(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
-    fname(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
-    fname(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
-    fname(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
+   character(len=256) :: command
+   integer :: N_files, I0, i, iostat
+   integer :: idx(6) = [6,5,4,3,2,1]
 
     ! Zip files
-    if(outputhourly)then
-      I0 = 1
-    else if(outputdaily)then
-      I0 = 3
-    else
-      I0 = 5
+    if (          outputhourly .and. outputdaily )then
+      N_files = 6
+    elseif((.not. outputhourly).and. outputdaily )then
+      N_files = 4
+    elseif((.not. outputhourly).and.(.not.outputdaily))then
+      N_files = 2
+    elseif (      outputhourly .and. (.not. outputdaily))then
+      N_files = 4
+      idx(3:4) = [1,2]
     endif
-    do i = I0, 6
-      command = 'gzip -f ' // trim(fname(i))
+    do i = 1, N_files
+      command = 'gzip -f ' // trim(file_out(idx(i)))
       call execute_command_line(command, exitstat=iostat)
       if (iostat /= 0) then
-        print *, 'Error zipping: ', trim(fname(i)), ' (Exit status: ', iostat, ')'
+        print *, 'Error zipping: ', trim(file_out(idx(i))), ' (Exit status: ', iostat, ')'
       end if
     enddo
 end subroutine zip_output_files

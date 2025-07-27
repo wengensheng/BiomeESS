@@ -390,19 +390,16 @@ end subroutine Setup_global_PFT_parameters
 subroutine Setup_Grid_Initial_States(CRUgrid)
   type(grid_initial_type), intent(in) :: CRUgrid
 
-  !---------  ------------
-  integer :: GridPFTs(9) = 0, totPFT = 0
-  integer :: i,j,k
+  !--------- local vars ------------
+  integer :: GridPFTs(N_PFTs)
+  integer :: i, totPFT
+  real :: f_min = 0.01 ! coverage fraction threshold
+
+  ! Sorting PFT numbers according to fPFT
+  call rank_descending(CRUgrid%fPFT,GridPFTs)
 
   ! Find out PFTs in this grid
-  GridPFTs = 0
-  totPFT = 0
-  do i =1, 9
-    if(CRUgrid%fPFT(i)>0.0)then
-      totPFT = totPFT + 1
-      GridPFTs(totPFT) = i
-    endif
-  enddo
+  totPFT = Max(1, COUNT(CRUgrid%fPFT > f_min))
 
   do i=1, totPFT ! init_n_cohorts
     init_cohort_species(i) = GridPFTs(i)

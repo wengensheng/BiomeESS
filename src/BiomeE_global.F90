@@ -42,7 +42,12 @@ program BiomeE_global_driver
 
   !------------ Forcing data interpolation and model run
   !$omp parallel do private(i, GPP, NPP, Tr) shared(climate, veg_state, fluxes)
-  do m = 1, N_VegGrids
+  if(start_grid > N_VegGrids)then
+    print '(A, I8, I8)', "start_grid is beyond the total grids: ", start_grid, N_VegGrids
+    stop
+  endif
+
+  do m = start_grid, N_VegGrids
     GridID = GridLonLat(m) ! for file names
     write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
                GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
@@ -51,7 +56,7 @@ program BiomeE_global_driver
     call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     call BiomeE_main()
-    call zip_output_files()
+    !call zip_output_files()
 
     ! ---------- Time stamp -------------
     call cpu_time(end_time)

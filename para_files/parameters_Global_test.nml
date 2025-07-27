@@ -1,11 +1,12 @@
 &global_setting_nml
 ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
-LowerLon = 160,  ! Grid No. through longitude (-179.75 ~ 179.75)
+LowerLon = 208, ! 160,  ! Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 209,
 LowerLat = 251,  ! Grid No. through latitude (-89.75 ~ 89.75)
 UpperLat = 252,
 yr_start = 2010, ! Data start year of netCDF files
-yr_end   = 2011 ! Data end year
+yr_end   = 2011, ! Data end year
+start_grid = 1 ! Normal start
 /
 
 &soil_data_nml
@@ -88,9 +89,9 @@ runID       = 'Grid_', ! Output file name
 climfile    = 'ORNL_forcing_2yrs.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years =  800, ! 1600,
+model_run_years =  600, ! 1600,
 outputhourly    =  .False. !  .True.
-outputdaily     =  .True.  ! .False. !
+outputdaily     =  .False. ! .True.  !
 do_closedN_run  = .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
 do_fire =  .False. ! .True.  !

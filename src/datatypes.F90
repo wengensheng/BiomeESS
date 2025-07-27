@@ -813,9 +813,11 @@ character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','tswrf','s
 integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
+integer :: start_grid = 1 ! for continuous model run once crashed at a grid
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
 
 ! Model run control
+character(len=256) :: file_out(6) ! Output file names
 integer  :: model_run_years = 100
 integer  :: totyears, totdays
 integer  :: steps_per_day = 24 ! 24 or 48
@@ -855,7 +857,6 @@ namelist /initial_state_nml/ &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw, &
-    ncfilepath,LowerLon,UpperLon,LowerLat,UpperLat,yr_start,yr_end,   & ! Regional-Global run
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,             &
     do_U_shaped_mortality, update_annualLAImax, do_fire,        &
@@ -866,7 +867,7 @@ namelist /initial_state_nml/ &
 namelist /global_setting_nml/ &
     ! global data and model run settings
     ncfilepath,LowerLon,UpperLon,LowerLat,UpperLat, &
-    yr_start,yr_end
+    yr_start,yr_end,start_grid
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
 namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &
@@ -1442,6 +1443,83 @@ end function
        phenology_type = PHEN_DECIDIOUS ! its deciduous
     endif
   end function
+
+!================= utilities ===========================================
+!=======================================================================
+subroutine rank_descending(x,idx)
+  ! ranks array x in descending order: on return, idx() contains indices
+  ! of elements of array x in descending order of x values. These codes
+  ! are from Sergey Malyshev (LM3PPA, Weng et al. 2015 Biogeosciences)
+
+   real,    intent(in)  :: x(:)
+   integer, intent(out) :: idx(:)
+   integer :: i,n
+   integer, allocatable :: t(:)
+
+   n = size(x)
+   do i = 1,n
+      idx(i) = i
+   enddo
+
+   allocate(t((n+1)/2))
+   call mergerank(x,idx,n,t)
+   deallocate(t)
+end subroutine
+
+! =====================================================================
+! based on:
+! http://rosettacode.org/wiki/Sorting_algorithms/Merge_sort#Fortran
+subroutine merge(x,a,na,b,nb,c,nc)
+   integer, intent(in) :: na,nb,nc ! Normal usage: NA+NB = NC
+   real, intent(in)       :: x(*)
+   integer, intent(in)    :: a(na)    ! B overlays C(NA+1:NC)
+   integer, intent(in)    :: b(nb)
+   integer, intent(inout) :: c(nc)
+
+   integer :: i,j,k
+
+   i = 1; j = 1; k = 1;
+   do while(i <= na .and. j <= nb)
+      if (x(a(i)) >= x(b(j))) then
+         c(k) = a(i) ; i = i+1
+      else
+         c(k) = b(j) ; j = j+1
+      endif
+      k = k + 1
+   enddo
+   do while (i <= na)
+      c(k) = a(i) ; i = i + 1 ; k = k + 1
+   enddo
+end subroutine merge
+
+!=======================================================================
+recursive subroutine mergerank(x,a,n,t)
+  integer, intent(in) :: n
+  real,    intent(in) :: x(*)
+  integer, dimension(n), intent(inout) :: a
+  integer, dimension((n+1)/2), intent (out) :: t
+
+  integer :: na,nb
+  integer :: v
+
+  if (n < 2) return
+  if (n == 2) then
+     if ( x(a(1)) < x(a(2)) ) then
+        v = a(1) ; a(1) = a(2) ; a(2) = v
+     endif
+     return
+  endif
+  na=(n+1)/2
+  nb=n-na
+
+  call mergerank(x,a,na,t)
+  call mergerank(x,a(na+1),nb,t)
+
+  if (x(a(na)) < x(a(na+1))) then
+     t(1:na)=a(1:na)
+     call merge(x,t,na,a(na+1),nb,a,n)
+  endif
+end subroutine mergerank
 
 !================================================
 end module datatypes
