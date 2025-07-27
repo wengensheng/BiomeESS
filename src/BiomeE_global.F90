@@ -1,13 +1,13 @@
-! BiomeE global run
+! BiomeE global version 0.1
 ! Ensheng Weng, 07/18/2025
 
 program BiomeE_global_driver
   !use omp_lib
-  use BiomeE_mod, only: BiomeE_main
+  use datatypes
+  use netcdf_io
   use io_mod, only: read_namelist,setup_forcingdata, &
                     setup_output_files, zip_output_files
-  use netcdf_io
-  use datatypes
+  use BiomeE_mod, only: BiomeE_main
 
   implicit none
 
@@ -56,7 +56,7 @@ program BiomeE_global_driver
     call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     call BiomeE_main()
-    !call zip_output_files()
+    call zip_output_files()
 
     ! ---------- Time stamp -------------
     call cpu_time(end_time)

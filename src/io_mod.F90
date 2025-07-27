@@ -1109,8 +1109,6 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
    integer,intent(inout):: fno1,fno2,fno3,fno4,fno5,fno6
 
    ! ----------Local vars ------------
-   character(len=150) :: YearlyCohort,DailyCohort,HourlyCohort ! Output file names
-   character(len=150) :: YearlyPatch, DailyPatch, HourlyPatch  ! output file names
    character(len=150) :: YearlyCohort2,DailyPatch2  ! For DroughtMIP only
    character(len=120)  :: filesuffix,fpath
    character(len=6) :: LonLat
@@ -1123,29 +1121,21 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     write(LonLat, '(I0)') GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
 #endif
-    HourlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
-    HourlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
-    DailyCohort  = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
-    DailyPatch   = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
-    YearlyCohort = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
-    YearlyPatch  = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
-
-    ! For being used in other subroutines (zip_output_files)
-    file_out(1) = trim(HourlyCohort)
-    file_out(2) = trim(HourlyPatch)
-    file_out(3) = trim(DailyCohort)
-    file_out(4) = trim(DailyPatch)
-    file_out(5) = trim(YearlyCohort)
-    file_out(6) = trim(YearlyPatch)
+    file_out(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
+    file_out(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
+    file_out(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
+    file_out(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
+    file_out(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
+    file_out(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
 
     ! For DroughtMIP
     YearlyCohort2 = trim(fpath)//trim(filesuffix)//'2_Cohort_yearly.csv'       ! Yearly
     DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'    ! Daily
 
     ! Open files
-    fno1=91; fno2=92; fno3=103; fno4=104; fno5=105; fno6=106
+    fno1=211; fno2=212; fno3=213; fno4=214; fno5=215; fno6=216
     if(outputhourly)then
-      open(fno1,file=trim(HourlyCohort),ACTION='write', IOSTAT=istat1)
+      open(fno1,file=trim(file_out(1)),ACTION='write', IOSTAT=istat1)
       write(fno1,'(5(a8,","),30(a12,","))')'tile', &       ! Hourly cohort
          'year','doy','hour','cID','sp','layer', &
          'density','dbh','height','Acrown',      &
@@ -1156,7 +1146,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
           'W_supply','W_scale'
 #endif
 
-      open(fno2,file=trim(HourlyPatch), ACTION='write', IOSTAT=istat1)
+      open(fno2,file=trim(file_out(2)), ACTION='write', IOSTAT=istat1)
       write(fno2,'(5(a8,","),30(a12,","))')    &       ! Hourly tile
          'tile','year','doy','hour','rad',     &
          'Tair','Prcp', 'GPP', 'Resp',         &
@@ -1166,7 +1156,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     endif
 
     if(outputdaily)then
-      open(fno3,file=trim(DailyCohort), ACTION='write', IOSTAT=istat2)
+      open(fno3,file=trim(file_out(3)), ACTION='write', IOSTAT=istat2)
       write(fno3,'(60(a8,","))')'year','doy',          &  ! Daily cohort
          'c_No','PFT','layer','Pheno','ndm','ncd',     &
          'density','Acrown','LAI','LeafAge',           &
@@ -1175,7 +1165,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
          'GDD','ALT','AWD'
-      open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
+      open(fno4,file=trim(file_out(4)),  ACTION='write', IOSTAT=istat2)
       write(fno4,'(2(a5,","),55(a10,","))')'year', 'doy',   &  ! Daily tile, 'tile',
          'Tc','Prcp','Trsp','Evap','Roff','WaterS','thetaS',&
          'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',     &
@@ -1190,7 +1180,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
 #ifdef DroughtMIP
     !For baseline runs
-    open(fno4,file=trim(DailyPatch),  ACTION='write', IOSTAT=istat2)
+    open(fno4,file=trim(file_out(4)),  ACTION='write', IOSTAT=istat2)
     write(fno4,'(3(a5,","),55(a10,","))')'YEAR', 'Month','DAY',   &  ! Daily tile, 'tile',
     'GPP','NPP','ET','LAI','LFLIT','SW1','SW2','SW3','SW4'
 
@@ -1199,7 +1189,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
      write(fno4+10,'(2(a5,","),55(a10,","))')'YEAR', 'Month','DAY',   &  ! Daily tile, 'tile',
      'GPP','NPP','ET','LAI','LFLIT','SW1','SW2','SW3','SW4'
 
-     open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
+     open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
      write(fno5,'(3(a5,","),55(a10,","))')'YEAR', 'SP','ID',   &
         'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
@@ -1208,7 +1198,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
         'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
 #elif DBEN_run
-    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
+    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a9,","))')'tile',         &    ! Yearly cohort
       'yr','cNo.','cID','PFT','Woody','Layer',          &
       'Density','f_L','dbh','height','Acrown','Aleaf',  &
@@ -1217,7 +1207,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
 
 #elif FACE_run
-    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
+    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
       'yr','cNo.','PFT','layer','f_L','N_ha','mu',      &
       'dD','dCA','dbh','ht','Acrown','Aleaf',           &
@@ -1227,7 +1217,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'demandW','Asap','Ktree','treeHU','treeW0'
 
 #else
-    open(fno5,file=trim(YearlyCohort),ACTION='write', IOSTAT=istat3)
+    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
       'tile','yr','cNo.','cID', 'PFT','layer',          &
       'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
@@ -1238,7 +1228,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
       'farea1','farea2','farea3','farea4','farea5'
 #endif
 
-    open(fno6,file=trim(YearlyPatch), ACTION='write', IOSTAT=istat3)
+    open(fno6,file=trim(file_out(6)), ACTION='write', IOSTAT=istat3)
 #ifdef FACE_run
     write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile
          'CAI', 'LAI', 'GPP', 'Rauto', 'Rh',               &

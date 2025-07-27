@@ -7,12 +7,12 @@ FSRCS="src/datatypes.F90 \
        src/BiomeE.F90 \
        src/BiomeE_global.F90"
 
-CPPFLAGS=''
-#CPPFLAGS+="-DHydro_test"
+CPPFLAGS=' '
+#CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
-CPPFLAGS+=" -DMergeLowDensityCohorts"
-#CPPFLAGS+=" -DScreenOutput"
-CPPFLAGS+=" -DGlobalRun"
+CPPFLAGS+=' -DMergeLowDensityCohorts'
+#CPPFLAGS+=' -DScreenOutput'
+CPPFLAGS+=' -DGlobalRun'
 
 echo $FSRCS
 echo $CPPFLAGS

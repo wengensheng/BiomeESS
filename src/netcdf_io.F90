@@ -27,11 +27,6 @@ module netcdf_io
   ! CRU NetCDF file dimensions
   integer, parameter :: NDIMS = 3
   integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
-  real, pointer :: tswrfH(:) => null() ! Hours of tswrf (hours since 1850-01-01)
-  real, pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
-  real, pointer :: GridClimateData(:,:,:) => null()  ! N_yr*Ntime, N_vars, N_VegGrids, for land grids
-  integer, pointer :: GridLonLat(:) => null() ! iLon, iLat
-  integer :: N_VegGrids
 
   public ReadNCfiles
   public unzip_gzip_file
@@ -138,17 +133,14 @@ end subroutine read_initial_state
     fnc = trim(fpath)//'BiomeE-PFTs.nc'
     write(*,*)trim(fnc)
     do i=1, 9
-      write(*,*)"read PFT: ", PFTID(i)
       call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
-      VegFraction(:,:) = VegFraction(:,:) + PFTdata(:,:,i)
+      write(*,*)"read PFT: ", PFTID(i)
     enddo
     do i =1, 144
       do j=1, 90
-        VegFraction(i,j) = max(0.0,min(1.0, VegFraction(i,j)))
+        VegFraction(i,j) = max(0.0,min(1.0, sum(PFTdata(i,j,:))))
       enddo
     enddo
-    !write(*,'(360(E10.4,","))')  VegFraction(:,70)
-    !write(*,'(360(f22.2,","))')  PFTdata(:,70,3)
 
     !fields = [character(len=5) :: 'tmp', 'pre', 'tswrf', 'spfh']
     N_vars = size(fields)
@@ -201,15 +193,14 @@ end subroutine read_initial_state
           CRUgrid(m)%iLat = iLat
           CRUgrid(m)%climate => GridClimateData(:,:,m)
           ! Assigne PFT coverage for each grid
-          i = iLon/5 + 1
-          j = iLat/4 + 1
+          i = (iLon-1)/5 + 1
+          j = (iLat-1)/4 + 1
           do k = 1, 9
             CRUgrid(m)%fPFT(k) = Min(1.0, Max(0.0, PFTdata(i,j,k)))
           enddo
         endif
       enddo
     enddo
-    write(*,*)"Re-counted: ", sum(GridMask), m
 
     ! Read in all data
     do j= 1, 4

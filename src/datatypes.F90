@@ -814,7 +814,12 @@ integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
 integer :: start_grid = 1 ! for continuous model run once crashed at a grid
+integer :: N_VegGrids = 1 ! Minimum
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
+integer, pointer :: GridLonLat(:) => null() ! iLon, iLat
+real, pointer :: tswrfH(:) => null() ! Hours of tswrf (hours since 1850-01-01)
+real, pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
+real, pointer :: GridClimateData(:,:,:) => null()  ! N_yr*Ntime, N_vars, N_VegGrids, for land grids
 
 ! Model run control
 character(len=256) :: file_out(6) ! Output file names
