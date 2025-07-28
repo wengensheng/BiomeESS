@@ -88,10 +88,6 @@ subroutine BiomeE_initialization()
   totdays   = INT(model_run_years/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
 
-  ! ------ Soil and PFT parameters ------
-  call initialize_soilpars()
-  call initialize_PFT_data()
-
   ! ------ Land grid, vegetation tiles, and plant cohorts ------
   allocate(land)
   land%nTiles = 0

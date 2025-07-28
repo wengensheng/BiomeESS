@@ -30,6 +30,11 @@ program BiomeE_global_driver
   ! Read in namelist file and setup output files
   call read_namelist(fnml) ! Namelist file (must be hardwired)
   call read_global_setting(fnml)
+
+  ! ------ Soil and PFT parameters ------
+  call initialize_soilpars()
+  call initialize_PFT_data()
+
   ! ------ Setup steps for model run ------
   N_yrs = yr_end - yr_start + 1
   step_hour = 1.0 ! hourly time step
@@ -41,14 +46,11 @@ program BiomeE_global_driver
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 
   !------------ Forcing data interpolation and model run
-  !$omp parallel do private(i, GPP, NPP, Tr) shared(climate, veg_state, fluxes)
-  if(start_grid > N_VegGrids)then
-    print '(A, I8, I8)', "start_grid is beyond the total grids: ", start_grid, N_VegGrids
-    stop
-  endif
-
+  !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, CRUgrid)
   do m = start_grid, N_VegGrids
     GridID = GridLonLat(m) ! for file names
+    fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
+    fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
     write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
                GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
     print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
@@ -75,6 +77,11 @@ program BiomeE_global_driver
 #else
   ! Read in namelist file and setup output files
   call read_namelist(fnml) ! Namelist file (must be hardwired)
+
+  ! ------ Soil and PFT parameters ------
+  call initialize_soilpars()
+  call initialize_PFT_data()
+  
   ! Single site run
   call setup_forcingdata()
   call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)

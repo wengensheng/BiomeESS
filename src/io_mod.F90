@@ -1133,7 +1133,6 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'    ! Daily
 
     ! Open files
-    fno1=211; fno2=212; fno3=213; fno4=214; fno5=215; fno6=216
     if(outputhourly)then
       open(fno1,file=trim(file_out(1)),ACTION='write', IOSTAT=istat1)
       write(fno1,'(5(a8,","),30(a12,","))')'tile', &       ! Hourly cohort

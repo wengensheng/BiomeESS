@@ -540,7 +540,7 @@ end type climate_data_type
  ! Input forcing data
  type(climate_data_type), pointer :: forcingData(:)
  ! output files
- integer :: fno1, fno2, fno3, fno4, fno5, fno6
+ integer :: fno1=211, fno2=212, fno3=213,fno4=214, fno5=215, fno6=216
 
 ! -------------------------------------------
 ! Soil water parameters
