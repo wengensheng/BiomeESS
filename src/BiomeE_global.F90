@@ -73,19 +73,6 @@ program BiomeE_global_driver
   !deallocate(CRUData)
   deallocate(GridClimateData, CRUgrid)
   deallocate(GridLonLat)
-
-#else
-  ! Read in namelist file and setup output files
-  call read_namelist(fnml) ! Namelist file (must be hardwired)
-
-  ! ------ Soil and PFT parameters ------
-  call initialize_soilpars()
-  call initialize_PFT_data()
-  
-  ! Single site run
-  call setup_forcingdata()
-  call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
-  call BiomeE_main()
 #endif
 
   ! ---------- Time stamp -------------

@@ -56,6 +56,34 @@ subroutine read_global_setting(fnml)
   !write(*,nml=initial_state_nml)
   close (fu)
 
+  ! Open and read Namelist file.
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=soil_data_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist soil_data_nml error', rc
+    stop
+  endif
+  !write(*,nml=soil_data_nml)
+  close (fu)
+
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=vegn_parameters_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist vegn_parameters_nml error', rc
+    stop
+  endif
+  !write(*,nml=vegn_parameters_nml)
+  close (fu)
+
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=initial_state_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist initial_state_nml error', rc
+    stop
+  endif
+  !write(*,nml=initial_state_nml)
+  close (fu)
+
 end subroutine read_global_setting
 
 !===================================================
@@ -249,7 +277,7 @@ end subroutine read_initial_state
   end subroutine ReadNCfiles
 
 !=============================================================================
-subroutine Setup_global_PFT_parameters()
+subroutine Assign_global_PFT_parameters()
 
   ! -------- PFT-specific parameters ----------
   !                     'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G'
@@ -303,21 +331,6 @@ subroutine Setup_global_PFT_parameters()
    root_zeta(1:N_PFTs) = 0.6 ! 0.29 !
    root_perm(1:N_PFTs) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
    Kw_root(1:N_PFTs)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
-  ! * (1000000.0/18.0)*1.e-6 ! mol /(s m2 Pa)
-  !Ref added by Weng, 2021-11-15
-  ! Sutka et al. 2011 Natural Variation of Root Hydraulics in Arabidopsis Grown
-  ! in Normal and Salt-Stressed Conditions. Plant Physiol. 155(3): 1264–1276.
-  ! doi: 10.1104/pp.110.163113
-  ! Miyamoto et al. 2001. Hydraulic conductivity of rice roots. J. Exp. Bot., 52: 1835–1846,
-  ! doi: 10.1093/jexbot/52.362.1835
-
-  !(/1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5/)
-     ! fine root membrane permeability per unit membrane area, kg/(m3 s).
-     ! Root membrane permeability is "high" for the value from Siqueira et al., 2008,
-     ! Water Resource Research Vol. 44, W01432, converted to mass units
-
-  ! rho_N_up0(1:N_PFTs) = 0.5 ! fraction of mineral N per hour
-  ! N_roots0(1:N_PFTs) = 0.3 ! kgC m-2
 
   ! Respiration rates
    gamma_L(1:N_PFTs)= 0.02 !
@@ -375,7 +388,7 @@ subroutine Setup_global_PFT_parameters()
    NfixRate0(1:N_PFTs) = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
    NfixCost0(1:N_PFTs) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
 
-end subroutine Setup_global_PFT_parameters
+end subroutine Assign_global_PFT_parameters
 
 !=============================================================================
 subroutine Setup_Grid_Initial_States(CRUgrid)
