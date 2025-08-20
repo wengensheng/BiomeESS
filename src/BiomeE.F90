@@ -237,11 +237,8 @@ subroutine BiomeE_run()
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
 
         ! Fire disturbance
-        if(do_fire) then
-          ET_P = (vegn%annualTrsp + vegn%annualEvap) / vegn%annualPrcp
-          envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
-          call vegn_fire (vegn, real(seconds_per_year))
-        endif
+        if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+
 #ifdef SingleTreeTest
         call vegn_SingleCohort_annual_update(vegn)
         call annual_diagnostics(vegn,n_yr,fno5,fno6)

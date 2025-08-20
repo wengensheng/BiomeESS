@@ -210,6 +210,7 @@ subroutine Zero_diagnostics(vegn)
   vegn%Nloss_yr   = 0.0
   vegn%annualNup  = 0.0
   vegn%GrassBM    = 0.0
+  vegn%annualET0  = 0.0
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -595,7 +596,7 @@ end subroutine daily_diagnostics
         (vegn%wcl(j),j=1,soil_L)
 
 #else
-      write(f2,'(2(I5,","),80(E15.6,","))')  &
+      write(f2,'(2(I5,","),120(E15.6,","))')  &
         vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
@@ -607,7 +608,8 @@ end subroutine daily_diagnostics
         (vegn%wcl(j),j=1,soil_L),                                       &
         vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,       &
-        vegn%treecover,vegn%grasscover,vegn%GrassBM
+        vegn%treecover,vegn%grasscover,vegn%GrassBM,vegn%annualET0,     &
+        vegn%EVrisk,vegn%P_burn
 #endif
 
 endif
@@ -1254,7 +1256,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
         'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss',                &
-        'treecover','grasscover','BMgrass'
+        'treecover','grasscover','BMgrass','ET0','Frisk','Pburn'
 
 #endif
 

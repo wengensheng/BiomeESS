@@ -12,7 +12,7 @@ CPPFLAGS=' '
 #CPPFLAGS+=' -DSingleTreeTest'
 CPPFLAGS+=' -DMergeLowDensityCohorts'
 #CPPFLAGS+=' -DScreenOutput'
-CPPFLAGS+=' -DGlobalRun'
+#CPPFLAGS+=' -DGlobalRun'
 
 echo $FSRCS
 echo $CPPFLAGS

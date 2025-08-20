@@ -163,6 +163,9 @@ type spec_data_type
   real :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
   real :: f_taper
 
+  ! Fire related
+  real :: IgniteP ! Probability of ignition when climatic conditions are met.
+
   ! Plant hydraulics
   real :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
   real :: WTC0 ! xylem water transfer capacity, m/lifetime
@@ -245,7 +248,7 @@ type :: cohort_type
   real :: layerfrac = 0.0 ! fraction of layer area occupied by this cohort
   real :: leafage   = 0.0 ! leaf age (year)
 
-  ! for populatin structure
+  ! for population structure
   real :: nindivs= 1.0  ! density of vegetation, individuals/m2
   real :: mu     = 0.02 ! Cohort mortality rate
   real :: age    = 0.0 ! age of cohort, years
@@ -440,6 +443,10 @@ type :: vegn_tile_type
   real :: treecover = 0.0 ! tree CAI in the top layer, for fire spread
   real :: grasscover= 0.0 ! grass CAI, for the initial fire severity
   real :: GrassBM   = 0.0 ! Grass biomass at the end of growing season, for fire severity
+  real :: annualET0 = 0.0 ! Potential ET, yearly, for fire risk calculation
+  real :: EVrisk    = 0.0 ! Probability of climatic fire risk
+  real :: P_burn    = 0.0 ! Probability of burning
+
   ! daily diagnostics
   real :: dailyGPP
   real :: dailyNPP
@@ -614,11 +621,11 @@ real :: envi_fire_prb = 0.0 ! fire probability due to environment, 0.5
 real :: ETP0  = 1.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
 real :: A_ETP = -8.0 ! shape parameter of envi_fire_prb - ET_P curve
 real :: FSBM0 = 0.4 ! kgC m-2, grass fire severity parameter, as a function of grass BM
-real :: Ignition_G0 = 1.0   ! Ignition probability for grasses once meets envi_fire_prb
-real :: Ignition_W0 = 0.025 ! Ignition probability for woody plants once meets envi_fire_prb
 real :: m0_g_fire = 0.2     ! mortality rates of grasses due to fire
 real :: m0_w_fire = 0.99    ! mortality rates of trees adue to fire
-real :: r_BK0 = -240.0 ! -480.0  ! for bark resistance, exponential equation, 120 --> 0.006 m of bark
+real :: f_bk = 0.1105       ! coefficient of bark thickness,
+                            ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
+real :: r_BK0 = -240.0 ! -480.0  ! bark resistance, exponential equation, 120 --> 0.006 m of bark
 ! An old scheme
 real :: f_HT0 = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
 real :: h0_escape = 5.0 ! tree height that escapes direct burning of grass fires
@@ -679,6 +686,8 @@ real :: ps_wet(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 
 ! Wood parameters
 real :: rho_wood(0:MSPECIES) = 300.0 ! kgC m-3
 real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
+real :: IgniteP(0:MSPECIES)  = 0.02 ! Ignition probability at fire-friendly climates
+        !(/1.0,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02, 0.02, 0.02, 0.02/)
 
 ! root parameters
 real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
@@ -912,7 +921,7 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
   ! Fire model parameters, Weng, 01/13/2021
   envi_fire_prb, ETP0, A_ETP, FSBM0,                                  &
-  Ignition_G0, Ignition_W0, m0_w_fire, m0_g_fire, r_BK0, &
+  IgniteP, m0_w_fire, m0_g_fire, f_bk, r_BK0,                         &
   f_HT0 , h0_escape, D_BK0,                    & ! for an old scheme
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh ! LM3 PFT transitions
 
@@ -1055,6 +1064,9 @@ subroutine initialize_PFT_data()
   spdata%NfixRate0 = NfixRate0
   spdata%NfixCost0 = NfixCost0
   spdata%f_cGap = f_cGap
+
+  ! Fire-related
+  spdata%IgniteP = IgniteP
 
   !write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    r0mort_c'
   do i = 0, MSPECIES

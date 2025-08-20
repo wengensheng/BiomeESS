@@ -2862,22 +2862,23 @@ subroutine vegn_fire (vegn, deltat)
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type), pointer :: sp
   ! -- fire effects variables --
-  real :: fire_prob, r_fire
-  real :: f_bk, r_bk ! coefficient of bark thickness, bark resistance to fire
-  real :: d_tree ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
-  real :: flmb_G,flmb_W
+  real :: ET_P    ! ratio of ET to P, for fire probability calculation
+  real :: r_fire  ! random number for fire occurence
+  real :: Ignition_G0, Ignition_W0 ! Grass and wood ignition probability
   real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
+  real :: flmb_G, flmb_W ! Flamability of grasses and woody plants
+  real :: d_tree ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
   real :: s_fireG ! Grass fire severity
   real :: mu_fire ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
   integer :: i, k
 
   !  ! Parameters (defined in datatypes.F90 and read in from the namelist file):
-  !  envi_fire_prb: Environmental fire occurrence probability, a function of environmental
+  !  vegn%EVrisk: Environmental fire occurrence probability, a function of environmental
   !  conditions that can result in fire if fuel is available
   !  (i.e., (match-dropping probability). It should be function of environmental conditions
   ! Vegetation flammability parameters, Ignition_G0, Ignition_W0: Ignition probability
-  ! for grasses and woody plants once environmental conditions meet envi_fire_prb
+  ! for grasses and woody plants once environmental conditions meet vegn%EVrisk
   !  For grasses: Ignition_G0 = 1.0; For woody plants: Ignition_W0 = 0.025
   !  m0_w_fire, m0_g_fire: mortality rates of trees and grasses due to fire
   !  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
@@ -2886,35 +2887,54 @@ subroutine vegn_fire (vegn, deltat)
   !  f_HT0: shape parameter fire resistance (due to growth of bark) as a function of height
   !  h0_escape: tree height that escapes direct burning of grass fires
   !  D_BK0: Bark thickness at half survival rate.
-  ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
-  f_bk  = 0.1105
-  ! Fire spread parameters for grasses and trees
+
+  ! Environmental risk
+  !ET_P = (vegn%annualTrsp + vegn%annualEvap) / vegn%annualPrcp
+  ET_P = vegn%annualET0 / vegn%annualPrcp
+  envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
+  vegn%EVrisk = envi_fire_prb
+
+  ! Ignition probabilities of grasses and woody PFTs
+  Ignition_G0 = 0.0
+  Ignition_W0 = 0.0
+  do i = 1, vegn%n_cohorts
+    cc => vegn%cohorts(i)
+    associate ( sp => spdata(cc%species))
+      if(sp%lifeform==0) then  ! grasses
+        Ignition_G0 = max(Ignition_G0, sp%IgniteP)
+      else                     ! trees
+        Ignition_W0 = max(Ignition_W0, sp%IgniteP)
+      endif
+    end associate
+  enddo
+
+  ! Burning probability
   f_grass  = min(1.0, vegn%grasscover)
   f_wood   = min(1.0, vegn%treecover)
-  ! Flammability
   flmb_G = Ignition_G0 * f_grass
   flmb_W = Ignition_W0 * f_wood
-  fire_prob = 1.-(1.-flmb_G*envi_fire_prb)*(1.-flmb_W*envi_fire_prb)
+  vegn%P_burn = 1.-(1.- flmb_G * vegn%EVrisk)*(1. - flmb_W * vegn%EVrisk)
+
   ! fire effects on vegetation and soil
   CALL RANDOM_NUMBER(r_fire) ! r_fire    = rand(0) !
   vegn%C_burned = 0.0
-  if(r_fire < fire_prob)then ! Fire_ON
+  if(r_fire < vegn%P_burn)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
       if(sp%lifeform==0) then  ! grasses
          mu_fire = m0_g_fire
       else                     ! trees
-         if(r_fire < flmb_W*envi_fire_prb)then
-            mu_fire = 0.99 * min(1.0, 1.6 * f_wood)   ! tree canopy fire
-         else ! grass fire
-            ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass
-            ! When grass biomass is high, the fire has higher serverity and kills
+         if(r_fire < flmb_W * vegn%EVrisk) then   ! tree canopy fire
+            mu_fire = 0.99 * min(1.0, 1.6 * f_wood)
+         else                                     ! grass fire
+            ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass.
+            ! At high grass biomass, the fire has higher serverity and kills
             ! more shrubs. So, extreme droughts can trigger expansion of shrubs.
-            ! s_fireG should be a function of vegn%SOC(1), such as
+            ! s_fireG is grass fire severity, defined as a function of grass biomass
             s_fireG = max(0.0,min(1.0,(vegn%GrassBM/FSBM0)**2)) ! grass fire severity
             cc%D_bark = f_bk * cc%dbh    ! bark thickness,
-            d_tree = exp(r_BK0*cc%D_bark)
+            d_tree = exp(r_BK0*cc%D_bark)! Tree's fire sensitivity to grass fire
             !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
             mu_fire = m0_w_fire * d_tree * f_grass * s_fireG
          endif
@@ -2949,7 +2969,7 @@ subroutine vegn_fire (vegn, deltat)
     vegn%SON(1) = (1.0-0.7)*vegn%SON(1); vegn%SON(2) = (1.0-0.2)*vegn%SON(2)
 #ifdef ScreenOutput
     write(*,*)"fire, treecover, grasscover", &
-        r_fire < fire_prob, vegn%treecover, vegn%grasscover
+        r_fire < vegn%P_burn, vegn%treecover, vegn%grasscover
 #endif
   endif
 

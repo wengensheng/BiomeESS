@@ -388,6 +388,10 @@ subroutine Assign_global_PFT_parameters()
    NfixRate0(1:N_PFTs) = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
    NfixCost0(1:N_PFTs) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
 
+   ! Fire-related parameters
+   !                    'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G'
+   IgniteP(1:N_PFTs)  = [.01, .02,  .01,  .02,  .02,  .02,  .04,  1.0,  1.0]
+
 end subroutine Assign_global_PFT_parameters
 
 !=============================================================================

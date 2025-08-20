@@ -241,6 +241,18 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   vegn%freewater(:) = max(0.0,((vegn%wcl(:)-vegn%WILTPT)*thksl(:)*1000.0)) ! kg/m2, or mm
   vegn%soilwater = sum(vegn%freewater(:))
   vegn%thetaS = sum(vegn%freewater(1:3))/(sum(thksl(1:3))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
+
+  ! Calculate potential ET
+  ! Resistances (made-up, need an updated scheme, Decker et al. 2017)
+  raero = 20./(forcing%windU + 0.1)
+  fw1   = 1.0
+  Rsoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
+
+  Esoil=(slope*forcing%radiation + rhocp*Dair/raero)/ &
+        (slope + psyc*(1.0+rsoil/raero))
+
+  vegn%annualET0 = vegn%annualET0 + Esoil/H2OLv * step_seconds ! kg m-2 step-1
+
 end subroutine SoilWaterDynamics
 
 !======================================================================

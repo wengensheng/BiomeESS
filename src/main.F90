@@ -22,9 +22,8 @@ program BiomeE
 
   ! ---------- Time stamp -------------
   call cpu_time(start_time)
-  last_time = start_time
   call itime(timeArray)     ! Get current time
-  write(*,'(a12,3(I2,":"))')'Start time: ', timeArray
+  write(*,'(a20,3(I2,":"))')'Model run start at: ', timeArray
 
 #ifndef GlobalRun
   ! ---------- Single site run with csv/txt forcing data input ----------
@@ -64,6 +63,7 @@ program BiomeE
     write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
                GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
     print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
+    call cpu_time(last_time) ! Record time needed for one grid simulation
     ! Data interpolated to hourly
     call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
@@ -73,7 +73,8 @@ program BiomeE
     ! ---------- Time stamp -------------
     call cpu_time(end_time)
     elapsed_time = end_time - last_time
-    write(*,'(a22,3(f12.1,","))')'Time taken (seconds): ', elapsed_time
+    write(*,'(a12,f12.1, a12, I8)')'Time taken: ',elapsed_time, &
+                                   ' seconds at ',GridID
     last_time = end_time
   enddo
   !$omp end parallel do
@@ -88,5 +89,5 @@ program BiomeE
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
-  write(*,'(a24,3(f8.2,","))')'Time taken (seconds):', elapsed_time
+  write(*,'(a24,3(f8.2,","))')'Total time (minutes):', elapsed_time/60.
 end program BiomeE
