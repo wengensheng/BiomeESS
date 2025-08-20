@@ -439,7 +439,7 @@ type :: vegn_tile_type
   real :: C_burned  = 0.0 ! Carbon released to atmosphere via fire
   real :: treecover = 0.0 ! tree CAI in the top layer, for fire spread
   real :: grasscover= 0.0 ! grass CAI, for the initial fire severity
-  real :: BM_G_gs   = 0.0 ! Grass biomass at the end of growing season, for fire severity
+  real :: GrassBM   = 0.0 ! Grass biomass at the end of growing season, for fire severity
   ! daily diagnostics
   real :: dailyGPP
   real :: dailyNPP
@@ -611,6 +611,9 @@ integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc
 
 ! Fire regimes
 real :: envi_fire_prb = 0.0 ! fire probability due to environment, 0.5
+real :: ETP0  = 1.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
+real :: A_ETP = -8.0 ! shape parameter of envi_fire_prb - ET_P curve
+real :: FSBM0 = 0.4 ! kgC m-2, grass fire severity parameter, as a function of grass BM
 real :: Ignition_G0 = 1.0   ! Ignition probability for grasses once meets envi_fire_prb
 real :: Ignition_W0 = 0.025 ! Ignition probability for woody plants once meets envi_fire_prb
 real :: m0_g_fire = 0.2     ! mortality rates of grasses due to fire
@@ -861,12 +864,12 @@ namelist /initial_state_nml/ &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
-    PaleoPfile, PaleoTfile, iDraw, &
+    PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,             &
-    do_U_shaped_mortality, update_annualLAImax, do_fire,        &
-    do_migration, do_closedN_run, do_VariedKx, do_variedWTC0,   &
-    do_WD_mort_function
+    update_annualLAImax, do_U_shaped_mortality,                 &
+    do_migration, do_closedN_run, do_fire,                      &
+    do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------
 namelist /global_setting_nml/ &
@@ -908,7 +911,8 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   LMAmin,fsc_fine,fsc_wood,                             &
   K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
   ! Fire model parameters, Weng, 01/13/2021
-  envi_fire_prb,Ignition_G0, Ignition_W0,m0_w_fire, m0_g_fire, r_BK0, &
+  envi_fire_prb, ETP0, A_ETP, FSBM0,                                  &
+  Ignition_G0, Ignition_W0, m0_w_fire, m0_g_fire, r_BK0, &
   f_HT0 , h0_escape, D_BK0,                    & ! for an old scheme
   phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh ! LM3 PFT transitions
 

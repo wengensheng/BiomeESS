@@ -91,6 +91,7 @@ subroutine vegn_sum_tile(vegn)
 
   !----- local var --------------
   type(cohort_type),pointer :: cc
+  real :: BMG ! Grass BM, temporary var
   integer :: i, layer
 
   vegn%NSC     = 0.0
@@ -155,12 +156,12 @@ subroutine vegn_sum_tile(vegn)
   if(all(vegn%cohorts(:)%status == LEAF_ON))then ! All cohorts are "LEAF_ON"
     vegn%treecover = 0.0
     vegn%grasscover= 0.0
-    vegn%BM_G_gs   = 0.0
+    BMG            = 0.0
     do i = 1, vegn%n_cohorts
        cc => vegn%cohorts(i)
        associate ( sp => spdata(cc%species))
          if(sp%lifeform==0) &
-            vegn%BM_G_gs = vegn%BM_G_gs + (cc%bl+cc%br+cc%bsw)*cc%nindivs
+            BMG = BMG + (cc%bl+cc%br+cc%bsw)*cc%nindivs
        if(cc%layer == 1)then
          if(sp%lifeform==0) &
             vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
@@ -169,7 +170,9 @@ subroutine vegn_sum_tile(vegn)
        endif
        end associate
     enddo
+    vegn%GrassBM = max(vegn%GrassBM, BMG)
   endif
+
 end subroutine vegn_sum_tile
 
 !================= Diagnostics============================================
@@ -198,14 +201,15 @@ subroutine Zero_diagnostics(vegn)
   vegn%annualTrsp = 0.0
   vegn%annualEvap = 0.0
   vegn%annualRoff = 0.0
-  vegn%annualGPP = 0.0
-  vegn%annualNPP = 0.0
+  vegn%annualGPP  = 0.0
+  vegn%annualNPP  = 0.0
   vegn%annualResp = 0.0
   vegn%annualRh   = 0.0
-  vegn%N_P2S_yr  = 0.
-  vegn%annualN   = 0.
-  vegn%Nloss_yr  = 0.
+  vegn%N_P2S_yr   = 0.0
+  vegn%annualN    = 0.0
+  vegn%Nloss_yr   = 0.0
   vegn%annualNup  = 0.0
+  vegn%GrassBM    = 0.0
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -603,7 +607,7 @@ end subroutine daily_diagnostics
         (vegn%wcl(j),j=1,soil_L),                                       &
         vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
         vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,       &
-        vegn%treecover,vegn%grasscover,vegn%BM_G_gs
+        vegn%treecover,vegn%grasscover,vegn%GrassBM
 #endif
 
 endif

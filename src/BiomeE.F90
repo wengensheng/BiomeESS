@@ -130,6 +130,7 @@ subroutine BiomeE_run()
   integer :: iCO2_hist, CO2_start_yr, CO2_end_yr, CO2_yrs, skip_yrs
   integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
   real    :: r_d
+  real    :: ET_P ! drought index: (E+T)/P
   logical :: new_annual_cycle
   logical :: BaseLineClimate = .True.
 
@@ -234,8 +235,13 @@ subroutine BiomeE_run()
       do while(ASSOCIATED(vegn))
         ! Update plant hydraulic states, for the last year
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
+
         ! Fire disturbance
-        if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+        if(do_fire) then
+          ET_P = (vegn%annualTrsp + vegn%annualEvap) / vegn%annualPrcp
+          envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
+          call vegn_fire (vegn, real(seconds_per_year))
+        endif
 #ifdef SingleTreeTest
         call vegn_SingleCohort_annual_update(vegn)
         call annual_diagnostics(vegn,n_yr,fno5,fno6)

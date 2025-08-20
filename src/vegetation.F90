@@ -1668,7 +1668,7 @@ subroutine vegn_annual_starvation (vegn)
        if (cc%nsc < 0.0001*cc%bl_max) then !  .OR. cc%annualNPP < 0.0, annualNPP < 0 is for grasses only
            deathrate = 1.0
            deadtrees = cc%nindivs * deathrate !individuals / m2
-           write(*,*)"Yearly starvation: cNo., PFT:",i,cc%species,deathrate
+           ! write(*,*)"Yearly starvation: cNo., PFT:",i,cc%species,deathrate
            ! Carbon and Nitrogen from plants to soil pools
            call plant2soil(vegn,cc,deadtrees)
            ! update cohort individuals
@@ -2906,13 +2906,13 @@ subroutine vegn_fire (vegn, deltat)
          mu_fire = m0_g_fire
       else                     ! trees
          if(r_fire < flmb_W*envi_fire_prb)then
-            mu_fire = 0.99 * f_wood   ! tree canopy fire
+            mu_fire = 0.99 * min(1.0, 1.6 * f_wood)   ! tree canopy fire
          else ! grass fire
             ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass
             ! When grass biomass is high, the fire has higher serverity and kills
             ! more shrubs. So, extreme droughts can trigger expansion of shrubs.
             ! s_fireG should be a function of vegn%SOC(1), such as
-            s_fireG = max(0.0,min(1.0,(vegn%BM_G_gs/0.4)**2)) ! grass fire severity
+            s_fireG = max(0.0,min(1.0,(vegn%GrassBM/FSBM0)**2)) ! grass fire severity
             cc%D_bark = f_bk * cc%dbh    ! bark thickness,
             d_tree = exp(r_BK0*cc%D_bark)
             !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation

@@ -22,7 +22,6 @@ program BiomeE_global_driver
 
   ! ---------- Time stamp -------------
   call cpu_time(start_time)
-  last_time = start_time
   call itime(timeArray)     ! Get current time
   write(*,'(a12,3(I2,":"))')'Start time: ', timeArray
 
@@ -54,6 +53,7 @@ program BiomeE_global_driver
     write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
                GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
     print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
+    call cpu_time(last_time)
     ! Data interpolated to hourly
     call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
@@ -78,6 +78,6 @@ program BiomeE_global_driver
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
-  write(*,'(a24,3(f12.1,","))')'Time taken (seconds):', elapsed_time
+  write(*,'(a24,3(f12.1,","))')'Total time (seconds):', elapsed_time
 
 end program BiomeE_global_driver
