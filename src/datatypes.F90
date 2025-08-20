@@ -618,14 +618,14 @@ integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc
 
 ! Fire regimes
 real :: envi_fire_prb = 0.0 ! fire probability due to environment, 0.5
-real :: ETP0  = 1.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
+real :: ETP0  = 2.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
 real :: A_ETP = -8.0 ! shape parameter of envi_fire_prb - ET_P curve
 real :: FSBM0 = 0.4 ! kgC m-2, grass fire severity parameter, as a function of grass BM
-real :: m0_g_fire = 0.2     ! mortality rates of grasses due to fire
-real :: m0_w_fire = 0.99    ! mortality rates of trees adue to fire
-real :: f_bk = 0.1105       ! coefficient of bark thickness,
-                            ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
-real :: r_BK0 = -240.0 ! -480.0  ! bark resistance, exponential equation, 120 --> 0.006 m of bark
+real :: m0_g_fire = 0.2 ! mortality rates of grasses due to fire
+real :: m0_w_fire = 0.99! mortality rates of trees due to fire
+real :: f_bk = 0.1105   ! coefficient of bark thickness,
+                        ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
+real :: r_BK0 = -240.0  ! bark resistance, exponential equation, 120 --> 0.006 m of bark
 ! An old scheme
 real :: f_HT0 = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
 real :: h0_escape = 5.0 ! tree height that escapes direct burning of grass fires

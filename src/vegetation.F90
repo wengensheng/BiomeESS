@@ -2926,7 +2926,7 @@ subroutine vegn_fire (vegn, deltat)
          mu_fire = m0_g_fire
       else                     ! trees
          if(r_fire < flmb_W * vegn%EVrisk) then   ! tree canopy fire
-            mu_fire = 0.99 * min(1.0, 1.6 * f_wood)
+            mu_fire = 0.99 * min(1.0, 1.25 * f_wood)
          else                                     ! grass fire
             ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass.
             ! At high grass biomass, the fire has higher serverity and kills

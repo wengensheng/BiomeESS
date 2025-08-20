@@ -2,8 +2,8 @@
 ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
 LowerLon = 131,  ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 209, ! 200, ! 209,
-LowerLat = 247, ! 252: Tennessee, Lzs Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 247,
+LowerLat = 252, ! 247, ! 252: Tennessee, Lzs Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 252, ! 247,
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
 start_grid = 1 ! Normal start
@@ -38,8 +38,8 @@ CR0_LF     = 0.5,
 CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
-envi_fire_prb = 0.25, ! No disturbance
-ETP0        = 1.0,
+envi_fire_prb = 0.25,
+ETP0        = 2.0,
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 ! species     0        1        2        3        4        5
 lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
@@ -87,7 +87,7 @@ N_input             = 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
-runID       = 'Fire_', ! Output file name
+runID       = 'Fire2_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
