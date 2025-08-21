@@ -13,6 +13,7 @@ CPPFLAGS=' '
 CPPFLAGS+=' -DMergeLowDensityCohorts'
 #CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DGlobalRun'
+CPPFLAGS+=' -DZippedNCfiles'
 
 echo $FSRCS
 echo $CPPFLAGS

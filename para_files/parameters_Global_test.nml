@@ -1,8 +1,8 @@
 &global_setting_nml
 ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
-LowerLon = 131,  ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
+LowerLon = 131, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 209, ! 200, ! 209,
-LowerLat = 252, ! 247, ! 252: Tennessee, Lzs Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+LowerLat = 247, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
 UpperLat = 252, ! 247,
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year

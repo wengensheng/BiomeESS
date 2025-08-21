@@ -145,10 +145,10 @@ end subroutine read_initial_state
 
     !-------- local vars -----------------
     character(len=256) :: command
-    character (len =256) :: fname,fnc,fgz
-    character (len =20) :: field_idx
-    character (len =3) :: PFTID(9)
-    character (len =4) :: yr_str
+    character(len=256) :: fnc
+    character(len=20)  :: field_idx
+    character(len=3)   :: PFTID(9)
+    character(len=4)   :: yr_str
 
     integer, pointer :: GridMask(:,:)
     integer :: N_yrs,totL,N_vars
@@ -175,16 +175,19 @@ end subroutine read_initial_state
     N_yrs = yr_end - yr_start + 1
     totL = N_yrs*Ntime
 
-    ! Open a file for identifying valid grids
-    fgz = trim(fpath)//'tswrf_v12_2010.nc.gz'
+    ! -------------- Open a file for identifying valid grids ------------------!
     fnc = trim(fpath)//'tswrf_v12_2010.nc'
-    write(*,*)trim(fgz)
 
-    call unzip_gzip_file(trim(fgz))
+#ifdef ZippedNCfiles
+    call unzip_gzip_file(trim(fnc)//'.gz')
+#endif
+
     call nc_read_3D(fnc,'tswrf',Nlon,Nlat,Ntime,dataarray)
-    ! Remove unziped file
-    command = 'rm ' // trim(fnc)
+
+#ifdef ZippedNCfiles
+    command = 'rm '//trim(fnc) ! Remove unziped file
     call execute_command_line(command)
+#endif
 
     ! Calculate number of vegetated grids
     allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
@@ -201,7 +204,7 @@ end subroutine read_initial_state
       enddo
     enddo
     N_VegGrids = m
-    write(*,*)"Valid grids: ",N_VegGrids
+    write(*,*)"Valid grids: ", N_VegGrids
 
     ! Allocate data arrays
     allocate(tswrfH(totL))
@@ -210,7 +213,7 @@ end subroutine read_initial_state
     allocate(GridLonLat(N_VegGrids))
     allocate(CRUgrid(N_VegGrids))
 
-    ! Record LonLat in GridLonLat
+    ! Record LonLat in GridLonLat and Assigne PFT coverage for each grid
     m = 0
     do iLon = LowerLon, UpperLon
       do iLat = LowerLat, UpperLat
@@ -230,9 +233,9 @@ end subroutine read_initial_state
       enddo
     enddo
 
-    ! Read in all data
+    ! ----------------- Read in all data ----------------------!
     do j= 1, 4
-      field_idx = fields(j) ! 'tmp'
+      field_idx = fields(j)
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
         if(field_idx == 'tswrf')then
@@ -240,13 +243,11 @@ end subroutine read_initial_state
         else
           fnc = 'crujra.v2.4.5d.'//trim(field_idx)//'.'//trim(yr_str)//'.365d.noc.nc'
         endif
-        fgz = trim(fnc)//'.gz'
-
-        ! Unzip a file
-        fgz = trim(fpath)//trim(fgz)
-        call unzip_gzip_file(trim(fgz))
-
         fnc = trim(fpath)//trim(fnc)
+
+#ifdef ZippedNCfiles
+        call unzip_gzip_file(trim(fnc)//'.gz') ! Unzip the nc data file
+#endif
 
         write(*,*)'read nc file:', fnc
         call nc_read_3D(fnc,trim(field_idx),Nlon,Nlat,Ntime,dataarray)
@@ -264,15 +265,15 @@ end subroutine read_initial_state
         if(field_idx == 'tswrf')then
           call nc_read_1D(fnc,'time',Ntime,timearray)
           tswrfH((i-1)*Ntime+1: i*Ntime) = timearray
-          !write(*,*)"Time Data"
-          !write(*,'(360(E15.4,","))')  timearray(1:360)
         endif
 
-        ! Remove unziped file
-        command = 'rm ' // trim(fnc)
+#ifdef ZippedNCfiles
+        command = 'rm '//trim(fnc) ! Remove unziped nc data file
         call execute_command_line(command)
-      enddo
-    enddo
+#endif
+
+      enddo ! N_yrs
+    enddo   ! four variables
     deallocate(GridMask)
   end subroutine ReadNCfiles
 
