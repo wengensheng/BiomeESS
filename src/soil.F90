@@ -151,67 +151,71 @@ end subroutine Soil_BGC
 subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   ! All of inputs, the unit of water is 'mm',
   ! Soil moisture (soil water content) is a ratio
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
 
   !----- local var --------------
   type(cohort_type),pointer :: cc
-  real    :: WaterBudgetL(soil_L),LeakW(soil_L)
-  real    :: W_refill,W_def(soil_L),W_add(soil_L)
-  real    :: kappa  ! light extinction coefficient of corwn layers
-  real    :: Esoil      ! soil surface evaporation, kg m-2 s-1
-  real    :: Hsoil      ! sensible heat from soil
-  real    :: Rsoilabs   ! W/m2
-  real    :: Hgrownd    ! Ground heat flux, W/m2
-  real    :: TairK,Tair      ! temperature, K and C, respectively
-  real    :: RH         ! relative humidity, ratio to the saturated (0~1)
-  real    :: Dair       ! VPD, pa
-  real    :: rhocp !
-  real    :: H2OLv
-  real    :: slope
-  real    :: psyc
-  !real    :: Cmolar ! mole density of air (mol/m3)
-  real    :: fw1 ! water fraction in the first layer
-  real    :: rsoil  ! s m-1
-  real    :: raero
-  real    :: rLAI
-  integer :: i,j,k
+  real,dimension(soil_L) :: WaterBudgetL, W_def, W_add, LeakW
+  real :: W_refill, fw1, rhocp, H2OLv, slope, psyc
+  real :: kappa = 0.75  ! light extinction coefficient of corwn layers
+  real :: Esoil         ! soil surface evaporation, W/m2
+  real :: Rnet, Rland   ! net radiation, and soil surface radiation, W/m2
+  real :: Uwind         ! wind speed, m/s
+  real :: P_air         ! Pa
+  real :: TairK,Tair    ! temperature, K and C, respectively
+  real :: RH            ! relative humidity, ratio to the saturated (0~1)
+  real :: Dair          ! VPD, pa
+  real :: Karman = 0.41 ! von Kármán constant (~0.41)
+  real :: Zm            ! zm height of wind measurements [m]
+  real :: Zh            ! zh height of humidity measurements [m]
+  real :: dz            ! zero plane displacement height [m]
+  real :: Z0m           ! roughness length governing momentum transfer [m]
+  real :: Z0h           ! roughness length governing transfer of heat and vapour [m]
+  real :: rLAI, rsoil, raero  ! s m-1
+  real :: dV = 0.1 ! a small number
+  integer :: i, j, k
 
-  WaterBudgetL = 0.0
-  !! Soil surface evaporation
-  !    calculate kappa  ! light extinction coefficient of corwn layers
-  kappa = 0.75
-  ! thermodynamic parameters for air
-  Rsoilabs = forcing%radiation * exp(-kappa*vegn%LAI)
-  Hgrownd = 0.0
+  ! Forcing variables
+  Rnet  = forcing%radiation * 0.9 ! assuming 10% reflectance
+  Uwind = forcing%windU + 0.01    ! in case U is zero.
   TairK = forcing%Tair
   Tair  = forcing%Tair - 273.16
-  rhocp = cpair * forcing%P_air * mol_air / (Rgas*TairK)
-  H2OLv = H2oLv0 - 2.365e3*Tair
+  P_air = forcing%P_air
   RH    = forcing%RH  ! Check forcing's unit of humidity
-  Dair  = esat(Tair)*(1.0 - RH)
-  slope = (esat(Tair+0.1)-esat(Tair))/0.1
-  psyc  = forcing%P_air*cpair*mol_air/(H2OLv*mol_h2o)
-  !Cmolar= forcing%P_air/(Rgas*TairK) ! mole density of air (mol/m3)
+
+  ! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
+  ! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
+  ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
+  ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
+  ! Smooth bare soil / desert: >150–300 s m-1
+
+  ! --------- Soil surface evaporation --------
+  Rland = Rnet * exp(-kappa*vegn%LAI)
+  rhocp = cpair * forcing%P_air * mol_air / (Rgas*TairK)
+  H2OLv = H2oLv0 - 2.365e3 * Tair
+  Dair  = esat(Tair) * (1.0 - RH)
+  slope = (esat(Tair + dV) - esat(Tair)) / dV
+  psyc  = P_air * cpair * mol_air / (H2OLv*mol_h2o)
 
   ! Resistances (made-up, need an updated scheme, Decker et al. 2017)
   rLAI  = 10. * vegn%LAI**2
-  raero = 20./(forcing%windU + 0.1) + rLAI
+  raero = 30./(Uwind + 0.5) + rLAI
   fw1   = Max((vegn%wcl(1)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT), .000001)
   Rsoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
   !rsoil=360000.0 * exp(-20.0*vegn%wcl(1)/vegn%FLDCAP)  ! s m-1
   !rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
   !Rsoil=3.0E+10 * (vegn%FLDCAP-vegn%wcl(1))**16 ! Kondo et al. 1990
 
-  Esoil=(slope*Rsoilabs + rhocp*Dair/raero)/ &
+  Esoil=(slope*Rland + rhocp*Dair/raero)/    &
         (slope + psyc*(1.0+rsoil/raero)) *   &
         max(vegn%wcl(1),0.0)/vegn%FLDCAP ! (vegn%wcl(1)-ws0)/(vegn%FLDCAP-ws0)
-  !sensible heat flux into air from soil
-  !Hsoil = Rsoilabs - Esoil - Hgrownd
-
-  !Calculate Esoil, kg m-2 step-1
   vegn%evap = min(Esoil/H2OLv * step_seconds, &
-                  0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg m-2 step-1
+                  0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg H2) m-2 step-1
+
+  ! Water budget for each soil layer
+  WaterBudgetL = 0.0
   WaterBudgetL(1) = WaterBudgetL(1) - vegn%evap
 
   !! soil water refill by precipitation and leaking from upper to lower layers
@@ -232,24 +236,23 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
     WaterBudgetL(i) = WaterBudgetL(i) + W_add(i) - LeakW(i)
 
     ! Next layer
-    W_refill= W_refill - W_add(i) + LeakW(i)
+    W_refill = W_refill - W_add(i) + LeakW(i)
   enddo
-  ! total runoff
-  vegn%runoff = W_refill ! mm step-1
+  vegn%runoff = W_refill ! total runoff, mm step-1
+
   ! Total soil water
-  vegn%wcl(:) = vegn%wcl(:) +  WaterBudgetL(:)/(thksl(:)*1000.0)
+  vegn%wcl(:)       = vegn%wcl(:) +  WaterBudgetL(:)/(thksl(:)*1000.0)
   vegn%freewater(:) = max(0.0,((vegn%wcl(:)-vegn%WILTPT)*thksl(:)*1000.0)) ! kg/m2, or mm
-  vegn%soilwater = sum(vegn%freewater(:))
-  vegn%thetaS = sum(vegn%freewater(1:3))/(sum(thksl(1:3))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
+  vegn%soilwater    = sum(vegn%freewater(:))
+  vegn%thetaS       = sum(vegn%freewater(1:3))/(sum(thksl(1:3))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
 
-  ! Calculate potential ET
-  ! Resistances (made-up, need an updated scheme, Decker et al. 2017)
-  raero = 20./(forcing%windU + 0.1)
-  fw1   = 1.0
-  Rsoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
-
-  Esoil=(slope*forcing%radiation + rhocp*Dair/raero)/ &
-        (slope + psyc*(1.0+rsoil/raero))
+  ! ------- Potential ET -----------
+  Zm = 2.0; Zh = 2.0 ! Measurement height
+  dz = 0.08; Z0m = 0.014; Z0h = 0.02 ! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
+  !dz = 0.2;  Z0m = 0.030; Z0h = 0.05
+  raero = (log((Zm -dz)/Z0m)*log((Zh - dz)/Z0h))/(Karman*Karman*Uwind)
+  Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
+        ! (slope + psyc * (1.0+rsoil/raero)) ! for AET, Peng et al. 2019 GCB
 
   vegn%annualET0 = vegn%annualET0 + Esoil/H2OLv * step_seconds ! kg m-2 step-1
 
@@ -383,8 +386,8 @@ subroutine SoilWaterTranspUpdate(vegn)
 
   !----- local var --------------
   type(cohort_type),pointer :: cc
-  real    :: WaterBudgetL(soil_L)
-  real    :: W_supply, fsupply ! fraction of transpiration from a soil layer
+  real :: WaterBudgetL(soil_L)
+  real :: W_supply, fsupply ! fraction of transpiration from a soil layer
   integer :: i,j
 
   ! Soil water conditions

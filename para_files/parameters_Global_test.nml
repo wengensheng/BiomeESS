@@ -1,9 +1,9 @@
 &global_setting_nml
 ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
-LowerLon = 131, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
+LowerLon = 140, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 209, ! 200, ! 209,
-LowerLat = 247, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 252, ! 247,
+LowerLat = 250, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 250, ! 247,252
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
 start_grid = 1 ! Normal start
@@ -39,7 +39,7 @@ CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
 envi_fire_prb = 0.25,
-ETP0        = 2.0,
+ETP0        = 3.0,
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 ! species     0        1        2        3        4        5
 lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
@@ -48,8 +48,8 @@ pt          = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: 
 s0_plant    = 0.01,    0.02,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
 LMA         = 0.02,    0.10,    0.02,    0.08,    0.08,    0.08,    ! Leaf mass per unit area
 phiRL       = 1.2,     1.2,     1.2,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
-rho_wood    = 120.,    300,     300,     300.,    350.,    400.,    ! Wood density, kgC m-3
-IgniteP     = 1.0,     0.02,    0.02,    0.02,    0.02,    0.02,    ! Ignition probability at match dropping
+rho_wood    = 100.,    300,     300,     300.,    350.,    400.,    ! Wood density, kgC m-3
+IgniteP     = 1.0,     0.04,    0.02,    0.02,    0.02,    0.02,    ! Ignition probability at match dropping
 gamma_SW    = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    ! Wood Acambium respiration rate (kgC/m2/yr)
 LNbase      = 1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,
@@ -71,7 +71,7 @@ AgeRepro    = 0,       5,       5,       5,       5,       5
 !!   plant
 init_n_cohorts      = 2, ! total 5
 init_cohort_species = 0,    1,    2,    1,    4,    5,
-init_cohort_nindivs = 5.0,  .2, .001, .001, .001,
+init_cohort_nindivs = 10.,  .2, .001, .001, .001,
 init_cohort_bsw     = 0.01, 0.02,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.02, 0.05,  0.5,  0.5,  0.5,
@@ -87,14 +87,14 @@ N_input             = 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
-runID       = 'Fire2_', ! Output file name
+runID       = 'Fire3_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 model_run_years =  600,
 outputhourly    =  .False. !  .True.
 outputdaily     =  .False. ! .True.  !
-do_closedN_run  = .True.  ! .False. !
+do_closedN_run  =  .True.  ! .False. !
 do_U_shaped_mortality = .False. ! .True. !
 do_fire = .True.  !  .False. !
 do_migration = .True.  !  .False. !
