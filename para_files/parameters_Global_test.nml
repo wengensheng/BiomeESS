@@ -39,7 +39,7 @@ CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
 envi_fire_prb = 0.25,
-ETP0        = 3.0,
+ETP0        = 2.0,
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 ! species     0        1        2        3        4        5
 lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
@@ -87,11 +87,11 @@ N_input             = 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
-runID       = 'Fire3_', ! Output file name
+runID       = 'Fire5_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years =  600,
+model_run_years =  800,
 outputhourly    =  .False. !  .True.
 outputdaily     =  .False. ! .True.  !
 do_closedN_run  =  .True.  ! .False. !

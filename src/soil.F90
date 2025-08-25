@@ -159,41 +159,31 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   type(cohort_type),pointer :: cc
   real,dimension(soil_L) :: WaterBudgetL, W_def, W_add, LeakW
   real :: W_refill, fw1, rhocp, H2OLv, slope, psyc
-  real :: kappa = 0.75  ! light extinction coefficient of corwn layers
-  real :: Esoil         ! soil surface evaporation, W/m2
-  real :: Rnet, Rland   ! net radiation, and soil surface radiation, W/m2
-  real :: Uwind         ! wind speed, m/s
-  real :: P_air         ! Pa
-  real :: TairK,Tair    ! temperature, K and C, respectively
-  real :: RH            ! relative humidity, ratio to the saturated (0~1)
-  real :: Dair          ! VPD, pa
   real :: Karman = 0.41 ! von Kármán constant (~0.41)
-  real :: Zm            ! zm height of wind measurements [m]
-  real :: Zh            ! zh height of humidity measurements [m]
-  real :: dz            ! zero plane displacement height [m]
-  real :: Z0m           ! roughness length governing momentum transfer [m]
-  real :: Z0h           ! roughness length governing transfer of heat and vapour [m]
-  real :: rLAI, rsoil, raero  ! s m-1
-  real :: dV = 0.1 ! a small number
+  real :: kappa  = 0.75 ! light extinction coefficient of corwn layers
+  real :: dV     = 0.1  ! a small number
+  real :: Rnet, Rland   ! net radiation, and soil surface radiation, W/m2
+  real :: RH, Uwind     ! relative humidity (0~1); wind speed (m/s)
+  real :: TairK, Tair   ! temperature (K and C)
+  real :: P_air, Dair   ! Air pressure and VPD, (pa)
+  real :: Zvg, Zmh      ! veg. height and measurement height [m]
+  real :: Z0m, Z0h      ! roughness length for momentum (Z0m) and heat-vapour (Z0h), [m]
+  real :: dz            ! zero plane displacement height (zero wind height) [m]
+  real :: rLAI,rSoil,rAero  ! resistance, s m-1
+  real :: Esoil         ! Soil surface evaporation, W/m2
   integer :: i, j, k
 
   ! Forcing variables
   Rnet  = forcing%radiation * 0.9 ! assuming 10% reflectance
-  Uwind = forcing%windU + 0.01    ! in case U is zero.
+  Uwind = forcing%windU + dV      ! in case U is zero.
   TairK = forcing%Tair
   Tair  = forcing%Tair - 273.16
   P_air = forcing%P_air
   RH    = forcing%RH  ! Check forcing's unit of humidity
 
-  ! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
-  ! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
-  ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
-  ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
-  ! Smooth bare soil / desert: >150–300 s m-1
-
   ! --------- Soil surface evaporation --------
   Rland = Rnet * exp(-kappa*vegn%LAI)
-  rhocp = cpair * forcing%P_air * mol_air / (Rgas*TairK)
+  rhocp = cpair * P_air * mol_air / (Rgas*TairK)
   H2OLv = H2oLv0 - 2.365e3 * Tair
   Dair  = esat(Tair) * (1.0 - RH)
   slope = (esat(Tair + dV) - esat(Tair)) / dV
@@ -247,13 +237,18 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   vegn%thetaS       = sum(vegn%freewater(1:3))/(sum(thksl(1:3))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
 
   ! ------- Potential ET -----------
-  Zm = 2.0; Zh = 2.0 ! Measurement height
-  dz = 0.08; Z0m = 0.014; Z0h = 0.02 ! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
-  !dz = 0.2;  Z0m = 0.030; Z0h = 0.05
-  raero = (log((Zm -dz)/Z0m)*log((Zh - dz)/Z0h))/(Karman*Karman*Uwind)
+  ! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
+  ! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
+  ! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
+  ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
+  ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
+  ! Smooth bare soil / desert: >150–300 s m-1
+  Zmh = 2.0, Zvg = 0.12  ! FAO, short-crop, for PET
+  Z0m = 0.014, Z0h = 0.02
+  dz  = Zvg*2/3
+  raero = (log((Zmh - dz)/Z0m)*log((Zmh - dz)/Z0h))/(Karman*Karman*Uwind)
   Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
-        ! (slope + psyc * (1.0+rsoil/raero)) ! for AET, Peng et al. 2019 GCB
-
+        ! (slope + psyc * (1.0+rsoil/raero)) ! for AET, Liqing Peng et al. 2019 GCB
   vegn%annualET0 = vegn%annualET0 + Esoil/H2OLv * step_seconds ! kg m-2 step-1
 
 end subroutine SoilWaterDynamics
