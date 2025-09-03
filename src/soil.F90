@@ -243,9 +243,11 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
   ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
   ! Smooth bare soil / desert: >150–300 s m-1
-  Zmh = 2.0, Zvg = 0.12  ! FAO, short-crop, for PET
-  Z0m = 0.014, Z0h = 0.02
-  dz  = Zvg*2/3
+  Zmh = 2.0   ! Measurement height (m)
+  Zvg = 0.12  ! FAO, short-crop height (m), for PET
+  Z0m = 0.014 ! roughness length for momentum [m]
+  Z0h = 0.02  ! roughness length for heat and vapour [m],
+  dz  = Zvg*2/3 ! Zero wind speed height
   raero = (log((Zmh - dz)/Z0m)*log((Zmh - dz)/Z0h))/(Karman*Karman*Uwind)
   Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
         ! (slope + psyc * (1.0+rsoil/raero)) ! for AET, Liqing Peng et al. 2019 GCB

@@ -1,32 +1,14 @@
 ! 07/18/2025
 ! Ensheng Weng, read netcdf files for BiomeE global run
-
-!     This is part of the netCDF package.
-!     Copyright 2006 University Corporation for Atmospheric Research/Unidata.
-!     See COPYRIGHT file for conditions of use.
-
-!     This is a very simple example which writes a 2D array of
-!     sample data. To handle this in netCDF we create two shared
-!     dimensions, "x" and "y", and a netCDF variable, called "data".
-
-!     This example demonstrates the netCDF Fortran 90 API. This is part
-!     of the netCDF tutorial, which can be found at:
-!     http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-tutorial
-
+!     Adapted from NCAR netCDF package.
 !     Full documentation of the netCDF Fortran 90 API can be found at:
 !     http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-f90
-
-!     $Id: simple_xy_wr.f90,v 1.7 2006/12/09 18:44:58 russ Exp $
 
 !==============================================================
 !==============================================================
 module netcdf_io
   use netcdf
   use datatypes
-
-  ! CRU NetCDF file dimensions
-  integer, parameter :: NDIMS = 3
-  integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
 
   public ReadNCfiles
   public unzip_gzip_file
@@ -189,17 +171,17 @@ end subroutine read_initial_state
     call execute_command_line(command)
 #endif
 
-    ! Calculate number of vegetated grids
+    ! Tag the vegetated grids for model run
     allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
     GridMask = 0
     m = 0
-    do iLon = LowerLon, UpperLon
-      do iLat = LowerLat, UpperLat
+    do iLon = LowerLon, UpperLon, StepLatLon
+      do iLat = LowerLat, UpperLat, StepLatLon
         i = iLon/5 + 1
         j = iLat/4 + 1
         if(dataarray(ilon,ilat,1) < 9999.0 .and. VegFraction(i,j)>0.1)then
+          GridMask(ilon,ilat) = 1  ! Select the grids for model run
           m = m + 1
-          GridMask(ilon,ilat) = 1
         endif
       enddo
     enddo
@@ -209,32 +191,32 @@ end subroutine read_initial_state
     ! Allocate data arrays
     allocate(tswrfH(totL))
     !allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
-    allocate(GridClimateData(totL, N_vars, N_VegGrids))
+    allocate(ClimData(totL, N_vars, N_VegGrids))
     allocate(GridLonLat(N_VegGrids))
-    allocate(CRUgrid(N_VegGrids))
+    allocate(LandGrid(N_VegGrids))
 
-    ! Record LonLat in GridLonLat and Assigne PFT coverage for each grid
+    ! Record LonLat and PFT coverage for each grid
     m = 0
     do iLon = LowerLon, UpperLon
       do iLat = LowerLat, UpperLat
         if(GridMask(ilon,ilat) > 0)then
           m = m + 1
           GridLonLat(m) = iLon * 1000 + iLat
-          CRUgrid(m)%iLon = iLon
-          CRUgrid(m)%iLat = iLat
-          CRUgrid(m)%climate => GridClimateData(:,:,m)
-          ! Assigne PFT coverage for each grid
+          LandGrid(m)%iLon = iLon
+          LandGrid(m)%iLat = iLat
+          LandGrid(m)%climate => ClimData(:,:,m)
+          ! Assign PFT coverage for each grid
           i = (iLon-1)/5 + 1
           j = (iLat-1)/4 + 1
           do k = 1, 9
-            CRUgrid(m)%fPFT(k) = Min(1.0, Max(0.0, PFTdata(i,j,k)))
+            LandGrid(m)%fPFT(k) = Min(1.0, Max(0.0, PFTdata(i,j,k)))
           enddo
         endif
       enddo
     enddo
 
     ! ----------------- Read in all data ----------------------!
-    do j= 1, 4
+    do j= 1, N_vars ! 4
       field_idx = fields(j)
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
@@ -257,7 +239,7 @@ end subroutine read_initial_state
             !CRUData((i-1)*Ntime+1:i*Ntime,j,iLon,iLat) = dataarray(iLon,iLat,:)
             if(GridMask(iLon,iLat) > 0)then
               m = m + 1
-              GridClimateData((i-1)*Ntime+1:i*Ntime,j,m)  = dataarray(iLon,iLat,:)
+              ClimData((i-1)*Ntime+1:i*Ntime,j,m) = dataarray(iLon,iLat,:)
             endif
           enddo
         enddo
@@ -396,8 +378,8 @@ subroutine Assign_global_PFT_parameters()
 end subroutine Assign_global_PFT_parameters
 
 !=============================================================================
-subroutine Setup_Grid_Initial_States(CRUgrid)
-  type(grid_initial_type), intent(in) :: CRUgrid
+subroutine Setup_Grid_Initial_States(LandGrid)
+  type(grid_initial_type), intent(in) :: LandGrid
 
   !--------- local vars ------------
   integer :: GridPFTs(N_PFTs)
@@ -405,10 +387,10 @@ subroutine Setup_Grid_Initial_States(CRUgrid)
   real :: f_min = 0.01 ! coverage fraction threshold
 
   ! Sorting PFT numbers according to fPFT
-  call rank_descending(CRUgrid%fPFT,GridPFTs)
+  call rank_descending(LandGrid%fPFT,GridPFTs)
 
   ! Find out PFTs in this grid
-  totPFT = Max(1, COUNT(CRUgrid%fPFT > f_min))
+  totPFT = Max(1, COUNT(LandGrid%fPFT > f_min))
 
   do i=1, totPFT ! init_n_cohorts
     init_cohort_species(i) = GridPFTs(i)
@@ -430,18 +412,18 @@ subroutine Setup_Grid_Initial_States(CRUgrid)
 end subroutine Setup_Grid_Initial_States
 
 !=============================================================================
-subroutine CRU_Interpolation(CRUgrid,steps_per_hour,forcingData)
+subroutine CRU_Interpolation(LandGrid,steps_per_hour,forcingData)
   implicit none
-  type(grid_initial_type), pointer, intent(in) :: CRUgrid
+  type(grid_initial_type), pointer, intent(in) :: LandGrid
   real, intent(in) :: steps_per_hour
   type(climate_data_type), pointer :: forcingData(:) ! output
 
   !---------- local variables ------------------
   real, pointer :: GridData(:,:)
   integer :: iLon, iLat ! Column and Lines (started from -179.75 and -89.75)
-  type(climate_data_type), pointer :: climateData(:) ! will be linked to forcingData
-  character(len=120) :: fname ! For testing output
-  character(len=6) :: LonLat  ! Used in output file name
+  type(climate_data_type), pointer :: climateData(:) ! will be pointed by forcingData
+  character(len=120):: fname   ! For testing output
+  character(len=6)  :: LonLat  ! Used in output file name
 
   real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
@@ -457,14 +439,14 @@ subroutine CRU_Interpolation(CRUgrid,steps_per_hour,forcingData)
   integer :: totyr, Nlines
   logical :: WriteSample = .False.
 
-  ! Assigne CRUgrid data to local variables
-  GridData => CRUgrid%climate
-  iLon = CRUgrid%iLon
-  iLat = CRUgrid%iLat
+  ! Assigne LandGrid data to local variables
+  GridData => LandGrid%climate
+  iLon = LandGrid%iLon
+  iLat = LandGrid%iLat
 
   ! Latitude and Longitude of this grid
   Longi = (iLon-1)*0.5 - 179.75
-  Lati = (iLat-1) *0.5 - 89.75
+  Lati  = (iLat-1)*0.5 - 89.75
 
   ! Data lines
   Nlines = SIZE(tswrfH)
@@ -478,6 +460,7 @@ subroutine CRU_Interpolation(CRUgrid,steps_per_hour,forcingData)
   allocate(fdSW(Nlines))
   allocate(timecols(Nlines,3)) ! year, doy, hour
   allocate(hourly_data(totalL,10)) ! Interpolated data (hourly)
+  allocate(climateData(totalL))
   timecols(:,:) = 0
   do m=1, Nlines
     timecols(m,1) = int(tswrfH(m)/(365*24)) + 1850.0       ! Year
@@ -550,7 +533,6 @@ subroutine CRU_Interpolation(CRUgrid,steps_per_hour,forcingData)
   enddo
 
   ! -------------- Put the data into forcing -------------------
-  allocate(climateData(totalL))
   do i=1,totalL
      td = hourly_data(i,2) + hourly_data(i,3)/24.0
      call calc_solarzen(td,Lati,cosz,solarelev,solarzen)

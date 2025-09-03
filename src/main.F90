@@ -34,6 +34,10 @@ program BiomeE
   call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
   call BiomeE_main()
 
+  ! ---------- Time stamp -------------
+  call cpu_time(end_time)
+  elapsed_time = end_time - start_time
+  write(*,'(a24,3(f8.2,","))')'Total time (minutes):', elapsed_time/60.
 #else
   ! ---------- Global or regional run with netcdf input files -----
   ! Read in the namelist for global data and model settings
@@ -55,17 +59,17 @@ program BiomeE
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 
   !------------ Forcing data interpolation and model run
-  !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, CRUgrid)
+  !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = start_grid, N_VegGrids
     GridID = GridLonLat(m) ! for file names
     fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
     fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
     write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
-               GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
+               GridLonLat(m), LandGrid(m)%iLon, LandGrid(m)%iLat
     print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
     call cpu_time(last_time) ! Record time needed for one grid simulation
     ! Data interpolated to hourly
-    call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
+    call CRU_Interpolation(LandGrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     call BiomeE_main()
     call zip_output_files()
@@ -73,8 +77,10 @@ program BiomeE
     ! ---------- Time stamp -------------
     call cpu_time(end_time)
     elapsed_time = end_time - last_time
-    write(*,'(a12,f12.1, a12, I8)')'Time taken: ',elapsed_time, &
-                                   ' seconds at ',GridID
+    write(*,'(a6,f6.1, a12, I6, a14, f7.1, a9)') &
+            'Used: ', elapsed_time, ' seconds at ', GridID, &
+            '. Total time: ', (end_time-start_time)/60.0, ' minutes.'
+
     last_time = end_time
   enddo
   !$omp end parallel do
@@ -82,12 +88,9 @@ program BiomeE
   ! Release netcdf-related allocatable data arrays
   deallocate(tswrfH)
   !deallocate(CRUData)
-  deallocate(GridClimateData, CRUgrid)
+  deallocate(ClimData)
+  deallocate(LandGrid)
   deallocate(GridLonLat)
 #endif
 
-  ! ---------- Time stamp -------------
-  call cpu_time(end_time)
-  elapsed_time = end_time - start_time
-  write(*,'(a24,3(f8.2,","))')'Total time (minutes):', elapsed_time/60.
 end program BiomeE

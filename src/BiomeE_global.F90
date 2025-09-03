@@ -45,17 +45,17 @@ program BiomeE_global_driver
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 
   !------------ Forcing data interpolation and model run
-  !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, CRUgrid)
+  !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = start_grid, N_VegGrids
     GridID = GridLonLat(m) ! for file names
     fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
     fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
     write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
-               GridLonLat(m), CRUgrid(m)%iLon, CRUgrid(m)%iLat
+               GridLonLat(m), LandGrid(m)%iLon, LandGrid(m)%iLat
     print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
     call cpu_time(last_time)
     ! Data interpolated to hourly
-    call CRU_Interpolation(CRUgrid(m),steps_per_hour,forcingData)
+    call CRU_Interpolation(LandGrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     call BiomeE_main()
     call zip_output_files()
@@ -71,7 +71,8 @@ program BiomeE_global_driver
   ! Release netcdf-related allocatable data arrays
   deallocate(tswrfH)
   !deallocate(CRUData)
-  deallocate(GridClimateData, CRUgrid)
+  deallocate(ClimData)
+  deallocate(LandGrid)
   deallocate(GridLonLat)
 #endif
 

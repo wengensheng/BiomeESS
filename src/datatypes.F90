@@ -218,7 +218,7 @@ type spec_data_type
   real :: A_DBH        ! Max mulitplier for DBH-based mortality
   real :: B_DBH        ! Sensitivity to dbh
   real :: s_hu         ! hydraulic mortality sensitivity
-  real :: W_mu0        ! Half-mortality transp deficit ratio, 0.5, 0.75, 2.5
+  real :: W_mu0        ! Half-morClimDataeficit ratio, 0.5, 0.75, 2.5
   ! Population level variables
   real :: LAImax    ! max. LAI
   real :: LAImax_u  ! max. LAI understorey
@@ -805,6 +805,9 @@ integer  :: days_data ! days of the forcing data
 real     :: siteLAT = 36.01 !site latitude, ORNL
 
 ! For global/regional forcing data, soil conditions, and initial conditions
+! CRU NetCDF file dimensions
+integer, parameter :: NDIMS = 3
+integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
 integer, parameter :: N_PFTs   = 9
 type :: grid_initial_type
    integer :: iLon ! grid number along Longitude (from -180 to 180)
@@ -815,9 +818,8 @@ type :: grid_initial_type
    real    :: mineralN ! Soil mineral N
    real    :: soiltexture(3)
    real    :: WLTPT, FLDCP ! soil wilting point and field capacity (0.xx)
-   real, pointer :: climate(:,:)       ! Ntimes, Nvars
+   real, pointer :: climate(:,:)       ! Ntimes, N_vars
 end type grid_initial_type
-type(grid_initial_type), pointer :: CRUgrid(:) => null()
 
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
@@ -827,11 +829,14 @@ integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
 integer :: start_grid = 1 ! for continuous model run once crashed at a grid
 integer :: N_VegGrids = 1 ! Minimum
+integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
-integer, pointer :: GridLonLat(:) => null() ! iLon, iLat
-real, pointer :: tswrfH(:) => null() ! Hours of tswrf (hours since 1850-01-01)
-real, pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
-real, pointer :: GridClimateData(:,:,:) => null()  ! N_yr*Ntime, N_vars, N_VegGrids, for land grids
+
+type(grid_initial_type), pointer :: LandGrid(:) => null()
+integer, pointer :: GridLonLat(:)    => null() ! iLon, iLat
+real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
+real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
+real,    pointer :: tswrfH(:)        => null() ! Hours since 1850-01-01 in tswrf
 
 ! Model run control
 character(len=256) :: file_out(6) ! Output file names
@@ -884,7 +889,7 @@ namelist /initial_state_nml/ &
 namelist /global_setting_nml/ &
     ! global data and model run settings
     ncfilepath,LowerLon,UpperLon,LowerLat,UpperLat, &
-    yr_start,yr_end,start_grid
+    yr_start,yr_end,start_grid,StepLatLon
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
 namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &
