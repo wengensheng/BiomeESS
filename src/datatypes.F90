@@ -218,7 +218,7 @@ type spec_data_type
   real :: A_DBH        ! Max mulitplier for DBH-based mortality
   real :: B_DBH        ! Sensitivity to dbh
   real :: s_hu         ! hydraulic mortality sensitivity
-  real :: W_mu0        ! Half-morClimDataeficit ratio, 0.5, 0.75, 2.5
+  real :: W_mu0        ! Half-mortality transp deficit ratio, 0.5, 0.75, 2.5
   ! Population level variables
   real :: LAImax    ! max. LAI
   real :: LAImax_u  ! max. LAI understorey
