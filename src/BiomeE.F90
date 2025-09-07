@@ -94,7 +94,6 @@ subroutine BiomeE_initialization()
   do i =1, N_VegTile
     allocate(vegn)
     call initialize_vegn_tile(vegn)
-    ! Sort and relayer cohorts
     call relayer_cohorts(vegn)
     call Zero_diagnostics(vegn)
     vegn%Tc_pheno = forcingData(1)%Tair

@@ -167,8 +167,9 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
   integer :: datalines, days_data, yr_data, w
 
   !--------- local vars ------------
+  integer, parameter :: N_GridPFTs = 4
   integer :: i,j,k,m,n, n_expected
-  integer :: GridPFTs(3) ! 1: C4, 2: C3, 3: TrE, 4: TrD, 5: TmE, 6: TmD
+  integer :: GridPFTs(N_GridPFTs) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer
   real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
   real :: tmp31(31),meanTmin
 
@@ -185,7 +186,7 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
   end if
 
   ! total cohorts per grid
-  init_n_cohorts = 3
+  init_n_cohorts = N_GridPFTs
 
   ! Allocate variables
   allocate(dailyTc(days_data))
@@ -230,17 +231,17 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
 
   ! Assign PFT groups according to climate data at each grid
   if(meanTmin > 12.0)then ! Tropical vs. Temperate trees
-    GridPFTs(1:3) = [1,3,4]
+    GridPFTs = [0,2,3,6]
   elseif(meanTmin > 5.0)then ! C4 vs. C3 grasses
-    GridPFTs(1:3) = [1,5,6]
+    GridPFTs = [0,4,5,6]
   else
-    GridPFTs(1:3) = [2,5,6]
+    GridPFTs = [1,4,5,6]
   endif
 
   ! assign initial cohorts
   do i=1, init_n_cohorts
     init_cohort_species(i) = GridPFTs(i)
-    if(GridPFTs(i)<3)then
+    if(GridPFTs(i)<2)then  ! Grasses, C3 (1) or C4 (0)
       init_cohort_nindivs(i) = 5.0  ! initial individual density, individual/m2
       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
@@ -248,7 +249,7 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
       init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
       init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
       init_cohort_nsc(i)     = 0.01  ! initial non-structural biomass, kg C/
-    else
+    else                  ! Trees and shrubs
       init_cohort_nindivs(i) = 0.2  ! initial individual density, individual/m2
       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
@@ -275,7 +276,7 @@ subroutine Set_PFTs_from_map(LandGrid)
 
   ! Sorting PFT numbers according to fPFT
   call rank_descending(LandGrid%fPFT,GridPFTs)
-  ! to-do: make the Map PFT codes match PFTs defined in
+  ! To-do: make the Map PFT codes match PFTs defined in Reset_ESS_PFT_parameters
 
   ! Find out PFTs in this grid
   init_n_cohorts = min(N_IniCC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))

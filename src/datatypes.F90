@@ -1034,41 +1034,43 @@ end subroutine read_soil_namelist
 subroutine Reset_ESS_PFT_parameters()
 
   !--------- local vars ------------
-  integer :: N_tot = 5 ! 6 PFTs since started from 0.
+  integer :: N_tot = 6 ! 7 PFTs since started from 0.
 
   !---- Update PFT parameters ---
-  !                      1: C4G, 2: C3G, 3: TrE, 4: TrD, 5: TmE, 6: TmD
-   pt(0:N_tot)       = [ 1,      0,      0,      0,      0,      0   ] ! 0 for C3, 1 for C4
-   phenotype(0:N_tot)= [ 0,      0,      1,      0,      1,      1   ] ! 0 for Deciduous, 1 for evergreen
-   lifeform(0:N_tot) = [ 0,      0,      1,      1,      1,      1   ] ! life form of PFTs: 0 for grasses, 1 for trees
-   LAImax(0:N_tot)   = [ 2.5,    2.5,    4.8,    4.8,    3.5,    3.5 ]    ! maximum LAI for a tree
-   LMA(0:N_tot)      = [ 2.5e-2, 2.5e-2, 6.0e-2, 3.2e-2, 12.e-2, 2.5e-2]  ! leaf mass per unit area, kg C/m2
-   LNbase(0:N_tot)   = [ 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.0E-3, 1.5E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
-   alphaHT(0:N_tot)  = [ 10.,    10.,    35.,    30.,    30.,    35.]
-   alphaCA(0:N_tot)  = [ 60.,    60.,    120.,   120.,   120.,   120.]
-   phiRL(0:N_tot)    = [ 3.5,    3.5,    1.5,    1.5,    1.5,    1.5 ] ! ratio of fine root area to leaf area
-   tauNSC(0:N_tot)   = [ 3.0,    3.0,    1.5,    1.5,    1.5,    1.5] ! NSC residence time,years
-   m_cond(0:N_tot)   = [ 7.0,    9.0,    9.0,    9.0,    9.0,    9.0  ] ! 7.0 !
-   rho_wood(0:N_tot) = [ 90.,    90.,    350.,   350.,   320.,   350. ] ! kgC m-3
-   tc_crit_off(0:N_tot)=[5.0,    5.0,    15.0,   15.0,   -50.0,  12.0] ! 283.16 ! OFF ! C for convenience
-   tc_crit_on(0:N_tot) =[5.0,    5.0,    15.0,   15.0,   -50.0,  12.0] ! 280.16 ! ON  ! C for convenience
-   gdd_crit(0:N_tot)= 300. ! 280.0 !
-   AWD_crit(0:N_tot)= 0.7  ! Critical plant water availability factor (0~1)
-   betaON(0:N_tot)  = [ 0.4,     0.4,    0.0,    0.6,    0.0,    0.6 ]  ! Critical soil moisture for phenology ON
-   betaOFF(0:N_tot) = [ 0.2,     0.2,    0.0,    0.4,    0.0,    0.2 ]  ! Critical soil moisture for phenology OFF
-   gdd_par1(0:N_tot) = [30.,     30.,    20.,    0.0,    50.,    20. ]   !50.d0   ! -68.d0
-   gdd_par2(0:N_tot) = [800.,    800.,   0.0,    800.,   0.,     800. ] ! 650.d0  !800.d0  ! 638.d0
-   gdd_par3(0:N_tot) = -0.02 ! -0.01d0
-   s0_plant(0:N_tot) = [0.01,    0.01,   0.1,    0.1,    0.1,    0.1] ! kgC, initial seedling size
-   IgniteP(0:N_tot)  = [1.0,     1.0,    .01,    .02,    .02,    .01]
-   r0mort_c(0:N_tot) = [ .05,   .05,   .03,   .03,   .02,   .02] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-   D0mu(0:N_tot)     = [ 0.0,   0.0,   1.2,   1.2,   1.2,   1.2]     ! m, Mortality curve parameter
-   A_sd(0:N_tot)     = [ 0.0,   0.0,   8.0,   8.0,   8.0,   8.0 ]     ! Max multiplier for seedling mortality
-   B_sd(0:N_tot)     = [ -60.,  -60.,  -25.,  -25.,  -25.,  -25. ]    ! Mortality sensitivity for seedlings
-   A_DBH(0:N_tot)    = 4.0     ! Max multiplier for DBH-based mortality
-   B_DBH(0:N_tot)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
-   s_hu(0:N_tot)     = -25.0   ! hydraulic mortality sensitivity
-   W_mu0(0:N_tot)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+  !                       0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: N-fixer
+   pt(0:N_tot)         = [1,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
+   phenotype(0:N_tot)  = [0,      0,      1,      0,      1,      0,      1     ] ! 0: Deciduous, 1: evergreen
+   lifeform(0:N_tot)   = [0,      0,      1,      1,      1,      1,      1     ] ! life form of PFTs: 0 for grasses, 1 for trees
+   LAImax(0:N_tot)     = [2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5   ] ! maximum LAI for a tree
+   LMA(0:N_tot)        = [0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.08  ] ! leaf mass per unit area, kg C/m2
+   LNbase(0:N_tot)     = [0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.2E-3, 1.5E-3, 1.2E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+   alphaHT(0:N_tot)    = [10.,    10.,    35.,    35.,    35.,    35.,    35.   ]
+   alphaCA(0:N_tot)    = [60.,    60.,    120.,   120.,   120.,   120.,   120.  ]
+   phiRL(0:N_tot)      = [3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0   ] ! ratio of fine root area to leaf area
+   tauNSC(0:N_tot)     = [3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5   ] ! NSC residence time,years
+   m_cond(0:N_tot)     = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 7.0 !
+   rho_wood(0:N_tot)   = [90.,    90.,    350.,   350.,   320.,   350.,   350.  ] ! kgC m-3
+   tc_crit_off(0:N_tot)= [5.0,    5.0,    15.0,   15.0,   -50.0,  12.0,   -60.0 ] ! 283.16 ! OFF ! C for convenience
+   tc_crit_on(0:N_tot) = [5.0,    5.0,    15.0,   15.0,   -50.0,  12.0    -60.0 ] ! 280.16 ! ON  ! C for convenience
+   gdd_crit(0:N_tot)   = [300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
+   AWD_crit(0:N_tot)   = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7   ]  ! Critical plant water availability factor (0~1)
+   betaON(0:N_tot)     = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0   ]  ! Critical soil moisture for phenology ON
+   betaOFF(0:N_tot)    = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0   ]  ! Critical soil moisture for phenology OFF
+   gdd_par1(0:N_tot)   = [30.,    30.,    20.,    0.0,    50.,    20.,    50.   ]   !50.d0   ! -68.d0
+   gdd_par2(0:N_tot)   = [800.,   800.,   0.0,    800.,   0.0,    800.,   0.0   ] ! 650.d0  !800.d0  ! 638.d0
+   gdd_par3(0:N_tot)   = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
+   s0_plant(0:N_tot)   = [0.01,   0.01,   0.1,    0.1,    0.1,    0.1,    0.1   ] ! kgC, initial seedling size
+   IgniteP(0:N_tot)    = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01   ]
+   r0mort_c(0:N_tot)   = [.05,    .05,    .03,    .03,    .02,    .02,    .02   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+   D0mu(0:N_tot)       = [0.0,    0.0,    1.2,    1.2,    1.2,    1.2,    1.2   ]     ! m, Mortality curve parameter
+   A_sd(0:N_tot)       = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0   ]     ! Max multiplier for seedling mortality
+   B_sd(0:N_tot)       = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25   ]    ! Mortality sensitivity for seedlings
+   A_DBH(0:N_tot)      = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ]     ! Max multiplier for DBH-based mortality
+   B_DBH(0:N_tot)      = [0.125,  0.125,  0.125,  0.125,  0.125,  0.125,  0.125 ]  ! 0.25   ! Size-based Mortality sensitivity, m
+   s_hu(0:N_tot)       = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ]   ! hydraulic mortality sensitivity
+   W_mu0(0:N_tot)      = [2.5,    2.5,    0.75,   1.0,    1.2,    1.2,    1.2   ]     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+   Nfixrate0           = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03  ]  ! 0.03 kgN kgRootC-1 yr-1
+   NfixCost0           = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ]  ! N fixation carbon cost: 12 gC/gN
 
 end subroutine Reset_ESS_PFT_parameters
 #endif
@@ -1555,6 +1557,62 @@ end function
     endif
     write(*,*)tag, ': N0, N1, N0-N1', totN0, totN1, totN0 - totN1
   end subroutine check_N_conservation
+
+  !=================================================================
+  ! Weng, 2025-09-07
+  ! ------- Potential ET -----------
+  ! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
+  ! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
+  ! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
+  ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
+  ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
+  ! Smooth bare soil / desert: >150–300 s m-1
+  function PotentialET(forcing)
+    implicit none
+    real :: PotentialET  ! returned value, kg H2O/m2/hour
+    type(climate_data_type),intent(in):: forcing
+
+    !----- local var --------------
+    ! Meteorological variables
+    real :: Rnet          ! net radiation, and soil surface radiation, W/m2
+    real :: RH, Uwind     ! relative humidity (0~1); wind speed (m/s)
+    real :: TairK, Tair   ! temperature (K and C)
+    real :: P_air, Dair   ! Air pressure and VPD, (pa)
+    ! Assumed vegetation states
+    real :: Karman = 0.41 ! von Kármán constant (~0.41)
+    real :: kappa  = 0.75 ! light extinction coefficient of corwn layers
+    real :: dV     = 0.1  ! a small number
+    real :: Zmh    = 2.0   ! Measurement height (m)
+    real :: Zvg    = 0.12  ! FAO, short-crop height (m), for PET
+    real :: Z0m    = 0.014 ! roughness length for momentum [m]
+    real :: Z0h    = 0.02  ! roughness length for heat and vapour [m]
+    real :: dz             ! zero plane displacement height (zero wind height) [m]
+    ! For calculation
+    real :: rhocp, H2OLv, slope, psyc
+    real :: rAero         ! resistance, s m-1
+    real :: Esoil         ! Soil surface evaporation, W/m2
+
+    ! Forcing variables
+    Rnet  = forcing%radiation * 0.9 ! assuming 10% reflectance
+    Uwind = forcing%windU + dV      ! in case U is zero.
+    TairK = forcing%Tair
+    Tair  = forcing%Tair - 273.16
+    P_air = forcing%P_air
+    RH    = forcing%RH  ! Check forcing's unit of humidity
+
+    ! --------- Potential evapotranspiration (PET) --------
+    rhocp = cpair * P_air * mol_air / (Rgas*TairK)
+    H2OLv = H2oLv0 - 2.365e3 * Tair
+    Dair  = esat(Tair) * (1.0 - RH)
+    slope = (esat(Tair + dV) - esat(Tair)) / dV
+    psyc  = P_air * cpair * mol_air / (H2OLv*mol_h2o)
+    dz    = Zvg*2/3 ! Zero wind speed height
+    raero = (log((Zmh - dz)/Z0m)*log((Zmh - dz)/Z0h))/(Karman*Karman*Uwind)
+    Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
+            !(slope + psyc * (1.0+rsoil/raero)) ! AET, Liqing Peng et al. 2019 GCB
+
+    PotentialET = Esoil/H2OLv * 3600.0 ! kg H2O m-2 hour-1
+  end function PotentialET
 
   ! ============================================================================
   function TotalN(vegn)

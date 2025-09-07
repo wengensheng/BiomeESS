@@ -1,7 +1,7 @@
 &initial_state_nml
-!!   plant
+!! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
 init_n_cohorts      = 2, ! total 5
-init_cohort_species = 0,    1,    2,    1,    4,    5,
+init_cohort_species = 0,    2,    3,    1,    4,    5,
 init_cohort_nindivs = 10.,  .2, .001, .001, .001,
 init_cohort_bsw     = 0.01, 0.02,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
@@ -22,9 +22,9 @@ climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 model_run_years =  800,
-outputhourly    =  .False. !  .True.
+outputhourly    =  .False. ! .True.
 outputdaily     =  .False. ! .True.  !
-do_closedN_run  =  .True.  ! .False. !
+do_closedN_run  =  .False. ! .True.  !
 do_U_shaped_mortality = .False. ! .True. !
 do_fire = .True.  !  .False. !
 do_migration = .True.  !  .False. !
@@ -59,9 +59,9 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW = 0.1,
 K0SOM    = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_nitrogen = 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
+K_nitrogen = 1.2, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! organic nitrogen release rate
-etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
+etaN       = 0.02, ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
@@ -77,28 +77,26 @@ m0_kx      = 5.0
 envi_fire_prb = 0.25,
 ETP0        = 2.0,
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
-! species     0        1        2        3        4        5
-lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
-phenotype   = 0,       1,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
-pt          = 1,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
-s0_plant    = 0.01,    0.02,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
-LMA         = 0.02,    0.10,    0.02,    0.08,    0.08,    0.08,    ! Leaf mass per unit area
-phiRL       = 1.2,     1.2,     1.2,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
-rho_wood    = 100.,    300,     300,     300.,    350.,    400.,    ! Wood density, kgC m-3
-IgniteP     = 1.0,     0.04,    0.02,    0.02,    0.02,    0.02,    ! Ignition probability at match dropping
-gamma_SW    = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    ! Wood Acambium respiration rate (kgC/m2/yr)
-LNbase      = 1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
-m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,
-laimax      = 3.0,     3.5,     3.5,     3.5,     3.5,     3.5,     ! maximum crown LAI
-LAI_light   = 3.0,     3.5,     3.5,     3.5,     3.5,     3.5,     ! Light-limited crown LAI
-betaON      = 0.2,     0.1,     0.00,    0.1,     0.2,     0.2,     ! Soil moisture for phenology ON
-betaOFF     = 0.1,     0.1,     0.00,    0.1,     0.1,     0.1,     ! Soil moisture for phenology OFF
-tc_crit_off = 12.0,    15.0,    15.0,    5.0,     5.0,     5.0,
-tc_crit_on  = 10.0,    10.0,    10.0,    5.0,     5.0,     5.0,
-Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
-NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
-phiCSA      = 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, 0.25E-4, ! ratio of Asap/Acrown
-r0mort_c    = 0.02,    0.02,    0.02,    0.04,    0.02,    0.02,    ! canopy tree mortality rate, year-1
-A_sd        = 4.0,     9.0,     9.0,     9.0,     9.0,     9.0,     ! Seedling mortality parameter
-AgeRepro    = 0,       5,       5,       5,       5,       5
+! species     0: C4G,  1: C3G,  2: TrE,  3: TrD,  4: TmE,  5: TmD,  6: Nfixer
+lifeform    = 0,       0,       1,       1,       1,       1,       1,   ! 0: grass; 1 Woody
+phenotype   = 0,       0,       1,       0,       1,       0,       1,   ! 0: Deciduous; 1 Evergreen
+pt          = 1,       0,       0,       0,       0,       0,       0,   ! 0: C3; 1: C4
+s0_plant    = 0.01,    0.01,    0.05,    0.05,    0.05,    0.05,    0.05, ! initial size of seedlings
+LMA         = 0.02,    0.02,    0.08,    0.034,   0.12,    0.02,    0.08, ! Leaf mass per unit area
+phiRL       = 2.5,     2.5,     1.2,     1.2,     1.2,     1.2,     2.0,  ! Root/Leaf area ratio
+rho_wood    = 100.,    100,     350,     350.,    300.,    350.,    350., ! Wood density, kgC m-3
+IgniteP     = 1.0,     1.0,     0.02,    0.04,    0.04,    0.02,    0.02, ! Ignition probability at match dropping
+gamma_SW    = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    0.02, ! Wood Acambium respiration rate (kgC/m2/yr)
+LNbase      = 1.2E-3,  1.2E-3,  1.0E-3,  1.2E-3,  1.0E-3,  1.2E-3,  1.2E-3, ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,     9.0,
+laimax      = 2.5,     2.5,     4.5,     4.0,     4.0,     3.5,     3.5,   ! maximum crown LAI
+betaON      = 0.4,     0.4,     0.00,    0.6,     0.0,     0.0,     0.0,   ! Soil moisture for phenology ON
+betaOFF     = 0.1,     0.1,     0.00,    0.2,     0.0,     0.0,     0.0,   ! Soil moisture for phenology OFF
+tc_crit_off = 15.0,    15.0,    5.0,     5.0,     -60.,    12.0,    -60.,  ! Critical temperatre
+tc_crit_on  = 10.0,    10.0,    5.0,     5.0,     -60.,    12.0,    -60.,  !
+Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     0.03,  ! 0.03 kgN kgRootC-1 yr-1
+NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     12.0,  ! N fixation carbon cost: 12 gC/gN
+r0mort_c    = 0.02,    0.02,    0.02,    0.04,    0.02,    0.02,    0.02,  ! canopy tree mortality rate, year-1
+A_sd        = 2.0,     2.0,     9.0,     9.0,     9.0,     9.0,     9.0,   ! Seedling mortality parameter
+AgeRepro    = 0,       0,       5,       5,       5,       5,       5,
 /
