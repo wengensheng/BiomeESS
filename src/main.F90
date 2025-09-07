@@ -8,7 +8,7 @@ program BiomeE
 #ifdef GlobalRun
   use netcdf_io
 #endif
-  use io_mod, only: read_namelist,setup_forcingdata,setup_output_files,zip_output_files
+  use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   use BiomeE_mod, only: BiomeE_main
 
   implicit none
@@ -25,26 +25,15 @@ program BiomeE
   call itime(timeArray)     ! Get current time
   write(*,'(a20,3(I2,":"))')'Model run start at: ', timeArray
 
-#ifndef GlobalRun
-  ! ---------- Single site run with csv/txt forcing data input ----------
-  call read_namelist(fnml) ! Namelist file (must be hardwired)
-  call initialize_soilpars()
-  call initialize_PFT_data()
-  call setup_forcingdata()
-  call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
-  call BiomeE_main()
+  ! Read in model initialization and plant & soil parameters
+  call read_init_namelist(fnml)
+  call initialize_soilpars(fnml)
+  call initialize_PFT_data(fnml)
 
-  ! ---------- Time stamp -------------
-  call cpu_time(end_time)
-  elapsed_time = end_time - start_time
-  write(*,'(a24,3(f8.2,","))')'Total time (minutes):', elapsed_time/60.
-#else
+#ifdef GlobalRun
   ! ---------- Global or regional run with netcdf input files -----
   ! Read in the namelist for global data and model settings
-  !call Assign_global_PFT_parameters()
-  call read_global_setting(fnml) ! including PFT parameters
-  call initialize_soilpars()
-  call initialize_PFT_data()
+  call read_global_setting(fnml)
 
   ! ------ Setup steps for model run ------
   N_yrs = yr_end - yr_start + 1
@@ -71,6 +60,8 @@ program BiomeE
     ! Data interpolated to hourly
     call CRU_Interpolation(LandGrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
+    call Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
+    exit ! for testing set_pfts_from_climate
     call BiomeE_main()
     call zip_output_files()
 
@@ -91,6 +82,16 @@ program BiomeE
   deallocate(ClimData)
   deallocate(LandGrid)
   deallocate(GridLonLat)
+#else
+  ! ---------- Single site run with csv/txt forcing data input ----------
+  call setup_forcingdata()
+  call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
+  call BiomeE_main()
+
+  ! ---------- Time stamp -------------
+  call cpu_time(end_time)
+  elapsed_time = end_time - start_time
+  write(*,'(a24,3(f8.2,","))')'Total time (minutes):', elapsed_time/60.
 #endif
 
 end program BiomeE

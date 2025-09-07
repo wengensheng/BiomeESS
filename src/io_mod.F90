@@ -9,9 +9,10 @@ module io_mod
 #endif
 
  implicit none
+ private
 
 ! ------ public subroutines ---------
-public :: read_namelist, setup_forcingdata, setup_output_files
+public :: setup_forcingdata, setup_output_files
 public :: vegn_sum_tile, Zero_diagnostics, zip_output_files
 public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
 
@@ -19,50 +20,6 @@ public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
 contains
 
 !====================== Subroutines ======================================
-
-!----------------------------------------------------------------
-! Weng, 01/28/2023
-subroutine read_namelist(fnml)
-  character(len=*),intent(in) :: fnml
-  !--------local vars -----------
-  integer :: rc, fu
-
-  ! Check whether file exists
-  inquire (file=fnml, iostat=rc)
-  if (rc /= 0) then
-      write (*, '("Error: input file ", a, " does not exist")') fnml
-      stop
-  end if
-
-  ! Open and read Namelist file.
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=soil_data_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist soil_data_nml error', rc
-    stop
-  endif
-  !write(*,nml=soil_data_nml)
-  close (fu)
-
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=vegn_parameters_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist vegn_parameters_nml error', rc
-    stop
-  endif
-  !write(*,nml=vegn_parameters_nml)
-  close (fu)
-
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=initial_state_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist initial_state_nml error', rc
-    stop
-  endif
-  !write(*,nml=initial_state_nml)
-  close (fu)
-
-end subroutine read_namelist
 
 ! --------- Setup forcing data and step lenght ----------------------
 subroutine setup_forcingdata()

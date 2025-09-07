@@ -9,116 +9,15 @@
 module netcdf_io
   use netcdf
   use datatypes
+  implicit none
+  private
 
-  public ReadNCfiles
+  public ReadNCfiles, CRU_Interpolation, Set_PFTs_from_Climate
   public unzip_gzip_file
 
 contains
-
 !===================================================
-subroutine read_global_setting(fnml)
-  character(len=*),intent(in) :: fnml
-  !--------local vars -----------
-  integer :: rc, fu
 
-  ! Check whether file exists
-  inquire (file=fnml, iostat=rc)
-  if (rc /= 0) then
-      write (*, '("Error: input file ", a, " does not exist")') fnml
-      stop
-  end if
-
-  ! Open and read Namelist file.
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=global_setting_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist global_setting_nml error', rc
-    stop
-  endif
-  !write(*,nml=initial_state_nml)
-  close (fu)
-
-  ! Open and read Namelist file.
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=soil_data_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist soil_data_nml error', rc
-    stop
-  endif
-  !write(*,nml=soil_data_nml)
-  close (fu)
-
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=vegn_parameters_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist vegn_parameters_nml error', rc
-    stop
-  endif
-  !write(*,nml=vegn_parameters_nml)
-  close (fu)
-
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=initial_state_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist initial_state_nml error', rc
-    stop
-  endif
-  !write(*,nml=initial_state_nml)
-  close (fu)
-
-end subroutine read_global_setting
-
-!===================================================
-subroutine read_PFT_parameters(fnml)
-  character(len=*),intent(in) :: fnml
-  !--------local vars -----------
-  integer :: rc, fu
-
-  ! Check whether file exists
-  inquire (file=fnml, iostat=rc)
-  if (rc /= 0) then
-      write (*, '("Error: input file ", a, " does not exist")') fnml
-      stop
-  end if
-
-  ! Open and read Namelist file.
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=vegn_parameters_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist vegn_parameters_nml error', rc
-    stop
-  endif
-  !write(*,nml=vegn_parameters_nml)
-  close (fu)
-
-end subroutine read_PFT_parameters
-
-!===================================================
-subroutine read_initial_state(fnml)
-  character(len=*),intent(in) :: fnml
-  !--------local vars -----------
-  integer :: rc, fu
-
-  ! Check whether file exists
-  inquire (file=fnml, iostat=rc)
-  if (rc /= 0) then
-      write (*, '("Error: input file ", a, " does not exist")') fnml
-      stop
-  end if
-
-  ! Open and read Namelist file.
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=initial_state_nml, iostat=rc, unit=fu)
-  if (rc /= 0) then
-    write(*,*)'Namelist initial_state_nml error', rc
-    stop
-  endif
-  !write(*,nml=initial_state_nml)
-  close (fu)
-
-end subroutine read_initial_state
-
-!===================================================
   subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     implicit none
     character(len=*), intent(in) :: fpath
@@ -260,139 +159,127 @@ end subroutine read_initial_state
   end subroutine ReadNCfiles
 
 !=============================================================================
-subroutine Assign_global_PFT_parameters()
+! for testing tree-grass-desert shrub and evergreen-deciduous forests only
+! Weng, 09/06/2025
+subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
+  implicit none
+  type(climate_data_type), intent(in) :: forcingData(:)
+  integer :: datalines, days_data, yr_data, w
 
-  ! -------- PFT-specific parameters ----------
-  !                     'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G'
-   pt(1:N_PFTs)       = (/0,   0,    0,    0,    0,    0,    0,    0,    1/) ! 0 for C3, 1 for C4
-   phenotype(1:N_PFTs)= (/1,   1,    0,    0,    0,    1,    1,    0,    0/) ! 0 for Deciduous, 1 for evergreen
-   lifeform(1:N_PFTs) = (/1,   1,    1,    1,    1,    1,    1,    0,    0/) ! life form of PFTs: 0 for grasses, 1 for trees
+  !--------- local vars ------------
+  integer :: i,j,k,m,n, n_expected
+  integer :: GridPFTs(3) ! 1: C4, 2: C3, 3: TrE, 4: TrD, 5: TmE, 6: TmD
+  real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
+  real :: tmp31(31),meanTmin
 
-  ! Allometry and whole tree parameters
-   alphaHT(1:N_PFTs) = [ 35., 30., 30., 35., 30., 20., 20., 10., 10. ]
-   alphaCA(1:N_PFTs) = [ 120.,120.,120.,120.,120.,150.,150., 60., 60. ]
-   alphaBM(1:N_PFTs) = 5200.0
-   thetaHT(1:N_PFTs) = 0.5 !
-   thetaCA(1:N_PFTs) = 1.5
-   thetaBM(1:N_PFTs) = 2.5
-   phiRL(1:N_PFTs)   = 3.5 ! ratio of fine root area to leaf area
-   phiCSA(1:N_PFTs)  = 0.25E-4 ! ratio of sapwood area to leaf area
-   tauNSC(1:N_PFTs)  = [ 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 3.0, 3.0 ] ! NSC residence time,years
-   fNSNmax(1:N_PFTs) = 5 ! 5 ! multiplier for NSNmax as sum of potential bl and br
-   transT(1:N_PFTs)  = 3 ! Years
-   f_cGap(1:N_PFTs)  = 0.1  ! The gaps between trees
-   LFR_rate(1:N_PFTs)= 1.0/21.0
+  ! Sanity checks
+  n_expected = days_data * steps_per_day
+  if (size(forcingData) < n_expected) then
+     error stop "Set_PFTs_from_Climate: forcingData shorter than days_data*steps_per_day."
+  end if
+  if (yr_data * days_per_year > days_data) then
+     error stop "Set_PFTs_from_Climate: yr_data*days_per_year exceeds days_data."
+  end if
+  if (days_data < 31) then
+     error stop "Set_PFTs_from_Climate: need at least 31 days for a 31-day window."
+  end if
 
-  ! Leaf parameters
-  !                     'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G'
-   LAImax(1:N_PFTs)   = [ 4.8, 4.8, 4.5, 4.5, 4.0, 3.0, 3.0, 2.5, 2.5 ]    ! maximum LAI for a tree
-   LAI_light(1:N_PFTs)= 5.0    ! maximum LAI limited by light
-   LMA(1:N_PFTs)      = [ 7.0e-2, 14.e-2, 2.5e-2, 3.0e-2,3.0e-2, 2.5e-2, 3.0e-2, 2.5e-2, 2.5e-2 ]  ! leaf mass per unit area, kg C/m2
-   leafLS(1:N_PFTs)   = 1.0
-   LNbase(1:N_PFTs)   = 1.3E-3 !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
-   CN0leafST(1:N_PFTs)= 40.0 ! 80.0 ! CN ratio of leaf supporting tissues
-   leaf_size(1:N_PFTs)= 0.04 !
+  ! total cohorts per grid
+  init_n_cohorts = 3
 
-  ! photosynthesis parameters
-   Vmax(1:N_PFTs)= 35.0E-6 ! mol m-2 s-1
-   m_cond(1:N_PFTs)= 9.0 ! 7.0 !
-   alpha_ps(1:N_PFTs)=  0.06 !
-   Vannual(1:N_PFTs) = 1.2 ! kgC m-2 yr-1
-   ps_wet(1:N_PFTs) = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 means
-          ! photosynthesis of completely wet leaf will be 30% reduction
+  ! Allocate variables
+  allocate(dailyTc(days_data))
+  allocate(meanTc(days_data))
+  allocate(minTm(yr_data))
+  dailyTc = 0.0
+  meanTc  = 0.0
+  k = 0
+  do i = 1, days_data
+    do j = 1, steps_per_day
+      k = k + 1
+      dailyTc(i) = dailyTc(i) + forcingData(k)%Tair - 273.15
+    enddo
+    dailyTc(i) = dailyTc(i)/steps_per_day
+  enddo
 
-  ! Wood parameters
-   rho_wood(1:N_PFTs) = [360.,300.,350.,250.,300.,400.,400.,90.,90.] ! kgC m-3
-   f_taper(1:N_PFTs)  = 0.75 ! taper factor, from a cylinder to a tree
+  do i = 1, days_data
+    m = i - 15
+    n = i + 15
+    if (m>=1 .and. n<=days_data)then
+      tmp31(1:31) = dailyTc(m:n)
+    else if (m < 1) then
+      w = 1 - m                     ! number from the end
+      tmp31(1:w) = dailyTc(days_data+m:days_data)
+      tmp31(w+1:31) = dailyTc(1:n)
+    else ! n > days_data: take tail then wrap to start
+      w = 31 - (n - days_data)      ! number we can take before hitting the end
+      tmp31(1:w) = dailyTc(m:days_data)
+      tmp31(w+1:31) = dailyTc(1:n-days_data)
+    endif
+    meanTc(i) = sum(tmp31)/real(size(tmp31))
+  enddo
 
-  ! root parameters
-   alpha_FR(1:N_PFTs) = 1.2 ! Fine root turnover rate yr-1
-  !(/0.8, 0.8,0.8, 0.8, 0.8,0.8,0.8,0.8,1.0,1.0,0.6, 1.0, 0.55, 0.9, 0.55, 0.55/)
-   rho_FR(1:N_PFTs) = 200 ! woody density, kgC m-3
-   root_r(1:N_PFTs) = 2.9E-4
-  !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
-   root_zeta(1:N_PFTs) = 0.6 ! 0.29 !
-   root_perm(1:N_PFTs) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
-   Kw_root(1:N_PFTs)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
+  do i = 1, yr_data
+    minTm(i) = 999.0
+    do j = 1, 365
+      k = (i-1)*365 + j
+      minTm(i) = min(meanTc(k),minTm(i))
+    enddo
+  enddo
+  meanTmin = sum(minTm)/real(size(minTm))
 
-  ! Respiration rates
-   gamma_L(1:N_PFTs)= 0.02 !
-   gamma_LN(1:N_PFTs)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
-   gamma_SW(1:N_PFTs)= 0.02 ! 0.08 ! kgC m-2 Acambium yr-1
-   gamma_FR(1:N_PFTs)= 0.6 ! 12 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
+  ! Assign PFT groups according to climate data at each grid
+  if(meanTmin > 12.0)then ! Tropical vs. Temperate trees
+    GridPFTs(1:3) = [1,3,4]
+  elseif(meanTmin > 5.0)then ! C4 vs. C3 grasses
+    GridPFTs(1:3) = [1,5,6]
+  else
+    GridPFTs(1:3) = [2,5,6]
+  endif
 
-  ! Phenology parameters
+  ! assign initial cohorts
+  do i=1, init_n_cohorts
+    init_cohort_species(i) = GridPFTs(i)
+    if(GridPFTs(i)<3)then
+      init_cohort_nindivs(i) = 5.0  ! initial individual density, individual/m2
+      init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
+      init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
+      init_cohort_bsw(i)     = 0.01  ! initial biomass of sapwood, kg C/individual
+      init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
+      init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
+      init_cohort_nsc(i)     = 0.01  ! initial non-structural biomass, kg C/
+    else
+      init_cohort_nindivs(i) = 0.2  ! initial individual density, individual/m2
+      init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
+      init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
+      init_cohort_bsw(i)     = 0.3  ! initial biomass of sapwood, kg C/individual
+      init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
+      init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
+      init_cohort_nsc(i)     = 0.3  ! initial non-structural biomass, kg C/individual
+    endif
+  enddo
 
-   tc_crit_off(1:N_PFTs)= [ 15.0, -80.0, 15.0, 15.0, 15.0, 15.0, 15.0, 5.0, 5.0 ] ! 283.16 ! OFF ! C for convenience
-   tc_crit_on(1:N_PFTs) = 10. ! 280.16 ! ON  ! C for convenience
-   gdd_crit(1:N_PFTs)= 300. ! 280.0 !
-   AWD_crit(1:N_PFTs)= 0.7  ! Critical plant water availability factor (0~1)
-   betaON(1:N_PFTs)  = [ 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.4, 0.4, 0.4 ]  ! Critical soil moisture for phenology ON
-   betaOFF(1:N_PFTs) = [ 0.0, 0.0, 0.0, 0.2, 0.0, 0.1, 0.1, 0.2, 0.2 ]  ! Critical soil moisture for phenology OFF
-   gdd_par1(1:N_PFTs) = [ 20., 0.0, 50., 20., 50., 30., 30., 30., 30. ]   !50.d0   ! -68.d0
-   gdd_par2(1:N_PFTs) = [ 200., 0.0, 800., 200., 800., 800., 800., 800., 800. ] ! 650.d0  !800.d0  ! 638.d0
-   gdd_par3(1:N_PFTs) = -0.02 ! -0.01d0
-  ! Reproduction prarameters
-   AgeRepro(1:N_PFTs) = 5.0  ! year
-   v_seed(1:N_PFTs)   = 0.1  ! fraction of allocation to wood+seeds
-   s0_plant(1:N_PFTs) = [ 0.1,   0.1,  0.1,  0.1,  0.1, 0.05, 0.05, 0.005, 0.005 ] ! kgC, initial seedling size
-   prob_g(1:N_PFTs)   = 1.0
-   prob_e(1:N_PFTs)   = 1.0
+  ! Release allocatable variables
+  deallocate(dailyTc,meanTc,minTm)
 
-  ! Mortality parameters
-   r0mort_c(1:N_PFTs) = [ .025, .025, .025, .025, .025, .02, .02, .02, .02 ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-   D0mu(1:N_PFTs)     = [ 1.5, 1.5, 1.5, 1.5, 1.5, 0.5, 0.5, 0.0, 0.0 ]     ! m, Mortality curve parameter
-   A_un(1:N_PFTs)     = 3.0     ! Multiplier for understory mortality
-   A_sd(1:N_PFTs)     = [ 8.d0, 8.d0, 8.d0, 8.d0, 8.d0, 19.d0, 19.d0, 0.d0, 0.d0 ]     ! Max multiplier for seedling mortality
-   B_sd(1:N_PFTs)     = [ -25., -25., -25., -25., -25., -25., -25., -60., -60. ]    ! Mortality sensitivity for seedlings
-   A_DBH(1:N_PFTs)    = 4.0     ! Max multiplier for DBH-based mortality
-   B_DBH(1:N_PFTs)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
-   s_hu(1:N_PFTs)     = -25.0   ! hydraulic mortality sensitivity
-   W_mu0(1:N_PFTs)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
-
-  ! Plant hydraulics parameters
-   kx0(1:N_PFTs)      = 5.0 ! (mm/s)/(MPa/m) !132000.0 ! 6000.0   ! (m/yr-1)/(MPa/m)
-   WTC0(1:N_PFTs)     = 1200.0  ! 2000, m /lifetime
-   CR_Leaf(1:N_PFTs)  = 0.5 ! leaf compression ratio per MPa
-   CR_Wood(1:N_PFTs)  = 0.2 ! Wood compression ratio per MPa
-   psi0_LF(1:N_PFTs)  = -3.0  ! MPa
-   psi0_WD(1:N_PFTs)  = -3.0  ! MPa
-   psi50_WD(1:N_PFTs) = -1.5  ! MPa !wood potential at which 50% conductivity lost, MPa
-   Kexp_WD(1:N_PFTs)  = 3.0
-   f_supply(1:N_PFTs) = 0.5
-   f_plc(1:N_PFTs)    = 0.05  ! fraction of WTC loss due to low water potential (per day)
-
-  ! C/N ratios for plant pools
-   CNleaf0(1:N_PFTs)   = 25. ! C/N ratios for leaves
-   CNsw0(1:N_PFTs)     = 350.0 ! C/N ratios for woody biomass
-   CNwood0(1:N_PFTs)   = 350.0 ! C/N ratios for woody biomass
-   CNroot0(1:N_PFTs)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
-   CNseed0(1:N_PFTs)   = 20.0 ! C/N ratios for seeds
-   NfixRate0(1:N_PFTs) = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
-   NfixCost0(1:N_PFTs) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
-
-   ! Fire-related parameters
-   !                    'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G'
-   IgniteP(1:N_PFTs)  = [.01, .02,  .01,  .02,  .02,  .02,  .04,  1.0,  1.0]
-
-end subroutine Assign_global_PFT_parameters
+end subroutine Set_PFTs_from_Climate
 
 !=============================================================================
-subroutine Setup_Grid_Initial_States(LandGrid)
+subroutine Set_PFTs_from_map(LandGrid)
   type(grid_initial_type), intent(in) :: LandGrid
 
   !--------- local vars ------------
   integer :: GridPFTs(N_PFTs)
-  integer :: i, totPFT
+  integer :: i
   real :: f_min = 0.01 ! coverage fraction threshold
 
   ! Sorting PFT numbers according to fPFT
   call rank_descending(LandGrid%fPFT,GridPFTs)
+  ! to-do: make the Map PFT codes match PFTs defined in
 
   ! Find out PFTs in this grid
-  totPFT = Max(1, COUNT(LandGrid%fPFT > f_min))
-
-  do i=1, totPFT ! init_n_cohorts
+  init_n_cohorts = min(N_IniCC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))
+  do i=1, init_n_cohorts
     init_cohort_species(i) = GridPFTs(i)
     init_cohort_nindivs(i) = 0.2  ! initial individual density, individual/m2
     init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
@@ -400,7 +287,7 @@ subroutine Setup_Grid_Initial_States(LandGrid)
     init_cohort_bsw(i)     = 0.3  ! initial biomass of sapwood, kg C/individual
     init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
     init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
-    init_cohort_nsc(i)     = 0.3  ! initial non-structural biomass, kg C/
+    init_cohort_nsc(i)     = 0.3  ! initial non-structural biomass, kg C/individual
   enddo
 
  ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
@@ -409,7 +296,7 @@ subroutine Setup_Grid_Initial_States(LandGrid)
   init_Nmineral     = 0.15  ! Mineral nitrogen pool, (kg N/m2)
   N_input           = 0.0 !0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
 
-end subroutine Setup_Grid_Initial_States
+end subroutine Set_PFTs_from_map
 
 !=============================================================================
 subroutine CRU_Interpolation(LandGrid,steps_per_hour,forcingData)

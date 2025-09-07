@@ -3,7 +3,6 @@
  implicit none
 
  !===============constants===============
- logical, parameter :: read_from_parameter_file = .TRUE.
  integer, parameter :: days_per_year    = 365
  integer, parameter :: hours_per_year   = 365 * 24  ! 8760
  integer, parameter :: MonthDOY(0:12)    =(/0,31,59,90,120,151,181,212,243,273,304,334,366/)
@@ -409,7 +408,7 @@ type :: vegn_tile_type
   real :: initialN0
 
   ! Soil water
-  integer :: soiltype    ! lookup table for soil hydrologic parameters
+  integer :: soiltype = 3
   real :: FLDCAP  ! soil field capacity
   real :: WILTPT  ! soil wilting point (0.xx)
   real :: evap    ! kg m-2 per unit fast time step (mm/hour)
@@ -551,7 +550,6 @@ end type climate_data_type
 
 ! -------------------------------------------
 ! Soil water parameters
-integer :: soiltype = SandyLoam  ! 1 Sand; 2
 real :: WaterLeakRate = 0.0 ! Soil water leak rate, fraction per day
 real :: thksl(soil_L)=(/0.05,0.25,0.5,1.0,1.2/) ! m, thickness of soil layers
 
@@ -780,13 +778,14 @@ real :: init_cohort_br(N_IniCC_max)      = 0.0  ! initial biomass of fine roots,
 real :: init_cohort_bsw(N_IniCC_max)     = 0.2  ! initial biomass of sapwood, kg C/individual
 real :: init_cohort_bHW(N_IniCC_max)     = 0.0  ! initial biomass of heartwood, kg C/tree
 real :: init_cohort_seedC(N_IniCC_max)   = 0.0  ! initial biomass of seeds, kg C/individual
-real :: init_cohort_nsc(N_IniCC_max)     = 0.5  ! initial non-structural biomass, kg C/
+real :: init_cohort_nsc(N_IniCC_max)     = 0.5  ! initial non-structural biomass, kg C/individual
 
-! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
-real :: init_fast_soil_C  = 0.0  ! initial fast soil C, kg C/m2
-real :: init_slow_soil_C  = 0.0  ! initial slow soil C, kg C/m2
-real :: init_Nmineral     = 0.015  ! Mineral nitrogen pool, (kg N/m2)
-real :: N_input           = 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
+! Initial soil type, carbon and nitrogen at a vegn tile, Weng 2012-10-24
+integer :: soiltype = SandyLoam  ! lookup table for soil hydrologic parameters
+real :: init_fast_soil_C  = 0.5  ! initial fast soil C, kg C/m2
+real :: init_slow_soil_C  = 2.0  ! initial slow soil C, kg C/m2
+real :: init_Nmineral     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
+real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
 ! Input files
 character(len=80) :: filepath_in = './input/'
@@ -808,7 +807,7 @@ real     :: siteLAT = 36.01 !site latitude, ORNL
 ! CRU NetCDF file dimensions
 integer, parameter :: NDIMS = 3
 integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
-integer, parameter :: N_PFTs   = 9
+integer, parameter :: N_PFTs   = 9 ! Global PFTs from Ent Vegetation Map
 type :: grid_initial_type
    integer :: iLon ! grid number along Longitude (from -180 to 180)
    integer :: iLat ! grid number along Latitude (from -90 to 90)
@@ -940,8 +939,146 @@ type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
  contains
 
 !============================ Subroutines =================================
+! Read in parameters in the namelist file
+! Weng, 09/07/2025
+!----------------------------------------------------------------
+subroutine read_global_setting(fnml)
+  character(len=*),intent(in) :: fnml
+  !--------local vars -----------
+  integer :: rc, fu
+
+  ! Check whether file exists
+  inquire (file=fnml, iostat=rc)
+  if (rc /= 0) then
+      write (*, '("Error: input file ", a, " does not exist")') fnml
+      stop
+  end if
+
+  ! Open the namelist file, read global_setting_nml
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=global_setting_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist global_setting_nml error', rc
+    stop
+  endif
+  !write(*,nml=initial_state_nml)
+  close (fu)
+
+end subroutine read_global_setting
+
+!----------------------------------------------------------------
+subroutine read_init_namelist(fnml)
+  character(len=*),intent(in) :: fnml
+  !--------local vars -----------
+  integer :: rc, fu
+
+  ! Check whether file exists
+  inquire (file=fnml, iostat=rc)
+  if (rc /= 0) then
+      write (*, '("Error: input file ", a, " does not exist")') fnml
+      stop
+  end if
+
+  ! Open and read Namelist file.
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=initial_state_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist initial_state_nml error', rc
+    stop
+  endif
+  !write(*,nml=initial_state_nml)
+  close (fu)
+
+end subroutine read_init_namelist
+
+!----------------------------------------------------------------
+subroutine read_vegn_namelist(fnml)
+  character(len=*),intent(in) :: fnml
+  !--------local vars -----------
+  integer :: rc, fu
+
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=vegn_parameters_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist vegn_parameters_nml error', rc
+    stop
+  endif
+  !write(*,nml=vegn_parameters_nml)
+  close (fu)
+
+end subroutine read_vegn_namelist
+
+!----------------------------------------------------------------
+subroutine read_soil_namelist(fnml)
+  character(len=*),intent(in) :: fnml
+  !--------local vars -----------
+  integer :: rc, fu
+
+  ! Open and read Namelist file.
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=soil_data_nml, iostat=rc, unit=fu)
+  if (rc /= 0) then
+    write(*,*)'Namelist soil_data_nml error', rc
+    stop
+  endif
+  !write(*,nml=soil_data_nml)
+  close (fu)
+
+end subroutine read_soil_namelist
+
+!=============================================================================
+#ifdef DO_Global_ESS_PFT
+! For global testing of tree-grass-desert shrub and evergreen-deciduous forests
+! Six PFTs: 1: C4, 2: C3, 3: TrE, 4: TrD, 5: TmE, 6: TmD
+! Weng, 09/06/2025
+subroutine Reset_ESS_PFT_parameters()
+
+  !--------- local vars ------------
+  integer :: N_tot = 5 ! 6 PFTs since started from 0.
+
+  !---- Update PFT parameters ---
+  !                      1: C4G, 2: C3G, 3: TrE, 4: TrD, 5: TmE, 6: TmD
+   pt(0:N_tot)       = [ 1,      0,      0,      0,      0,      0   ] ! 0 for C3, 1 for C4
+   phenotype(0:N_tot)= [ 0,      0,      1,      0,      1,      1   ] ! 0 for Deciduous, 1 for evergreen
+   lifeform(0:N_tot) = [ 0,      0,      1,      1,      1,      1   ] ! life form of PFTs: 0 for grasses, 1 for trees
+   LAImax(0:N_tot)   = [ 2.5,    2.5,    4.8,    4.8,    3.5,    3.5 ]    ! maximum LAI for a tree
+   LMA(0:N_tot)      = [ 2.5e-2, 2.5e-2, 6.0e-2, 3.2e-2, 12.e-2, 2.5e-2]  ! leaf mass per unit area, kg C/m2
+   LNbase(0:N_tot)   = [ 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.0E-3, 1.5E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+   alphaHT(0:N_tot)  = [ 10.,    10.,    35.,    30.,    30.,    35.]
+   alphaCA(0:N_tot)  = [ 60.,    60.,    120.,   120.,   120.,   120.]
+   phiRL(0:N_tot)    = [ 3.5,    3.5,    1.5,    1.5,    1.5,    1.5 ] ! ratio of fine root area to leaf area
+   tauNSC(0:N_tot)   = [ 3.0,    3.0,    1.5,    1.5,    1.5,    1.5] ! NSC residence time,years
+   m_cond(0:N_tot)   = [ 7.0,    9.0,    9.0,    9.0,    9.0,    9.0  ] ! 7.0 !
+   rho_wood(0:N_tot) = [ 90.,    90.,    350.,   350.,   320.,   350. ] ! kgC m-3
+   tc_crit_off(0:N_tot)=[5.0,    5.0,    15.0,   15.0,   -50.0,  12.0] ! 283.16 ! OFF ! C for convenience
+   tc_crit_on(0:N_tot) =[5.0,    5.0,    15.0,   15.0,   -50.0,  12.0] ! 280.16 ! ON  ! C for convenience
+   gdd_crit(0:N_tot)= 300. ! 280.0 !
+   AWD_crit(0:N_tot)= 0.7  ! Critical plant water availability factor (0~1)
+   betaON(0:N_tot)  = [ 0.4,     0.4,    0.0,    0.6,    0.0,    0.6 ]  ! Critical soil moisture for phenology ON
+   betaOFF(0:N_tot) = [ 0.2,     0.2,    0.0,    0.4,    0.0,    0.2 ]  ! Critical soil moisture for phenology OFF
+   gdd_par1(0:N_tot) = [30.,     30.,    20.,    0.0,    50.,    20. ]   !50.d0   ! -68.d0
+   gdd_par2(0:N_tot) = [800.,    800.,   0.0,    800.,   0.,     800. ] ! 650.d0  !800.d0  ! 638.d0
+   gdd_par3(0:N_tot) = -0.02 ! -0.01d0
+   s0_plant(0:N_tot) = [0.01,    0.01,   0.1,    0.1,    0.1,    0.1] ! kgC, initial seedling size
+   IgniteP(0:N_tot)  = [1.0,     1.0,    .01,    .02,    .02,    .01]
+   r0mort_c(0:N_tot) = [ .05,   .05,   .03,   .03,   .02,   .02] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+   D0mu(0:N_tot)     = [ 0.0,   0.0,   1.2,   1.2,   1.2,   1.2]     ! m, Mortality curve parameter
+   A_sd(0:N_tot)     = [ 0.0,   0.0,   8.0,   8.0,   8.0,   8.0 ]     ! Max multiplier for seedling mortality
+   B_sd(0:N_tot)     = [ -60.,  -60.,  -25.,  -25.,  -25.,  -25. ]    ! Mortality sensitivity for seedlings
+   A_DBH(0:N_tot)    = 4.0     ! Max multiplier for DBH-based mortality
+   B_DBH(0:N_tot)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
+   s_hu(0:N_tot)     = -25.0   ! hydraulic mortality sensitivity
+   W_mu0(0:N_tot)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+
+end subroutine Reset_ESS_PFT_parameters
+#endif
+
 !========================Parameter initialization =========================
-subroutine initialize_soilpars()
+subroutine initialize_soilpars(fnml)
+  character(len=*),intent(in) :: fnml
+
+  ! Read in parameters in soil_data_nml
+  call read_soil_namelist(fnml)
   ! initialize soil parameters
   soilpars%GMD         = GMD ! geometric mean partice diameter, mm
   soilpars%GSD         = GSD ! geometric standard deviation of particle size
@@ -973,10 +1110,20 @@ subroutine initialize_soilpars()
 end subroutine initialize_soilpars
 
 ! ================================================
-subroutine initialize_PFT_data()
+subroutine initialize_PFT_data(fnml)
+  character(len=*),intent(in) :: fnml
 
   ! ---- local vars
   integer :: i
+
+#ifdef DO_Global_ESS_PFT
+  ! Weng, 09/07/2025.
+  ! For tree-grass-desert shrub and evergreen-deciduous forest transition
+  call Reset_ESS_PFT_parameters()
+#endif
+
+  ! Read in parameters in vegn_parameters_nml
+  call read_vegn_namelist(fnml)
 
   ! initialize vegetation data structure
   spdata%pt       = pt

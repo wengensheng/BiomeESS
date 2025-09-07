@@ -1148,8 +1148,8 @@ subroutine vegn_phenology(vegn) ! daily step
      Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. (&
           (cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          (vegn%thetaS < sp%betaOFF)       & ! Drought-deciduous !
-          !(cc%AWD < sp%AWD_crit) & ! Drought-deciduous
+          (vegn%thetaS < sp%betaOFF)  & ! Drought-deciduous
+          !(cc%AWD < sp%AWD_crit)      & ! Drought-deciduous
           ).and. cc%NGD > Days_thld  ! Minimum days of a growing season
      end associate
 
@@ -2344,22 +2344,13 @@ subroutine initialize_vegn_tile(vegn)
    integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
    integer :: i, istat
 
+   ! Setup initial soil and vegetation conditions
    vegn%age = 0.0 ! Set the tile age as zero.
-   !  Read parameters from the parameter file (namelist)
-   if(read_from_parameter_file)then
-      ! Initial Soil pools and environmental conditions
-      call initialize_soil(vegn)
-      ! Initialize plant cohorts
-      call initialize_cohorts(vegn)
-   else
-      ! ------- Generate one cohort randomly --------
-      call initialize_vegn_random(vegn)
-   endif  ! initialization: random or pre-described
+   call initialize_soil(vegn)    ! Initial Soil pools and environmental conditions
+   call initialize_cohorts(vegn) ! Initialize plant cohorts
+   call relayer_cohorts(vegn)    ! Sorting cohorts
 
-   ! Sorting cohorts
-   call relayer_cohorts(vegn)
-
-   ! ID each cohort
+   ! Setup an ID for each cohort
    do i=1,size(vegn%cohorts) ! vegn%n_cohorts
       cp => vegn%cohorts(i)
       cp%ccID = i
@@ -2371,7 +2362,7 @@ subroutine initialize_vegn_tile(vegn)
    vegn%initialN0 = totalN(vegn)
    vegn%totN =  vegn%initialN0
 
-   !Keep initial plant cohorts
+   ! Make a copy of the initial cohorts
    allocate(cc(1:init_n_cohorts), STAT = istat)
    cc = vegn%cohorts
    vegn%initialCC   => cc
@@ -2461,47 +2452,6 @@ subroutine initialize_soil(vegn)
    vegn%thetaS   = 1.0
    call SoilWater_psi_K(vegn)
 end subroutine initialize_soil
-
-!=========================================================================
-subroutine initialize_vegn_random(vegn)
-   type(vegn_tile_type),intent(inout) :: vegn
-   !--------local vars -------
-   type(cohort_type),dimension(:), pointer :: cc
-   type(cohort_type),pointer :: cp
-   real    :: r
-   real    :: btotal
-   integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
-   integer :: i,istat
-
-   ! ------- Generate a vegn tile with one cohort randomly --------
-    allocate(cc(1:nCohorts), STAT = istat)
-    vegn%cohorts => cc
-    vegn%n_cohorts = nCohorts
-    cc => null()
-    do i=1,nCohorts
-       cp => vegn%cohorts(i)
-       cp%status  = LEAF_OFF ! ON=1, OFF=0 ! ON
-       cp%layer   = 1
-       cp%age     = 0
-       cp%topyear = 0.0
-       cp%species = 3     ! INT(rand()*5)+1
-       cp%ccID    = i
-       cp%nindivs = 0.001 ! rand()/10. ! trees/m2
-       cp%nsc     = 0.005
-       cp%bsw     = 0.2   ! kgC /tree
-       cp%bHW     = 0.0
-       btotal     = cp%bsw + cp%bHW
-       call initialize_cohort_from_biomass(cp,btotal,maxval(vegn%psi_soil(:)))
-    enddo
-    ! Initial Soil pools and environmental conditions
-    vegn%SOC(4) = 0.2 ! kgC m-2
-    vegn%SOC(5) = 7.0 ! slow soil carbon pool, (kg C/m2)
-    vegn%SON(4) = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
-    vegn%SON(5) = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
-    vegn%N_input     = N_input  ! kgN m-2 yr-1, N input to soil
-    vegn%mineralN    = 0.005  ! Mineral nitrogen pool, (kg N/m2)
-    vegn%previousN   = vegn%mineralN
-end subroutine initialize_vegn_random
 
 ! ============================================================================
 ! Initialize a cohort by initial biomass and soil water conditions

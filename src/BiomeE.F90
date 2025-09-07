@@ -316,6 +316,7 @@ subroutine BiomeE_end
   do while(ASSOCIATED(vegn))
     pveg => vegn%next
     deallocate(vegn%cohorts)
+    deallocate(vegn%initialCC)
     deallocate(vegn)
     vegn => pveg
   enddo
