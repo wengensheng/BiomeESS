@@ -496,7 +496,7 @@ end subroutine daily_diagnostics
           cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,      &
           cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf,     &
           froot,fwood,cc%mu,cc%annualTrsp,cc%totDemand,    &
-          cc%annualNup,cc%annualfixedN,                    &
+          cc%annualNup,cc%annualfixedN,cc%gdd_ON,cc%Tc_OFF,&
           cc%Atrunk,cc%Asap,cc%Ktrunk,cc%treeHU,           &
 #ifdef Hydro_test
           cc%treeW0,(cc%farea(j),j=1,Ysw_max)
@@ -1180,12 +1180,12 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
 
 #else
     open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
-    write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
+    write(fno5,'(4(a5,","),80(a7,","))')                &    ! Yearly cohort
       'tile','yr','cNo.','cID', 'PFT','layer',          &
       'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
       'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
       'GPP','NPP','Gtree','f_sd','f_lf','f_fr','f_wd',  &
-      'mu','Trsp','demandW','N_uptk','N_fix',           &
+      'mu','Trsp','dmdW','Nup','Nfix','gddON','TcOFF',  &
       'Atrunk','Asap','Ktree','treeHU','treeW0',        &
       'farea1','farea2','farea3','farea4','farea5'
 #endif

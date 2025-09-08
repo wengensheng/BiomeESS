@@ -1070,99 +1070,95 @@ subroutine vegn_phenology(vegn) ! daily step
   ! ---- local vars
   type(cohort_type), pointer :: cc
   integer :: i,j
-  integer :: Days_thld = 60 ! minimum days of the growing or non-growing season
-  real    :: cold_thld = -20.  ! threshold of accumulative low temperature (sum(dT*day)
-  integer :: GrassMaxL = 3   ! Maximal layers that grasses can survive
-  real    :: Tk_OFF, Tk_ON, gdd_ON
+  real    :: gdd_ON, Tc_OFF
   real    :: totC, totN, ccNSC, ccNSN
   logical :: PhenoON, PhenoOFF
 
   ! -------------- update vegn GDD and tc_pheno ---------------
-  ! environmental factors for each cohort
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2 ! C
   do i = 1, vegn%n_cohorts
     cc=>vegn%cohorts(i)
     associate (sp => spdata(cc%species) )
-      if(cc%status == LEAF_ON)then
-         cc%ngd = Min(366, cc%ngd + 1)
-         if(cc%ngd > Days_thld) cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc0_off)
-         if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1 * (cc%dailyTrsp/cc%dailyWdmd)
-      else  ! cc%status == LEAF_OFF
-         cc%ndm = cc%ndm + 1
-         if(vegn%tc_pheno<T0_chill)then
-            cc%ncd = cc%ncd + 1
-         endif
-         ! Keep gdd as zero in early non-growing season when days < Days_thld
-         if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
-      endif ! cc%status
+      if(sp%phenotype == 0) then ! Deciduous speices
+        if(cc%status == LEAF_ON)then
+           cc%ngd = Min(366, cc%ngd + 1)
+           if(cc%ngd > Days_thld) cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc0_off)
+           if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1 * (cc%dailyTrsp/cc%dailyWdmd)
+        else  ! cc%status == LEAF_OFF
+           cc%ndm = cc%ndm + 1
+           if(vegn%tc_pheno<T0_chill) cc%ncd = cc%ncd + 1
+           ! Keep gdd as zero in early non-growing season when days < Days_thld
+           if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
+        endif ! cc%status
+      endif   ! sp%phenotype == 0
+
     end associate
   enddo
 
   ! --------- Change pheno status ----------------------------
-  ! ON and OFF of phenology: change the indicator of growing season for deciduous
+  ! Turn ON the phenology of deciduous species
   do i = 1,vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species) )
-      !for evergreen
-      if(sp%phenotype==1 .and. cc%status /= LEAF_ON) cc%status=LEAF_ON
-      ! GDD threshold for leaf green-up
-      gdd_ON = sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd)
-
-      PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)         &
-        !.and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc0_on) &  ! Thermal conditions
-        .and.(cc%gdd > gdd_ON    .and. vegn%tc_pheno>sp%tc0_on) &  ! Thermal conditions
-        .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
-        .and.(.NOT.(sp%lifeform==0 .and. cc%layer > GrassMaxL))     &  ! If grasses, layer< 3
-         )
-
       cc%firstday = .false.
-      if(PhenoON)then
+      if(sp%phenotype == 0) then ! Deciduous speices
+        gdd_ON  = sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd) ! GDD threshold for leaf green-up
+        PhenoON = ( cc%status/=LEAF_ON )                              &
+         !.and.(cc%gdd>sp%gdd_crit    .and. vegn%tc_pheno>sp%tc0_on)  &  ! Thermal conditions
+          .and.(cc%gdd > gdd_ON       .and. vegn%tc_pheno>sp%tc0_on)  &  ! Thermal conditions
+          .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
+          .and.(.NOT.(sp%lifeform==0  .and. cc%layer > GrassMaxL))       ! If grasses, layer< 3
+
+        if(PhenoON)then
           cc%status = LEAF_ON ! Turn on a growing season
           cc%firstday = .True.
+          cc%gdd_ON = gdd_ON
           cc%gdd = 0.0
           cc%ncd = 0
           cc%ndm = 0
           cc%AWD = 1.0 ! Accumulative water available ratio
-      endif
+        endif
 
-      ! Reset grass density at the first day of a growing season
-      if(sp%lifeform ==0 .and. (cc%firstday .and. cc%age>0.5))then
-          !        reset grass density and size for perenials
-          ccNSC   = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
-          ccNSN   = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
-          ! reset
-          cc%nindivs = MIN(ccNSC /sp%s0_plant, ccNSN/(sp%s0_plant/sp%CNroot0))
-          totC = ccNSC / cc%nindivs
-          totN = ccNSN / cc%nindivs
-          call setup_seedling(cc,totC,totN)
+        ! Reset deciduous grass at the first day of a growing season
+        if(sp%lifeform ==0 .and. (cc%firstday .and. cc%age>0.5))then
+            ccNSC = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
+            ccNSN = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
+            cc%nindivs = MIN(ccNSC /sp%s0_plant, ccNSN/(sp%s0_plant/sp%CNroot0))
+            totC = ccNSC / cc%nindivs
+            totN = ccNSN / cc%nindivs
+            call setup_seedling(cc,totC,totN)
+        endif
+      else
+        cc%status=LEAF_ON ! Evergree species
       endif
     end associate
-  enddo
+  enddo  ! vegn%n_cohorts
   if(any(vegn%cohorts(:)%firstday)) call relayer_cohorts(vegn)
 
-  ! OFF of a growing season
+  ! ---------- OFF of a growing season --------------
   do i = 1,vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
-     ! Critical temperature trigering offset of phenology
-     Tk_OFF = sp%tc0_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
-     PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. (&
-          (cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
-          (vegn%thetaS < sp%betaOFF)  & ! Drought-deciduous
-          !(cc%AWD < sp%AWD_crit)      & ! Drought-deciduous
-          ).and. cc%NGD > Days_thld  ! Minimum days of a growing season
+       if(sp%phenotype == 0) then
+         ! Critical temperature trigering offset of phenology
+         Tc_OFF = sp%tc0_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
+         PhenoOFF = (cc%status == LEAF_ON .and. cc%NGD > Days_thld .and.  & ! Minimum days of a growing season
+              ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tc_OFF) .or.  & ! Cold-deciduous
+              (vegn%thetaS < sp%betaOFF)  & ! Drought-deciduous
+              !(cc%AWD < sp%AWD_crit)      & ! Drought-deciduous
+              ))
+         if(PhenoOFF )then
+            cc%status = LEAF_OFF  ! Turn off a growing season
+            cc%Tc_OFF = Tc_OFF
+            cc%gdd = 0.0          ! Start to count a new cycle of GDD
+            cc%ngd = 0
+            cc%ALT = 0.0
+            cc%AWD = 1.0 ! Accumulative water available ratio
+         endif
+         call Seasonal_fall(cc,vegn) ! leaf fall
+       endif
      end associate
-
-     if(PhenoOFF )then
-        cc%status = LEAF_OFF  ! Turn off a growing season
-        cc%gdd = 0.0          ! Start to count a new cycle of GDD
-        cc%ngd = 0
-        cc%ALT = 0.0
-        cc%AWD = 1.0 ! Accumulative water available ratio
-     endif
-     ! leaf fall
-     call Seasonal_fall(cc,vegn)
-  enddo
+  enddo ! vegn%n_cohorts
 end subroutine vegn_phenology
 
 ! ============================================================================
@@ -2801,6 +2797,33 @@ function Mergeable_cohorts(c1,c2); logical Mergeable_cohorts
                       .and. (sameSize .or. LowDensity)
 end function
 
+! ============================================================================
+subroutine check_N_conservation(vegn,totN0,tag)
+  type(vegn_tile_type),intent(in) :: vegn
+  real,                intent(in) :: totN0
+  character(len = *),  intent(in) :: tag
+  !-------local var --------
+  real :: totN1
+  ! Total N balance checking
+  totN1 = TotalN(vegn)
+  if(abs(totN0 - totN1) > 1.0E-6)then ! Precision: 1.19209290E-07
+    write(*,*)"Imbalance of nitrogen in: ", tag
+    write(*,*)'N0, N1, N0-N1', totN0, totN1, totN0 - totN1
+    !stop
+  endif
+  write(*,*)tag, ': N0, N1, N0-N1', totN0, totN1, totN0 - totN1
+end subroutine check_N_conservation
+
+! ============================================================================
+function TotalN(vegn)
+  real :: TotalN ! returned value
+  type(vegn_tile_type), intent(in) :: vegn
+
+  TotalN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
+           vegn%SapwoodN + vegn%woodN + &
+           vegn%mineralN + sum(vegn%SON(:))
+end function
+
 !======================= Specific experiments ================================
 
 !----------------------- fire disturbance (Konza) ---------------------------
@@ -2922,7 +2945,6 @@ subroutine vegn_fire (vegn, deltat)
         r_fire < vegn%P_burn, vegn%treecover, vegn%grasscover
 #endif
   endif
-
 
 end subroutine vegn_fire
 
@@ -3166,7 +3188,6 @@ end subroutine vegn_annualLAImax_update
 !==============================================================
 !Weng, 06-13-2021, Crown gap with biodiversity
 subroutine vegn_gap_fraction_update(vegn)
-
   type(vegn_tile_type), intent(inout) :: vegn
 
   !----- local var --------------

@@ -233,39 +233,47 @@ type :: cohort_type
   logical :: firstday     ! First day of a growing season
   integer :: pt           ! photosynthetic physiology of species
 
-  ! ---- biological prognostic variables
+  ! ---- Cohort properties
   integer :: ccID   = 0   ! cohort ID
   integer :: species= 0   ! PFT type
-  real :: gdd       = 0.0 ! for phenology
-  real :: ALT       = 0.0 ! growing season accumulative cold temperature
-  real :: AWD       = 1.0 ! Accumulative water deficit (Demand - Transp)/Demand
-  integer :: Ngd    = 0   ! growing days
-  integer :: Ndm    = 0   ! dormant days
-  integer :: Ncd    = 0   ! number of cold days in non-growing season
-  integer :: status = 0   ! growth status of plant: 1 for ON, 0 for OFF
   integer :: layer  = 1   ! the layer of this cohort (numbered from top, top layer=1)
+  real :: nindivs   = 1.0 ! plant density, individuals/m2
   real :: layerfrac = 0.0 ! fraction of layer area occupied by this cohort
+  real :: topyear   = 0.0 ! the years that a plant in top layer
+
+  ! Phenology-related
+  integer :: status = 0    ! growth status of plant: 1 for ON, 0 for OFF
+  integer :: Ngd    = 0    ! growing days
+  integer :: Ndm    = 0    ! dormant days
+  integer :: Ncd    = 0    ! number of cold days in non-growing season
+  real    :: GDD    = 0.0  ! for phenology
+  real    :: ALT    = 0.0  ! growing season accumulative cold temperature
+  real    :: AWD    = 1.0  ! Accumulative water deficit (Demand - Transp)/Demand
+  real    :: Tc_OFF = -99. ! Critical Tc for PhenoOFF
+  real    :: GDD_ON = -99. ! Threshold of GDD for PhenoON
+
+  ! Individual properties
+  real :: mu        = 0.02! Cohort mortality rate
+  real :: age       = 0.0 ! age of cohort, years
   real :: leafage   = 0.0 ! leaf age (year)
+  real :: dbh       = 0.0 ! diameter at breast height, m
+  real :: height    = 0.0 ! vegetation height, m
+  real :: Acrown    = 1.0 ! crown area, m2/individual
+  real :: Aleaf     = 0.0 ! total area of leaves, m2/individual
+  real :: lai       = 0.0 ! crown leaf area index, m2/m2
+  real :: D_bark    = 0.0 ! thickness of bark
+  real :: bl_max    = 0.0 ! Max. leaf biomass, kg C/individual
+  real :: br_max    = 0.0 ! Max. fine root biomass, kg C/individual
+  real :: CSAsw     = 0.0
+  real :: DBH_ys        ! DBH at the begining of a year (growing season)
 
-  ! for population structure
-  real :: nindivs= 1.0  ! density of vegetation, individuals/m2
-  real :: mu     = 0.02 ! Cohort mortality rate
-  real :: age    = 0.0 ! age of cohort, years
-  real :: dbh    = 0.0 ! diameter at breast height, m
-  real :: height = 0.0 ! vegetation height, m
-  real :: Acrown = 1.0 ! crown area, m2/individual
-  real :: Aleaf  = 0.0 ! total area of leaves, m2/individual
-  real :: lai    = 0.0 ! crown leaf area index, m2/m2
-  real :: D_bark = 0.0 ! thickness of bark
-  ! carbon pools
-  real :: bl     = 0.0 ! biomass of leaves, kg C/individual
-  real :: br     = 0.0 ! biomass of fine roots, kg C/individual
-  real :: bsw    = 0.0 ! biomass of sapwood, kg C/individual
-  real :: bHW    = 0.0 ! biomass of heartwood, kg C/individual
-  real :: seedC  = 0.0 ! biomass put aside for future progeny, kg C/individual
-  real :: nsc    = 0.0 ! non-structural carbon, kg C/individual
+  ! Photosynthesis
+  real :: An_op     = 0.0 ! mol C/(m2 of leaf per year)
+  real :: An_cl     = 0.0 ! mol C/(m2 of leaf per year)
+  real :: w_scale   = -9999.0
+  real :: extinct   = 0.75     ! light extinction coefficient in the canopy for photosynthesis
 
-  ! ----- carbon fluxes
+  ! Carbon fluxes
   real :: gpp  = 0.0 ! gross primary productivity kg C/step
   real :: npp  = 0.0 ! net primary productivity kg C/step
   real :: resp = 0.0 ! plant respiration
@@ -276,7 +284,40 @@ type :: cohort_type
   real :: NPProot = 0.0 !
   real :: NPPwood = 0.0 !
 
-  ! for hydraulics-mortality
+  ! Carbon pools
+  real :: bl     = 0.0 ! biomass of leaves, kg C/individual
+  real :: br     = 0.0 ! biomass of fine roots, kg C/individual
+  real :: bsw    = 0.0 ! biomass of sapwood, kg C/individual
+  real :: bHW    = 0.0 ! biomass of heartwood, kg C/individual
+  real :: seedC  = 0.0 ! biomass put aside for future progeny, kg C/individual
+  real :: nsc    = 0.0 ! non-structural carbon, kg C/individual
+
+  ! ---- Nitrogen model related parameters
+  real :: NSNmax = 0.
+  real :: NSN    = 0.    ! non-structural N pool
+  real :: leafN  = 0.
+  real :: sapwN  = 0.
+  real :: woodN  = 0. ! N of heart wood
+  real :: rootN  = 0. ! N of fine roots
+  real :: seedN  = 0. !
+  real :: N_uptake = 0.
+  real :: fixedN ! fixed N at each stem per tree
+
+  ! ---- water uptake-related variables
+  real :: root_length(soil_L) ! m
+  real :: rootarea ! total fine root area per tree
+  real :: rootdepth  ! maximum depth of fine roots
+  real :: ArootL(soil_L) = 0.0 ! Root area per layer
+  real :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
+  real :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
+  real :: W_supply  ! potential water uptake rate per unit time per tree
+  real :: totDemand  = 0.0 ! Total water demand in a growing season
+  real :: transp   ! transpiration rate per tree per time step
+  real :: uptake_frac(soil_L) ! for LM3 soil water uptake, Weng, 2017-10-28
+  real :: K_r,r_r
+  real :: root_zeta
+
+  ! Hydraulics
   integer :: Nrings = 1
   real :: psi_s0   ! Equilibrium stem base water potential (soil-stem flux=0)
   real :: psi_leaf ! MPa, leaf water potential
@@ -292,23 +333,22 @@ type :: cohort_type
   real :: Wmin_s ! Stem min water content, kgH2O (per tree)
   real :: Q_stem ! water flux from soil to stems (kg/tree/step)
   real :: Q_leaf ! water flux from stems to leaves (kg/tree/step)
-
   real :: Ktrunk ! trunk water conductance, m/(s MPa)
-  real :: Asap ! Functional cross sectional area
+  real :: Asap   ! Functional cross sectional area
   real :: Atrunk ! Sum of all rings
   real :: treeHU ! total water transported by the functional sapwood, m^3
   real :: treeW0 ! total WTC0 of the sapwood, m^3
-  real :: Kx(Ysw_max) = 0.0 ! Initial conductivity of the woody generated in each year
-  real :: WTC0(Ysw_max) = 0.0 ! lifetime water transfer capacity
-  real :: accH(Ysw_max) = 0.0 ! m, total water transport for functional conduits
-  real :: plcH(Ysw_max) = 0.0 ! m, WTC cost at the low xylem water potential
+  real :: Kx(Ysw_max)    = 0.0 ! Initial conductivity of the woody generated in each year
+  real :: WTC0(Ysw_max)  = 0.0 ! lifetime water transfer capacity
+  real :: accH(Ysw_max)  = 0.0 ! m, total water transport for functional conduits
+  real :: plcH(Ysw_max)  = 0.0 ! m, WTC cost at the low xylem water potential
   real :: farea(Ysw_max) = 0.0 ! fraction of functional area, 1.0/(exp(r_DF*(1.0-accH[j]/W0[j]))+1.0)
   real :: Rring(Ysw_max) = 0.0 ! Radius to the outer edge
   real :: Lring(Ysw_max) = 0.0 ! Length of xylem conduits
   real :: Aring(Ysw_max) = 0.0 ! Area of each ring
   real :: Kring(Ysw_max) = 0.0 ! Conductance of each ring
 
-  ! for diagnostics
+  ! Diagnostics
   real :: Aleafmax = 0.0  ! Yearly maximum leaf area
   real :: dailyTrsp ! Daily transpiration
   real :: dailyWdmd ! Plant water demand
@@ -321,45 +361,9 @@ type :: cohort_type
   real :: annualNPP
   real :: annualResp
   real :: CO2_c ! ppm
-
-  ! ---- Nitrogen model related parameters
-  real :: NSNmax = 0.
-  real :: NSN = 0.    ! non-structural N pool
-  real :: leafN = 0.
-  real :: sapwN= 0.
-  real :: woodN = 0. ! N of heart wood
-  real :: rootN = 0. ! N of fine roots
-  real :: seedN = 0. !
-  real :: N_uptake = 0.
-  real :: annualNup  = 0.0
-  real :: fixedN ! fixed N at each stem per tree
-  real :: dailyfixedN
+  real :: dailyfixedN  = 0.0
   real :: annualfixedN = 0.0 ! annual N fixation per unit crown area
-
-  real :: bl_max  = 0.0 ! Max. leaf biomass, kg C/individual
-  real :: br_max  = 0.0 ! Max. fine root biomass, kg C/individual
-  real :: CSAsw   = 0.0
-  real :: topyear = 0.0 ! the years that a plant in top layer
-  real :: DBH_ys        ! DBH at the begining of a year (growing season)
-
-  ! ---- water uptake-related variables
-  real :: root_length(soil_L) ! m
-  real :: rootarea ! total fine root area per tree
-  real :: rootdepth  ! maximum depth of fine roots
-  real :: ArootL(soil_L) = 0.0 ! Root area per layer
-  real :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
-  real :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
-  real :: W_supply  ! potential water uptake rate per unit time per tree
-  real :: totDemand  = 0.0 ! Total water demand in a growing season
-  real :: transp   ! transpiration rate per tree per hour
-  real :: uptake_frac(soil_L) ! for LM3 soil water uptake, Weng, 2017-10-28
-  real :: K_r,r_r
-  real :: root_zeta
-  ! for photosynthesis
-  real :: An_op = 0.0 ! mol C/(m2 of leaf per year)
-  real :: An_cl = 0.0 ! mol C/(m2 of leaf per year)
-  real :: w_scale =-9999
-  real :: extinct = 0.75     ! light extinction coefficient in the canopy for photosynthesis
+  real :: annualNup    = 0.0
 
 end type cohort_type
 
@@ -375,11 +379,11 @@ type :: vegn_tile_type
   type(cohort_type), pointer :: initialCC(:)=>NULL()
   type(vegn_tile_type), pointer :: prev => null() ! Pointer to the older vegn tile
   type(vegn_tile_type), pointer :: next => null() ! Pointer to the younger vegn tile
-  real :: area      ! m2
-  real :: age = 0.0 ! tile age
-  real :: LAI  ! leaf area index
-  real :: LAImax ! growing season max
-  real :: CAI  ! crown area index
+  real :: area              ! m2
+  real :: age = 0.0         ! tile age
+  real :: LAI               ! leaf area index
+  real :: LAImax            ! growing season max
+  real :: CAI               ! crown area index
   real :: LAIlayer(5) = 0.0 ! LAI of each crown layer, max. 9
   real :: f_gap(5)    = 0.0 ! gap fraction of each crown layer
   real :: kp(5)       = 0.0 ! light extinction coefficient fro each layer
@@ -398,7 +402,7 @@ type :: vegn_tile_type
   !!  Nitrogen pools, Weng 2014-08-08
   real :: mineralN= 0.  ! Mineral nitrogen pool, (kg N/m2)
   real :: totN    = 0.
-  real :: N_input = 0.      ! annual N input (kgN m-2 yr-1)
+  real :: N_input = 0.   ! annual N input (kgN m-2 yr-1)
   real :: N_uptake= 0.0  ! kg N m-2 hour-1
   real :: fixedN  = 0.0  ! kg N/step
   real :: annualN = 0.0  ! annual available N in a year
@@ -421,21 +425,21 @@ type :: vegn_tile_type
   real :: K_soil(soil_L)    ! Kg H2O/(m2 s MPa)
   real :: soilWater         ! kg m-2 in root zone
 
-  ! Vegetation water
-  real :: W_leaf
-  real :: W_stem
-  real :: W_dead
+  ! Vegetation water content
+  real :: W_leaf  ! Leaves
+  real :: W_stem  !
+  real :: W_dead  ! Heartwood ?
 
   ! water uptake-related variables
-  real :: RAI ! root area index
+  real :: RAI                ! root area index
   real :: RAIL(soil_L) = 0.0 ! Root length per layer, m of root/m
-  real :: W_uptake  ! water uptake rate per unit time per m2
+  real :: W_uptake           ! water uptake rate per unit time per m2
 
   !  Carbon fluxes
-  real :: gpp = 0  ! gross primary production, kgC m-2 yr-1
-  real :: npp = 0  ! net primary productivity
+  real :: gpp  = 0  ! gross primary production, kgC m-2 yr-1
+  real :: npp  = 0  ! net primary productivity
   real :: resp = 0 ! auto-respiration of plants
-  real :: rh  = 0  ! soil carbon lost to the atmosphere
+  real :: rh   = 0  ! soil carbon lost to the atmosphere
 
   !  fire disturbance
   real :: C_burned  = 0.0 ! Carbon released to atmosphere via fire
@@ -446,7 +450,7 @@ type :: vegn_tile_type
   real :: EVrisk    = 0.0 ! Probability of climatic fire risk
   real :: P_burn    = 0.0 ! Probability of burning
 
-  ! daily diagnostics
+  ! Daily diagnostics
   real :: dailyGPP
   real :: dailyNPP
   real :: dailyResp
@@ -454,7 +458,8 @@ type :: vegn_tile_type
   real :: dailyNup
   real :: dailyfixedN
   real :: dailyLFLIT = 0.0   !kgC day-1, leaf litter flux
-  ! for annual diagnostics
+
+  ! Annual diagnostics
   real :: CO2_c ! ppm, annual atmospheric CO2 concentration
   real :: dailyPrcp = 0.0, annualPrcp = 0.0 ! mm m-2 yr-1
   real :: dailyTrsp = 0.0, dailyEvap  = 0.0, dailyRoff = 0.0 ! mm m-2 yr-1
@@ -610,38 +615,35 @@ real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 
 ! Phenology parameters
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
-real :: T0_gdd   = 5.0 ! 5.d0
-real :: T0_chill = 10.0
-integer :: N0_GD = 90 ! base growing days, 90 days, with a -5 substraction of Tc_crit
+integer :: GrassMaxL = 3     ! Maximal layers that grasses can survive
+integer :: N0_GD     = 90    ! base growing days, 90 days, with a -5 substraction of Tc_crit
+integer :: Days_thld = 60    ! minimum days of the growing or non-growing season
+real    :: cold_thld = -20.  ! threshold of accumulative low temperature (sum(dT*day)
+real    :: T0_gdd    = 5.0   ! Celcus degree
+real    :: T0_chill  = 10.0  ! Celcus degree
 
 ! Fire regimes
-real :: envi_fire_prb = 0.0 ! fire probability due to environment, 0.5
-real :: ETP0  = 2.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
-real :: A_ETP = -8.0 ! shape parameter of envi_fire_prb - ET_P curve
-real :: FSBM0 = 0.4 ! kgC m-2, grass fire severity parameter, as a function of grass BM
-real :: m0_g_fire = 0.2 ! mortality rates of grasses due to fire
-real :: m0_w_fire = 0.99! mortality rates of trees due to fire
-real :: f_bk = 0.1105   ! coefficient of bark thickness,
+real :: envi_fire_prb= 0.0 ! fire probability due to environment, 0.5
+real :: ETP0         = 2.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
+real :: A_ETP        = -8.0 ! shape parameter of envi_fire_prb - ET_P curve
+real :: FSBM0        = 0.4 ! kgC m-2, grass fire severity parameter, as a function of grass BM
+real :: m0_g_fire    = 0.2 ! mortality rates of grasses due to fire
+real :: m0_w_fire    = 0.99! mortality rates of trees due to fire
+real :: f_bk         = 0.1105   ! coefficient of bark thickness,
                         ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
-real :: r_BK0 = -240.0  ! bark resistance, exponential equation, 120 --> 0.006 m of bark
+real :: r_BK0        = -240.0  ! bark resistance, exponential equation, 120 --> 0.006 m of bark
 ! An old scheme
-real :: f_HT0 = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
-real :: h0_escape = 5.0 ! tree height that escapes direct burning of grass fires
-real :: D_BK0   = 5.9/1000.0 ! half survival bark thickness, m
+real :: f_HT0        = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
+real :: h0_escape    = 5.0 ! tree height that escapes direct burning of grass fires
+real :: D_BK0        = 5.9/1000.0 ! half survival bark thickness, m
 
 ! Soil organic matter decomposition
-real :: K0SOM(5)  = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
-real :: K_nitrogen = 8.0     ! mineral Nitrogen turnover rate
-real :: fDON       = 0.02    ! fraction of DON production in decomposition
-real :: rho_SON    = 0.05    ! SON release rate per year
-real :: f_M2SOM    = 0.8     ! the ratio of C and N returned to litters from microbes
-real :: etaN       = 0.025   ! N loss through runoff (organic and mineral)
-
-! Climate and vegetation types (for LM3)
-real :: phen_ev1 = 0.5, phen_ev2 = 0.9 ! thresholds for evergreen/decidious
-      ! differentiation (see phenology_type in cohort.F90)
-real :: tg_c3_thresh = 1.5 ! threshold biomass between tree and grass for C3 plants
-real :: tg_c4_thresh = 2.0 ! threshold biomass between tree and grass for C4 plants
+real :: K0SOM(5)     = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
+real :: K_nitrogen   = 8.0     ! mineral Nitrogen turnover rate
+real :: fDON         = 0.02    ! fraction of DON production in decomposition
+real :: rho_SON      = 0.05    ! SON release rate per year
+real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
+real :: etaN         = 0.025   ! N loss through runoff (organic and mineral)
 
 ! -------- PFT-specific parameters ----------
 ! c4grass  c3grass  temp-decid  tropical  evergreen  BE  BD  BN  NE  ND  G  D  T  A
@@ -788,9 +790,9 @@ real :: init_Nmineral     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
 real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
 ! Input files
-character(len=80) :: filepath_in = './input/'
-character(len=80) :: filepath_out = './output/'
-character(len=80) :: runID = 'test'
+character(len=80)  :: filepath_in = './input/'
+character(len=80)  :: filepath_out = './output/'
+character(len=80)  :: runID = 'test'
 character(len=160) :: climfile = 'ORNL_forcing.txt'
 character(len=160) :: Scefile = 'ORNL_forcing.txt'
 character(len=160) :: PaleoPfile = 'RMA_P.csv' ! for DroughtPaleo
@@ -909,8 +911,8 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
   retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
   ! Phenology
-  gdd_crit,Tc0_OFF,Tc0_ON,betaON,betaOFF,AWD_crit,                    &
-  T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,                         &
+  gdd_crit,Tc0_OFF,Tc0_ON,betaON,betaOFF,AWD_crit,GrassMaxL,N0_GD,    &
+  Days_thld,cold_thld,T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,     &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
   r0mort_c,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,                &
@@ -921,13 +923,12 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                                  &
   ! Soil
-  LMAmin,fsc_fine,fsc_wood,                             &
-  K0SOM,K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                         &
+  LMAmin,fsc_fine,fsc_wood,K0SOM,                                     &
+  K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                               &
   ! Fire model parameters, Weng, 01/13/2021
   envi_fire_prb, ETP0, A_ETP, FSBM0,                                  &
   IgniteP, m0_w_fire, m0_g_fire, f_bk, r_BK0,                         &
-  f_HT0 , h0_escape, D_BK0,                    & ! for an old scheme
-  phen_ev1, phen_ev2, tg_c3_thresh, tg_c4_thresh ! LM3 PFT transitions
+  f_HT0 , h0_escape, D_BK0                     ! for an old scheme
 
 !-------------Vars for parameter types -----------------------
 ! PFT-specific parameters
@@ -1466,219 +1467,107 @@ end function
                 ! on decomposition rates
  end function A_function
 
- !============================================================================
-  ! Weng, 05/24/2018
-  subroutine calc_solarzen(td,latdegrees,cosz,solarelev,solarzen)
-       !* Calculate solar zenith angle **in radians**
-       !* From Spitters, C. J. T. (1986), AgForMet 38: 231-242.
-       implicit none
-       real,intent(in) :: td             ! day(to minute fraction)
-       real,intent(in) :: latdegrees     ! latitude in degrees
-       real :: hour,latrad
-       real :: delta    ! declination angle
-       real :: pi, rad
-       real,intent(out) :: cosz        ! cosz=cos(zen angle)=sin(elev angle)
-       real,intent(out) :: solarelev    ! solar elevation angle (rad)
-       real,intent(out) :: solarzen     ! solar zenith angle (rad)
-       pi  = 3.1415926
-       rad = pi / 180.0 ! Conversion from degrees to radians.
-       hour = (td-floor(td))*24.0
-       latrad = latdegrees*rad
-       delta  = asin(-sin(rad*23.450)*cos(2.0*pi*(td+10.0)/365.0))
-       cosz = sin(latrad)*sin(delta) + &
-                cos(latrad)*cos(delta)*cos(rad* 15.0*(hour-12.0))
-       cosz = max (cosz, 0.0)  ! Sun's angular is 0.01
+!============================================================================
+! Weng, 05/24/2018
+subroutine calc_solarzen(td,latdegrees,cosz,solarelev,solarzen)
+     !* Calculate solar zenith angle **in radians**
+     !* From Spitters, C. J. T. (1986), AgForMet 38: 231-242.
+     implicit none
+     real,intent(in) :: td             ! day(to minute fraction)
+     real,intent(in) :: latdegrees     ! latitude in degrees
+     real :: hour,latrad
+     real :: delta    ! declination angle
+     real :: pi, rad
+     real,intent(out) :: cosz        ! cosz=cos(zen angle)=sin(elev angle)
+     real,intent(out) :: solarelev    ! solar elevation angle (rad)
+     real,intent(out) :: solarzen     ! solar zenith angle (rad)
+     pi  = 3.1415926
+     rad = pi / 180.0 ! Conversion from degrees to radians.
+     hour = (td-floor(td))*24.0
+     latrad = latdegrees*rad
+     delta  = asin(-sin(rad*23.450)*cos(2.0*pi*(td+10.0)/365.0))
+     cosz = sin(latrad)*sin(delta) + &
+              cos(latrad)*cos(delta)*cos(rad* 15.0*(hour-12.0))
+     cosz = max (cosz, 0.0)  ! Sun's angular is 0.01
 
-       ! compute the solar elevation and zenth angles below
-       solarelev = asin(cosz)/pi*180.0  !since asin(cos(zen))=pi/2-zen=elev
-       solarzen = 90.0 - solarelev ! pi/2.d0 - solarelev
-  end subroutine calc_solarzen
+     ! compute the solar elevation and zenth angles below
+     solarelev = asin(cosz)/pi*180.0  !since asin(cos(zen))=pi/2-zen=elev
+     solarzen = 90.0 - solarelev ! pi/2.d0 - solarelev
+end subroutine calc_solarzen
 
-  ! ===== Get PFTs based on climate conditions =================
-  ! Author: Elena and Sergey, LM3
+!=================================================================
+! Weng, 2025-09-07
+! ------- Potential ET -----------
+! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
+! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
+! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
+! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
+! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
+! Smooth bare soil / desert: >150–300 s m-1
+function PotentialET(forcing)
+  implicit none
+  real :: PotentialET  ! returned value, kg H2O/m2/hour
+  type(climate_data_type),intent(in):: forcing
 
-  ! =============================================================================
-  subroutine vegn_biogeography(vegn)
-    type(vegn_tile_type), intent(inout) :: vegn
+  !----- local var --------------
+  ! Meteorological variables
+  real :: Rnet          ! net radiation, and soil surface radiation, W/m2
+  real :: RH, Uwind     ! relative humidity (0~1); wind speed (m/s)
+  real :: TairK, Tair   ! temperature (K and C)
+  real :: P_air, Dair   ! Air pressure and VPD, (pa)
+  ! Assumed vegetation states
+  real :: Karman = 0.41 ! von Kármán constant (~0.41)
+  real :: kappa  = 0.75 ! light extinction coefficient of corwn layers
+  real :: dV     = 0.1  ! a small number
+  real :: Zmh    = 2.0   ! Measurement height (m)
+  real :: Zvg    = 0.12  ! FAO, short-crop height (m), for PET
+  real :: Z0m    = 0.014 ! roughness length for momentum [m]
+  real :: Z0h    = 0.02  ! roughness length for heat and vapour [m]
+  real :: dz             ! zero plane displacement height (zero wind height) [m]
+  ! For calculation
+  real :: rhocp, H2OLv, slope, psyc
+  real :: rAero         ! resistance, s m-1
+  real :: Esoil         ! Soil surface evaporation, W/m2
 
-    ! ---- local vars
-    integer :: i
+  ! Forcing variables
+  Rnet  = forcing%radiation * 0.9 ! assuming 10% reflectance
+  Uwind = forcing%windU + dV      ! in case U is zero.
+  TairK = forcing%Tair
+  Tair  = forcing%Tair - 273.16
+  P_air = forcing%P_air
+  RH    = forcing%RH  ! Check forcing's unit of humidity
 
-    do i = 1, vegn%n_cohorts
-       call update_species(vegn%cohorts(i), vegn%t_ann, vegn%t_cold, &
-            vegn%p_ann*seconds_per_year, vegn%ncm, vegn%landuse)
-    enddo
-  end subroutine
+  ! --------- Potential evapotranspiration (PET) --------
+  rhocp = cpair * P_air * mol_air / (Rgas*TairK)
+  H2OLv = H2oLv0 - 2.365e3 * Tair
+  Dair  = esat(Tair) * (1.0 - RH)
+  slope = (esat(Tair + dV) - esat(Tair)) / dV
+  psyc  = P_air * cpair * mol_air / (H2OLv*mol_h2o)
+  dz    = Zvg*2/3 ! Zero wind speed height
+  raero = (log((Zmh - dz)/Z0m)*log((Zmh - dz)/Z0h))/(Karman*Karman*Uwind)
+  Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
+          !(slope + psyc * (1.0+rsoil/raero)) ! AET, Liqing Peng et al. 2019 GCB
 
-  ! ============================================================================
-  ! given a cohort, climatology, and land use type, determines and updates
-  ! physiology type, phenology type, and species of the cohort
-  subroutine update_species(c, t_ann, t_cold, p_ann, cm, landuse)
-    type(cohort_type), intent(inout) :: c    ! cohort to update
-    real,              intent(in) :: t_ann   ! annual-mean temperature, degK
-    real,              intent(in) :: t_cold  ! average temperature of the coldest month, degK
-    real,              intent(in) :: p_ann   ! annual-mean precipitation, mm/yr
-    real,              intent(in) :: cm      ! number of cold months
-    integer,           intent(in) :: landuse ! land use type
-    ! ---- local var -----------
-    integer :: spp
+  PotentialET = Esoil/H2OLv * 3600.0 ! kg H2O m-2 hour-1
+end function PotentialET
 
-    c%pt    = c3c4(c,t_ann,p_ann)
-    c%phenotype = phenology_type(cm)
+! ============================================================================
+function c3c4(c, temp, precip) result (pt)
+  integer :: pt
+  type(cohort_type), intent(in) :: c
+  real,              intent(in) :: temp   ! temperatire, degK
+  real,              intent(in) :: precip ! precipitation, ???
 
-    if(landuse == LU_CROP) c%phenotype = 0  ! crops can't be evergreen
+  real :: pc4
+  ! Rule based on analysis of ED global output; equations from JPC, 2/02
+    pc4=exp(-0.0421*(273.16+25.56-temp)-(0.000048*(273.16+25.5-temp)*precip))
 
-    if(c%pt==PT_C4) then
-       spp=SP_C4GRASS  ! c4 grass
-    elseif(c%phenotype==1) then
-       spp=SP_EVERGR   ! evergreen non-grass
-    elseif(btotal(c) < tg_c3_thresh) then
-       spp=SP_C3GRASS  ! c3 grass
-    elseif ( t_cold > 278.16 ) then  ! ens,slm Jun 21 2003 to prohibit tropical forest in coastal cells
-       spp=SP_TROPICAL ! tropical deciduous non-grass
-    else
-       spp=SP_TEMPDEC  ! temperate deciduous non-grass
-    endif
-
-    ! reset leaf age to zero if species are chnaged
-    if (spp/=c%species) c%leafage = 0.0
-
-    c%species = spp
-  end subroutine
-
-  ! ============================================================================
-  subroutine check_N_conservation(vegn,totN0,tag)
-    type(vegn_tile_type),intent(in) :: vegn
-    real,                intent(in) :: totN0
-    character(len = *),  intent(in) :: tag
-    !-------local var --------
-    real :: totN1
-    ! Total N balance checking
-    totN1 = TotalN(vegn)
-    if(abs(totN0 - totN1) > 1.0E-6)then ! Precision: 1.19209290E-07
-      write(*,*)"Imbalance of nitrogen in: ", tag
-      write(*,*)'N0, N1, N0-N1', totN0, totN1, totN0 - totN1
-      !stop
-    endif
-    write(*,*)tag, ': N0, N1, N0-N1', totN0, totN1, totN0 - totN1
-  end subroutine check_N_conservation
-
-  !=================================================================
-  ! Weng, 2025-09-07
-  ! ------- Potential ET -----------
-  ! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
-  ! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
-  ! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
-  ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
-  ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
-  ! Smooth bare soil / desert: >150–300 s m-1
-  function PotentialET(forcing)
-    implicit none
-    real :: PotentialET  ! returned value, kg H2O/m2/hour
-    type(climate_data_type),intent(in):: forcing
-
-    !----- local var --------------
-    ! Meteorological variables
-    real :: Rnet          ! net radiation, and soil surface radiation, W/m2
-    real :: RH, Uwind     ! relative humidity (0~1); wind speed (m/s)
-    real :: TairK, Tair   ! temperature (K and C)
-    real :: P_air, Dair   ! Air pressure and VPD, (pa)
-    ! Assumed vegetation states
-    real :: Karman = 0.41 ! von Kármán constant (~0.41)
-    real :: kappa  = 0.75 ! light extinction coefficient of corwn layers
-    real :: dV     = 0.1  ! a small number
-    real :: Zmh    = 2.0   ! Measurement height (m)
-    real :: Zvg    = 0.12  ! FAO, short-crop height (m), for PET
-    real :: Z0m    = 0.014 ! roughness length for momentum [m]
-    real :: Z0h    = 0.02  ! roughness length for heat and vapour [m]
-    real :: dz             ! zero plane displacement height (zero wind height) [m]
-    ! For calculation
-    real :: rhocp, H2OLv, slope, psyc
-    real :: rAero         ! resistance, s m-1
-    real :: Esoil         ! Soil surface evaporation, W/m2
-
-    ! Forcing variables
-    Rnet  = forcing%radiation * 0.9 ! assuming 10% reflectance
-    Uwind = forcing%windU + dV      ! in case U is zero.
-    TairK = forcing%Tair
-    Tair  = forcing%Tair - 273.16
-    P_air = forcing%P_air
-    RH    = forcing%RH  ! Check forcing's unit of humidity
-
-    ! --------- Potential evapotranspiration (PET) --------
-    rhocp = cpair * P_air * mol_air / (Rgas*TairK)
-    H2OLv = H2oLv0 - 2.365e3 * Tair
-    Dair  = esat(Tair) * (1.0 - RH)
-    slope = (esat(Tair + dV) - esat(Tair)) / dV
-    psyc  = P_air * cpair * mol_air / (H2OLv*mol_h2o)
-    dz    = Zvg*2/3 ! Zero wind speed height
-    raero = (log((Zmh - dz)/Z0m)*log((Zmh - dz)/Z0h))/(Karman*Karman*Uwind)
-    Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
-            !(slope + psyc * (1.0+rsoil/raero)) ! AET, Liqing Peng et al. 2019 GCB
-
-    PotentialET = Esoil/H2OLv * 3600.0 ! kg H2O m-2 hour-1
-  end function PotentialET
-
-  ! ============================================================================
-  function TotalN(vegn)
-    real :: TotalN ! returned value
-    type(vegn_tile_type), intent(in) :: vegn
-
-    TotalN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
-             vegn%SapwoodN + vegn%woodN + &
-             vegn%mineralN + sum(vegn%SON(:))
-  end function
-
-  ! ============================================================================
-  function btotal(c)
-    real :: btotal ! returned value
-    type(cohort_type), intent(in) :: c
-
-    btotal = c%NSC + c%seedC + c%bl + c%br + c%bsw + c%bHW
-  end function
-
-  ! ============================================================================
-  function c3c4(c, temp, precip) result (pt)
-    integer :: pt
-    type(cohort_type), intent(in) :: c
-    real,              intent(in) :: temp   ! temperatire, degK
-    real,              intent(in) :: precip ! precipitation, ???
-
-    real :: pc4
-
-    ! Rule based on analysis of ED global output; equations from JPC, 2/02
-    if(btotal(c) < tg_c4_thresh) then
-      pc4=exp(-0.0421*(273.16+25.56-temp)-(0.000048*(273.16+25.5-temp)*precip))
-    else
-      pc4=0.0
-    endif
-
-    if(pc4>0.5) then
-      pt=PT_C4
-    else
-      pt=PT_C3
-    endif
-
-  end function
-
-  ! ============================================================================
-  ! given current conditions, returns type of phenology.
-  function phenology_type(cm) ! result(phenology_type)
-    integer :: phenology_type ! returned value
-    real, intent(in) :: cm ! number of cold months
-
-    real :: pe  ! prob evergreen
-
-    ! GCH, Rule based on analysis of ED global output; equations from JPC, 2/02
-    ! GCH, Parameters updated 2/9/02 from JPC
-    pe = 1.0/(1.0+((1.0/0.00144)*exp(-0.7491*cm)))
-
-    if(pe>phen_ev1 .and. pe<phen_ev2) then
-       phenology_type = PHEN_EVERGREEN ! its evergreen
-    else
-       phenology_type = PHEN_DECIDIOUS ! its deciduous
-    endif
-  end function
+  if(pc4>0.5) then
+    pt=PT_C4
+  else
+    pt=PT_C3
+  endif
+end function
 
 !================= utilities ===========================================
 !=======================================================================
