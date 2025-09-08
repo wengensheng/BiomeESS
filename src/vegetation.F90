@@ -1085,7 +1085,7 @@ subroutine vegn_phenology(vegn) ! daily step
     associate (sp => spdata(cc%species) )
       if(cc%status == LEAF_ON)then
          cc%ngd = Min(366, cc%ngd + 1)
-         if(cc%ngd > Days_thld)cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc_crit_off)
+         if(cc%ngd > Days_thld) cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc0_off)
          if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1 * (cc%dailyTrsp/cc%dailyWdmd)
       else  ! cc%status == LEAF_OFF
          cc%ndm = cc%ndm + 1
@@ -1109,8 +1109,8 @@ subroutine vegn_phenology(vegn) ! daily step
       gdd_ON = sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd)
 
       PhenoON = ((sp%phenotype==0 .and. cc%status/=LEAF_ON)         &
-        !.and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
-        .and.(cc%gdd > gdd_ON    .and. vegn%tc_pheno>sp%tc_crit_on) &  ! Thermal conditions
+        !.and.(cc%gdd>sp%gdd_crit .and. vegn%tc_pheno>sp%tc0_on) &  ! Thermal conditions
+        .and.(cc%gdd > gdd_ON    .and. vegn%tc_pheno>sp%tc0_on) &  ! Thermal conditions
         .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
         .and.(.NOT.(sp%lifeform==0 .and. cc%layer > GrassMaxL))     &  ! If grasses, layer< 3
          )
@@ -1145,7 +1145,7 @@ subroutine vegn_phenology(vegn) ! daily step
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
      ! Critical temperature trigering offset of phenology
-     Tk_OFF = sp%tc_crit_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
+     Tk_OFF = sp%tc0_off - 5. * exp(-0.05*(cc%ngd-N0_GD))
      PhenoOFF = (sp%phenotype == 0 .and. cc%status==LEAF_ON) .and. (&
           (cc%ALT < cold_thld .and. vegn%tc_pheno < Tk_OFF) .or.  & ! Cold-deciduous
           (vegn%thetaS < sp%betaOFF)  & ! Drought-deciduous

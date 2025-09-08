@@ -61,7 +61,7 @@ program BiomeE
     call CRU_Interpolation(LandGrid(m),steps_per_hour,forcingData)
     call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
     call Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
-    exit ! for testing set_pfts_from_climate
+    !cycle ! for testing set_pfts_from_climate
     call BiomeE_main()
     call zip_output_files()
 

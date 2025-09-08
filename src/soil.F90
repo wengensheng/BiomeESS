@@ -125,7 +125,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   ! Mineral nitrogen loss
   !N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
   !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
-  N_loss = vegn%mineralN * MIN(0.25, (A * K_nitrogen * dt_fast_yr + etaN*runoff))
+  N_loss = vegn%mineralN * MIN(0.2, (A * K_nitrogen * dt_fast_yr + etaN * runoff))
   vegn%Nloss_yr = vegn%Nloss_yr + N_loss + dN_SOM4 + dN_SOM5
 
   ! Update mineral N pool (mineralN)

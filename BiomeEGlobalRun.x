@@ -10,7 +10,7 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=' '
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
-CPPFLAGS+=' -DMergeLowDensityCohorts'
+CPPFLAGS+=' -DMergeLowDensityCohorts -DDroughtMu -DDO_ESS_PFTs'
 #CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DZippedNCfiles'
@@ -35,7 +35,7 @@ echo $fparameter
 cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess_global
+./ess_global
 
 rm ./para_files/input.nml
 rm ess_global

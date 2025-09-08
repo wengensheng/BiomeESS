@@ -38,7 +38,8 @@ contains
     real :: PFTdata(144,90,9),VegFraction(144,90)
 
     ! Read in PFT map
-    PFTID = [character(len=3) :: 'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G']
+    !PFTID = [character(len=3) :: 'TEB','EGN','CDB','TDB','CDN','CAS','AAS','C3G','C4G']
+    PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
     fnc = trim(fpath)//'BiomeE-PFTs.nc'
     write(*,*)trim(fnc)
     do i=1, 9
@@ -237,6 +238,8 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
   else
     GridPFTs = [1,4,5,6]
   endif
+  write(*,'(a6,f6.1, a12, 4(I6,","))') &
+          'Tmin: ',meanTmin,'Grid PFTs: ',GridPFTs
 
   ! assign initial cohorts
   do i=1, init_n_cohorts
@@ -250,7 +253,7 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
       init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
       init_cohort_nsc(i)     = 0.01  ! initial non-structural biomass, kg C/
     else                  ! Trees and shrubs
-      init_cohort_nindivs(i) = 0.2  ! initial individual density, individual/m2
+      init_cohort_nindivs(i) = 0.1  ! initial individual density, individual/m2
       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
       init_cohort_bsw(i)     = 0.3  ! initial biomass of sapwood, kg C/individual
@@ -277,6 +280,8 @@ subroutine Set_PFTs_from_map(LandGrid)
   ! Sorting PFT numbers according to fPFT
   call rank_descending(LandGrid%fPFT,GridPFTs)
   ! To-do: make the Map PFT codes match PFTs defined in Reset_ESS_PFT_parameters
+  !PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
+  GridPFTs = GridPFTs - 1 ! PFT No. starts from 0.
 
   ! Find out PFTs in this grid
   init_n_cohorts = min(N_IniCC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))

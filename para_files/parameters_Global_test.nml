@@ -7,42 +7,24 @@ init_cohort_bsw     = 0.01, 0.02,  0.2,  0.2,  0.2,
 init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.02, 0.05,  0.5,  0.5,  0.5,
 
-!  Soil
 init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_soil_C    = 40.0   ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_slow_soil_C    = 12.0   ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
 init_Nmineral       = 5.0E-3 ! 402.5E-3, ! kg N m-2
-N_input             = 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
-                              ! high N input --> Deciduous
-                              ! low  N input --> Evergreen
+N_input             = 2.5E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
-runID       = 'Fire5_', ! Output file name
+runID       = 'PFTs1_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
-N_VegTile   = 1, ! Vegetation tiles, usually 1
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 model_run_years =  800,
 outputhourly    =  .False. ! .True.
 outputdaily     =  .False. ! .True.  !
 do_closedN_run  =  .False. ! .True.  !
-do_U_shaped_mortality = .False. ! .True. !
+do_U_shaped_mortality = .True. ! .False. !
 do_fire = .True.  !  .False. !
 do_migration = .True.  !  .False. !
-do_WD_mort_function   = .False. ! .True. !
-do_VariedWTC0 = .True. ! .False. !
-do_VariedKx   = .True. ! .False. !
-/
-
-&global_setting_nml
-ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
-LowerLon = 200, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
-UpperLon = 205, ! 200, ! 209,
-LowerLat = 250, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 255, ! 247,252
-yr_start = 2010, ! Data start year of netCDF files
-yr_end   = 2011, ! Data end year
-StepLatLon = 2,
-start_grid = 1 ! Normal start
 /
 
 &soil_data_nml
@@ -59,7 +41,7 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW = 0.1,
 K0SOM    = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_nitrogen = 1.2, ! 1.2 ! 2.4 ! rate of a year, 2.5
+K_nitrogen = 0.8, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! organic nitrogen release rate
 etaN       = 0.02, ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
@@ -81,22 +63,34 @@ FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 lifeform    = 0,       0,       1,       1,       1,       1,       1,   ! 0: grass; 1 Woody
 phenotype   = 0,       0,       1,       0,       1,       0,       1,   ! 0: Deciduous; 1 Evergreen
 pt          = 1,       0,       0,       0,       0,       0,       0,   ! 0: C3; 1: C4
-s0_plant    = 0.01,    0.01,    0.05,    0.05,    0.05,    0.05,    0.05, ! initial size of seedlings
+s0_plant    = 0.005,   0.005,   0.02,    0.02,    0.02,    0.02,    0.02, ! initial size of seedlings
 LMA         = 0.02,    0.02,    0.08,    0.034,   0.12,    0.02,    0.08, ! Leaf mass per unit area
 phiRL       = 2.5,     2.5,     1.2,     1.2,     1.2,     1.2,     2.0,  ! Root/Leaf area ratio
-rho_wood    = 100.,    100,     350,     350.,    300.,    350.,    350., ! Wood density, kgC m-3
+rho_wood    = 100.,    100,     320,     320.,    300.,    350.,    350., ! Wood density, kgC m-3
+r0mort_c    = 0.02,    0.02,    0.02,    0.04,    0.02,    0.02,    0.02,  ! canopy tree mortality rate, year-1
 IgniteP     = 1.0,     1.0,     0.02,    0.04,    0.04,    0.02,    0.02, ! Ignition probability at match dropping
 gamma_SW    = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    0.02, ! Wood Acambium respiration rate (kgC/m2/yr)
 LNbase      = 1.2E-3,  1.2E-3,  1.0E-3,  1.2E-3,  1.0E-3,  1.2E-3,  1.2E-3, ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 m_cond      = 7.0,     9.0,     9.0,     9.0,     9.0,     9.0,     9.0,
 laimax      = 2.5,     2.5,     4.5,     4.0,     4.0,     3.5,     3.5,   ! maximum crown LAI
-betaON      = 0.4,     0.4,     0.00,    0.6,     0.0,     0.0,     0.0,   ! Soil moisture for phenology ON
-betaOFF     = 0.1,     0.1,     0.00,    0.2,     0.0,     0.0,     0.0,   ! Soil moisture for phenology OFF
-tc_crit_off = 15.0,    15.0,    5.0,     5.0,     -60.,    12.0,    -60.,  ! Critical temperatre
-tc_crit_on  = 10.0,    10.0,    5.0,     5.0,     -60.,    12.0,    -60.,  !
+betaON      = 0.4,     0.5,     0.00,    0.6,     0.0,     0.0,     0.0,   ! Soil moisture for phenology ON
+betaOFF     = 0.1,     0.2,     0.00,    0.3,     0.0,     0.0,     0.0,   ! Soil moisture for phenology OFF
+tc0_off     = 15.0,    15.0,    5.0,     5.0,     -60.,    12.0,    -60.,  ! Critical temperatre
+tc0_on      = 12.0,    8.0,     15.0,    15.0,    -60.,    12.0,    -60.,  !
 Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     0.03,  ! 0.03 kgN kgRootC-1 yr-1
-NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     12.0,  ! N fixation carbon cost: 12 gC/gN
-r0mort_c    = 0.02,    0.02,    0.02,    0.04,    0.02,    0.02,    0.02,  ! canopy tree mortality rate, year-1
+NfixCost0   = 12.0,    12.0,    12.0,    12.0,    12.0,    12.0,    12.0,  ! N fixation carbon cost: 12 gC/gN
 A_sd        = 2.0,     2.0,     9.0,     9.0,     9.0,     9.0,     9.0,   ! Seedling mortality parameter
 AgeRepro    = 0,       0,       5,       5,       5,       5,       5,
+/
+
+&global_setting_nml
+ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
+LowerLon = 206, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
+UpperLon = 206, ! 200, ! 209,
+LowerLat = 255, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 255, ! 247,252
+yr_start = 2010, ! Data start year of netCDF files
+yr_end   = 2011, ! Data end year
+StepLatLon = 1,
+start_grid = 1 ! Normal start
 /
