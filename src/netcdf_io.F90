@@ -172,7 +172,10 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
   integer :: i,j,k,m,n, n_expected
   integer :: GridPFTs(N_GridPFTs) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer
   real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
-  real :: tmp31(31),meanTmin
+  real :: tmp31(31), meanTmin, meanPrcp
+  real :: Pr_thld = 300.
+  real :: T1_thld = 12.0
+  real :: T2_thld = 5.0
 
   ! Sanity checks
   n_expected = days_data * steps_per_day
@@ -195,14 +198,17 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
   allocate(minTm(yr_data))
   dailyTc = 0.0
   meanTc  = 0.0
+  meanPrcp= 0.0
   k = 0
   do i = 1, days_data
     do j = 1, steps_per_day
       k = k + 1
       dailyTc(i) = dailyTc(i) + forcingData(k)%Tair - 273.15
+      meanPrcp = meanPrcp + forcingData(k)%rain
     enddo
     dailyTc(i) = dailyTc(i)/steps_per_day
   enddo
+  meanPrcp = meanPrcp * 3600.0/yr_data
 
   do i = 1, days_data
     m = i - 15
@@ -231,15 +237,28 @@ subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
   meanTmin = sum(minTm)/real(size(minTm))
 
   ! Assign PFT groups according to climate data at each grid
-  if(meanTmin > 12.0)then ! Tropical vs. Temperate trees
-    GridPFTs = [0,2,3,6]
-  elseif(meanTmin > 5.0)then ! C4 vs. C3 grasses
-    GridPFTs = [0,4,5,6]
+  if(meanPrcp > Pr_thld)then
+    ! No desert shrubs
+    if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
+      GridPFTs = [0,2,3,6]
+    elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
+      GridPFTs = [0,4,5,6]
+    else
+      GridPFTs = [1,4,5,6]
+    endif
   else
-    GridPFTs = [1,4,5,6]
+    ! Replace evergreen with desert shrubs
+    if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
+      GridPFTs = [0,3,6,7]
+    elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
+      GridPFTs = [0,5,6,7]
+    else
+      GridPFTs = [1,5,6,7]
+    endif
   endif
-  write(*,'(a6,f6.1, a12, 4(I6,","))') &
-          'Tmin: ',meanTmin,'Grid PFTs: ',GridPFTs
+  write(*,'(2(a6,f6.1,";"), a12, 4(I6,","))')   &
+        'Prcp: ', meanPrcp, 'Tmin: ', meanTmin, &
+        'Grid PFTs: ', GridPFTs
 
   ! assign initial cohorts
   do i=1, init_n_cohorts

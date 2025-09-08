@@ -1040,44 +1040,45 @@ end subroutine read_soil_namelist
 ! Six PFTs: 1: C4, 2: C3, 3: TrE, 4: TrD, 5: TmE, 6: TmD
 ! Weng, 09/06/2025
 subroutine Reset_ESS_PFT_parameters()
-  integer :: N_tot = 6 ! 7 PFTs since started from 0.
+  implicit none
+  integer, parameter :: N_tot = 7 ! 8 PFTs since started from 0.
 
-  !---- Update PFT parameters ---
-  !                  0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: N-fixer
-   pt(0:N_tot)        = [1,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
-   phenotype(0:N_tot) = [0,      0,      1,      0,      1,      0,      1     ] ! 0: Deciduous, 1: evergreen
-   lifeform(0:N_tot)  = [0,      0,      1,      1,      1,      1,      1     ] ! life form of PFTs: 0 for grasses, 1 for trees
-   LAImax(0:N_tot)    = [2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5   ] ! maximum LAI for a tree
-   LMA(0:N_tot)       = [0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.12  ] ! leaf mass per unit area, kg C/m2
-   LNbase(0:N_tot)    = [0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.2E-3, 1.5E-3, 1.2E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
-   alphaHT(0:N_tot)   = [10.,    10.,    35.,    35.,    35.,    35.,    35.   ]
-   alphaCA(0:N_tot)   = [60.,    60.,    120.,   120.,   120.,   120.,   120.  ]
-   phiRL(0:N_tot)     = [3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0   ] ! ratio of fine root area to leaf area
-   tauNSC(0:N_tot)    = [3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5   ] ! NSC residence time,years
-   m_cond(0:N_tot)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 7.0 !
-   rho_wood(0:N_tot)  = [90.,    90.,    350.,   350.,   320.,   350.,   350.  ] ! kgC m-3
-   Tc0_OFF(0:N_tot)   = [5.0,    5.0,    15.0,   15.0,   -50.0,  12.0,   -60.0 ] ! 283.16 ! OFF ! C for convenience
-   Tc0_ON(0:N_tot)    = [5.0,    5.0,    15.0,   15.0,   -50.0,  12.0    -60.0 ] ! 280.16 ! ON  ! C for convenience
-   gdd_crit(0:N_tot)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
-   AWD_crit(0:N_tot)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7   ] ! Critical plant water availability factor (0~1)
-   betaON(0:N_tot)    = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0   ] ! Critical soil moisture for phenology ON
-   betaOFF(0:N_tot)   = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0   ] ! Critical soil moisture for phenology OFF
-   gdd_par1(0:N_tot)  = [30.,    30.,    20.,    0.0,    50.,    20.,    50.   ] ! 50.d0   ! -68.d0
-   gdd_par2(0:N_tot)  = [800.,   800.,   0.0,    800.,   0.0,    800.,   0.0   ] ! 650.d0  !800.d0  ! 638.d0
-   gdd_par3(0:N_tot)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
-   s0_plant(0:N_tot)  = [0.01,   0.01,   0.1,    0.1,    0.1,    0.1,    0.1   ] ! kgC, initial seedling size
-   IgniteP(0:N_tot)   = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01   ] ! Intrinsic flammability
-   r0mort_c(0:N_tot)  = [.05,    .05,    .03,    .03,    .02,    .02,    .02   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-   D0mu(0:N_tot)      = [0.0,    0.0,    1.2,    1.2,    1.2,    1.2,    1.2   ] ! m, Mortality curve parameter
-   A_sd(0:N_tot)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0   ] ! Max multiplier for seedling mortality
-   B_sd(0:N_tot)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.  ] ! Mortality sensitivity for seedlings
-   A_DBH(0:N_tot)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
-   B_DBH(0:N_tot)     = [0.125,  0.125,  0.125,  0.125,  0.125,  0.125,  0.125 ] ! Size-based Mortality sensitivity, m
-   s_hu(0:N_tot)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
-   W_mu0(0:N_tot)     = [2.5,    2.5,    0.70,   0.80,   0.75,   0.80,   1.50  ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
-   gamma_SW(0:N_tot)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
-   Nfixrate0(0:N_tot) = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03  ] ! 0.03 kgN kgRootC-1 yr-1
-   NfixCost0(0:N_tot) = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
+  !------------------------ Update PFT parameters -----------------------------------
+  !---------------------0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
+   pt(0:N_tot)        = [1,      0,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
+   phenotype(0:N_tot) = [0,      0,      1,      0,      1,      0,      1,      0     ] ! 0: Deciduous, 1: evergreen
+   lifeform(0:N_tot)  = [0,      0,      1,      1,      1,      1,      1,      1     ] ! life form of PFTs: 0 for grasses, 1 for trees
+   LAImax(0:N_tot)    = [2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0   ] ! maximum LAI for a tree
+   LMA(0:N_tot)       = [0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.12,   0.035 ] ! leaf mass per unit area, kg C/m2
+   LNbase(0:N_tot)    = [0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.2E-3, 1.5E-3, 1.2E-3, 0.8E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+   alphaHT(0:N_tot)   = [10.,    10.,    35.,    35.,    35.,    35.,    35.,    20.   ]
+   alphaCA(0:N_tot)   = [60.,    60.,    120.,   120.,   120.,   120.,   120.,   200.  ]
+   phiRL(0:N_tot)     = [3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0,    3.0   ] ! ratio of fine root area to leaf area
+   tauNSC(0:N_tot)    = [3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    3.0   ] ! NSC residence time,years
+   m_cond(0:N_tot)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 7.0 !
+   rho_wood(0:N_tot)  = [90.,    90.,    350.,   350.,   320.,   350.,   350.,   450.  ] ! kgC m-3
+   Tc0_OFF(0:N_tot)   = [5.,     5.,     15.,    15.,    -50.,   15.,    -60.0,  12.   ] ! 283.16 ! OFF ! C for convenience
+   Tc0_ON(0:N_tot)    = [5.,     5.,     15.,    15.,    -50.,   12.,    -60.0,  10.   ] ! 280.16 ! ON  ! C for convenience
+   gdd_crit(0:N_tot)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
+   AWD_crit(0:N_tot)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
+   betaON(0:N_tot)    = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0,    0.2   ] ! Critical soil moisture for phenology ON
+   betaOFF(0:N_tot)   = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1   ] ! Critical soil moisture for phenology OFF
+   gdd_par1(0:N_tot)  = [30.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.   ] ! 50.d0   ! -68.d0
+   gdd_par2(0:N_tot)  = [800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
+   gdd_par3(0:N_tot)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
+   s0_plant(0:N_tot)  = [0.01,   0.01,   0.1,    0.1,    0.1,    0.1,    0.1,    0.05  ] ! kgC, initial seedling size
+   IgniteP(0:N_tot)   = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01,    .01   ] ! Intrinsic flammability
+   r0mort_c(0:N_tot)  = [.05,    .05,    .03,    .03,    .02,    .02,    .02,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+   D0mu(0:N_tot)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.6   ] ! m, Mortality curve parameter
+   A_sd(0:N_tot)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0   ] ! Max multiplier for seedling mortality
+   B_sd(0:N_tot)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
+   A_DBH(0:N_tot)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
+   B_DBH(0:N_tot)     = [.125,   .125,   .125,   .125,   .125,   .125,   .125,   .125  ] ! Size-based Mortality sensitivity, m
+   s_hu(0:N_tot)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
+   W_mu0(0:N_tot)     = [2.5,    2.5,    0.70,   0.80,   0.75,   0.80,   1.0,    1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+   gamma_SW(0:N_tot)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
+   Nfixrate0(0:N_tot) = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! 0.03 kgN kgRootC-1 yr-1
+   NfixCost0(0:N_tot) = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
 
    write(*,*)"ESS PFTs'parameters implemented"
 end subroutine Reset_ESS_PFT_parameters
