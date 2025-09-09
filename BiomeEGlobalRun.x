@@ -10,10 +10,11 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=' '
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
-CPPFLAGS+=' -DMergeLowDensityCohorts -DDroughtMu -DDO_ESS_PFTs'
+CPPFLAGS+=' -DMergeLowDensityCohorts -DDO_Climate_VEG'
+#CPPFLAGS+=' -DDroughtMu'
 #CPPFLAGS+=' -DScreenOutput'
-CPPFLAGS+=' -DGlobalRun'
-CPPFLAGS+=' -DZippedNCfiles'
+#CPPFLAGS+=' -DGlobalRun'
+#CPPFLAGS+=' -DZippedNCfiles'
 
 echo $FSRCS
 echo $CPPFLAGS

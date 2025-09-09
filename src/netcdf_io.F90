@@ -12,7 +12,7 @@ module netcdf_io
   implicit none
   private
 
-  public ReadNCfiles, CRU_Interpolation, Set_PFTs_from_Climate
+  public ReadNCfiles, CRU_Interpolation
   public unzip_gzip_file
 
 contains
@@ -158,134 +158,6 @@ contains
     enddo   ! four variables
     deallocate(GridMask)
   end subroutine ReadNCfiles
-
-!=============================================================================
-! for testing tree-grass-desert shrub and evergreen-deciduous forests only
-! Weng, 09/06/2025
-subroutine Set_PFTs_from_Climate(forcingData,datalines,days_data,yr_data)
-  implicit none
-  type(climate_data_type), intent(in) :: forcingData(:)
-  integer :: datalines, days_data, yr_data, w
-
-  !--------- local vars ------------
-  integer, parameter :: N_GridPFTs = 4
-  integer :: i,j,k,m,n, n_expected
-  integer :: GridPFTs(N_GridPFTs) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer
-  real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
-  real :: tmp31(31), meanTmin, meanPrcp
-  real :: Pr_thld = 300.
-  real :: T1_thld = 12.0
-  real :: T2_thld = 5.0
-
-  ! Sanity checks
-  n_expected = days_data * steps_per_day
-  if (size(forcingData) < n_expected) then
-     error stop "Set_PFTs_from_Climate: forcingData shorter than days_data*steps_per_day."
-  end if
-  if (yr_data * days_per_year > days_data) then
-     error stop "Set_PFTs_from_Climate: yr_data*days_per_year exceeds days_data."
-  end if
-  if (days_data < 31) then
-     error stop "Set_PFTs_from_Climate: need at least 31 days for a 31-day window."
-  end if
-
-  ! total cohorts per grid
-  init_n_cohorts = N_GridPFTs
-
-  ! Allocate variables
-  allocate(dailyTc(days_data))
-  allocate(meanTc(days_data))
-  allocate(minTm(yr_data))
-  dailyTc = 0.0
-  meanTc  = 0.0
-  meanPrcp= 0.0
-  k = 0
-  do i = 1, days_data
-    do j = 1, steps_per_day
-      k = k + 1
-      dailyTc(i) = dailyTc(i) + forcingData(k)%Tair - 273.15
-      meanPrcp = meanPrcp + forcingData(k)%rain
-    enddo
-    dailyTc(i) = dailyTc(i)/steps_per_day
-  enddo
-  meanPrcp = meanPrcp * 3600.0/yr_data
-
-  do i = 1, days_data
-    m = i - 15
-    n = i + 15
-    if (m>=1 .and. n<=days_data)then
-      tmp31(1:31) = dailyTc(m:n)
-    else if (m < 1) then
-      w = 1 - m                     ! number from the end
-      tmp31(1:w) = dailyTc(days_data+m:days_data)
-      tmp31(w+1:31) = dailyTc(1:n)
-    else ! n > days_data: take tail then wrap to start
-      w = 31 - (n - days_data)      ! number we can take before hitting the end
-      tmp31(1:w) = dailyTc(m:days_data)
-      tmp31(w+1:31) = dailyTc(1:n-days_data)
-    endif
-    meanTc(i) = sum(tmp31)/real(size(tmp31))
-  enddo
-
-  do i = 1, yr_data
-    minTm(i) = 999.0
-    do j = 1, 365
-      k = (i-1)*365 + j
-      minTm(i) = min(meanTc(k),minTm(i))
-    enddo
-  enddo
-  meanTmin = sum(minTm)/real(size(minTm))
-
-  ! Assign PFT groups according to climate data at each grid
-  if(meanPrcp > Pr_thld)then
-    ! No desert shrubs
-    if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
-      GridPFTs = [0,2,3,6]
-    elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
-      GridPFTs = [0,4,5,6]
-    else
-      GridPFTs = [1,4,5,6]
-    endif
-  else
-    ! Replace evergreen with desert shrubs
-    if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
-      GridPFTs = [0,3,6,7]
-    elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
-      GridPFTs = [0,5,6,7]
-    else
-      GridPFTs = [1,5,6,7]
-    endif
-  endif
-  write(*,'(2(a6,f6.1,";"), a12, 4(I6,","))')   &
-        'Prcp: ', meanPrcp, 'Tmin: ', meanTmin, &
-        'Grid PFTs: ', GridPFTs
-
-  ! assign initial cohorts
-  do i=1, init_n_cohorts
-    init_cohort_species(i) = GridPFTs(i)
-    if(GridPFTs(i)<2)then  ! Grasses, C3 (1) or C4 (0)
-      init_cohort_nindivs(i) = 5.0  ! initial individual density, individual/m2
-      init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
-      init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
-      init_cohort_bsw(i)     = 0.01  ! initial biomass of sapwood, kg C/individual
-      init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
-      init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
-      init_cohort_nsc(i)     = 0.01  ! initial non-structural biomass, kg C/
-    else                  ! Trees and shrubs
-      init_cohort_nindivs(i) = 0.1  ! initial individual density, individual/m2
-      init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
-      init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
-      init_cohort_bsw(i)     = 0.3  ! initial biomass of sapwood, kg C/individual
-      init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
-      init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
-      init_cohort_nsc(i)     = 0.3  ! initial non-structural biomass, kg C/individual
-    endif
-  enddo
-
-  ! Release allocatable variables
-  deallocate(dailyTc,meanTc,minTm)
-
-end subroutine Set_PFTs_from_Climate
 
 !=============================================================================
 subroutine Set_PFTs_from_map(LandGrid)

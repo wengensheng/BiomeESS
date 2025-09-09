@@ -846,6 +846,7 @@ integer  :: totyears, totdays
 integer  :: steps_per_day = 24 ! 24 or 48
 integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
 integer  :: yr_Baseline  = 1000 ! for DroughtMIP baseline model run years
+integer  :: yr_Check     = 5 ! Interval (yrs) of checking and recovering initial species comoposition
 integer  :: equi_days    = 0 ! 100 * 365
 real     :: steps_per_hour = 1.0
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
@@ -881,7 +882,7 @@ namelist /initial_state_nml/ &
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
-    outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,             &
+    yr_Check,outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,    &
     update_annualLAImax, do_U_shaped_mortality,                 &
     do_migration, do_closedN_run, do_fire,                      &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
@@ -1128,7 +1129,7 @@ subroutine initialize_PFT_data(fnml)
   ! ---- local vars
   integer :: i
 
-#ifdef DO_ESS_PFTs
+#ifdef DO_Climate_VEG
   ! For tree-grass-desert shrub and evergreen-deciduous forest transition, 09/07/2025
   call Reset_ESS_PFT_parameters()
 #endif
@@ -1139,6 +1140,7 @@ subroutine initialize_PFT_data(fnml)
   ! initialize vegetation data structure
   spdata%pt       = pt
   spdata%phenotype= phenotype
+  spdata%f_cGap   = f_cGap
   spdata%Vmax     = Vmax
   spdata%Vannual  = Vannual
   spdata%m_cond   = m_cond
@@ -1149,7 +1151,8 @@ subroutine initialize_PFT_data(fnml)
   spdata%gamma_LN = gamma_LN
   spdata%gamma_SW = gamma_SW
   spdata%gamma_FR = gamma_FR
-
+  spdata%rho_wood = rho_wood
+  spdata%f_taper  = f_taper
   spdata%rho_FR   = rho_FR
   spdata%root_r   = root_r
   spdata%root_zeta= root_zeta
@@ -1158,29 +1161,18 @@ subroutine initialize_PFT_data(fnml)
   !  spdata%rho_N_up0 = rho_N_up0
   !  spdata%N_roots0  = N_roots0
 
-  ! Phenology
-  spdata%Tc0_OFF = Tc0_OFF ! C
-  spdata%Tc0_ON  = Tc0_ON  ! C
-  spdata%gdd_crit    = gdd_crit
-  spdata%gdd_par1    = gdd_par1
-  spdata%gdd_par2    = gdd_par2
-  spdata%gdd_par3    = gdd_par3
-  spdata%betaON      = betaON
-  spdata%betaOFF     = betaOFF
-  spdata%AWD_crit    = AWD_crit
-
   ! Plant traits
-  spdata%LMA        = LMA      ! leaf mass per unit area, kg C/m2
-  spdata%LNbase     = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
-  spdata%CN0leafST  = CN0leafST    ! Supportive tissues
-  spdata%lifeform   = lifeform
-  spdata%leaf_size  = leaf_size
-  spdata%alphaHT    = alphaHT
-  spdata%thetaHT    = thetaHT
-  spdata%alphaCA    = alphaCA
-  spdata%thetaCA    = thetaCA
-  spdata%alphaBM    = alphaBM
-  spdata%thetaBM    = thetaBM
+  spdata%LMA      = LMA      ! leaf mass per unit area, kg C/m2
+  spdata%LNbase   = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
+  spdata%CN0leafST= CN0leafST    ! Supportive tissues
+  spdata%lifeform = lifeform
+  spdata%leaf_size= leaf_size
+  spdata%alphaHT  = alphaHT
+  spdata%thetaHT  = thetaHT
+  spdata%alphaCA  = alphaCA
+  spdata%thetaCA  = thetaCA
+  spdata%alphaBM  = alphaBM
+  spdata%thetaBM  = thetaBM
 
   spdata%AgeRepro = AgeRepro
   spdata%v_seed   = v_seed
@@ -1196,8 +1188,6 @@ subroutine initialize_PFT_data(fnml)
   spdata%B_DBH    = B_DBH
   spdata%s_hu     = s_hu
   spdata%W_mu0    = W_mu0
-  spdata%rho_wood = rho_wood
-  spdata%f_taper  = f_taper
   spdata%kx0      = kx0
   spdata%WTC0     = WTC0
   spdata%CR_Leaf  = CR_Leaf
@@ -1209,7 +1199,7 @@ subroutine initialize_PFT_data(fnml)
   spdata%f_plc    = f_plc
 
   spdata%LAImax   = LAImax
-  spdata%LAImax_u = 1.2 ! LAImax
+  spdata%LAImax_u = LAImax/3.0
   spdata%LAI_light= LAI_light
   spdata%tauNSC   = tauNSC
   spdata%fNSNmax  = fNSNmax
@@ -1219,16 +1209,26 @@ subroutine initialize_PFT_data(fnml)
   spdata%alpha_FR = alpha_FR  ! root urnover rate
 
   !! Nitrogen Weng 2012-10-24
-  ! spdata%CNleaf0 = CNleaf0
-  spdata%CNsw0   = CNsw0
-  spdata%CNwood0 = CNwood0
-  spdata%CNroot0 = CNroot0
-  spdata%CNseed0 = CNseed0
-  spdata%NfixRate0 = NfixRate0
-  spdata%NfixCost0 = NfixCost0
-  spdata%f_cGap = f_cGap
+  !spdata%CNleaf0 = CNleaf0
+  spdata%CNsw0    = CNsw0
+  spdata%CNwood0  = CNwood0
+  spdata%CNroot0  = CNroot0
+  spdata%CNseed0  = CNseed0
+  spdata%NfixRate0= NfixRate0
+  spdata%NfixCost0= NfixCost0
 
-  ! Fire-related
+  ! Phenology
+  spdata%Tc0_OFF  = Tc0_OFF ! C
+  spdata%Tc0_ON   = Tc0_ON  ! C
+  spdata%gdd_crit = gdd_crit
+  spdata%gdd_par1 = gdd_par1
+  spdata%gdd_par2 = gdd_par2
+  spdata%gdd_par3 = gdd_par3
+  spdata%betaON   = betaON
+  spdata%betaOFF  = betaOFF
+  spdata%AWD_crit = AWD_crit
+
+  ! Plant flammability
   spdata%IgniteP = IgniteP
 
   !write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    r0mort_c'
@@ -1305,6 +1305,133 @@ subroutine initialize_PFT_data(fnml)
    endif
 
  end subroutine init_derived_species_data
+
+ !=============================================================================
+ ! for testing tree-grass-desert shrub and evergreen-deciduous forests only
+ ! Weng, 09/06/2025
+ subroutine Vegn_PFTs_from_Climate (forcingData,steps_per_day)
+   implicit none
+   type(climate_data_type), intent(in) :: forcingData(:)
+   integer, intent(in) :: steps_per_day
+
+   !--------- local vars ------------
+   integer, parameter :: N_GridPFTs = 4, mw = 15
+   integer :: GridPFTs(N_GridPFTs) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
+   real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
+   real :: tmpL(mw*2+1), meanTmin, meanPrcp
+   real :: Pr_thld = 300.
+   real :: T1_thld = 12.0
+   real :: T2_thld = 5.0
+
+   integer :: i,j,k,m,n,L,w
+   integer :: N_Yrs, N_dys
+
+   ! ------ Calculate days and years of the data ------
+   N_dys = size(forcingData)/steps_per_day
+   N_yrs = N_dys/365
+   if (N_yrs < 1) then
+      error stop "Vegn_PFTs_from_Climate: need at least one year's data."
+   endif
+
+   ! Allocate variables
+   allocate(dailyTc(N_dys))
+   allocate(meanTc(N_dys))
+   allocate(minTm(N_yrs))
+
+   ! Calculate daily temperature and yearly mean Precipitation
+   dailyTc = 0.0
+   meanTc  = 0.0
+   meanPrcp= 0.0
+   k = 0
+   do i = 1, N_dys
+     do j = 1, steps_per_day
+       k = k + 1
+       dailyTc(i) = dailyTc(i) + forcingData(k)%Tair - 273.15
+       meanPrcp = meanPrcp + forcingData(k)%rain
+     enddo
+     dailyTc(i) = dailyTc(i)/steps_per_day
+   enddo
+   meanPrcp = meanPrcp * 3600.0/N_yrs
+
+   ! Calculate running mean temperature (meanTc) with a windlow of L
+   L = mw * 2 + 1
+   do i = 1, N_dys
+     m = i - mw
+     n = i + mw
+     if (m >= 1 .and. n <= N_dys)then
+       tmpL(1:L) = dailyTc(m:n)
+     else if (m < 1) then
+       w = 1 - m                     ! number from the end
+       tmpL(1:w) = dailyTc(N_dys+m:N_dys)
+       tmpL(w+1:L) = dailyTc(1:n)
+     else ! n > N_dys: take tail then wrap to start
+       w = L - (n - N_dys)      ! number we can take before hitting the end
+       tmpL(1:w) = dailyTc(m:N_dys)
+       tmpL(w+1:L) = dailyTc(1:n-N_dys)
+     endif
+     meanTc(i) = sum(tmpL)/real(size(tmpL))
+   enddo
+
+   ! Find out yearly minimum Tm and calculate yearly mean
+   do i = 1, N_yrs
+     minTm(i) = 999.0
+     do j = 1, 365
+       k = (i-1)*365 + j
+       minTm(i) = min(meanTc(k),minTm(i))
+     enddo
+   enddo
+   meanTmin = sum(minTm)/real(size(minTm))
+
+   ! Assign PFT groups according to climate data at each grid
+   if(meanPrcp > Pr_thld)then
+     ! No desert shrubs
+     if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
+       GridPFTs = [0,2,3,6]
+     elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
+       GridPFTs = [0,4,5,6]
+     else
+       GridPFTs = [1,4,5,6]
+     endif
+   else
+     ! Replace evergreen with desert shrubs
+     if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
+       GridPFTs = [0,3,6,7]
+     elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
+       GridPFTs = [0,5,6,7]
+     else
+       GridPFTs = [1,5,6,7]
+     endif
+   endif
+   write(*,'(2(a6,f6.1,";"), a12, 4(I6,","))')   &
+         'Prcp: ', meanPrcp, 'Tmin: ', meanTmin, &
+         'Grid PFTs: ', GridPFTs
+
+   ! Assign initial cohorts
+   init_n_cohorts = N_GridPFTs
+   do i=1, init_n_cohorts
+     init_cohort_species(i) = GridPFTs(i)
+     if(GridPFTs(i)<2)then  ! Grasses, C3 (1) or C4 (0)
+       init_cohort_nindivs(i) = 2.0  ! initial individual density, individual/m2
+       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
+       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
+       init_cohort_bsw(i)     = .005 ! initial biomass of sapwood, kg C/individual
+       init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
+       init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
+       init_cohort_nsc(i)     = .005 ! initial non-structural biomass, kg C/
+     else                  ! Trees and shrubs
+       init_cohort_nindivs(i) = 0.02  ! initial individual density, individual/m2
+       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
+       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
+       init_cohort_bsw(i)     = 0.1  ! initial biomass of sapwood, kg C/individual
+       init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
+       init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
+       init_cohort_nsc(i)     = 0.1  ! initial non-structural biomass, kg C/individual
+     endif
+   enddo
+
+   ! Release allocatable variables
+   deallocate(dailyTc,meanTc,minTm)
+ end subroutine Vegn_PFTs_from_Climate
 
 ! ============================================================
 subroutine qscomp(T, p, qsat)

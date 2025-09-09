@@ -19,18 +19,17 @@ font = {'family' : 'serif',
         }
 
 #%% Path and file names
-fpath = '../output/'
-#fpath = './BiomeESimulations/'
-fout  = '../output/'
+fpath = '../output/GlobalTest/'
+fout  = '../output/GlobalTest/'
 dtype = ['Ecosystem_yearly','Cohort_yearly']
-N_pfts = 2 # total PFTs at one site, 4
+N_pfts = 8 # total PFTs at one site, 4
 N_Layers = 3
 PI = 3.1415926
 DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
 
 # Site and experiments
-siteID = 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-PFTID = ['PFT1','PFT2','PFT3','PFT4']
+siteID = 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
+PFTID = ['PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7','PFT8']
 
 #%% Retrieve data
 # File name
@@ -146,7 +145,7 @@ plt.ylabel('Basal area\n (m$^{2}$ ha$^{-1}$)', fontdict=font)
 
 plt.subplot(222)
 plt.plot(xyear, CA)
-plt.legend((PFTID),loc=0,ncol=1)
+#plt.legend((PFTID),loc=0,ncol=1)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Crown area\n (m$^{2}$ m$^{-2}$)', fontdict=font)
 
@@ -158,7 +157,7 @@ plt.ylabel('Leaf area\n (m$^{2}$ m$^{-2}$)', fontdict=font)
 
 plt.subplot(224)
 plt.plot(xyear, height)
-#plt.legend((PFTID),loc=0,ncol=1)
+plt.legend((PFTID),loc='center right',ncol=2)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Height (95%) (m)', fontdict=font)
 
@@ -310,4 +309,3 @@ plt.plot(xyear, CA_grow[:,1], CA_mort[:,1])
 plt.legend(('CA_grow','CA_mort'),loc=0,ncol=1)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('dCA-Layer2 (m$^{2}$/ha)', fontdict=font)
-

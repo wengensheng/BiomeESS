@@ -84,6 +84,10 @@ subroutine BiomeE_initialization()
     N_input    = 0.0 ! N input, kg N m-2 yr-1
   endif
 
+#ifdef DO_Climate_VEG
+  ! Update init_cohort_* arrays, 09/09/2025
+  call Vegn_PFTs_from_Climate(forcingData,steps_per_day)
+#endif
   ! Setup total days of model run
   totdays   = INT(model_run_years/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
@@ -129,7 +133,6 @@ subroutine BiomeE_run()
   integer :: iCO2_hist, CO2_start_yr, CO2_end_yr, CO2_yrs, skip_yrs
   integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
   real    :: r_d
-  real    :: ET_P ! drought index: (E+T)/P
   logical :: new_annual_cycle
   logical :: BaseLineClimate = .True.
 
@@ -247,7 +250,8 @@ subroutine BiomeE_run()
 #endif
 
         ! Case studies
-        if(do_migration) call vegn_migration(vegn) ! for competition
+        if(do_migration .and. n_yr == yr_Check*(n_yr/yr_Check)) &
+                  call vegn_migration(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
         ! --------- Cohort management ---------

@@ -8,19 +8,19 @@ init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc     = 0.02, 0.05,  0.5,  0.5,  0.5,
 
 init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_soil_C    = 12.0   ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_slow_soil_C    = 20.    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
 init_Nmineral       = 5.0E-3 ! 402.5E-3, ! kg N m-2
-N_input             = 2.5E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+N_input             = 1.2E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
-runID       = 'PFTs1_', ! Output file name
+runID       = 'LowF1_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years =  800,
+model_run_years =  1600,
 outputhourly    =  .False. ! .True.
-outputdaily     =  .False. ! .True.  !
+outputdaily     =  .True.  ! .False.
 do_closedN_run  =  .False. ! .True.  !
 do_U_shaped_mortality = .True. ! .False. !
 do_fire = .True.  !  .False. !
@@ -39,9 +39,9 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &vegn_parameters_nml
-f_iniBSW = 0.1,
-K0SOM    = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_nitrogen = 0.8, ! 1.2 ! 2.4 ! rate of a year, 2.5
+f_iniBSW   = 0.1,
+K0SOM      = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
+K_nitrogen = 1.2, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! organic nitrogen release rate
 etaN       = 0.02, ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
@@ -49,7 +49,7 @@ l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 envi_fire_prb = 0.25,
-ETP0        = 2.0,
+ETP0        = 5.0 ! 2.0,
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 ! species   0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
@@ -57,15 +57,15 @@ phenotype = 0,      0,      1,      0,      1,      0,      1,      0,      ! 0:
 lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! life form of PFTs: 0 for grasses, 1 for trees
 s0_plant  = 0.005,  0.005,   0.02,  0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
 LAImax    = 2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0,    ! maximum LAI for a tree
-LMA       = 0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.12,   0.035,  ! leaf mass per unit area, kg C/m2
-LNbase    = 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.2E-3, 1.5E-3, 1.2E-3, 0.8E-3, !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+LMA       = 0.025,  0.025,  0.06,   0.032,  0.14,   0.02 ,  0.12,   0.035,  ! leaf mass per unit area, kg C/m2
+LNbase    = 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.8E-3, 1.5E-3, 1.0E-3, 0.8E-3, !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 alphaHT   = 10.,    10.,    35.,    35.,    35.,    35.,    35.,    20.,    ! Height parameter
 alphaCA   = 60.,    60.,    120.,   120.,   120.,   120.,   120.,   200.,   ! Crown area
 phiRL     = 3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0,    3.0,    ! ratio of fine root area to leaf area
 tauNSC    = 3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    3.0,    ! NSC residence time,years
 m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    ! 7.0 !
-rho_wood  = 90.,    90.,    350.,   350.,   320.,   350.,   350.,   450.,   ! kgC m-3
-r0mort_c  = .05,    .05,    .03,    .03,    .02,    .02,    .02,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+rho_wood  = 90.,    90.,    350.,   350.,   350.,   350.,   350.,   450.,   ! kgC m-3
+r0mort_c  = .05,    .05,    .03,    .03,    .01,    .01,    .02,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.6,    ! m, Mortality curve parameter
 A_sd      = 0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0,    ! Max multiplier for seedling mortality
 B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mortality sensitivity for seedlings
@@ -74,12 +74,12 @@ B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,   .125,   .125,   ! Si
 W_mu0     = 2.5,    2.5,    0.70,   0.80,   0.75,   0.80,   1.0,    1.5,    ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 IgniteP   = 1.0,    1.0,    .01,    .02,    .02,    .01,    .01,    .01,    ! Intrinsic flammability
 gamma_SW  = .02,    .02,    .02,    .02,    .02,    .02,    .02,    .02,    ! Wood Acambium respiration rate (kgC/m2/yr
-Tc0_OFF   = 12.,    10.,     15.,    15.,    -50.,   15.,    -60.0,  12.,   ! 283.16 ! OFF ! C for convenience
-Tc0_ON    = 10.,     5.,     12.,    12.,    -50.,   12.,    -60.0,  10.,   ! 280.16 ! ON  ! C for convenience
-betaON    = 0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0,    0.2,    ! Critical soil moisture for phenology ON
+Tc0_OFF   = 12.,    10.,     15.,    15.,   -50.,   12.,    -60.0,  12.,    ! 283.16 ! OFF ! C for convenience
+Tc0_ON    = 10.,     5.,     12.,    12.,   -50.,   10.,    -60.0,  10.,    ! 280.16 ! ON  ! C for convenience
+betaON    = 0.4,    0.4,    0.0,    0.6,    0.0,    0.3,    0.0,    0.2,    ! Critical soil moisture for phenology ON
 betaOFF   = 0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1,    ! Critical soil moisture for phenology OFF
 gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
-gdd_par2  = 800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
+gdd_par2  = 800.,   600.,   0.0,    800.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
 Nfixrate0 = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
 /
