@@ -139,9 +139,9 @@ type spec_data_type
   real :: ps_wet       ! wet leaf photosynthesis down-regulation
   real :: LFR_rate     ! Leaf filling rate per day
   ! radiation parameters for 2 bands, VIS and NIR
-  real    :: leaf_refl (NBANDS) = (/ 0.10, 0.50/) ! reflectance of leaf
-  real    :: leaf_tran (NBANDS) = (/ 0.05, 0.25/) ! transmittance of leaf
-  real    :: leaf_emis          = 1.00            ! emissivity of leaf
+  real :: leaf_refl (NBANDS) = (/ 0.10, 0.50/) ! reflectance of leaf
+  real :: leaf_tran (NBANDS) = (/ 0.05, 0.25/) ! transmittance of leaf
+  real :: leaf_emis          = 1.00            ! emissivity of leaf
   ! root traits
   real :: rho_FR       ! material density of fine roots (kgC m-3)
   real :: root_r       ! radius of the fine roots, m
@@ -219,11 +219,11 @@ type spec_data_type
   real :: s_hu         ! hydraulic mortality sensitivity
   real :: W_mu0        ! Half-mortality transp deficit ratio, 0.5, 0.75, 2.5
   ! Population level variables
+  real :: f_cGap    ! fraction of internal gaps in the canopy
   real :: LAImax    ! max. LAI
   real :: LAImax_u  ! max. LAI understorey
   real :: LAI_light ! light controlled maximum LAI
   integer :: n_cc   ! for calculating LAImax via cc%LAImax derived from cc%NSN
-  real :: f_cGap    ! fraction of internal gaps in the canopy
 end type
 
 !----------cohort-----------------
@@ -1048,6 +1048,7 @@ subroutine Reset_ESS_PFT_parameters()
    pt(0:N_tot)        = [1,      0,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
    phenotype(0:N_tot) = [0,      0,      1,      0,      1,      0,      1,      0     ] ! 0: Deciduous, 1: evergreen
    lifeform(0:N_tot)  = [0,      0,      1,      1,      1,      1,      1,      1     ] ! life form of PFTs: 0 for grasses, 1 for trees
+   s0_plant(0:N_tot)  = [0.005,  0.005,   0.02,  0.02,   0.02,   0.02,   0.02,   0.01  ] ! kgC, initial seedling size
    LAImax(0:N_tot)    = [2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0   ] ! maximum LAI for a tree
    LMA(0:N_tot)       = [0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.12,   0.035 ] ! leaf mass per unit area, kg C/m2
    LNbase(0:N_tot)    = [0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.2E-3, 1.5E-3, 1.2E-3, 0.8E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
@@ -1057,28 +1058,29 @@ subroutine Reset_ESS_PFT_parameters()
    tauNSC(0:N_tot)    = [3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    3.0   ] ! NSC residence time,years
    m_cond(0:N_tot)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 7.0 !
    rho_wood(0:N_tot)  = [90.,    90.,    350.,   350.,   320.,   350.,   350.,   450.  ] ! kgC m-3
-   Tc0_OFF(0:N_tot)   = [5.,     5.,     15.,    15.,    -50.,   15.,    -60.0,  12.   ] ! 283.16 ! OFF ! C for convenience
-   Tc0_ON(0:N_tot)    = [5.,     5.,     15.,    15.,    -50.,   12.,    -60.0,  10.   ] ! 280.16 ! ON  ! C for convenience
-   gdd_crit(0:N_tot)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
-   AWD_crit(0:N_tot)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
-   betaON(0:N_tot)    = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0,    0.2   ] ! Critical soil moisture for phenology ON
-   betaOFF(0:N_tot)   = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1   ] ! Critical soil moisture for phenology OFF
-   gdd_par1(0:N_tot)  = [30.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.   ] ! 50.d0   ! -68.d0
-   gdd_par2(0:N_tot)  = [800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
-   gdd_par3(0:N_tot)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
-   s0_plant(0:N_tot)  = [0.01,   0.01,   0.1,    0.1,    0.1,    0.1,    0.1,    0.05  ] ! kgC, initial seedling size
-   IgniteP(0:N_tot)   = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01,    .01   ] ! Intrinsic flammability
    r0mort_c(0:N_tot)  = [.05,    .05,    .03,    .03,    .02,    .02,    .02,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
    D0mu(0:N_tot)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.6   ] ! m, Mortality curve parameter
    A_sd(0:N_tot)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0   ] ! Max multiplier for seedling mortality
    B_sd(0:N_tot)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
    A_DBH(0:N_tot)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
    B_DBH(0:N_tot)     = [.125,   .125,   .125,   .125,   .125,   .125,   .125,   .125  ] ! Size-based Mortality sensitivity, m
-   s_hu(0:N_tot)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
    W_mu0(0:N_tot)     = [2.5,    2.5,    0.70,   0.80,   0.75,   0.80,   1.0,    1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+   IgniteP(0:N_tot)   = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01,    .01   ] ! Intrinsic flammability
    gamma_SW(0:N_tot)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
-   Nfixrate0(0:N_tot) = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! 0.03 kgN kgRootC-1 yr-1
+   Tc0_OFF(0:N_tot)   = [5.,     5.,     15.,    15.,    -50.,   15.,    -60.0,  12.   ] ! 283.16 ! OFF ! C for convenience
+   Tc0_ON(0:N_tot)    = [5.,     5.,     15.,    15.,    -50.,   12.,    -60.0,  10.   ] ! 280.16 ! ON  ! C for convenience
+   betaON(0:N_tot)    = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0,    0.2   ] ! Critical soil moisture for phenology ON
+   betaOFF(0:N_tot)   = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1   ] ! Critical soil moisture for phenology OFF
+   gdd_par1(0:N_tot)  = [50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.   ] ! 50.d0   ! These three parameters are used to calculate gdd_crit
+   gdd_par2(0:N_tot)  = [800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
+   gdd_par3(0:N_tot)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
+   Nfixrate0(0:N_tot) = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
    NfixCost0(0:N_tot) = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
+
+   ! Not used in current model setting (Global ESS PFTs)
+   gdd_crit(0:N_tot)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
+   s_hu(0:N_tot)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
+   AWD_crit(0:N_tot)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
 
    write(*,*)"ESS PFTs'parameters implemented"
 end subroutine Reset_ESS_PFT_parameters
