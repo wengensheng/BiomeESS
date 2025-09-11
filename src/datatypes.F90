@@ -155,8 +155,8 @@ type spec_data_type
   real :: root_perm    ! assume it is a fraction of root area active for water flow
   !  real :: rho_N_up0   ! maximum N uptake rate
   !  real :: N_roots0    ! root biomass at half of max. N-uptake rate
-  real :: NfixRate0    ! Reference N fixation rate (kgN kgC-1 root)
-  real :: NfixCost0    ! Carbon cost of N fixation (kgC kgN-1)
+  real :: R0_Nfix    ! Reference N fixation rate (kgN kgC-1 root)
+  real :: C0_Nfix    ! Carbon cost of N fixation (kgC kgN-1)
   ! wood traits
   real :: rho_wood     ! woody density, kg C m-3 wood
   real :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
@@ -766,8 +766,8 @@ real :: CNsw0(0:MSPECIES)     = 350.0 ! C/N ratios for woody biomass
 real :: CNwood0(0:MSPECIES)   = 350.0 ! C/N ratios for woody biomass
 real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
 real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
-real :: NfixRate0(0:MSPECIES) = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
-real :: NfixCost0(0:MSPECIES) = 12.0 ! FUN model, Fisher et al. 2010, GBC; Kim
+real :: R0_Nfix(0:MSPECIES)   = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
+real :: C0_Nfix(0:MSPECIES)   = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
 
 !----- Initial conditions and model control -------------
 integer :: I
@@ -909,7 +909,7 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   rho_N_up0, N_roots0,                                                &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
-  NfixRate0, NfixCost0,f_N_add,fNSNmax,transT, l_fract,               &
+  R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,                &
   retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
   ! Phenology
   gdd_crit,Tc0_OFF,Tc0_ON,betaON,betaOFF,AWD_crit,GrassMaxL,N0_GD,    &
@@ -1075,8 +1075,8 @@ subroutine Reset_ESS_PFT_parameters()
    gdd_par1(0:N_tot)  = [50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.   ] ! 50.d0   ! These three parameters are used to calculate gdd_crit
    gdd_par2(0:N_tot)  = [800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
    gdd_par3(0:N_tot)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
-   Nfixrate0(0:N_tot) = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
-   NfixCost0(0:N_tot) = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
+   R0_Nfix(0:N_tot)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
+   C0_Nfix(0:N_tot)   = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
 
    ! Not used in current model setting (Global ESS PFTs)
    gdd_crit(0:N_tot)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
@@ -1214,8 +1214,8 @@ subroutine initialize_PFT_data(fnml)
   spdata%CNwood0  = CNwood0
   spdata%CNroot0  = CNroot0
   spdata%CNseed0  = CNseed0
-  spdata%NfixRate0= NfixRate0
-  spdata%NfixCost0= NfixCost0
+  spdata%R0_Nfix  = R0_Nfix
+  spdata%C0_Nfix  = C0_Nfix
 
   ! Phenology
   spdata%Tc0_OFF  = Tc0_OFF ! C

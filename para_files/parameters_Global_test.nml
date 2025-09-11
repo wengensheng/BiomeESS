@@ -18,7 +18,7 @@ filepath_out= './output/GlobalTest/',
 runID       = 'LowF1_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years =  1600,
+model_run_years =  2400,
 outputhourly    =  .False. ! .True.
 outputdaily     =  .True.  ! .False.
 do_closedN_run  =  .False. ! .True.  !
@@ -49,7 +49,7 @@ l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 envi_fire_prb = 0.25,
-ETP0        = 5.0 ! 2.0,
+ETP0        = 3.0 ! 2.0, ! when ET/Prcp=ETP0, P=0.5; High for low fire probability
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 ! species   0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
@@ -58,7 +58,7 @@ lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! li
 s0_plant  = 0.005,  0.005,   0.02,  0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
 LAImax    = 2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0,    ! maximum LAI for a tree
 LMA       = 0.025,  0.025,  0.06,   0.032,  0.14,   0.02 ,  0.12,   0.035,  ! leaf mass per unit area, kg C/m2
-LNbase    = 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.8E-3, 1.5E-3, 1.0E-3, 0.8E-3, !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+LNbase    = 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.8E-3, 1.5E-3, 1.0E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 alphaHT   = 10.,    10.,    35.,    35.,    35.,    35.,    35.,    20.,    ! Height parameter
 alphaCA   = 60.,    60.,    120.,   120.,   120.,   120.,   120.,   200.,   ! Crown area
 phiRL     = 3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0,    3.0,    ! ratio of fine root area to leaf area
@@ -81,7 +81,7 @@ betaOFF   = 0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1,    ! Cr
 gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
 gdd_par2  = 800.,   600.,   0.0,    800.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
-Nfixrate0 = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
+R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
 /
 
 &global_setting_nml

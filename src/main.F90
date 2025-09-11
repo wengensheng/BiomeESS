@@ -82,7 +82,7 @@ program BiomeE
   deallocate(GridLonLat)
 #else
   ! ---------- Single site run with csv/txt forcing data input ----------
-  call setup_forcingdata()
+  call setup_forcingdata(climfile)
   call setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
   call BiomeE_main()
 

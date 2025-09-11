@@ -198,11 +198,6 @@ subroutine BiomeE_run()
         endif
       endif
 #endif
-#ifdef UFL_Monoculture
-      if(n_yr > 500)then
-        climateData%rain = 0.5 * forcingData(idata)%rain * Sc_prcp
-      endif
-#endif
       land%Tc_daily = land%Tc_daily + climateData%Tair - 273.16
 
       vegn => land%firstVegn
@@ -293,15 +288,12 @@ subroutine BiomeE_run()
 
 #ifdef DroughtMIP
       if(n_yr == yr_Baseline + 1 .and. BaseLineClimate)then
-        call read_forcingdata(Scefile)
+        call setup_forcingdata(Scefile)
         n_steps = 0
         BaseLineClimate = .False.
       endif
 #endif
 
-#ifdef UFL_Monoculture
-      if(n_yr > 505)exit
-#endif
     endif
   enddo
 end subroutine BiomeE_run

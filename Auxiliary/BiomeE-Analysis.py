@@ -29,7 +29,7 @@ DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
 
 # Site and experiments
 siteID = 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-PFTID = ['PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7','PFT8']
+PFTID = ['PFT0','PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7']
 
 #%% Retrieve data
 # File name
@@ -98,7 +98,7 @@ stemmort_size = np.zeros((totYrs,16, N_pfts))
 
 for i in range(totCCL):
     iYr  = int(CCYr[i,1])-1
-    iPFT = int(CCYr[i,4])-1
+    iPFT = int(CCYr[i,4]) # -1
     iLayer = min(2,int(CCYr[i,5])-1)
     Nstem1[iYr,iPFT] = Nstem1[iYr,iPFT]  + CCYr[i,6]
     BA[iYr,iPFT]  = BA[iYr,iPFT]  + CCYr[i,6]*PI*0.25*CCYr[i,11]**2

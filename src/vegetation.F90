@@ -755,14 +755,14 @@ subroutine vegn_respiration(forcing,vegn)
 
        ! Facultive Nitrogen fixation
        !if(cc%NSN < cc%NSNmax .and. cc%NSC > 0.5 * NSCtarget)then
-       !   cc%fixedN = sp%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
+       !   cc%fixedN = sp%R0_Nfix * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
        !else
-       !   cc%fixedN = 0.0 ! sp%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
+       !   cc%fixedN = 0.0 ! sp%R0_Nfix * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
        !endif
 
        ! Obligate Nitrogen Fixation
-       cc%fixedN = fnsc*sp%NfixRate0 * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-       r_Nfix    = sp%NfixCost0 * cc%fixedN ! + 0.25*sp%NfixCost0 * cc%N_uptake    ! tree-1 step-1
+       cc%fixedN = fnsc*sp%R0_Nfix * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
+       r_Nfix    = sp%C0_Nfix * cc%fixedN ! KgC tree-1 step-1
 
        ! Total Respiration and NPP
        cc%resl = r_leaf + r_stem ! tree-1 step-1
@@ -3144,13 +3144,13 @@ subroutine vegn_annualLAImax_update(vegn)
   !enddo
 
   ! Mineral+fixed N-based LAImax
-  ! LAI_fixedN = sp%Nfixrate0 * sp%LMA * sp%CNleaf0 * sp%leafLS / sp%LMA
+  ! LAI_fixedN = sp%R0_Nfix * sp%LMA * sp%CNleaf0 * sp%leafLS / sp%LMA
   ! cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
   vegn%previousN = 0.8 * vegn%previousN + 0.2 * vegn%annualN
   do i=0,MSPECIES
       associate (sp => spdata(i) )
 
-      LAIfixedN  = 0.5 * sp%Nfixrate0 * sp%CNleaf0 * sp%leafLS
+      LAIfixedN  = 0.5 * sp%R0_Nfix * sp%CNleaf0 * sp%leafLS
       LAImineralN = 0.5*vegn%previousN*sp%CNleaf0*sp%leafLS/sp%LMA
       !LAImineralN = vegn%previousN/(sp%LMA/(sp%CNleaf0*sp%leafLS)+sp%phiRL*sp%alpha_FR/sp%SRA /sp%CNroot0)
       LAI_nitrogen = LAIfixedN + LAImineralN
@@ -3176,7 +3176,7 @@ subroutine vegn_annualLAImax_update(vegn)
   !        associate ( sp => spdata(cc%species) )
   !        if(sp%LAImax < LAImin)then
   !           LAI_nitrogen = 0.5*(vegn%previousN+cc%annualfixedN)*sp%CNleaf0*sp%leafLS/sp%LMA
-  !           if(sp%Nfixrate0 > 0.0)
+  !           if(sp%R0_Nfix > 0.0)
   !           sp%LAImax    = MAX(LAImin, MIN(LAI_nitrogen,sp%LAI_light))
   !        endif
   !        end associate

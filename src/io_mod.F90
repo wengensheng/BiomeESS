@@ -22,7 +22,8 @@ contains
 !====================== Subroutines ======================================
 
 ! --------- Setup forcing data and step lenght ----------------------
-subroutine setup_forcingdata()
+subroutine setup_forcingdata(climfile)
+  character(len=*),intent(in) :: climfile
 
 #ifdef DroughtPaleo
   call set_PaleoForcing(climfile,PaleoPfile,PaleoTfile,iDraw, &
