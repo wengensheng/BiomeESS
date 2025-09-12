@@ -142,7 +142,7 @@ subroutine Zero_diagnostics(vegn)
   type(cohort_type),pointer :: cc
   integer :: i
   !daily
-  vegn%dailyfixedN = 0.
+  vegn%NfixDaily = 0.
   vegn%dailyPrcp = 0.0
   vegn%dailyTrsp = 0.0
   vegn%dailyEvap = 0.0
@@ -154,7 +154,7 @@ subroutine Zero_diagnostics(vegn)
   vegn%dailyRh   = 0.0
 
   !annual
-  vegn%annualfixedN = 0.
+  vegn%NfixedYr = 0.
   vegn%annualPrcp = 0.0
   vegn%annualTrsp = 0.0
   vegn%annualEvap = 0.0
@@ -163,10 +163,11 @@ subroutine Zero_diagnostics(vegn)
   vegn%annualNPP  = 0.0
   vegn%annualResp = 0.0
   vegn%annualRh   = 0.0
-  vegn%N_P2S_yr   = 0.0
-  vegn%annualN    = 0.0
-  vegn%Nloss_yr   = 0.0
-  vegn%annualNup  = 0.0
+  vegn%NorgP2S    = 0.0
+  vegn%Nm_Soil    = 0.0
+  vegn%Nm_Fire    = 0.0
+  vegn%N_OutYr    = 0.0
+  vegn%NupYr      = 0.0
   vegn%GrassBM    = 0.0
   vegn%annualET0  = 0.0
 
@@ -186,14 +187,14 @@ subroutine Zero_diagnostics(vegn)
      cc%dailyNPP = 0.0
      cc%dailyResp= 0.0
      cc%dailyNup   = 0.0
-     cc%dailyfixedN = 0.0
+     cc%NfixDaily = 0.0
      ! annual
      cc%annualTrsp = 0.0
      cc%annualGPP = 0.0
      cc%annualNPP = 0.0
      cc%annualResp= 0.0
-     cc%annualNup   = 0.0
-     cc%annualfixedN = 0.0
+     cc%NupYr     = 0.0
+     cc%NfixedYr  = 0.0
 
      ! For UFL test
      cc%totDemand = 0.0
@@ -229,7 +230,7 @@ end subroutine Zero_diagnostics
      cc%dailyGPP  = cc%dailygpp  + cc%gpp ! kg day-1
      cc%dailyNPP  = cc%dailyNpp  + cc%Npp ! kg day-1
      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
-     cc%dailyfixedN  = cc%dailyfixedN  + cc%fixedN ! kg day-1
+     cc%NfixDaily  = cc%NfixDaily  + cc%fixedN ! kg day-1
 
      ! Tile hourly
      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
@@ -248,7 +249,7 @@ end subroutine Zero_diagnostics
   vegn%dailyEvap = vegn%dailyEvap + vegn%evap
   vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
   vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
-  vegn%dailyfixedN  = vegn%dailyfixedN  + vegn%fixedN
+  vegn%NfixDaily = vegn%NfixDaily  + vegn%fixedN
 
   !! Output horly diagnostics
   If(outputhourly .and. iday > totdays-366*5 ) then !  .and. ihour==12
@@ -370,7 +371,7 @@ endif
       cc%annualNPP  = cc%annualNPP  + cc%dailyNPP
       cc%annualResp = cc%annualResp + cc%dailyResp
       cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
-      cc%annualfixedN = cc%annualfixedN + cc%dailyfixedN
+      cc%NfixedYr   = cc%NfixedYr   + cc%NfixDaily
       cc%Aleafmax  = Max(cc%Aleafmax, cc%Aleaf)
       ! Zero Daily variables
       cc%dailyWdmd = 0.0
@@ -378,11 +379,11 @@ endif
       cc%dailyGPP = 0.0
       cc%dailyNPP = 0.0
       cc%dailyResp = 0.0
-      cc%dailyfixedN = 0.0
+      cc%NfixDaily = 0.0
   enddo
 
   !annual tile summary:
-  vegn%annualNup  = vegn%annualNup  + vegn%dailyNup
+  vegn%NupYr      = vegn%NupYr      + vegn%dailyNup
   vegn%annualGPP  = vegn%annualGPP  + vegn%dailygpp
   vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
   vegn%annualResp = vegn%annualResp + vegn%dailyresp
@@ -391,7 +392,7 @@ endif
   vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
   vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
   vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
-  vegn%annualfixedN  = vegn%annualfixedN  + vegn%dailyfixedN
+  vegn%NfixedYr   = vegn%NfixedYr   + vegn%NfixDaily
 
   ! zero:
   vegn%dailyNup  = 0.0
@@ -403,7 +404,7 @@ endif
   vegn%dailyTrsp = 0.0
   vegn%dailyEvap = 0.0
   vegn%dailyRoff = 0.0
-  vegn%dailyfixedN = 0.0
+  vegn%NfixDaily = 0.0
   vegn%dailyLFLIT  = 0.0
 
   ! Daily vegn state
@@ -485,7 +486,7 @@ end subroutine daily_diagnostics
           cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
           cc%nsc,cc%leafN*1000,cc%rootN*1000,cc%sapwN*1000, &
           cc%woodN*1000,cc%seedN*1000, cc%NSN*1000,         &
-          cc%annualNup*1000,cc%annualGPP,cc%annualNPP,      &
+          cc%NupYr*1000,cc%annualGPP,cc%annualNPP,          &
           cc%NPPleaf,cc%NPProot,cc%NPPwood,cc%annualTrsp,   &
           cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
 
@@ -497,7 +498,7 @@ end subroutine daily_diagnostics
           cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,      &
           cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf,     &
           froot,fwood,cc%mu,cc%annualTrsp,cc%totDemand,    &
-          cc%annualNup,cc%annualfixedN,cc%gdd_ON,cc%Tc_OFF,&
+          cc%NupYr,cc%NfixedYr,cc%gdd_ON,cc%Tc_OFF,        &
           cc%Atrunk,cc%Asap,cc%Ktrunk,cc%treeHU,           &
 #ifdef Hydro_test
           cc%treeW0,(cc%farea(j),j=1,Ysw_max)
@@ -538,8 +539,8 @@ end subroutine daily_diagnostics
        vegn%NSC, vegn%leafN*1000,vegn%rootN*1000,vegn%SapwoodN*1000,       &
        vegn%WoodN*1000, vegn%SeedN*1000, vegn%NSN*1000,                    &
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
-       vegn%mineralN*1000, vegn%annualN*1000, vegn%annualNup*1000,         &
-       vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,vegn%CO2_c
+       vegn%mineralN*1000, vegn%annualN*1000, vegn%NupYr*1000,             &
+       vegn%Nm_Fire*1000, vegn%N_OutYr*1000, vegn%CO2_c
 #elif DroughtMIP
       if (iyears > yr_Eq) &
         write(f2,'(2(I5,","),80(E15.6,","))')&
@@ -564,8 +565,8 @@ end subroutine daily_diagnostics
         vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
         (vegn%wcl(j),j=1,soil_L),                                       &
-        vegn%annualfixedN*1000,vegn%annualNup*1000,                     &
-        vegn%annualN*1000,vegn%N_P2S_yr*1000, vegn%Nloss_yr*1000,       &
+        vegn%NfixedYr*1000,vegn%NupYr*1000,                             &
+        vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &
         vegn%treecover,vegn%grasscover,vegn%GrassBM,vegn%annualET0,     &
         vegn%EVrisk,vegn%P_burn
 #endif
@@ -1201,7 +1202,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
          'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
          'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
-         'mineralN','N_yrMin', 'N_up', 'N_P2S', 'N_loss',  &
+         'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',  &
          'CO2'
 #else
     write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
@@ -1213,7 +1214,7 @@ subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
         'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',            &
         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
-        'N_fxed','N_uptk','N_yrMin','N_P2S','N_loss',                &
+        'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                &
         'treecover','grasscover','BMgrass','ET0','Frisk','Pburn'
 
 #endif

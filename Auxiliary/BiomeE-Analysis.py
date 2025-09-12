@@ -29,7 +29,7 @@ DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
 
 # Site and experiments
 siteID = 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-PFTID = ['PFT0','PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7']
+PFTID = np.array(['PFT0','PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7'])
 
 #%% Retrieve data
 # File name
@@ -132,32 +132,42 @@ meanWDCclass = np.mean(cwood_size[totYrs-60:totYrs,:],axis=0)
 meanDen = np.mean(nstem_size[totYrs-60:totYrs,:],axis=0)
 meanDen[0:2] = 0.0
 
+
 #%% Plot
+
+# Check how many PFTs in the data
+IDX = np.zeros(N_pfts, dtype=int)
+N_actual = 0
+for i in range(N_pfts):
+    if BA[1,i] > 0.0:
+        IDX[N_actual] = i
+        N_actual = N_actual + 1
+
 xyear = np.arange(totYrs)
 
 # Vegetation structure
 plt.figure(1) #
 plt.clf()
 plt.subplot(221)
-plt.plot(xyear, BA)
+plt.plot(xyear, BA[:,IDX[0:N_actual]])
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Basal area\n (m$^{2}$ ha$^{-1}$)', fontdict=font)
 
 plt.subplot(222)
-plt.plot(xyear, CA)
+plt.plot(xyear, CA[:,IDX[0:N_actual]])
 #plt.legend((PFTID),loc=0,ncol=1)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Crown area\n (m$^{2}$ m$^{-2}$)', fontdict=font)
 
 plt.subplot(223)
-plt.plot(xyear, LAI)
+plt.plot(xyear, LAI[:,IDX[0:N_actual]])
 #plt.legend((PFTID),loc=0,ncol=1)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Leaf area\n (m$^{2}$ m$^{-2}$)', fontdict=font)
 
 plt.subplot(224)
-plt.plot(xyear, height)
-plt.legend((PFTID),loc='center right',ncol=2)
+plt.plot(xyear, height[:,IDX[0:N_actual]])
+plt.legend(PFTID[IDX],loc='center right',ncol=2)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Height (95%) (m)', fontdict=font)
 
@@ -171,7 +181,7 @@ plt.ylabel('GPP\n (KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
 
 plt.subplot(222)
 plt.plot(xyear, npp)
-plt.legend((PFTID),loc=0,ncol=1)
+plt.legend((PFTID[IDX]),loc=0,ncol=1)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('NPP\n (KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
 

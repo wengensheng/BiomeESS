@@ -126,11 +126,11 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   !N_loss = MAX(0.,vegn%mineralN) * A * K_nitrogen * dt_fast_yr
   !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
   N_loss = vegn%mineralN * MIN(0.2, (A * K_nitrogen * dt_fast_yr + etaN * runoff))
-  vegn%Nloss_yr = vegn%Nloss_yr + N_loss + dN_SOM4 + dN_SOM5
+  vegn%N_OutYr = vegn%N_OutYr + N_loss + dN_SOM4 + dN_SOM5
 
   ! Update mineral N pool (mineralN)
   vegn%mineralN = vegn%mineralN + N_m - N_loss
-  vegn%annualN  = vegn%annualN  + N_m - N_loss
+  vegn%Nm_Soil  = vegn%Nm_Soil  + N_m ! - N_loss
 
  ! Check if soil C/N is lower than CN0
   do i=4, 5
@@ -138,7 +138,7 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
      if (extraN > 0.0)then
         vegn%SON(i)   = vegn%SON(i)   - extraN
         vegn%mineralN = vegn%mineralN + extraN
-        vegn%annualN  = vegn%annualN  + extraN
+        vegn%Nm_Soil  = vegn%Nm_Soil  + extraN
      endif
   enddo
 

@@ -240,7 +240,7 @@ subroutine vegn_Wood_turnover(vegn)
                    (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
      !    annual N from plants to soil
-     vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
+     vegn%NorgP2S = vegn%NorgP2S + lossN_fine + lossN_coarse
 
      ! Update plant hydraulic states
      call Update_cohort_vars(cc)
@@ -408,7 +408,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real,    intent(in)   :: f_w ! fraction of leaf that's wet or snow-covered
   integer, intent(in)   :: layer  ! the layer of this canopy
   ! note that the output is per area of leaf; to get the quantities per area of
-  ! land, multiply them by LAI
+  ! land, multiplyNorgP2S them by LAI
   !real,    intent(out)   :: gs   ! stomatal conductance, m/s
   real,    intent(out)   :: apot ! net photosynthesis, mol C/(m2 s)
   real,    intent(out)   :: acl  ! leaf respiration, mol C/(m2 s)
@@ -823,9 +823,9 @@ subroutine vegn_N_uptake(vegn, tsoil)
            cc => vegn%cohorts(i)
            cc%N_uptake  = 0.0
            if(cc%NSN < cc%NSNmax)then
-               cc%N_uptake  = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
-               cc%nsn       = cc%nsn + cc%N_uptake
-               cc%annualNup = cc%annualNup + cc%N_uptake
+               cc%N_uptake = min(cc%br*avgNup, cc%NSNmax- cc%NSN)
+               cc%nsn      = cc%nsn   + cc%N_uptake
+               cc%NupYr    = cc%NupYr + cc%N_uptake
                ! subtract N from mineral N
                vegn%mineralN = vegn%mineralN - cc%N_uptake * cc%nindivs
                vegn%N_uptake = vegn%N_uptake + cc%N_uptake * cc%nindivs
@@ -1244,7 +1244,7 @@ subroutine vegn_tissue_turnover(vegn)
                           (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
      !    annual N from plants to soil
-     vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
+     vegn%NorgP2S = vegn%NorgP2S + lossN_fine + lossN_coarse
 
     END ASSOCIATE
   enddo
@@ -1369,7 +1369,7 @@ subroutine Seasonal_fall(cc,vegn)
                        (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
      !annual N from plants to soil
-     vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
+     vegn%NorgP2S = vegn%NorgP2S + lossN_fine + lossN_coarse
   endif
   end associate
 
@@ -1406,7 +1406,6 @@ subroutine vegn_N_deposition(vegn, dt_daily)
 
   ! Update mineral N pool (mineralN)
   vegn%mineralN = vegn%mineralN + vegn%N_input * dt_daily
-  vegn%annualN  = vegn%annualN  + vegn%N_input * dt_daily
 end subroutine vegn_N_deposition
 
 !==========================================================================
@@ -1516,7 +1515,7 @@ subroutine vegn_reproduction (vegn)
           !        vegn%SON(2) = vegn%SON(2)  + (1.0 - fsc_fine)* N_failedseed
 
           !       annual N from plants to soil
-          !       vegn%N_P2S_yr = vegn%N_P2S_yr + N_failedseed
+          !       vegn%NorgP2S = vegn%NorgP2S + N_failedseed
         end associate
      enddo
      deallocate (ccold)
@@ -1706,7 +1705,7 @@ subroutine plant2soil(vegn,cc,deadtrees)
                 (1.-fsc_fine)*lossN_fine +(1.-fsc_wood)*lossN_coarse
 
      ! annual N from plants to soil
-     vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
+     vegn%NorgP2S = vegn%NorgP2S + lossN_fine + lossN_coarse
 
      end associate
 end subroutine plant2soil
@@ -2844,6 +2843,7 @@ subroutine vegn_fire (vegn, deltat)
   real :: s_fireG ! Grass fire severity
   real :: mu_fire ! mortality rate, 1/year
   real :: deadtrees ! number of trees that died over the time step
+  real :: Cfire, Cfast, Cslow, Nfire, Nfast, Nslow ! C and N fates at fires
   integer :: i, k
 
   !  ! Parameters (defined in datatypes.F90 and read in from the namelist file):
@@ -2890,7 +2890,8 @@ subroutine vegn_fire (vegn, deltat)
 
   ! fire effects on vegetation and soil
   CALL RANDOM_NUMBER(r_fire) ! r_fire    = rand(0) !
-  vegn%C_burned = 0.0
+  Cfire = 0.0; Cfast = 0.0; Cslow = 0.0
+  Nfire = 0.0; Nfast = 0.0; Nslow = 0.0
   if(r_fire < vegn%P_burn)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
@@ -2925,21 +2926,33 @@ subroutine vegn_fire (vegn, deltat)
 
       ! Burned vegetation and soils
       deadtrees = cc%nindivs * MIN(1.0,mu_fire * deltat/seconds_per_year) ! individuals / m2
+
       ! Carbon and Nitrogen release by burning
-      vegn%C_burned = vegn%C_burned + &
-            (cc%NSC+cc%bl+cc%bsw+cc%bHW+cc%br+cc%seedC)*deadtrees
-      vegn%mineralN = vegn%mineralN + &
-            (cc%NSN+cc%leafN+cc%rootN+cc%sapwN+cc%woodN+cc%seedN)*deadtrees
+      Cfire = Cfire + (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw+cc%bHW)     + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
+      Cfast = Cfast + (0.8*cc%NSC + 0.3*cc%bl    + 0.0*(cc%bsw+cc%bHW)     + 1.0*cc%br    + 1.0*cc%seedC) * deadtrees
+      Cslow = Cfast + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW)     + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
+      Nfire = Nfire + (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%sapwN+cc%woodN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
+      Nfast = Nfast + (0.8*cc%NSN + 0.3*cc%leafN + 0.0*(cc%sapwN+cc%woodN) + 1.0*cc%rootN + 1.0*cc%seedN) * deadtrees
+      Nslow = Nslow + (0.0*cc%NSN + 0.0*cc%leafN + 0.8*(cc%sapwN+cc%woodN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
 
       ! Update plant density
       cc%nindivs = cc%nindivs - deadtrees
       end associate
     enddo
-    ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
-    vegn%C_burned = vegn%C_burned + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2)
-    vegn%mineralN = vegn%mineralN    + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
-    vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1); vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2)
-    vegn%SON(1) = (1.0-0.7)*vegn%SON(1); vegn%SON(2) = (1.0-0.2)*vegn%SON(2)
+    ! C and N fluxes due to fire
+    vegn%C_burned = Cfire + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2) ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
+    vegn%mineralN = Nfire + 0.7*vegn%SON(1)+0.2*vegn%SON(2) + vegn%mineralN
+    vegn%Nm_Fire  = Nfire + 0.7*vegn%SON(1)+0.2*vegn%SON(2) + vegn%Nm_Fire
+
+    ! Update Litter C and N pools
+    vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1) + Cfast
+    vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2) + Cslow
+    vegn%SON(1) = (1.0-0.7)*vegn%SON(1) + Nfast
+    vegn%SON(2) = (1.0-0.2)*vegn%SON(2) + Nslow
+
+    ! Annual N from plants to soil
+    vegn%NorgP2S = vegn%NorgP2S + Cfast + Cslow
+
 #ifdef ScreenOutput
     write(*,*)"fire, treecover, grasscover", &
         r_fire < vegn%P_burn, vegn%treecover, vegn%grasscover
@@ -2981,7 +2994,7 @@ end subroutine vegn_fire
         vegn%SON(2) = vegn%SON(2) +(1.-fsc_fine) *lossN_fine +   &
                                       (1.-fsc_wood)*lossN_coarse
         ! annual N from plants to soil
-        vegn%N_P2S_yr = vegn%N_P2S_yr + lossN_fine + lossN_coarse
+        vegn%NorgP2S = vegn%NorgP2S + lossN_fine + lossN_coarse
         ! remove leaves
         cc%bl = 0.0
      endif
@@ -3140,13 +3153,13 @@ subroutine vegn_annualLAImax_update(vegn)
   !fixedN = 0.0
   !do i = 1,vegn%n_cohorts
   !      cc => vegn%cohorts(i)
-  !      fixedN = fixedN + cc%annualfixedN * cc%Acrown * cc%nindivs
+  !      fixedN = fixedN + cc%NfixedYr * cc%Acrown * cc%nindivs
   !enddo
 
   ! Mineral+fixed N-based LAImax
   ! LAI_fixedN = sp%R0_Nfix * sp%LMA * sp%CNleaf0 * sp%leafLS / sp%LMA
   ! cc%br_max = sp%phiRL*cc%bl_max/(sp%LMA*sp%SRA)
-  vegn%previousN = 0.8 * vegn%previousN + 0.2 * vegn%annualN
+  vegn%previousN = 0.8 * vegn%previousN + 0.2 * vegn%Nm_Soil
   do i=0,MSPECIES
       associate (sp => spdata(i) )
 
@@ -3161,7 +3174,7 @@ subroutine vegn_annualLAImax_update(vegn)
   enddo
 
   !  ! update the PFTs in the first layer based on fixed N
-  !  if(fixedN_based)then ! based on "cc%annualfixedN + vegn%previousN"
+  !  if(fixedN_based)then ! based on "cc%NfixedYr + vegn%previousN"
   !!    Reset sp%LAImax
   !     do i = 1,vegn%n_cohorts
   !        cc => vegn%cohorts(i)
@@ -3175,7 +3188,7 @@ subroutine vegn_annualLAImax_update(vegn)
   !        cc => vegn%cohorts(i)
   !        associate ( sp => spdata(cc%species) )
   !        if(sp%LAImax < LAImin)then
-  !           LAI_nitrogen = 0.5*(vegn%previousN+cc%annualfixedN)*sp%CNleaf0*sp%leafLS/sp%LMA
+  !           LAI_nitrogen = 0.5*(vegn%previousN+cc%NfixedYr)*sp%CNleaf0*sp%leafLS/sp%LMA
   !           if(sp%R0_Nfix > 0.0)
   !           sp%LAImax    = MAX(LAImin, MIN(LAI_nitrogen,sp%LAI_light))
   !        endif

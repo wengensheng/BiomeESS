@@ -361,9 +361,9 @@ type :: cohort_type
   real :: annualNPP
   real :: annualResp
   real :: CO2_c ! ppm
-  real :: dailyfixedN  = 0.0
-  real :: annualfixedN = 0.0 ! annual N fixation per unit crown area
-  real :: annualNup    = 0.0
+  real :: NfixDaily= 0.0
+  real :: NfixedYr = 0.0 ! annual N fixation per unit crown area
+  real :: NupYr= 0.0
 
 end type cohort_type
 
@@ -405,9 +405,10 @@ type :: vegn_tile_type
   real :: N_input = 0.   ! annual N input (kgN m-2 yr-1)
   real :: N_uptake= 0.0  ! kg N m-2 hour-1
   real :: fixedN  = 0.0  ! kg N/step
-  real :: annualN = 0.0  ! annual available N in a year
-  real :: Nloss_yr= 0.0  ! annual N loss
-  real :: N_P2S_yr= 0.0  ! annual N from plants to soil
+  real :: Nm_Soil = 0.0  ! annual available N in a year
+  real :: Nm_Fire = 0.0  ! Mineralized N due to burning
+  real :: N_OutYr = 0.0  ! annual N loss
+  real :: NorgP2S = 0.0  ! annual N from plants to soil
   real :: previousN      ! an weighted annual available N
   real :: initialN0
 
@@ -456,7 +457,7 @@ type :: vegn_tile_type
   real :: dailyResp
   real :: dailyRh
   real :: dailyNup
-  real :: dailyfixedN
+  real :: NfixDaily
   real :: dailyLFLIT = 0.0   !kgC day-1, leaf litter flux
 
   ! Annual diagnostics
@@ -468,8 +469,8 @@ type :: vegn_tile_type
   real :: annualNPP = 0.0
   real :: annualResp = 0.0
   real :: annualRh   = 0.0
-  real :: annualNup  = 0.0   ! accumulated N uptake kgN m-2 yr-1
-  real :: annualfixedN = 0.  ! fixe N in a tile
+  real :: NupYr  = 0.0   ! accumulated N uptake kgN m-2 yr-1
+  real :: NfixedYr = 0.  ! fixe N in a tile
   ! for annual reporting at tile level
   real :: NSC, SeedC, leafC, rootC, SapwoodC, WoodC
   real :: NSN, SeedN, leafN, rootN, SapwoodN, WoodN
