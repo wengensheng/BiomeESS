@@ -1,6 +1,5 @@
 !#define GrowthOFF
 !#define DemographyOFF
-!#define MergeLowDensityCohorts
 !---------------
 module esdvm
  use datatypes
@@ -1737,21 +1736,21 @@ real function mortality_rate(cc) result(mu) ! per year
     f_S = sp%A_sd * exp(sp%B_sd*cc%dbh) + 1.0    ! Understory seedling
     f_D = 1.0
     ! Size effects (adult trees only)
-    if(do_U_shaped_mortality) &
+    if(do_U_mortality) &
        f_D  = 1. + sp%A_DBH/(1.+exp((sp%D0mu-cc%dbh)/sp%B_DBH)) ! Size effects (big tees)
     ! Background mortality rate
     mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
 
-#ifdef DroughtMu
-    ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)
-    ! It can be turnoed off by setting a large sp%W_mu0
-    if(cc%totDemand>0.00001)then
-      cc%w_scale = cc%annualTrsp/cc%totDemand
-    else
-      cc%w_scale = 1.0
+    if(DO_DroughtMu)then
+      ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)
+      ! It can be turnoed off by setting a large sp%W_mu0
+      if(cc%totDemand>0.00001)then
+        cc%w_scale = cc%annualTrsp/cc%totDemand
+      else
+        cc%w_scale = 1.0
+      endif
+      mu_drought = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
     endif
-    mu_drought = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
-#endif
 
 #ifdef Hydro_test
     ! Trunk hydraulic failure probability
@@ -2358,10 +2357,10 @@ subroutine initialize_vegn_tile(vegn)
    vegn%totN =  vegn%initialN0
 
    ! Make a copy of the initial cohorts
-   allocate(cc(1:init_n_cohorts), STAT = istat)
+   allocate(cc(1:init_cohort_N), STAT = istat)
    cc = vegn%cohorts
    vegn%initialCC   => cc
-   vegn%n_initialCC = init_n_cohorts
+   vegn%n_initialCC = init_cohort_N
    cc => null()
 
 end subroutine initialize_vegn_tile
@@ -2406,19 +2405,23 @@ subroutine initialize_cohorts(vegn)
    integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
    integer :: i, istat
 
+   ! Check initial species and density
+   write(*,*)'Initial PFTs: ', init_cohort_sps(1:init_cohort_N)
+   write(*,*)'Initial Dens: ', init_cohort_Indiv(1:init_cohort_N)
+
    ! Initialize plant cohorts
-   allocate(cc(1:init_n_cohorts), STAT = istat)
+   allocate(cc(1:init_cohort_N), STAT = istat)
    vegn%cohorts => cc
-   vegn%n_cohorts = init_n_cohorts
+   vegn%n_cohorts = init_cohort_N
    cc => null()
-   do i=1,init_n_cohorts
+   do i=1,init_cohort_N
       cp => vegn%cohorts(i)
       cp%status  = LEAF_OFF ! ON=1, OFF=0 ! ON
       cp%layer   = 1
       cp%age     = 0
       cp%topyear = 0.0
-      cp%species = init_cohort_species(i)
-      cp%nindivs = init_cohort_nindivs(i) ! trees/m2
+      cp%species = init_cohort_sps(i)
+      cp%nindivs = init_cohort_Indiv(i) ! trees/m2
       cp%nsc     = init_cohort_nsc(i)
       cp%bsw     = init_cohort_bsw(i)
       cp%bHW     = init_cohort_bHW(i)
@@ -2603,7 +2606,7 @@ end subroutine vegn_mergecohorts
 ! ============================================================================
 ! kill low density cohorts, a new function seperated from vegn_mergecohorts
 ! Weng, 2014-07-22
-! If MergeLowDensityCohorts is defined, this routine only remove zero density
+! If MergeLowDenCohorts is True, this routine only remove zero density
 ! cohorts and the low density cohorts that have no other cohorts with the
 ! same PFT in a layer. Weng, 06/25/2025
 
@@ -2787,9 +2790,8 @@ function Mergeable_cohorts(c1,c2); logical Mergeable_cohorts
                   (c1%DBH == c2%DBH)  ! it'll be always true for grasses
    sameSize = sameSizeTree .OR. sameSizeGrass
 
-#ifdef MergeLowDensityCohorts
-   LowDensity = c1%nindivs < min_nindivs .OR. c2%nindivs < min_nindivs
-#endif
+   if (MergeLowDenCohorts) &
+       LowDensity = c1%nindivs < min_nindivs .OR. c2%nindivs < min_nindivs
 
    Mergeable_cohorts = sameSpecies .and. sameLayer &
                       .and. Not_ZeroDensity       &

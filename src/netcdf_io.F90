@@ -175,16 +175,16 @@ subroutine Set_PFTs_from_map(LandGrid)
   GridPFTs = GridPFTs - 1 ! PFT No. starts from 0.
 
   ! Find out PFTs in this grid
-  init_n_cohorts = min(N_IniCC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))
-  do i=1, init_n_cohorts
-    init_cohort_species(i) = GridPFTs(i)
-    init_cohort_nindivs(i) = 0.2  ! initial individual density, individual/m2
-    init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
-    init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
-    init_cohort_bsw(i)     = 0.3  ! initial biomass of sapwood, kg C/individual
-    init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
-    init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
-    init_cohort_nsc(i)     = 0.3  ! initial non-structural biomass, kg C/individual
+  init_cohort_N = min(N_InitC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))
+  do i=1, init_cohort_N
+    init_cohort_sps(i)   = GridPFTs(i)
+    init_cohort_Indiv(i) = 0.2  ! initial individual density, individual/m2
+    init_cohort_bl(i)    = 0.0  ! initial biomass of leaves, kg C/individual
+    init_cohort_br(i)    = 0.0  ! initial biomass of fine roots, kg C/individual
+    init_cohort_bsw(i)   = 0.3  ! initial biomass of sapwood, kg C/individual
+    init_cohort_bHW(i)   = 0.0  ! initial biomass of heartwood, kg C/tree
+    init_cohort_seedC(i) = 0.0  ! initial biomass of seeds, kg C/individual
+    init_cohort_nsc(i)   = 0.3  ! initial non-structural biomass, kg C/individual
   enddo
 
  ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24

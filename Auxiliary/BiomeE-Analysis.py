@@ -28,7 +28,7 @@ PI = 3.1415926
 DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
 
 # Site and experiments
-siteID = 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
+siteID = 'ED_Nin12LNE09D12' # 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
 PFTID = np.array(['PFT0','PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7'])
 
 #%% Retrieve data
@@ -167,7 +167,7 @@ plt.ylabel('Leaf area\n (m$^{2}$ m$^{-2}$)', fontdict=font)
 
 plt.subplot(224)
 plt.plot(xyear, height[:,IDX[0:N_actual]])
-plt.legend(PFTID[IDX],loc='center right',ncol=2)
+plt.legend(PFTID[IDX[0:N_actual]],loc='center right',ncol=2)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Height (95%) (m)', fontdict=font)
 

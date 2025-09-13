@@ -27,6 +27,7 @@
  ! Vegetation and soil types
  integer, parameter :: n_dim_soil_types = 9
  integer, parameter :: MSPECIES   = 30 ! 15
+ integer, parameter :: N_EST      = 7 ! 8 ESS PFTs since started from 0.
  integer, parameter :: Nsoiltypes = 7
  integer, parameter :: LEAF_ON    = 1
  integer, parameter :: LEAF_OFF   = 0
@@ -688,7 +689,6 @@ real :: ps_wet(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 
 real :: rho_wood(0:MSPECIES) = 300.0 ! kgC m-3
 real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
 real :: IgniteP(0:MSPECIES)  = 0.02 ! Ignition probability at fire-friendly climates
-        !(/1.0,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02, 0.02, 0.02, 0.02/)
 
 ! root parameters
 real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
@@ -770,18 +770,24 @@ real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
 real :: R0_Nfix(0:MSPECIES)   = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
 real :: C0_Nfix(0:MSPECIES)   = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
 
+! Standard cohorts for the ESS PFTs, Weng, 09/12/2025
+!-------------------------------0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
+real :: std_nindivs(0:N_EST) = [2.0,   2.0,   .05,   .05,   .05,   .05,   .05,   .05]  ! initial individual density, individual/m2
+real :: std_bsw(0:N_EST)     = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial biomass of sapwood, kg C/individual
+real :: std_nsc(0:N_EST)     = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial non-structural biomass, kg C/individual
+
 !----- Initial conditions and model control -------------
 integer :: I
-integer, parameter :: N_IniCC_max = MSPECIES ! 5 ! Weng, 2014-10-01
-integer :: init_n_cohorts = N_IniCC_max
-integer :: init_cohort_species(N_IniCC_max) = (/ (I, I = 0, N_IniCC_max-1) /)
-real :: init_cohort_nindivs(N_IniCC_max) = 0.005  ! initial individual density, individual/m2
-real :: init_cohort_bl(N_IniCC_max)      = 0.0  ! initial biomass of leaves, kg C/individual
-real :: init_cohort_br(N_IniCC_max)      = 0.0  ! initial biomass of fine roots, kg C/individual
-real :: init_cohort_bsw(N_IniCC_max)     = 0.2  ! initial biomass of sapwood, kg C/individual
-real :: init_cohort_bHW(N_IniCC_max)     = 0.0  ! initial biomass of heartwood, kg C/tree
-real :: init_cohort_seedC(N_IniCC_max)   = 0.0  ! initial biomass of seeds, kg C/individual
-real :: init_cohort_nsc(N_IniCC_max)     = 0.5  ! initial non-structural biomass, kg C/individual
+integer, parameter :: N_InitC_max = MSPECIES ! 5 ! Weng, 2014-10-01
+integer :: init_cohort_N = 1 ! N_InitC_max
+integer :: init_cohort_sps(N_InitC_max) = (/ (I, I = 0, N_InitC_max-1) /)
+real :: init_cohort_Indiv(N_InitC_max) = -9.  ! initial individual density, individual/m2
+real :: init_cohort_bl(N_InitC_max)      = 0.0  ! initial biomass of leaves, kg C/individual
+real :: init_cohort_br(N_InitC_max)      = 0.0  ! initial biomass of fine roots, kg C/individual
+real :: init_cohort_bsw(N_InitC_max)     = .01  ! initial biomass of sapwood, kg C/individual
+real :: init_cohort_bHW(N_InitC_max)     = 0.0  ! initial biomass of heartwood, kg C/tree
+real :: init_cohort_seedC(N_InitC_max)   = 0.0  ! initial biomass of seeds, kg C/individual
+real :: init_cohort_nsc(N_InitC_max)     = .01  ! initial non-structural biomass, kg C/individual
 
 ! Initial soil type, carbon and nitrogen at a vegn tile, Weng 2012-10-24
 integer :: soiltype = SandyLoam  ! lookup table for soil hydrologic parameters
@@ -823,6 +829,18 @@ type :: grid_initial_type
    real, pointer :: climate(:,:)       ! Ntimes, N_vars
 end type grid_initial_type
 
+! Model mechanisms setting
+logical  :: do_U_mortality      = .True. ! .False.
+logical  :: Do_DroughtMu        = .True. ! Drought-induced mortality, Lichstein (2024)
+logical  :: MergeLowDenCohorts  = .True.
+logical  :: update_annualLAImax = .False.
+logical  :: do_migration        = .False.
+logical  :: do_fire             = .False.
+logical  :: do_closedN_run      = .True.
+logical  :: do_VariedKx         = .True. ! trunk new xylem has the same kx or not
+logical  :: do_VariedWTC0       = .True.
+logical  :: do_WD_mort_function = .False.
+
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
 character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','tswrf','spfh']
@@ -855,17 +873,9 @@ real     :: step_seconds = 1.0 * 3600.0
 real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
 real     :: dt_daily_yr  = 1.0/365.0 ! Daily
 
-! Model test controls
+! Model output
 logical  :: outputhourly = .True.
 logical  :: outputdaily  = .True.
-logical  :: do_U_shaped_mortality = .True. ! .False.
-logical  :: update_annualLAImax = .False.
-logical  :: do_migration = .False.
-logical  :: do_fire = .False.
-logical  :: do_closedN_run = .False.
-logical  :: do_VariedKx   = .True. ! trunk new xylem has the same kx or not
-logical  :: do_VariedWTC0 = .True.
-logical  :: do_WD_mort_function = .False.
 
 ! Scenarios
 character(len=4)  :: CO2Tag = 'aCO2' ! only takes 'aCO2' or 'eCO2', for FACE-MDS-3
@@ -875,7 +885,7 @@ real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
 ! ------------- Model initialization name list ------------
 namelist /initial_state_nml/ &
     ! initial vegetation states
-    init_n_cohorts, init_cohort_species, init_cohort_nindivs,   &
+    init_cohort_N, init_cohort_sps, init_cohort_Indiv,   &
     init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
@@ -884,8 +894,8 @@ namelist /initial_state_nml/ &
     PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     yr_Check,outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,    &
-    update_annualLAImax, do_U_shaped_mortality,                 &
-    do_migration, do_closedN_run, do_fire,                      &
+    update_annualLAImax, do_U_mortality,Do_DroughtMu,           &
+    MergeLowDenCohorts,do_migration, do_closedN_run, do_fire,   &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------
@@ -1039,53 +1049,51 @@ end subroutine read_soil_namelist
 
 !=============================================================================
 ! For global testing of tree-grass-desert shrub and evergreen-deciduous forests
-! Six PFTs: 1: C4, 2: C3, 3: TrE, 4: TrD, 5: TmE, 6: TmD
+! Eight PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
 ! Weng, 09/06/2025
-subroutine Reset_ESS_PFT_parameters()
+subroutine Set_ESS_PFT_parameters()
   implicit none
-  integer, parameter :: N_tot = 7 ! 8 PFTs since started from 0.
-
-  !------------------------ Update PFT parameters -----------------------------------
+  !------------------------ Update ESS PFT parameters --------------------------------
   !---------------------0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
-   pt(0:N_tot)        = [1,      0,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
-   phenotype(0:N_tot) = [0,      0,      1,      0,      1,      0,      1,      0     ] ! 0: Deciduous, 1: evergreen
-   lifeform(0:N_tot)  = [0,      0,      1,      1,      1,      1,      1,      1     ] ! life form of PFTs: 0 for grasses, 1 for trees
-   s0_plant(0:N_tot)  = [0.005,  0.005,   0.02,  0.02,   0.02,   0.02,   0.02,   0.01  ] ! kgC, initial seedling size
-   LAImax(0:N_tot)    = [2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0   ] ! maximum LAI for a tree
-   LMA(0:N_tot)       = [0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.12,   0.035 ] ! leaf mass per unit area, kg C/m2
-   LNbase(0:N_tot)    = [0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 1.2E-3, 1.5E-3, 1.2E-3, 0.8E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
-   alphaHT(0:N_tot)   = [10.,    10.,    35.,    35.,    35.,    35.,    35.,    20.   ]
-   alphaCA(0:N_tot)   = [60.,    60.,    120.,   120.,   120.,   120.,   120.,   200.  ]
-   phiRL(0:N_tot)     = [3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0,    3.0   ] ! ratio of fine root area to leaf area
-   tauNSC(0:N_tot)    = [3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    3.0   ] ! NSC residence time,years
-   m_cond(0:N_tot)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 7.0 !
-   rho_wood(0:N_tot)  = [90.,    90.,    350.,   350.,   320.,   350.,   350.,   450.  ] ! kgC m-3
-   r0mort_c(0:N_tot)  = [.05,    .05,    .03,    .03,    .02,    .02,    .02,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-   D0mu(0:N_tot)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.6   ] ! m, Mortality curve parameter
-   A_sd(0:N_tot)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0   ] ! Max multiplier for seedling mortality
-   B_sd(0:N_tot)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
-   A_DBH(0:N_tot)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
-   B_DBH(0:N_tot)     = [.125,   .125,   .125,   .125,   .125,   .125,   .125,   .125  ] ! Size-based Mortality sensitivity, m
-   W_mu0(0:N_tot)     = [2.5,    2.5,    0.70,   0.80,   0.75,   0.80,   1.0,    1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
-   IgniteP(0:N_tot)   = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01,    .01   ] ! Intrinsic flammability
-   gamma_SW(0:N_tot)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
-   Tc0_OFF(0:N_tot)   = [5.,     5.,     15.,    15.,    -50.,   15.,    -60.0,  12.   ] ! 283.16 ! OFF ! C for convenience
-   Tc0_ON(0:N_tot)    = [5.,     5.,     15.,    15.,    -50.,   12.,    -60.0,  10.   ] ! 280.16 ! ON  ! C for convenience
-   betaON(0:N_tot)    = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0,    0.2   ] ! Critical soil moisture for phenology ON
-   betaOFF(0:N_tot)   = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1   ] ! Critical soil moisture for phenology OFF
-   gdd_par1(0:N_tot)  = [50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.   ] ! 50.d0   ! These three parameters are used to calculate gdd_crit
-   gdd_par2(0:N_tot)  = [800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
-   gdd_par3(0:N_tot)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
-   R0_Nfix(0:N_tot)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
-   C0_Nfix(0:N_tot)   = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
+   pt(0:N_EST)        = [1,      0,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
+   phenotype(0:N_EST) = [0,      0,      1,      0,      1,      0,      1,      0     ] ! 0: Deciduous, 1: evergreen
+   lifeform(0:N_EST)  = [0,      0,      1,      1,      1,      1,      1,      1     ] ! life form of PFTs: 0 for grasses, 1 for trees
+   s0_plant(0:N_EST)  = [0.005,  0.005,   0.02,  0.02,   0.02,   0.02,   0.02,   0.01  ] ! kgC, initial seedling size
+   LAImax(0:N_EST)    = [2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0   ] ! maximum LAI for a tree
+   LMA(0:N_EST)       = [0.025,  0.025,  0.06,   0.032,  0.12,   0.02,   0.12,   0.035 ] ! leaf mass per unit area, kg C/m2
+   LNbase(0:N_EST)    = [0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 1.0E-3, 0.8E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+   alphaHT(0:N_EST)   = [10.,    10.,    35.,    35.,    35.,    35.,    35.,    20.   ]
+   alphaCA(0:N_EST)   = [60.,    60.,    120.,   120.,   120.,   120.,   120.,   200.  ]
+   phiRL(0:N_EST)     = [3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0,    3.0   ] ! ratio of fine root area to leaf area
+   tauNSC(0:N_EST)    = [3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    3.0   ] ! NSC residence time,years
+   m_cond(0:N_EST)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 7.0 !
+   rho_wood(0:N_EST)  = [90.,    90.,    330.,   330.,   350.,   350.,   350.,   450.  ] ! kgC m-3
+   r0mort_c(0:N_EST)  = [.05,    .05,    .03,    .03,    .02,    .02,    .02,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+   D0mu(0:N_EST)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.6   ] ! m, Mortality curve parameter
+   A_sd(0:N_EST)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0   ] ! Max multiplier for seedling mortality
+   B_sd(0:N_EST)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
+   A_DBH(0:N_EST)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
+   B_DBH(0:N_EST)     = [.125,   .125,   .125,   .125,   .125,   .125,   .125,   .125  ] ! Size-based Mortality sensitivity, m
+   W_mu0(0:N_EST)     = [2.5,    2.5,    0.70,   0.80,   0.75,   0.80,   1.0,    1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+   IgniteP(0:N_EST)   = [1.0,    1.0,    .01,    .02,    .02,    .01,    .01,    .01   ] ! Intrinsic flammability
+   gamma_SW(0:N_EST)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
+   Tc0_OFF(0:N_EST)   = [5.,     5.,     15.,    15.,    -50.,   15.,    -60.0,  12.   ] ! 283.16 ! OFF ! C for convenience
+   Tc0_ON(0:N_EST)    = [5.,     5.,     15.,    15.,    -50.,   12.,    -60.0,  10.   ] ! 280.16 ! ON  ! C for convenience
+   betaON(0:N_EST)    = [0.4,    0.4,    0.0,    0.6,    0.0,    0.6,    0.0,    0.2   ] ! Critical soil moisture for phenology ON
+   betaOFF(0:N_EST)   = [0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.0,    0.1   ] ! Critical soil moisture for phenology OFF
+   gdd_par1(0:N_EST)  = [50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.   ] ! 50.d0   ! These three parameters are used to calculate gdd_crit
+   gdd_par2(0:N_EST)  = [800.,   600.,   0.0,    800.,   0.0,    800.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
+   gdd_par3(0:N_EST)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
+   R0_Nfix(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
+   C0_Nfix(0:N_EST)   = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
 
    ! Not used in current model setting (Global ESS PFTs)
-   gdd_crit(0:N_tot)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
-   s_hu(0:N_tot)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
-   AWD_crit(0:N_tot)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
+   gdd_crit(0:N_EST)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
+   s_hu(0:N_EST)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
+   AWD_crit(0:N_EST)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
 
    write(*,*)"ESS PFTs'parameters implemented"
-end subroutine Reset_ESS_PFT_parameters
+end subroutine Set_ESS_PFT_parameters
 
 !========================Parameter initialization =========================
 subroutine initialize_soilpars(fnml)
@@ -1130,12 +1138,11 @@ subroutine initialize_PFT_data(fnml)
   ! ---- local vars
   integer :: i
 
-#ifdef DO_Climate_VEG
   ! For tree-grass-desert shrub and evergreen-deciduous forest transition, 09/07/2025
-  call Reset_ESS_PFT_parameters()
-#endif
+  ! Eight PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
+  call set_ESS_PFT_parameters()
 
-  ! Read in parameters in vegn_parameters_nml
+  ! Update parameters in vegn_parameters_nml
   call read_vegn_namelist(fnml)
 
   ! initialize vegetation data structure
@@ -1316,8 +1323,8 @@ subroutine initialize_PFT_data(fnml)
    integer, intent(in) :: steps_per_day
 
    !--------- local vars ------------
-   integer, parameter :: N_GridPFTs = 4, mw = 15
-   integer :: GridPFTs(N_GridPFTs) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
+   integer, parameter :: N_PFTID = 4, mw = 15
+   integer :: PFTID(N_PFTID) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
    real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
    real :: tmpL(mw*2+1), meanTmin, meanPrcp
    real :: Pr_thld = 300.
@@ -1387,53 +1394,51 @@ subroutine initialize_PFT_data(fnml)
    if(meanPrcp > Pr_thld)then
      ! No desert shrubs
      if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
-       GridPFTs = [0,2,3,6]
+       PFTID = [0,2,3,6]
      elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
-       GridPFTs = [0,4,5,6]
+       PFTID = [0,4,5,6]
      else
-       GridPFTs = [1,4,5,6]
+       PFTID = [1,4,5,6]
      endif
    else
      ! Replace evergreen with desert shrubs
      if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
-       GridPFTs = [0,3,6,7]
+       PFTID = [0,3,6,7]
      elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
-       GridPFTs = [0,5,6,7]
+       PFTID = [0,5,6,7]
      else
-       GridPFTs = [1,5,6,7]
+       PFTID = [1,5,6,7]
      endif
    endif
    write(*,'(2(a6,f6.1,";"), a12, 4(I6,","))')   &
          'Prcp: ', meanPrcp, 'Tmin: ', meanTmin, &
-         'Grid PFTs: ', GridPFTs
+         'Grid PFTs: ', PFTID
 
-   ! Assign initial cohorts
-   init_n_cohorts = N_GridPFTs
-   do i=1, init_n_cohorts
-     init_cohort_species(i) = GridPFTs(i)
-     if(GridPFTs(i)<2)then  ! Grasses, C3 (1) or C4 (0)
-       init_cohort_nindivs(i) = 2.0  ! initial individual density, individual/m2
-       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
-       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
-       init_cohort_bsw(i)     = .005 ! initial biomass of sapwood, kg C/individual
-       init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
-       init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
-       init_cohort_nsc(i)     = .005 ! initial non-structural biomass, kg C/
-     else                  ! Trees and shrubs
-       init_cohort_nindivs(i) = 0.02  ! initial individual density, individual/m2
-       init_cohort_bl(i)      = 0.0  ! initial biomass of leaves, kg C/individual
-       init_cohort_br(i)      = 0.0  ! initial biomass of fine roots, kg C/individual
-       init_cohort_bsw(i)     = 0.1  ! initial biomass of sapwood, kg C/individual
-       init_cohort_bHW(i)     = 0.0  ! initial biomass of heartwood, kg C/tree
-       init_cohort_seedC(i)   = 0.0  ! initial biomass of seeds, kg C/individual
-       init_cohort_nsc(i)     = 0.1  ! initial non-structural biomass, kg C/individual
-     endif
-   enddo
+   ! Assign standard initial cohorts by updating init_cohort_*
+   call Assign_Std_Cohorts (PFTID,N_PFTID)
 
    ! Release allocatable variables
    deallocate(dailyTc,meanTc,minTm)
  end subroutine Vegn_PFTs_from_Climate
 
+ !=============================================================================
+ ! Assign a standard cohort for each PFT
+ subroutine Assign_Std_Cohorts (PFTID,totPFT)
+   implicit none
+   integer, intent(in) :: PFTID(:), totPFT
+
+   !--------- local vars ------------
+   integer :: i
+
+   ! Assign initial cohorts
+   ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
+   init_cohort_N = totPFT
+   init_cohort_sps(1:totPFT)   = PFTID(1:totPFT)
+   init_cohort_Indiv(1:totPFT) = std_nindivs(PFTID(1:totPFT))
+   init_cohort_bsw(1:totPFT)   = std_bsw(PFTID(1:totPFT))
+   init_cohort_nsc(1:totPFT)   = std_nsc(PFTID(1:totPFT))
+
+ end subroutine Assign_Std_Cohorts
 ! ============================================================
 subroutine qscomp(T, p, qsat)
   real, intent(in) :: T    ! temperature, degK

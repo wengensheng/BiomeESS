@@ -1,30 +1,27 @@
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
-init_n_cohorts      = 2, ! total 5
-init_cohort_species = 0,    2,    3,    1,    4,    5,
-init_cohort_nindivs = 10.,  .2, .001, .001, .001,
-init_cohort_bsw     = 0.01, 0.02,  0.2,  0.2,  0.2,
-init_cohort_bHW     = 0.0,  0.0,  0.0,  0.0,  0.0,
-init_cohort_nsc     = 0.02, 0.05,  0.5,  0.5,  0.5,
+init_cohort_N   = 2, ! total 5
+init_cohort_sps = 4,  5,  6,  1
 
-init_fast_soil_C    = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_soil_C    = 20.    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
-init_Nmineral       = 5.0E-3 ! 402.5E-3, ! kg N m-2
-N_input             = 1.2E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+! Soil initial values
+init_fast_soil_C    = 0.5     ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_soil_C    = 12.     ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
+N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/GlobalTest/',
-runID       = 'LowF1_', ! Output file name
+runID       = 'ED_Nin12LNE09D12', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
-Sc_prcp = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years =  1200,
-outputhourly    =  .False. ! .True.
-outputdaily     =  .True.  ! .False.
-do_closedN_run  =  .False. ! .True.  !
-do_U_shaped_mortality = .True. ! .False. !
-do_fire = .True.  !  .False. !
-do_migration = .True.  !  .False. !
+Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
+model_run_years = 1200,
+outputhourly    = .False. ! .True.
+outputdaily     = .True.  ! .False.
+do_closedN_run  = .False. ! .True.  !
+do_U_mortality  = .True. ! .False. !
+do_fire         = .True.  !  .False. !
+do_migration    = .True.  !  .False. !
 /
 
 &soil_data_nml
@@ -49,7 +46,7 @@ l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 envi_fire_prb = 0.25,
-ETP0        = 3.0 ! 2.0, ! when ET/Prcp=ETP0, P=0.5; High for low fire probability
+ETP0        = 5.0, ! 3.0, ! 2.0, ! when ET/Prcp=ETP0, P=0.5; High for low fire probability
 FSBM0       = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
 ! species   0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
@@ -58,14 +55,14 @@ lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! li
 s0_plant  = 0.005,  0.005,   0.02,  0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
 LAImax    = 2.5,    2.5,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0,    ! maximum LAI for a tree
 LMA       = 0.025,  0.025,  0.06,   0.032,  0.14,   0.02 ,  0.12,   0.035,  ! leaf mass per unit area, kg C/m2
-LNbase    = 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.8E-3, 1.5E-3, 1.0E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+LNbase    = 0.8E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 1.0E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 alphaHT   = 10.,    10.,    35.,    35.,    35.,    35.,    35.,    20.,    ! Height parameter
 alphaCA   = 60.,    60.,    120.,   120.,   120.,   120.,   120.,   200.,   ! Crown area
 phiRL     = 3.5,    3.5,    1.5,    1.5,    1.5,    1.5,    2.0,    3.0,    ! ratio of fine root area to leaf area
 tauNSC    = 3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    3.0,    ! NSC residence time,years
 m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    ! 7.0 !
-rho_wood  = 90.,    90.,    350.,   350.,   350.,   350.,   350.,   450.,   ! kgC m-3
-r0mort_c  = .05,    .05,    .03,    .03,    .01,    .01,    .02,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+rho_wood  = 90.,    90.,    330.,   330.,   350.,   350.,   350.,   450.,   ! kgC m-3
+r0mort_c  = .05,    .05,    .03,    .03,    .02,    .02,    .02,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.6,    ! m, Mortality curve parameter
 A_sd      = 0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0,    ! Max multiplier for seedling mortality
 B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mortality sensitivity for seedlings

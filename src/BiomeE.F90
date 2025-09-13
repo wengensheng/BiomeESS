@@ -88,6 +88,10 @@ subroutine BiomeE_initialization()
   ! Update init_cohort_* arrays, 09/09/2025
   call Vegn_PFTs_from_Climate(forcingData,steps_per_day)
 #endif
+
+  if(init_cohort_Indiv(1)<0.0) &
+     call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
+
   ! Setup total days of model run
   totdays   = INT(model_run_years/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
