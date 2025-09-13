@@ -885,7 +885,7 @@ real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
 ! ------------- Model initialization name list ------------
 namelist /initial_state_nml/ &
     ! initial vegetation states
-    init_cohort_N, init_cohort_sps, init_cohort_Indiv,   &
+    init_cohort_N, init_cohort_sps, init_cohort_Indiv,          &
     init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
@@ -1313,6 +1313,36 @@ subroutine initialize_PFT_data(fnml)
    endif
 
  end subroutine init_derived_species_data
+
+ !=============================================================================
+ subroutine Set_PFTs_from_map(LandGrid)
+   type(grid_initial_type), intent(in) :: LandGrid
+
+   !--------- local vars ------------
+   integer :: GridPFTs(N_PFTs)
+   integer :: i
+   real :: f_min = 0.01 ! coverage fraction threshold
+
+   ! Sorting PFT numbers according to fPFT
+   call rank_descending(LandGrid%fPFT,GridPFTs)
+   !PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
+   GridPFTs = GridPFTs - 1 ! PFT No. starts from 0.
+
+   ! Find out PFTs in this grid
+   init_cohort_N = min(N_InitC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))
+   do i=1, init_cohort_N
+     init_cohort_sps(i)   = GridPFTs(i)
+     init_cohort_Indiv(i) = 0.2  ! initial individual density, individual/m2
+     init_cohort_bsw(i)   = 0.01 ! initial biomass of sapwood, kg C/individual
+     init_cohort_nsc(i)   = 0.01 ! initial non-structural biomass, kg C/individual
+   enddo
+
+  ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
+   init_fast_soil_C  = 0.5  ! initial fast soil C, kg C/m2
+   init_slow_soil_C  = 20.0  ! initial slow soil C, kg C/m2
+   init_Nmineral     = 0.02  ! Mineral nitrogen pool, (kg N/m2)
+   N_input           = 2.0 !0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
+ end subroutine Set_PFTs_from_map
 
  !=============================================================================
  ! for testing tree-grass-desert shrub and evergreen-deciduous forests only
