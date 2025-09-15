@@ -209,11 +209,10 @@ end subroutine Zero_diagnostics
 
 !=========================================================================
 ! Hourly fluxes sum to daily
- subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday,fno1,fno2)
+ subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday)
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
   integer, intent(in) :: iyears,idoy,ihour,iday
-  integer, intent(in) :: fno1, fno2
 
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
@@ -282,9 +281,9 @@ end subroutine Zero_diagnostics
 end subroutine hourly_diagnostics
 
 !============================================
-subroutine daily_diagnostics(vegn,iyears,idoy,iday,MonthDays,fno3,fno4)
+subroutine daily_diagnostics(vegn,iyears,idoy,iday,MonthDays)
   type(vegn_tile_type), intent(inout) :: vegn
-  integer, intent(in) :: iyears,idoy,iday,fno3,fno4
+  integer, intent(in) :: iyears,idoy,iday
   integer, intent(in) :: MonthDays(0:12)
   !-------local var ------
   type(cohort_type), pointer :: cc    ! current cohort
@@ -413,9 +412,9 @@ endif
 end subroutine daily_diagnostics
 
 !======================================================
- subroutine annual_diagnostics(vegn, iyears,f1,f2)
+ subroutine annual_diagnostics(vegn, iyears)
    type(vegn_tile_type), intent(inout) :: vegn
-   integer, intent(in) :: f1,f2, iyears
+   integer, intent(in) :: iyears
 
     ! --------local var --------
     type(cohort_type), pointer :: cc
@@ -454,10 +453,10 @@ end subroutine daily_diagnostics
         yr_Eq = yr_Sc - yr_Baseline ! 100
         if(iyears > yr_Eq)then
           if (iyears <= yr_Sc) then
-            f_cht = f1
+            f_cht = fno5
             iyr_out = iyears - yr_Eq
           else
-            f_cht = f1 + 10
+            f_cht = fno5 + 10
             iyr_out = iyears - yr_Sc
           endif
 
@@ -472,7 +471,7 @@ end subroutine daily_diagnostics
 
 #elif DBEN_run
         if(iyr_out > 0) &
-        write(f1,'(7(I8,","),300(E15.4,","))')vegn%tileID, &
+        write(fno5,'(7(I8,","),300(E15.4,","))')vegn%tileID, &
           iyr_out,i,cc%ccID,cc%species,sp%lifeform,    &
           cc%layer,cc%nindivs*10000,cc%layerfrac,      &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
@@ -480,7 +479,7 @@ end subroutine daily_diagnostics
           cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
 #elif FACE_run
-        write(f1,'(4(I8,","),300(E15.6,","))')iyears,i,     &
+        write(fno5,'(4(I8,","),300(E15.6,","))')iyears,i,     &
           cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
           cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
           cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
@@ -491,7 +490,7 @@ end subroutine daily_diagnostics
           cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
 
 #else
-        write(f1,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
+        write(fno5,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
           iyears,i,cc%ccID,cc%species,cc%layer,            &
           cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,      &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,    &
@@ -531,7 +530,7 @@ end subroutine daily_diagnostics
                vegn%rootN + vegn%SapwoodN + vegn%woodN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
 #ifdef FACE_run
-      write(f2,'(1(I5,","),80(E15.6,","))') iyears, &
+      write(fno6,'(1(I5,","),80(E15.6,","))') iyears, &
        vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
        vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
        vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
@@ -543,7 +542,7 @@ end subroutine daily_diagnostics
        vegn%Nm_Fire*1000, vegn%N_OutYr*1000, vegn%CO2_c
 #elif DroughtMIP
       if (iyears > yr_Eq) &
-        write(f2,'(2(I5,","),80(E15.6,","))')&
+        write(fno6,'(2(I5,","),80(E15.6,","))')&
         vegn%tileID,iyears - yr_Sc,vegn%CAI,vegn%LAI,                   &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
@@ -555,7 +554,7 @@ end subroutine daily_diagnostics
         (vegn%wcl(j),j=1,soil_L)
 
 #else
-      write(f2,'(2(I5,","),120(E15.6,","))')  &
+      write(fno6,'(2(I5,","),120(E15.6,","))')  &
         vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
@@ -1070,8 +1069,7 @@ subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
 end subroutine read_CRUforcing
 
 !=========== Write output file header ====================
-subroutine setup_output_files(fno1,fno2,fno3,fno4,fno5,fno6)
-   integer,intent(inout):: fno1,fno2,fno3,fno4,fno5,fno6
+subroutine setup_output_files()
 
    ! ----------Local vars ------------
    character(len=150) :: YearlyCohort2,DailyPatch2  ! For DroughtMIP only

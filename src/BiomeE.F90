@@ -208,8 +208,7 @@ subroutine BiomeE_run()
       do while(ASSOCIATED(vegn))
         if(i == INT(steps_per_day/2) .and. idoy == 181)vegn%CO2_c = climateData%CO2 ! * 1.0e6
         call vegn_CNW_budget_fast(vegn,climateData)
-        call hourly_diagnostics(vegn,climateData, &
-                                n_yr,idoy,i,idays,fno1,fno2)
+        call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
         vegn => vegn%next
       enddo
     enddo ! steps_per_day
@@ -220,7 +219,7 @@ subroutine BiomeE_run()
     do while(ASSOCIATED(vegn))
       vegn%Tc_daily = land%Tc_daily
       call vegn_daily_update(vegn,dt_daily_yr)
-      call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays,fno3,fno4)
+      call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
       vegn => vegn%next
     enddo
 
@@ -242,9 +241,9 @@ subroutine BiomeE_run()
 
 #ifdef SingleTreeTest
         call vegn_SingleCohort_annual_update(vegn)
-        call annual_diagnostics(vegn,n_yr,fno5,fno6)
+        call annual_diagnostics(vegn,n_yr)
 #else
-        call annual_diagnostics(vegn,n_yr,fno5,fno6)
+        call annual_diagnostics(vegn,n_yr)
         call vegn_demographics(vegn,real(seconds_per_year))
 #endif
 

@@ -815,7 +815,7 @@ real     :: siteLAT = 36.01 !site latitude, ORNL
 ! For global/regional forcing data, soil conditions, and initial conditions
 ! CRU NetCDF file dimensions
 integer, parameter :: NDIMS = 3
-integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460
+integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460, Hours_NCstep = 6
 integer, parameter :: N_PFTs   = 9 ! Global PFTs from Ent Vegetation Map
 type :: grid_initial_type
    integer :: iLon ! grid number along Longitude (from -180 to 180)
@@ -867,7 +867,7 @@ integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
 integer  :: yr_Baseline  = 1000 ! for DroughtMIP baseline model run years
 integer  :: yr_Check     = 5 ! Interval (yrs) of checking and recovering initial species comoposition
 integer  :: equi_days    = 0 ! 100 * 365
-real     :: steps_per_hour = 1.0
+integer  :: steps_per_hour = 1
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
 real     :: step_seconds = 1.0 * 3600.0
 real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
@@ -951,35 +951,18 @@ type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
 !---------------------------------
  contains
 
-!============================ Subroutines =================================
-! Read in parameters in the namelist file
-! Weng, 09/07/2025
+!==========================================================================
+! Initialize model processes/settings and model parameters
 !----------------------------------------------------------------
-subroutine read_global_setting(fnml)
+subroutine model_para_init(fnml)
   character(len=*),intent(in) :: fnml
-  !--------local vars -----------
-  integer :: rc, fu
+  call read_init_namelist(fnml)
+  call initialize_soilpars(fnml)
+  call initialize_PFT_data(fnml)
+end subroutine model_para_init
 
-  ! Check whether file exists
-  inquire (file=fnml, iostat=rc)
-  if (rc /= 0) then
-      write (*, '("Error: input file ", a, " does not exist")') fnml
-      stop
-  end if
-
-  ! Open the namelist file, read global_setting_nml
-  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
-  read (nml=global_setting_nml, iostat=rc, unit=fu)
-  if (rc == 0) then
-    write(*,*)'Namelist global_setting_nml read successfully.'
-  else
-    write(*,*)'Namelist global_setting_nml error', rc
-    stop
-  endif
-  !write(*,nml=initial_state_nml)
-  close (fu)
-
-end subroutine read_global_setting
+!============================ Subroutines =================================
+! Read in parameters in the namelist file, Weng, 09/07/2025
 
 !----------------------------------------------------------------
 subroutine read_init_namelist(fnml)
@@ -1046,6 +1029,24 @@ subroutine read_soil_namelist(fnml)
   close (fu)
 
 end subroutine read_soil_namelist
+
+!----------------------------------------------------------------
+subroutine read_global_setting(fnml)
+  character(len=*),intent(in) :: fnml
+  !--------local vars -----------
+  integer :: rc, fu
+  ! Open the namelist file and read global_setting_nml
+  open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+  read (nml=global_setting_nml, iostat=rc, unit=fu)
+  if (rc == 0) then
+    write(*,*)'Namelist global_setting_nml read successfully.'
+  else
+    write(*,*)'Namelist global_setting_nml error', rc
+    stop
+  endif
+  !write(*,nml=initial_state_nml)
+  close (fu)
+end subroutine read_global_setting
 
 !=============================================================================
 ! For global testing of tree-grass-desert shrub and evergreen-deciduous forests
@@ -1244,6 +1245,7 @@ subroutine initialize_PFT_data(fnml)
      call init_derived_species_data(spdata(i))
   enddo
   end subroutine initialize_pft_data
+
 !------------------------------------------
  subroutine init_derived_species_data(sp)
    type(spec_data_type), intent(inout) :: sp

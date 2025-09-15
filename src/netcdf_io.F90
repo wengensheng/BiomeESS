@@ -160,10 +160,9 @@ contains
   end subroutine ReadNCfiles
 
 !=============================================================================
-subroutine CRU_Interpolation(LandGrid,steps_per_hour,forcingData)
+subroutine CRU_Interpolation(LandGrid,forcingData)
   implicit none
   type(grid_initial_type), pointer, intent(in) :: LandGrid
-  real, intent(in) :: steps_per_hour
   type(climate_data_type), pointer :: forcingData(:) ! output
 
   !---------- local variables ------------------
@@ -183,7 +182,7 @@ subroutine CRU_Interpolation(LandGrid,steps_per_hour,forcingData)
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
   integer :: ndays,nyear,totalL
-  integer :: m,i,j,k,steps_per_day
+  integer :: m,i,j,k
   integer :: totyr, Nlines
   logical :: WriteSample = .False.
 
@@ -197,10 +196,11 @@ subroutine CRU_Interpolation(LandGrid,steps_per_hour,forcingData)
   Lati  = (iLat-1)*0.5 - 89.75
 
   ! Data lines
+  steps_per_hour = 1 ! Target steps per hour
   Nlines = SIZE(tswrfH)
-  steps_per_day = int(steps_per_hour * 24)
-  totalL = Nlines * int(6 * steps_per_hour) ! for hourly data
-  totyr = int(Nlines/(365*4))
+  steps_per_day = steps_per_hour * 24
+  totalL = Nlines * Hours_NCstep * steps_per_hour ! for hourly data
+  totyr = int(Nlines/(365*24/Hours_NCstep))
   year0 = int(tswrfH(1)/(365*24)) + 1850
   year1 = year0 + totyr - 1
 
@@ -311,9 +311,9 @@ subroutine CRU_Interpolation(LandGrid,steps_per_hour,forcingData)
   datalines = totalL
   days_data = totyr * 365
   yr_data   = totyr
-  steps_per_day = int(24.0/step_hour)
-  dt_fast_yr    = step_hour/(365.0 * 24.0)
-  step_seconds  = step_hour*3600.0
+  dt_fast_yr= 1.0/(365.0 * 24.0 * steps_per_hour)
+  step_hour = 1.0/steps_per_hour
+  step_seconds  = 3600.0 * step_hour
 
   ! Write out a sample file
   if(WriteSample)then
