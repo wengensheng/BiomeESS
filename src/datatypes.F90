@@ -5,7 +5,7 @@
  !===============constants===============
  integer, parameter :: days_per_year    = 365
  integer, parameter :: hours_per_year   = 365 * 24  ! 8760
- integer, parameter :: MonthDOY(0:12)    =(/0,31,59,90,120,151,181,212,243,273,304,334,366/)
+ integer, parameter :: MonthDOY(0:12)   =(/0,31,59,90,120,151,181,212,243,273,304,334,366/)
  real,    parameter :: seconds_per_year = 365. * 24. * 3600.
  real,    parameter :: seconds_per_day  = 24. * 3600.
 
@@ -626,9 +626,9 @@ real    :: T0_chill  = 10.0  ! Celcus degree
 
 ! Fire regimes
 real :: envi_fire_prb= 0.0 ! fire probability due to environment, 0.5
-real :: ETP0         = 2.0 ! When ET/P = ET_P0, envi_fire_prb = 0.5; envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
-real :: A_ETP        = -8.0 ! shape parameter of envi_fire_prb - ET_P curve
-real :: FSBM0        = 0.4 ! kgC m-2, grass fire severity parameter, as a function of grass BM
+real :: fMI0         = 0.5  ! envi_fire_prb = 1.0/(1.0 + exp(A_MI*(P/PET - fMI0)))
+real :: A_MI         = 20.0 ! shape parameter of envi_fire_prb vs. P/PET curve
+real :: FSBM0        = 0.2 ! kgC m-2, grass fire severity parameter, as a function of grass BM
 real :: m0_g_fire    = 0.2 ! mortality rates of grasses due to fire
 real :: m0_w_fire    = 0.99! mortality rates of trees due to fire
 real :: f_bk         = 0.1105   ! coefficient of bark thickness,
@@ -796,6 +796,12 @@ real :: init_slow_soil_C  = 2.0  ! initial slow soil C, kg C/m2
 real :: init_Nmineral     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
 real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
+! Climate-vegetation initialization, 09/20/2025
+real :: Pr_thld = 300.0  ! Desert shrub vs trees
+real :: MI0_DST = 0.25   ! Desert shrub vs trees, Prcp/PET
+real :: T1_thld = 12.0   ! Tropical trees vs Temperate/boreal trees
+real :: T2_thld = 5.0    ! C4 vs C3 grasses
+
 ! Input files
 character(len=80)  :: filepath_in = './input/'
 character(len=80)  :: filepath_out = './output/'
@@ -889,6 +895,7 @@ namelist /initial_state_nml/ &
     init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
+    Pr_thld,MI0_DST,T1_thld,T2_thld,                            &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw,                              &
@@ -938,7 +945,7 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   LMAmin,fsc_fine,fsc_wood,K0SOM,                                     &
   K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                               &
   ! Fire model parameters, Weng, 01/13/2021
-  envi_fire_prb, ETP0, A_ETP, FSBM0,                                  &
+  envi_fire_prb, fMI0, A_MI, FSBM0,                                   &
   IgniteP, m0_w_fire, m0_g_fire, f_bk, r_BK0,                         &
   f_HT0 , h0_escape, D_BK0                     ! for an old scheme
 
@@ -1341,9 +1348,9 @@ subroutine initialize_PFT_data(fnml)
 
   ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
    init_fast_soil_C  = 0.5  ! initial fast soil C, kg C/m2
-   init_slow_soil_C  = 20.0  ! initial slow soil C, kg C/m2
-   init_Nmineral     = 0.02  ! Mineral nitrogen pool, (kg N/m2)
-   N_input           = 2.0 !0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
+   init_slow_soil_C  = 20.0 ! initial slow soil C, kg C/m2
+   init_Nmineral     = 0.02 ! Mineral nitrogen pool, (kg N/m2)
+   N_input           = 2.0  ! 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
  end subroutine Set_PFTs_from_map
 
  !=============================================================================
@@ -1358,10 +1365,9 @@ subroutine initialize_PFT_data(fnml)
    integer, parameter :: N_PFTID = 4, mw = 15
    integer :: PFTID(N_PFTID) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
    real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
-   real :: tmpL(mw*2+1), meanTmin, meanPrcp
-   real :: Pr_thld = 300.
-   real :: T1_thld = 12.0
-   real :: T2_thld = 5.0
+   real :: tmpL(mw*2+1)
+   real :: totPrcp, totPET, meanTmin, meanPrcp, meanPET, Mst_IDX
+   real :: seconds_per_step
 
    integer :: i,j,k,m,n,L,w
    integer :: N_Yrs, N_dys
@@ -1369,6 +1375,7 @@ subroutine initialize_PFT_data(fnml)
    ! ------ Calculate days and years of the data ------
    N_dys = size(forcingData)/steps_per_day
    N_yrs = N_dys/365
+   seconds_per_step = seconds_per_day / steps_per_day
    if (N_yrs < 1) then
       error stop "Vegn_PFTs_from_Climate: need at least one year's data."
    endif
@@ -1381,17 +1388,21 @@ subroutine initialize_PFT_data(fnml)
    ! Calculate daily temperature and yearly mean Precipitation
    dailyTc = 0.0
    meanTc  = 0.0
-   meanPrcp= 0.0
+   totPrcp = 0.0
+   totPET  = 0.0
    k = 0
    do i = 1, N_dys
      do j = 1, steps_per_day
        k = k + 1
        dailyTc(i) = dailyTc(i) + forcingData(k)%Tair - 273.15
-       meanPrcp = meanPrcp + forcingData(k)%rain
+       totPrcp = totPrcp + forcingData(k)%rain * seconds_per_step
+       totPET  = totPET  + potentialET(forcingData(k)) * seconds_per_step
      enddo
      dailyTc(i) = dailyTc(i)/steps_per_day
    enddo
-   meanPrcp = meanPrcp * 3600.0/N_yrs
+   meanPrcp = totPrcp / N_yrs
+   meanPET  = totPET / N_yrs
+   Mst_IDX  = meanPrcp / meanPET ! Moisture Index
 
    ! Calculate running mean temperature (meanTc) with a windlow of L
    L = mw * 2 + 1
@@ -1423,7 +1434,8 @@ subroutine initialize_PFT_data(fnml)
    meanTmin = sum(minTm)/real(size(minTm))
 
    ! Assign PFT groups according to climate data at each grid
-   if(meanPrcp > Pr_thld)then
+   !if(meanPrcp > Pr_thld)then
+   if(Mst_IDX > MI0_DST) then
      ! No desert shrubs
      if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
        PFTID = [0,2,3,6]
@@ -1674,7 +1686,7 @@ end subroutine calc_solarzen
 ! Smooth bare soil / desert: >150–300 s m-1
 function PotentialET(forcing)
   implicit none
-  real :: PotentialET  ! returned value, kg H2O/m2/hour
+  real :: PotentialET  ! returned value, kg H2O/m2/second
   type(climate_data_type),intent(in):: forcing
 
   !----- local var --------------
@@ -1716,7 +1728,7 @@ function PotentialET(forcing)
   Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
           !(slope + psyc * (1.0+rsoil/raero)) ! AET, Liqing Peng et al. 2019 GCB
 
-  PotentialET = Esoil/H2OLv * 3600.0 ! kg H2O m-2 hour-1
+  PotentialET = Esoil/H2OLv ! kg H2O m-2 second-1
 end function PotentialET
 
 ! ============================================================================

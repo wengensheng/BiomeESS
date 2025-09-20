@@ -2836,7 +2836,7 @@ subroutine vegn_fire (vegn, deltat)
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type), pointer :: sp
   ! -- fire effects variables --
-  real :: ET_P    ! ratio of ET to P, for fire probability calculation
+  real :: P_ET    ! ratio of P to ET, for fire probability calculation
   real :: r_fire  ! random number for fire occurence
   real :: Ignition_G0, Ignition_W0 ! Grass and wood ignition probability
   real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
@@ -2864,9 +2864,9 @@ subroutine vegn_fire (vegn, deltat)
   !  D_BK0: Bark thickness at half survival rate.
 
   ! Environmental risk
-  !ET_P = (vegn%annualTrsp + vegn%annualEvap) / vegn%annualPrcp
-  ET_P = vegn%annualET0 / vegn%annualPrcp
-  envi_fire_prb = 1.0/(1.0 + exp(A_ETP*(ET_P - ETP0)))
+  !P_ET = vegn%annualPrcp / (vegn%annualTrsp + vegn%annualEvap)
+  P_ET = vegn%annualPrcp / vegn%annualET0
+  envi_fire_prb = 1.0/(1.0 + exp(A_MI*(P_ET - fMI0)))
   vegn%EVrisk = envi_fire_prb
 
   ! Ignition probabilities of grasses and woody PFTs
