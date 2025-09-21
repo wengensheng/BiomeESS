@@ -772,7 +772,7 @@ real :: C0_Nfix(0:MSPECIES)   = 12.0 ! Carbon cost of N fixation, FUN model, Fis
 
 ! Standard cohorts for the ESS PFTs, Weng, 09/12/2025
 !-------------------------------0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
-real :: std_nindivs(0:N_EST) = [2.0,   2.0,   .05,   .05,   .05,   .05,   .05,   .05]  ! initial individual density, individual/m2
+real :: std_nindivs(0:N_EST) = [8.0,   8.0,   .05,   .05,   .05,   .05,   .05,   .05]  ! initial individual density, individual/m2
 real :: std_bsw(0:N_EST)     = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial biomass of sapwood, kg C/individual
 real :: std_nsc(0:N_EST)     = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial non-structural biomass, kg C/individual
 
@@ -800,7 +800,7 @@ real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 real :: Pr_thld = 300.0  ! Desert shrub vs trees, not used!
 real :: MI0DeSB = 0.25   ! Desert shrub vs trees, P/PET
 real :: T1_thld = 12.0   ! Tropical trees vs Temperate/boreal trees
-real :: T2_thld = 5.0    ! C4 vs C3 grasses
+real :: T2_thld = 0.0    ! C4 vs C3 grasses
 
 ! Input files
 character(len=80)  :: filepath_in = './input/'
