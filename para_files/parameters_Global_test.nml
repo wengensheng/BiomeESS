@@ -10,7 +10,7 @@ init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
 N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
-MI0_DST = 0.25,   ! Prcp/PET, Desert shrub vs trees
+MI0DeSB = 0.25,   ! Prcp/PET, Desert shrub vs trees
 T1_thld = 12.0,   ! Tropical trees vs Temperate/boreal trees
 T2_thld = 5.0,    ! C4 vs C3 grasses
 
@@ -20,7 +20,7 @@ filepath_out= './output/',
 runID       = 'ESSP2_', ! Output file name
 climfile    = 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years = 1000,
+model_run_years = 900,
 outputhourly    = .False. ! .True.
 outputdaily     = .True.  ! .False.
 do_closedN_run  = .False. ! .True.  !
@@ -50,9 +50,8 @@ f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
-envi_fire_prb = 0.25,
-fMI0        = 0.4, ! 0.5, ! 0.3, ! when P/ET=fMI0, P=0.5; High for high fire probability at given P
-FSBM0       = 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+MI0Fire    = 0.4, ! 0.5, ! 0.3, ! when P/ET=MI0Fire, Frisk=0.5; High for high fire probability at given P
+FSBM0      = 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 ! Set PFT 6 (Nfx)  as deciduous, Weng, 09-19-2025
 ! species   0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4

@@ -235,24 +235,6 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   vegn%freewater(:) = max(0.0,((vegn%wcl(:)-vegn%WILTPT)*thksl(:)*1000.0)) ! kg/m2, or mm
   vegn%soilwater    = sum(vegn%freewater(:))
   vegn%thetaS       = sum(vegn%freewater(1:3))/(sum(thksl(1:3))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
-
-  ! ------- Potential ET -----------
-  ! from ChapGPT for short grass (FAO reference crop, 0.12 m), raero = 100
-  ! Aero conductance ! https://www.fao.org/4/x0490e/x0490e06.htm
-  ! ChatGPT: Short grass (FAO reference crop, 0.12 m): ≈100 s m⁻¹.
-  ! Tall crops (e.g., maize, ~2 m): 20-50 s m-1 because taller, rougher canopies enhance turbulence.
-  ! Forests (>20 m): 5–30 s m-1 due to strong turbulence above canopy.
-  ! Smooth bare soil / desert: >150–300 s m-1
-  Zmh = 2.0   ! Measurement height (m)
-  Zvg = 0.12  ! FAO, short-crop height (m), for PET
-  Z0m = 0.014 ! roughness length for momentum [m]
-  Z0h = 0.02  ! roughness length for heat and vapour [m],
-  dz  = Zvg*2/3 ! Zero wind speed height
-  raero = (log((Zmh - dz)/Z0m)*log((Zmh - dz)/Z0h))/(Karman*Karman*Uwind)
-  Esoil = (slope*Rnet + rhocp*Dair/raero)/(slope + psyc)
-        ! (slope + psyc * (1.0+rsoil/raero)) ! for AET, Liqing Peng et al. 2019 GCB
-  vegn%annualET0 = vegn%annualET0 + Esoil/H2OLv * step_seconds ! kg m-2 step-1
-
 end subroutine SoilWaterDynamics
 
 !======================================================================

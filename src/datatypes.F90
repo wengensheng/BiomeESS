@@ -448,8 +448,8 @@ type :: vegn_tile_type
   real :: treecover = 0.0 ! tree CAI in the top layer, for fire spread
   real :: grasscover= 0.0 ! grass CAI, for the initial fire severity
   real :: GrassBM   = 0.0 ! Grass biomass at the end of growing season, for fire severity
-  real :: annualET0 = 0.0 ! Potential ET, yearly, for fire risk calculation
-  real :: EVrisk    = 0.0 ! Probability of climatic fire risk
+  real :: annualPET = 0.0 ! Potential ET, yearly, for fire risk calculation
+  real :: Frisk     = 0.0 ! Probability of climatic fire risk
   real :: P_burn    = 0.0 ! Probability of burning
 
   ! Daily diagnostics
@@ -625,9 +625,9 @@ real    :: T0_gdd    = 5.0   ! Celcus degree
 real    :: T0_chill  = 10.0  ! Celcus degree
 
 ! Fire regimes
-real :: envi_fire_prb= 0.0 ! fire probability due to environment, 0.5
-real :: fMI0         = 0.5  ! envi_fire_prb = 1.0/(1.0 + exp(A_MI*(P/PET - fMI0)))
-real :: A_MI         = 20.0 ! shape parameter of envi_fire_prb vs. P/PET curve
+real :: Frisk        = 0.0 ! fire probability due to environment, 0.5
+real :: MI0Fire      = 0.5  ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
+real :: A_MI         = 20.0 ! shape parameter of Frisk vs. P/PET curve
 real :: FSBM0        = 0.2 ! kgC m-2, grass fire severity parameter, as a function of grass BM
 real :: m0_g_fire    = 0.2 ! mortality rates of grasses due to fire
 real :: m0_w_fire    = 0.99! mortality rates of trees due to fire
@@ -797,8 +797,8 @@ real :: init_Nmineral     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
 real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
 ! Climate-vegetation initialization, 09/20/2025
-real :: Pr_thld = 300.0  ! Desert shrub vs trees
-real :: MI0_DST = 0.25   ! Desert shrub vs trees, Prcp/PET
+real :: Pr_thld = 300.0  ! Desert shrub vs trees, not used!
+real :: MI0DeSB = 0.25   ! Desert shrub vs trees, P/PET
 real :: T1_thld = 12.0   ! Tropical trees vs Temperate/boreal trees
 real :: T2_thld = 5.0    ! C4 vs C3 grasses
 
@@ -895,7 +895,7 @@ namelist /initial_state_nml/ &
     init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
-    Pr_thld,MI0_DST,T1_thld,T2_thld,                            &
+    Pr_thld,MI0DeSB,T1_thld,T2_thld,                            &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw,                              &
@@ -945,7 +945,7 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   LMAmin,fsc_fine,fsc_wood,K0SOM,                                     &
   K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                               &
   ! Fire model parameters, Weng, 01/13/2021
-  envi_fire_prb, fMI0, A_MI, FSBM0,                                   &
+  Frisk, MI0Fire, A_MI, FSBM0,                                &
   IgniteP, m0_w_fire, m0_g_fire, f_bk, r_BK0,                         &
   f_HT0 , h0_escape, D_BK0                     ! for an old scheme
 
@@ -1364,78 +1364,86 @@ subroutine initialize_PFT_data(fnml)
    !--------- local vars ------------
    integer, parameter :: N_PFTID = 4, mw = 15
    integer :: PFTID(N_PFTID) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
-   real, allocatable :: dailyTc(:), meanTc(:), minTm(:)
+   real, allocatable :: dailyET(:),dailyTc(:),dailyPr(:),meanTc(:),TminYr(:)
    real :: tmpL(mw*2+1)
    real :: totPrcp, totPET, meanTmin, meanPrcp, meanPET, Mst_IDX
-   real :: seconds_per_step
 
    integer :: i,j,k,m,n,L,w
-   integer :: N_Yrs, N_dys
+   integer :: N_Yrs, N_days
 
    ! ------ Calculate days and years of the data ------
-   N_dys = size(forcingData)/steps_per_day
-   N_yrs = N_dys/365
-   seconds_per_step = seconds_per_day / steps_per_day
+   N_days = size(forcingData)/steps_per_day
+   N_yrs = N_days/365
    if (N_yrs < 1) then
       error stop "Vegn_PFTs_from_Climate: need at least one year's data."
    endif
 
    ! Allocate variables
-   allocate(dailyTc(N_dys))
-   allocate(meanTc(N_dys))
-   allocate(minTm(N_yrs))
+   allocate(dailyET(N_days),dailyTc(N_days),dailyPr(N_days),meanTc(N_days))
+   allocate(TminYr(N_yrs))
 
    ! Calculate daily temperature and yearly mean Precipitation
    dailyTc = 0.0
-   meanTc  = 0.0
+   dailyPr = 0.0
+   dailyET = 0.0
    totPrcp = 0.0
    totPET  = 0.0
    k = 0
-   do i = 1, N_dys
+   do i = 1, N_days
      do j = 1, steps_per_day
        k = k + 1
        dailyTc(i) = dailyTc(i) + forcingData(k)%Tair - 273.15
-       totPrcp = totPrcp + forcingData(k)%rain * seconds_per_step
-       totPET  = totPET  + potentialET(forcingData(k)) * seconds_per_step
+       dailyPr(i) = dailyPr(i) + forcingData(k)%rain * step_seconds
+       dailyET(i) = dailyET(i) + potentialET(forcingData(k)) * step_seconds
      enddo
      dailyTc(i) = dailyTc(i)/steps_per_day
+     totPrcp = totPrcp + dailyPr(i)
+     totPET  = totPET  + dailyET(i)
    enddo
+   Mst_IDX  = totPrcp / totPET ! Moisture Index
    meanPrcp = totPrcp / N_yrs
-   meanPET  = totPET / N_yrs
-   Mst_IDX  = meanPrcp / meanPET ! Moisture Index
 
    ! Calculate running mean temperature (meanTc) with a windlow of L
    L = mw * 2 + 1
-   do i = 1, N_dys
+   do i = 1, N_days
      m = i - mw
      n = i + mw
-     if (m >= 1 .and. n <= N_dys)then
+     if (m >= 1 .and. n <= N_days)then
        tmpL(1:L) = dailyTc(m:n)
      else if (m < 1) then
        w = 1 - m                     ! number from the end
-       tmpL(1:w) = dailyTc(N_dys+m:N_dys)
+       tmpL(1:w) = dailyTc(N_days+m:N_days)
        tmpL(w+1:L) = dailyTc(1:n)
-     else ! n > N_dys: take tail then wrap to start
-       w = L - (n - N_dys)      ! number we can take before hitting the end
-       tmpL(1:w) = dailyTc(m:N_dys)
-       tmpL(w+1:L) = dailyTc(1:n-N_dys)
+     else ! n > N_days: take tail then wrap to start
+       w = L - (n - N_days)      ! number we can take before hitting the end
+       tmpL(1:w) = dailyTc(m:N_days)
+       tmpL(w+1:L) = dailyTc(1:n-N_days)
      endif
      meanTc(i) = sum(tmpL)/real(size(tmpL))
    enddo
 
    ! Find out yearly minimum Tm and calculate yearly mean
    do i = 1, N_yrs
-     minTm(i) = 999.0
+     TminYr(i) = 999.0
      do j = 1, 365
        k = (i-1)*365 + j
-       minTm(i) = min(meanTc(k),minTm(i))
+       TminYr(i) = min(meanTc(k),TminYr(i))
      enddo
    enddo
-   meanTmin = sum(minTm)/real(size(minTm))
+   meanTmin = sum(TminYr)/real(size(TminYr))
+
+   !! Write out
+   !write(99,'(6(a8,","))')'i','j','dailyET','dailyTC','meanTc','dailyPr'
+   !do i = 1, N_yrs
+   !   do j = 1, 365
+   !     k = (i-1)*365 + j
+   !     write(99,'(2(I8,","),4(f12.4,","))')i,j,dailyET(k),dailyTC(k),meanTc(k),dailyPr(k)
+   !   enddo
+   !enddo
 
    ! Assign PFT groups according to climate data at each grid
    !if(meanPrcp > Pr_thld)then
-   if(Mst_IDX > MI0_DST) then
+   if(Mst_IDX > MI0DeSB) then
      ! No desert shrubs
      if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
        PFTID = [0,2,3,6]
@@ -1454,15 +1462,16 @@ subroutine initialize_PFT_data(fnml)
        PFTID = [1,5,6,7]
      endif
    endif
-   write(*,'(2(a6,f6.1,";"), a12, 4(I6,","))')   &
-         'Prcp: ', meanPrcp, 'Tmin: ', meanTmin, &
-         'Grid PFTs: ', PFTID
+   write(*,'(a15, 2(f8.2,","))')'Prcp, PET: ', totPrcp/N_yrs,totPET/N_yrs
+   write(*,'(2(a6,f6.3,";"), a12, 4(I6,","))')   &
+         'P/ET: ', Mst_IDX, 'Tmin: ', meanTmin, &
+          'Grid PFTs: ', PFTID
 
    ! Assign standard initial cohorts by updating init_cohort_*
    call Assign_Std_Cohorts (PFTID,N_PFTID)
 
    ! Release allocatable variables
-   deallocate(dailyTc,meanTc,minTm)
+   deallocate(dailyET,dailyTc,dailyPr,meanTc,TminYr)
  end subroutine Vegn_PFTs_from_Climate
 
  !=============================================================================

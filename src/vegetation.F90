@@ -50,6 +50,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   tair   = forcing%Tair  - 273.16   ! degC
   tsoil  = forcing%tsoil - 273.16  ! degC
   thetaS = (vegn%wcl(2)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT)
+  vegn%annualPET = vegn%annualPET + potentialET(forcing) * step_seconds ! Potential ET, kg m-2 step-1
 
   ! Water supply for leaves
   ! Soil water parameters (psi and conductivity for each layer)
@@ -2849,11 +2850,11 @@ subroutine vegn_fire (vegn, deltat)
   integer :: i, k
 
   !  ! Parameters (defined in datatypes.F90 and read in from the namelist file):
-  !  vegn%EVrisk: Environmental fire occurrence probability, a function of environmental
+  !  Frisk: Environmental fire occurrence probability, a function of environmental
   !  conditions that can result in fire if fuel is available
   !  (i.e., (match-dropping probability). It should be function of environmental conditions
   ! Vegetation flammability parameters, Ignition_G0, Ignition_W0: Ignition probability
-  ! for grasses and woody plants once environmental conditions meet vegn%EVrisk
+  ! for grasses and woody plants once environmental conditions meet Frisk
   !  For grasses: Ignition_G0 = 1.0; For woody plants: Ignition_W0 = 0.025
   !  m0_w_fire, m0_g_fire: mortality rates of trees and grasses due to fire
   !  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
@@ -2864,10 +2865,9 @@ subroutine vegn_fire (vegn, deltat)
   !  D_BK0: Bark thickness at half survival rate.
 
   ! Environmental risk
-  !P_ET = vegn%annualPrcp / (vegn%annualTrsp + vegn%annualEvap)
-  P_ET = vegn%annualPrcp / vegn%annualET0
-  envi_fire_prb = 1.0/(1.0 + exp(A_MI*(P_ET - fMI0)))
-  vegn%EVrisk = envi_fire_prb
+  P_ET = vegn%annualPrcp / vegn%annualPET
+  Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
+  vegn%Frisk = Frisk
 
   ! Ignition probabilities of grasses and woody PFTs
   Ignition_G0 = 0.0
@@ -2888,7 +2888,7 @@ subroutine vegn_fire (vegn, deltat)
   f_wood   = min(1.0, vegn%treecover)
   flmb_G = Ignition_G0 * f_grass
   flmb_W = Ignition_W0 * f_wood
-  vegn%P_burn = 1.-(1.- flmb_G * vegn%EVrisk)*(1. - flmb_W * vegn%EVrisk)
+  vegn%P_burn = 1.-(1.- flmb_G * Frisk)*(1. - flmb_W * Frisk)
 
   ! fire effects on vegetation and soil
   CALL RANDOM_NUMBER(r_fire) ! r_fire    = rand(0) !
@@ -2901,7 +2901,7 @@ subroutine vegn_fire (vegn, deltat)
       if(sp%lifeform==0) then  ! grasses
          mu_fire = m0_g_fire
       else                     ! trees
-         if(r_fire < flmb_W * vegn%EVrisk) then   ! tree canopy fire
+         if(r_fire < flmb_W * Frisk) then   ! tree canopy fire
             mu_fire = 0.99 * min(1.0, 1.25 * f_wood)
          else                                     ! grass fire
             ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass.
