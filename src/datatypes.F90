@@ -799,8 +799,9 @@ real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 ! Climate-vegetation initialization, 09/20/2025
 real :: Pr_thld = 300.0  ! Desert shrub vs trees, not used!
 real :: MI0DeSB = 0.25   ! Desert shrub vs trees, P/PET
-real :: T1_thld = 12.0   ! Tropical trees vs Temperate/boreal trees
-real :: T2_thld = 0.0    ! C4 vs C3 grasses
+real :: MI0C3C4 = 0.50   ! Moisture threshold for C4 vs. C3 grasses
+real :: TcrTREE = 12.0   ! Tropical trees vs Temperate/boreal trees
+real :: TcrC3C4 = 0.0    ! Temperature threshold for C4 vs C3 grasses
 
 ! Input files
 character(len=80)  :: filepath_in = './input/'
@@ -895,7 +896,7 @@ namelist /initial_state_nml/ &
     init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
     init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
-    Pr_thld,MI0DeSB,T1_thld,T2_thld,                            &
+    Pr_thld,MI0DeSB,MI0C3C4,TcrTREE,TcrC3C4,                    &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw,                              &
@@ -1444,24 +1445,23 @@ subroutine initialize_PFT_data(fnml)
    ! Assign PFT groups according to climate data at each grid
    !if(meanPrcp > Pr_thld)then
    if(Mst_IDX > MI0DeSB) then
-     ! No desert shrubs
-     if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
-       PFTID = [0,2,3,6]
-     elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
-       PFTID = [0,4,5,6]
+     if(meanTmin > TcrTREE)then ! Tropical vs. Temperate trees
+       PFTID = [1,2,3,6]
      else
        PFTID = [1,4,5,6]
      endif
-   else
+   else  ! Mst_IDX <= MI0DeSB
      ! Replace evergreen with desert shrubs
-     if(meanTmin > T1_thld)then ! Tropical vs. Temperate trees
+     if(meanTmin > TcrTREE)then ! Tropical vs. Temperate trees
        PFTID = [0,3,6,7]
-     elseif(meanTmin > T2_thld)then ! C4 vs. C3 grasses
-       PFTID = [0,5,6,7]
      else
        PFTID = [1,5,6,7]
      endif
    endif
+   ! Replace C3 with C4 grasses in dry and warm climates
+   if(Mst_IDX < MI0C3C4 .and. meanTmin > TcrC3C4) PFTID(1) = 0
+
+   ! Screen output
    write(*,'(a15, 2(f8.2,","))')'Prcp, PET: ', totPrcp/N_yrs,totPET/N_yrs
    write(*,'(2(a6,f6.3,";"), a12, 4(I6,","))')   &
          'P/ET: ', Mst_IDX, 'Tmin: ', meanTmin, &

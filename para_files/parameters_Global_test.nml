@@ -11,8 +11,9 @@ N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N de
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
 MI0DeSB = 0.25,   ! Prcp/PET, Desert shrub vs trees
-T1_thld = 12.0,   ! degree C, Tropical trees vs Temperate/boreal trees
-T2_thld = 0.0,    ! degree C, C4 vs C3 grasses
+MI0C3C4 = 0.40,   ! Critical moisture for C3 vs. C4 grasses
+TcrTREE = 12.0,   ! degree C, Tropical trees vs Temperate/boreal trees
+TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 
 ! Model run
 filepath_in = './input/',
