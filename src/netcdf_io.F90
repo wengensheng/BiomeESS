@@ -192,8 +192,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   iLat = LandGrid%iLat
 
   ! Latitude and Longitude of this grid
-  Longi = (iLon-1)*Wlon - (180.0 - Wlon/2.0)
-  Lati  = (iLat-1)*Wlat - ( 90.0 - Wlat/2.0)
+  Longi = Lon0 + (iLon - 0.5) * Wlon
+  Lati  = Lat0 + (iLat - 0.5) * Wlat
 
   ! Data lines
   Nlines = SIZE(tswrfH)
