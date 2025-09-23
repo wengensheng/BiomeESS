@@ -213,18 +213,27 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   do m=1, Nlines
     timecols(m,1) = int(tswrfH(m)/(365*24)) + 1850.0       ! Year
     timecols(m,2) = MODULO(int(tswrfH(m)/24),365) + 1.0    ! Day of the year
-    timecols(m,3) = MODULO(tswrfH(m), 24.0) + int(Longi/15.0) ! Local time
-    timecols(m,3) = MODULO(timecols(m,3), 24.0) ! 0~23
+    timecols(m,3) = MODULO(tswrfH(m),24.0)+int(Longi/15.0) ! Local time
+    timecols(m,3) = MODULO(timecols(m,3), 24.0) ! Converted to 0~23
   enddo
 
   ! Fraction of solar radiation
-  do m=1, Nlines
+  ! Assign the first fdSW
+  td = timecols(1,2) + timecols(1,3)/24.0
+  call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
+  if(cosz>0.001)then
+    fdSW(1) = max(min(1.0,GridData(1,3)/(cosz*1380.0)),0.0)
+  else
+    fdSW(1) = 0.7 ! Assign a number for the first one if it is night
+  endif
+  ! Calculate all the left
+  do m=2, Nlines
     td = timecols(m,2) + timecols(m,3)/24.0
     call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
     if(cosz>0.001)then
       fdSW(m) = max(min(1.0,GridData(m,3)/(cosz*1380.0)),0.0)
     else
-      fdSW(m) = 0.0
+      fdSW(m) = fdSW(m-1) ! Do not update fdSW during night
     endif
   enddo
 
@@ -239,8 +248,6 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
       hourly_data(m,5) = GridData(i,2)/(6.0 * 3600.0)                  ! Precipitation, mm/second
       hourly_data(m,6) = GridData(i,3) + (GridData(i+1,3)-GridData(i,3))*j/steps_in_6H ! Shortwave radiation,need to calculate zenith angle
       hourly_data(m,7) = GridData(i,4) + (GridData(i+1,4)-GridData(i,4))*j/steps_in_6H ! spfh
-      hourly_data(m,8) = 101325.0 ! Pa                                       ! pres
-      hourly_data(m,9) = 1.2        ! Wind speed m/s
       hourly_data(m,10)= fdSW(i) + (fdSW(i+1)-fdSW(i))*j/steps_in_6H          ! fraction of Shortwave radiation
     enddo
   enddo
@@ -250,22 +257,18 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     hourly_data(totalL-j,5) = GridData(Nlines,2)/(6.0 * 3600.0)                    ! Precipitation, mm/second
     hourly_data(totalL-j,6) = GridData(Nlines,3) + (GridData(1,3)-GridData(Nlines,3))*j/steps_in_6H ! Shortwave radiation,need to calculate zenith angle
     hourly_data(totalL-j,7) = GridData(Nlines,4) + (GridData(1,4)-GridData(Nlines,4))*j/steps_in_6H ! spfh
-    hourly_data(totalL-j,8) = 101325.0 ! Pa
-    hourly_data(totalL-j,9)   = 1.2 ! m/s, wind spped
-    hourly_data(totalL-j,10)  = fdSW(Nlines) + (fdSW(1)-fdSW(Nlines))*j/steps_in_6H
+    hourly_data(totalL-j,10)= fdSW(Nlines) + (fdSW(1)-fdSW(Nlines))*j/steps_in_6H
   enddo
+  ! Assign air pressure and wind speed since they are not read in from NC files
+  hourly_data(:,8) = 101325.0 ! air presssure, Pa
+  hourly_data(:,9) = 1.2      ! Wind speed m/s
 
   ! Shift data to fit a whole day
-  if(timecols(1,3)>0.9999 .and. timecols(1,3)<11.9999) then ! Move down
-    m = max(1,int(timecols(1,3)))
+  m = int(timecols(1,3))
+  if(m >= 1) then ! Move down
     tmp1(1:m,:) = hourly_data(totalL-m+1:totalL,:)
     hourly_data(m+1:totalL,:) = hourly_data(1:totalL-m,:)
     hourly_data(1:m,:) = tmp1(1:m,:)
-  elseif (timecols(1,3)>=11.9999) then ! Move up
-    m = 24 - max(12,int(timecols(1,3)))
-    tmp1(1:m,:) = hourly_data(1:m,:)
-    hourly_data(1:totalL-m,:) = hourly_data(m+1:totalL,:)
-    hourly_data(totalL-m+1:totalL,:) = tmp1(1:m,:)
   endif
 
   ! Add time columns
@@ -281,7 +284,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     enddo
   enddo
 
-  ! Update radiation according to solar constant and SW fraction
+  ! Update radiation according to solar constant, zenith angle and SW fraction
   do i=1,totalL
     td = hourly_data(i,2) + hourly_data(i,3)/24.0
     call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
@@ -313,7 +316,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
      climateData(i)%RH    = hourly_data(i,7) / mol_h2o * mol_air * &
                             hourly_data(i,8) / esat(hourly_data(i,4) - 273.16) ! relative humidity (0.xx)
      climateData(i)%P_air = hourly_data(i,8)          ! pa
-     climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1) 
+     climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1)
      climateData(i)%CO2   = CO2_Hist(climateData(i)%year-1700)       ! ppm
      climateData(i)%eCO2  = climateData(i)%CO2 + 200.       ! ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol

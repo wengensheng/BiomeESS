@@ -1471,7 +1471,7 @@ subroutine initialize_PFT_data(fnml)
 
    ! Screen output
    write(*,'(a15, 2(f8.2,","))')'Prcp, PET: ', totPrcp/N_yrs,totPET/N_yrs
-   write(*,'(2(a6,f6.3,";"), a12, 4(I6,","))')   &
+   write(*,'(2(a6,f8.2,";"), a12, 4(I6,","))')   &
          'P/ET: ', Mst_IDX, 'Tmin: ', meanTmin, &
           'Grid PFTs: ', PFTID
 
