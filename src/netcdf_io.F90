@@ -175,10 +175,10 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
   real, allocatable :: hourly_data(:,:)
-  real    :: ShiftData(12,10) ! To make the first hour is hour 0
   real    :: Lati, Longi
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
+  real    :: tmp1(12,10), tmp2(SHshift,10)  ! Shift hourly data
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
   integer :: ndays,nyear,totalL
@@ -192,16 +192,16 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   iLat = LandGrid%iLat
 
   ! Latitude and Longitude of this grid
-  Longi = (iLon-1)*0.5 - 179.75
-  Lati  = (iLat-1)*0.5 - 89.75
+  Longi = (iLon-1)*Wlon - (180.0 - Wlon/2.0)
+  Lati  = (iLat-1)*Wlat - ( 90.0 - Wlat/2.0)
 
   ! Data lines
-  steps_per_hour = 1 ! Target steps per hour
   Nlines = SIZE(tswrfH)
+  steps_per_hour= TargetSteps_per_hour
   steps_per_day = steps_per_hour * 24
   totalL = Nlines * Hours_NCstep * steps_per_hour ! for hourly data
-  totyr = int(Nlines/(365*24/Hours_NCstep))
-  year0 = int(tswrfH(1)/(365*24)) + 1850
+  totyr = totalL/hours_per_year
+  year0 = int(tswrfH(1)/hours_per_year) + 1850 ! Hours started from 1850/1/1/1
   year1 = year0 + totyr - 1
 
   ! Allocate allocatable variables
@@ -257,14 +257,21 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   ! Shift data to fit a whole day
   if(timecols(1,3)>0.9999 .and. timecols(1,3)<11.9999) then ! Move down
     m = max(1,int(timecols(1,3)))
-    ShiftData(1:m,:) = hourly_data(totalL-m+1:totalL,:)
+    tmp1(1:m,:) = hourly_data(totalL-m+1:totalL,:)
     hourly_data(m+1:totalL,:) = hourly_data(1:totalL-m,:)
-    hourly_data(1:m,:) = ShiftData(1:m,:)
+    hourly_data(1:m,:) = tmp1(1:m,:)
   elseif (timecols(1,3)>=11.9999) then ! Move up
     m = 24 - max(12,int(timecols(1,3)))
-    ShiftData(1:m,:) = hourly_data(1:m,:)
+    tmp1(1:m,:) = hourly_data(1:m,:)
     hourly_data(1:totalL-m,:) = hourly_data(m+1:totalL,:)
-    hourly_data(totalL-m+1:totalL,:) = ShiftData(1:m,:)
+    hourly_data(totalL-m+1:totalL,:) = tmp1(1:m,:)
+  endif
+
+  ! Shift up 182 days for Southern Hemisphere, Weng 2025-09-22
+  if(ShiftSHdata .and. Lati < 0.0) then
+    tmp2(1:SHshift,:) = hourly_data(1:SHshift,:)
+    hourly_data(1:totalL-SHshift,:) = hourly_data(SHshift+1:totalL,:)
+    hourly_data(totalL-SHshift+1:totalL,:) = tmp2(1:SHshift,:)
   endif
 
   !Time columns

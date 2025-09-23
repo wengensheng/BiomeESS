@@ -821,9 +821,16 @@ real     :: siteLAT = 36.01 !site latitude, ORNL
 
 ! For global/regional forcing data, soil conditions, and initial conditions
 ! CRU NetCDF file dimensions
-integer, parameter :: NDIMS = 3
-integer, parameter :: Nlon = 720, Nlat = 360, Ntime = 1460, Hours_NCstep = 6
-integer, parameter :: N_PFTs   = 9 ! Global PFTs from Ent Vegetation Map
+integer, parameter :: N_PFTs  = 9 ! Global PFTs from Ent Vegetation Map
+integer, parameter :: NDIMS = 3, Nlon = 720, Nlat = 360, Ntime = 1460 ! NC file dimensions
+integer, parameter :: Hours_NCstep = hours_per_year/Ntime ! 6
+real,    parameter :: Wlat = 360.0/Nlon, Wlon = 180.0/Nlat
+
+! Data interpolation (hourly)
+integer, parameter :: TargetSteps_per_hour = 1
+integer, parameter :: SHshift = 182*24*TargetSteps_per_hour ! Southern Hemisphere data shift (to July 2nd)
+logical, parameter :: ShiftSHdata = .True.
+
 type :: grid_initial_type
    integer :: iLon ! grid number along Longitude (from -180 to 180)
    integer :: iLat ! grid number along Latitude (from -90 to 90)
