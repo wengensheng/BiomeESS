@@ -229,6 +229,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   enddo
 
   ! ------------- Data interpolation ------------------
+  ! Linear interpolation (and update radiation and PAR later)
   m = 0
   do i = 1, Nlines -1
     do j=0, 5
@@ -267,14 +268,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     hourly_data(totalL-m+1:totalL,:) = tmp1(1:m,:)
   endif
 
-  ! Shift up 182 days for Southern Hemisphere, Weng 2025-09-22
-  if(ShiftSHdata .and. Lati < 0.0) then
-    tmp2(1:SHshift,:) = hourly_data(1:SHshift,:)
-    hourly_data(1:totalL-SHshift,:) = hourly_data(SHshift+1:totalL,:)
-    hourly_data(totalL-SHshift+1:totalL,:) = tmp2(1:SHshift,:)
-  endif
-
-  !Time columns
+  ! Add time columns
   m=0
   do iyr = year0, year1
     do iday=1, 365
@@ -287,17 +281,26 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     enddo
   enddo
 
+  ! Update radiation according to solar constant and SW fraction
+  do i=1,totalL
+    td = hourly_data(i,2) + hourly_data(i,3)/24.0
+    call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
+    if(cosz>0.001)then
+      hourly_data(i,6) = 1380.0 * cosZ * hourly_data(i,10)      ! W/m2
+    else
+      hourly_data(i,6) = 0.0 ! W/m2
+    endif
+  enddo
+
+  ! Shift up 182 days for Southern Hemisphere, Weng 2025-09-22
+  if(ShiftSHdata .and. Lati < 0.0) then
+    tmp2(1:SHshift,4:10) = hourly_data(1:SHshift,4:10)
+    hourly_data(1:totalL-SHshift,4:10) = hourly_data(SHshift+1:totalL,4:10)
+    hourly_data(totalL-SHshift+1:totalL,4:10) = tmp2(1:SHshift,4:10)
+  endif
+
   ! -------------- Put the data into forcing -------------------
   do i=1,totalL
-     td = hourly_data(i,2) + hourly_data(i,3)/24.0
-     call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
-     if(cosz>0.001)then
-       climateData(i)%radiation = 1380.0 * cosZ * hourly_data(i,10)      ! W/m2
-       climateData(i)%PAR       = climateData(i)%radiation * 2.0 ! umol/m2/s
-     else
-       climateData(i)%radiation = 0.0 ! W/m2
-       climateData(i)%PAR       = 0.0 ! umol/m2/s
-     endif
      !'tmp','pre','tswrf','spfh','pres','windU'
      climateData(i)%year  = int(hourly_data(i,1))     ! Year
      climateData(i)%doy   = int(hourly_data(i,2))     ! day of the year
@@ -305,11 +308,12 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
      climateData(i)%Tair  = hourly_data(i,4)          ! air temperature, K
      climateData(i)%Tsoil = (climateData(i)%Tair - 273.16) * 0.8 + 273.16 ! soil temperature, C
      climateData(i)%rain  = hourly_data(i,5)          ! kgH2O m-2 second-1
-     climateData(i)%P_air = hourly_data(i,8)          ! pa
-     climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1)
+     climateData(i)%radiation = hourly_data(i,6)      ! W/m2
+     climateData(i)%PAR       = hourly_data(i,6) * 2.0 ! umol/m2/s
      climateData(i)%RH    = hourly_data(i,7) / mol_h2o * mol_air * &
-                            climateData(i)%P_air/  &
-                            esat(climateData(i)%Tair-273.16) ! relative humidity (0.xx)
+                            hourly_data(i,8) / esat(hourly_data(i,4) - 273.16) ! relative humidity (0.xx)
+     climateData(i)%P_air = hourly_data(i,8)          ! pa
+     climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1) 
      climateData(i)%CO2   = CO2_Hist(climateData(i)%year-1700)       ! ppm
      climateData(i)%eCO2  = climateData(i)%CO2 + 200.       ! ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol

@@ -11,7 +11,7 @@ N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N de
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
 MI0DeSB = 0.25,   ! Prcp/PET, Desert shrub vs trees
-MI0C3C4 = 0.40,   ! Critical moisture for C3 vs. C4 grasses
+MI0C3C4 = 0.50,   ! Critical moisture for C3 vs. C4 grasses
 TcrTREE = 12.0,   ! degree C, Tropical trees vs Temperate/boreal trees
 TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 
@@ -52,7 +52,7 @@ l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 MI0Fire    = 0.3333, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
-FSBM0      = 0.2, ! 0.15, ! 0.4, kgC m-2, for grass fire severity
+FSBM0      = 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 ! Set PFT 6 (Nfx)  as deciduous, Weng, 09-19-2025
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
