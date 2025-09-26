@@ -12,8 +12,8 @@ CPPFLAGS=' '
 #CPPFLAGS+=' -DSingleTreeTest'
 CPPFLAGS+=' -DDO_Climate_VEG'
 #CPPFLAGS+=' -DScreenOutput'
-#CPPFLAGS+=' -DGlobalRun'
-#CPPFLAGS+=' -DZippedNCfiles'
+CPPFLAGS+=' -DGlobalRun'
+CPPFLAGS+=' -DZippedNCfiles'
 
 echo $FSRCS
 echo $CPPFLAGS
@@ -35,7 +35,7 @@ echo $fparameter
 cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess_global
+./ess_global
 
 rm ./para_files/input.nml
 rm ess_global

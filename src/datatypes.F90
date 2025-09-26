@@ -7,7 +7,7 @@
  integer, parameter :: hours_per_year   = 365 * 24  ! 8760
  integer, parameter :: MonthDOY(0:12)   =(/0,31,59,90,120,151,181,212,243,273,304,334,366/)
  real,    parameter :: seconds_per_year = 365. * 24. * 3600.
- real,    parameter :: seconds_per_day  = 24. * 3600.
+ real,    parameter :: seconds_per_day  = 24. * 3600. ! 86400
 
  ! Physical constants
  real, parameter :: PI      = 3.1415926
@@ -21,6 +21,7 @@
  real, parameter :: cpair   = 1010.     ! air heat capapcity (J/kg/K)
  real, parameter :: H2OLv0  = 2.501e6   ! latent heat H2O (J/kg)
  real, parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
+ real, parameter :: solarC  = 1361.0   ! Solar constant, W/m2
  real, parameter :: f_PAR   = 0.5  ! Fraction of PAR in total solar radiation
  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
 
@@ -858,7 +859,9 @@ logical  :: do_WD_mort_function = .False.
 
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
-character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','tswrf','spfh']
+character (len = 20)  :: ncversion = 'crujra.v2.4.5d.'
+character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','dswrf','spfh']
+
 integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
@@ -871,7 +874,7 @@ type(grid_initial_type), pointer :: LandGrid(:) => null()
 integer, pointer :: GridLonLat(:)    => null() ! iLon, iLat
 real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
 real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
-real,    pointer :: tswrfH(:)        => null() ! Hours since 1850-01-01 in tswrf
+real,    pointer :: CRUtime(:)       => null() ! Days since 1901-01-01 in CRU data
 
 ! Model run control
 character(len=256) :: file_out(6) ! Output file names
@@ -917,7 +920,7 @@ namelist /initial_state_nml/ &
 ! ------------- Global setting name list ------------
 namelist /global_setting_nml/ &
     ! global data and model run settings
-    ncfilepath,LowerLon,UpperLon,LowerLat,UpperLat, &
+    ncfilepath,ncversion,LowerLon,UpperLon,LowerLat,UpperLat, &
     yr_start,yr_end,start_grid,StepLatLon
 
 ! ---------- Soil hydraulic and heat parameter name list ---------

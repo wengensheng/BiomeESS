@@ -65,7 +65,6 @@ program BiomeE
   !$omp end parallel do
 
   ! Release netcdf-related allocatable data arrays
-  deallocate(tswrfH)
   !deallocate(CRUData)
   deallocate(ClimData)
   deallocate(LandGrid)

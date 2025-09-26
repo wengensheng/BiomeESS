@@ -52,19 +52,20 @@ contains
       enddo
     enddo
 
-    !fields = [character(len=5) :: 'tmp', 'pre', 'tswrf', 'spfh']
+    !fields = [character(len=5) :: 'tmp', 'pre', 'dswrf', 'spfh']
     N_vars = size(fields)
-    N_yrs = yr_end - yr_start + 1
-    totL = N_yrs*Ntime
+    N_yrs  = yr_end - yr_start + 1
+    totL   = N_yrs * Ntime
 
     ! -------------- Open a file for identifying valid grids ------------------!
-    fnc = trim(fpath)//'tswrf_v12_2010.nc'
+    write(yr_str, '(I4)') yr_start
+    fnc = trim(fpath)//trim(ncversion)//trim(fields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
 
 #ifdef ZippedNCfiles
     call unzip_gzip_file(trim(fnc)//'.gz')
 #endif
 
-    call nc_read_3D(fnc,'tswrf',Nlon,Nlat,Ntime,dataarray)
+    call nc_read_3D(fnc,trim(fields(1)),Nlon,Nlat,Ntime,dataarray)
 
 #ifdef ZippedNCfiles
     command = 'rm '//trim(fnc) ! Remove unziped file
@@ -89,7 +90,7 @@ contains
     write(*,*)"Valid grids: ", N_VegGrids
 
     ! Allocate data arrays
-    allocate(tswrfH(totL))
+    allocate(CRUtime(totL))
     !allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
     allocate(ClimData(totL, N_vars, N_VegGrids))
     allocate(GridLonLat(N_VegGrids))
@@ -120,19 +121,14 @@ contains
       field_idx = fields(j)
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
-        if(field_idx == 'tswrf')then
-          fnc = trim(field_idx)//'_v12_'//trim(yr_str)//'.nc'
-        else
-          fnc = 'crujra.v2.4.5d.'//trim(field_idx)//'.'//trim(yr_str)//'.365d.noc.nc'
-        endif
-        fnc = trim(fpath)//trim(fnc)
+        fnc = trim(fpath)//trim(ncversion)//trim(fields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
 
 #ifdef ZippedNCfiles
         call unzip_gzip_file(trim(fnc)//'.gz') ! Unzip the nc data file
 #endif
 
         write(*,*)'read nc file:', fnc
-        call nc_read_3D(fnc,trim(field_idx),Nlon,Nlat,Ntime,dataarray)
+        call nc_read_3D(fnc,trim(fields(j)),Nlon,Nlat,Ntime,dataarray)
         m = 0
         do iLon = LowerLon, UpperLon
           do iLat = LowerLat, UpperLat
@@ -143,10 +139,9 @@ contains
             endif
           enddo
         enddo
-
-        if(field_idx == 'tswrf')then
+        if(j == 1)then
           call nc_read_1D(fnc,'time',Ntime,timearray)
-          tswrfH((i-1)*Ntime+1: i*Ntime) = timearray
+          CRUtime((i-1)*Ntime+1: i*Ntime) = timearray
         endif
 
 #ifdef ZippedNCfiles
@@ -172,19 +167,20 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   character(len=120):: fname   ! For testing output
   character(len=6)  :: LonLat  ! Used in output file name
 
-  real, allocatable :: fdSW(:)
+  real, allocatable :: fdSW(:),fdDaily(:)
   real, allocatable :: timecols(:,:)
   real, allocatable :: hourly_data(:,:)
   real    :: Lati, Longi
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
+  real    :: SWdaily, SWmax
   real    :: tmp1(12,10), tmp2(SHshift,10)  ! Shift hourly data
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
-  integer :: ndays,nyear,totalL
+  integer :: ndays,nyear,totalL,Nsteps
   integer :: m,i,j,k
-  integer :: totyr, Nlines
-  logical :: WriteSample = .False.
+  integer :: totyr, totDays, Nlines
+  logical :: WriteSample = .True. ! .False.
 
   ! Assigne LandGrid data to local variables
   GridData => LandGrid%climate
@@ -196,12 +192,13 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   Lati  = Lat0 + (iLat - 0.5) * Wlat
 
   ! Data lines
-  Nlines = SIZE(tswrfH)
+  Nlines = SIZE(CRUtime)
   steps_per_hour= TargetSteps_per_hour
   steps_per_day = steps_per_hour * 24
   totalL = Nlines * Hours_NCstep * steps_per_hour ! for hourly data
   totyr = totalL/hours_per_year
-  year0 = int(tswrfH(1)/hours_per_year) + 1850 ! Hours started from 1850/1/1/1
+  totDays = totyr * 365
+  year0 = int(CRUtime(1)/365) + 1901 ! Hours started from 1850/1/1/1
   year1 = year0 + totyr - 1
 
   ! Allocate allocatable variables
@@ -211,51 +208,47 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   allocate(climateData(totalL))
   timecols(:,:) = 0
   do m=1, Nlines
-    timecols(m,1) = int(tswrfH(m)/(365*24)) + 1850.0       ! Year
-    timecols(m,2) = MODULO(int(tswrfH(m)/24),365) + 1.0    ! Day of the year
-    timecols(m,3) = MODULO(tswrfH(m),24.0)+int(Longi/15.0) ! Local time
-    timecols(m,3) = MODULO(timecols(m,3), 24.0) ! Converted to 0~23
+    timecols(m,1) = int(CRUtime(m)/365.0) + 1901       ! Year
+    timecols(m,2) = MOD(int(CRUtime(m)),365) + 1.0    ! Day of the year
+    timecols(m,3) = MOD(CRUtime(m)*24.0,24.0)+int(Longi/15.0) ! Local time
+    timecols(m,3) = MOD(timecols(m,3), 24.0) ! Converted to 0~23
   enddo
 
-  ! Fraction of solar radiation
-  ! Assign the first fdSW
-  td = timecols(1,2) + timecols(1,3)/24.0
-  call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
-  if(cosz>0.001)then
-    fdSW(1) = max(min(1.0,GridData(1,3)/(cosz*1380.0)),0.0)
-  else
-    fdSW(1) = 0.7 ! Assign a number for the first one if it is night
-  endif
-  ! Calculate all the left
-  do m=2, Nlines
-    td = timecols(m,2) + timecols(m,3)/24.0
-    call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
-    if(cosz>0.001)then
-      fdSW(m) = max(min(1.0,GridData(m,3)/(cosz*1380.0)),0.0)
-    else
-      fdSW(m) = fdSW(m-1) ! Do not update fdSW during night
-    endif
+  ! Calculate fdSW
+  Nsteps = 24/Hours_NCstep ! netCDF Data daily steps, 4 for CRU
+  do i = 1, totDays
+    ! Actual daily radiation
+    SWdaily = sum(GridData((i-1)*Nsteps+1 : i*Nsteps, 3))
+
+    ! Calculate daily max SW (SWmax)
+    SWmax = 0.0
+    do j=1,96 ! 15 minutes
+      td = timecols(m,2) + (j-1)/96.0
+      call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
+      SWmax = SWmax + cosz * solarC * seconds_per_day/96.0
+    enddo
+
+    ! Fraction of solar radiation
+    fdSW((i-1)*Nsteps+1 : i*Nsteps) = Max(0.0,Min(1.0,SWdaily/(SWmax+0.0001))) *0.8 ! too high!
   enddo
 
   ! ------------- Data interpolation ------------------
   ! Linear interpolation (and update radiation and PAR later)
+  steps_in_6H = Hours_NCstep * steps_per_hour
   m = 0
   do i = 1, Nlines -1
-    do j=0, 5
+    do j=0, int(steps_in_6H-1.0)
       m=m+1
-      steps_in_6H = 6.0*steps_per_hour
       hourly_data(m,4) = GridData(i,1) + (GridData(i+1,1)-GridData(i,1))*j/steps_in_6H ! Tmp, K
       hourly_data(m,5) = GridData(i,2)/(6.0 * 3600.0)                  ! Precipitation, mm/second
-      hourly_data(m,6) = GridData(i,3) + (GridData(i+1,3)-GridData(i,3))*j/steps_in_6H ! Shortwave radiation,need to calculate zenith angle
       hourly_data(m,7) = GridData(i,4) + (GridData(i+1,4)-GridData(i,4))*j/steps_in_6H ! spfh
       hourly_data(m,10)= fdSW(i) + (fdSW(i+1)-fdSW(i))*j/steps_in_6H          ! fraction of Shortwave radiation
     enddo
   enddo
   ! Last 6 hours' data
-  do j=0, 5
+  do j=0, int(steps_in_6H-1.0)
     hourly_data(totalL-j,4) = GridData(Nlines,1) + (GridData(1,1)-GridData(Nlines,1))*j/steps_in_6H ! Tmp, K
     hourly_data(totalL-j,5) = GridData(Nlines,2)/(6.0 * 3600.0)                    ! Precipitation, mm/second
-    hourly_data(totalL-j,6) = GridData(Nlines,3) + (GridData(1,3)-GridData(Nlines,3))*j/steps_in_6H ! Shortwave radiation,need to calculate zenith angle
     hourly_data(totalL-j,7) = GridData(Nlines,4) + (GridData(1,4)-GridData(Nlines,4))*j/steps_in_6H ! spfh
     hourly_data(totalL-j,10)= fdSW(Nlines) + (fdSW(1)-fdSW(Nlines))*j/steps_in_6H
   enddo
@@ -288,11 +281,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   do i=1,totalL
     td = hourly_data(i,2) + hourly_data(i,3)/24.0
     call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
-    if(cosz>0.001)then
-      hourly_data(i,6) = 1380.0 * cosZ * hourly_data(i,10)      ! W/m2
-    else
-      hourly_data(i,6) = 0.0 ! W/m2
-    endif
+    hourly_data(i,6) = solarC * cosZ * hourly_data(i,10)      ! W/m2
   enddo
 
   ! Shift up 182 days for Southern Hemisphere, Weng 2025-09-22
@@ -304,7 +293,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
   ! -------------- Put the data into forcing -------------------
   do i=1,totalL
-     !'tmp','pre','tswrf','spfh','pres','windU'
+     !'tmp','pre','dswrf','spfh','pres','windU'
      climateData(i)%year  = int(hourly_data(i,1))     ! Year
      climateData(i)%doy   = int(hourly_data(i,2))     ! day of the year
      climateData(i)%hod   = hourly_data(i,3)          ! hour of the day
@@ -348,10 +337,11 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   endif
 
   !Release memory
+  deallocate(CRUtime)
   deallocate(hourly_data)
   deallocate(fdSW)
   deallocate(timecols)
-
+  stop
 end subroutine CRU_Interpolation
 
 !==============================================================
