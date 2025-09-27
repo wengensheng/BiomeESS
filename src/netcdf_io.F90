@@ -57,9 +57,9 @@ contains
     N_yrs  = yr_end - yr_start + 1
     totL   = N_yrs * Ntime
 
-    ! -------------- Open a file for identifying valid grids ------------------!
+    ! -------------- Select land grids for model run ------------------!
     write(yr_str, '(I4)') yr_start
-    fnc = trim(fpath)//trim(ncversion)//trim(fields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
+    fnc = trim(fpath)//trim(fields(1))//'/'//trim(ncversion)//trim(fields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
 
 #ifdef ZippedNCfiles
     call unzip_gzip_file(trim(fnc)//'.gz')
@@ -121,7 +121,7 @@ contains
       field_idx = fields(j)
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
-        fnc = trim(fpath)//trim(ncversion)//trim(fields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
+        fnc = trim(fpath)//trim(fields(j))//'/'//trim(ncversion)//trim(fields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
 
 #ifdef ZippedNCfiles
         call unzip_gzip_file(trim(fnc)//'.gz') ! Unzip the nc data file
@@ -139,6 +139,7 @@ contains
             endif
           enddo
         enddo
+        ! Read in the time array of the first variable
         if(j == 1)then
           call nc_read_1D(fnc,'time',Ntime,timearray)
           CRUtime((i-1)*Ntime+1: i*Ntime) = timearray
@@ -148,7 +149,6 @@ contains
         command = 'rm '//trim(fnc) ! Remove unziped nc data file
         call execute_command_line(command)
 #endif
-
       enddo ! N_yrs
     enddo   ! four variables
     deallocate(GridMask)
@@ -167,7 +167,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   character(len=120):: fname   ! For testing output
   character(len=6)  :: LonLat  ! Used in output file name
 
-  real, allocatable :: fdSW(:),fdDaily(:)
+  real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
   real, allocatable :: hourly_data(:,:)
   real    :: Lati, Longi
@@ -306,7 +306,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
                             hourly_data(i,8) / esat(hourly_data(i,4) - 273.16) ! relative humidity (0.xx)
      climateData(i)%P_air = hourly_data(i,8)          ! pa
      climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1)
-     climateData(i)%CO2   = CO2_Hist(climateData(i)%year-1700)       ! ppm
+     climateData(i)%CO2   = CO2_c ! CO2_Hist(climateData(i)%year-1700)       ! ppm
      climateData(i)%eCO2  = climateData(i)%CO2 + 200.       ! ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
   enddo
@@ -341,7 +341,6 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   deallocate(hourly_data)
   deallocate(fdSW)
   deallocate(timecols)
-  stop
 end subroutine CRU_Interpolation
 
 !==============================================================
