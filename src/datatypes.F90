@@ -862,7 +862,7 @@ character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
 character (len = 20)  :: ncversion = 'crujra.v2.4.5d.'
 character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','dswrf','spfh']
 character (len = 6)   :: GridIDFMT ='(I6.6)' ! For the file name string (GridID)
-logical :: WriteForcing = .True. ! .False. ! Write interpolated forcing data
+logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
 
 integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
@@ -920,9 +920,9 @@ namelist /initial_state_nml/ &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------
-namelist /global_setting_nml/                                   &
-      WriteForcing,ncfilepath,ncversion,start_grid,StepLatLon,  &
-      yr_start,yr_end,LowerLon,UpperLon,LowerLat,UpperLat
+namelist /global_setting_nml/ ncfilepath,ncversion,             &
+      yr_start,yr_end,LowerLon,UpperLon,LowerLat,UpperLat,      &
+      start_grid,StepLatLon,WriteForcing
 
 
 ! ---------- Soil hydraulic and heat parameter name list ---------

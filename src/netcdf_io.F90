@@ -25,11 +25,12 @@ contains
     integer, intent(in) :: yr_start, yr_end
 
     !-------- local vars -----------------
-    character(len=256) :: command
+    character(len=256) :: command,fname
     character(len=256) :: fnc
     character(len=20)  :: field_idx
     character(len=3)   :: PFTID(9)
     character(len=4)   :: yr_str
+    character(len=6)   :: LonLat
 
     integer, pointer :: GridMask(:,:)
     integer :: N_yrs,totL,N_vars
@@ -115,6 +116,18 @@ contains
         endif
       enddo
     enddo
+
+    ! Write GridLonLat and forcing file names to a file
+    if(WriteForcing)then
+      fname = trim(filepath_out)//trim(ncversion)//'VegGRid.csv'
+      open(16,file=trim(fname))
+      do m =1, N_VegGrids
+        write(LonLat, GridIDFMT)GridLonLat(m)
+        fname = trim(ncversion)//trim(LonLat)//'_forcing.csv'
+        write(16, '(a6,"," a35)')trim(LonLat),trim(fname)
+      enddo
+      close(16)
+    endif
 
     ! ----------------- Read in all data ----------------------!
     do j= 1, N_vars ! 4
@@ -319,7 +332,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
   ! Write out a sample file
   if(WriteForcing)then
-    write(LonLat, '(I6)') GridID
+    write(LonLat, GridIDFMT) GridID
     fname = trim(filepath_out)//trim(ncversion)//trim(LonLat)//'_forcing.csv'
     open(15,file=trim(fname))
     write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
@@ -334,8 +347,6 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     close(15)
     command = 'gzip -f ' // trim(fname)
     call execute_command_line(command, exitstat=iostat)
-    if (iostat /= 0) then
-      print *, 'Error zipping: ', trim(fname), ' (Exit status: ', iostat, ')'
     endif
   endif
 

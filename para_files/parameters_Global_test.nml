@@ -98,6 +98,5 @@ LowerLat = 255, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-
 UpperLat = 256, ! 247,252
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
-StepLatLon = 1,
-start_grid = 1 ! Normal start
+StepLatLon = 1
 /
