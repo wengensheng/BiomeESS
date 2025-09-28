@@ -66,6 +66,7 @@ program BiomeE
 
   ! Release netcdf-related allocatable data arrays
   !deallocate(CRUData)
+  deallocate(CRUtime)
   deallocate(ClimData)
   deallocate(LandGrid)
   deallocate(GridLonLat)

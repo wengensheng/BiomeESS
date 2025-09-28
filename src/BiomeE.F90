@@ -54,7 +54,7 @@ module BiomeE_mod
 
  ! ------ public subroutines ---------
  public :: BiomeE_main
- public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
+ !public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
 
  contains
 

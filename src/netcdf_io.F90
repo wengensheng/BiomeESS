@@ -164,7 +164,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real, pointer :: GridData(:,:)
   integer :: iLon, iLat ! Column and Lines (started from -179.75 and -89.75)
   type(climate_data_type), pointer :: climateData(:) ! will be pointed by forcingData
-  character(len=120):: fname   ! For testing output
+  character(len=256):: command, fname   ! For testing output
   character(len=6)  :: LonLat  ! Used in output file name
 
   real, allocatable :: fdSW(:)
@@ -178,9 +178,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
   integer :: ndays,nyear,totalL,Nsteps
-  integer :: m,i,j,k
+  integer :: iostat,m,i,j,k
   integer :: totyr, totDays, Nlines
-  logical :: WriteSample = .True. ! .False.
 
   ! Assigne LandGrid data to local variables
   GridData => LandGrid%climate
@@ -319,9 +318,9 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   step_seconds  = 3600.0 * step_hour
 
   ! Write out a sample file
-  if(WriteSample)then
+  if(WriteForcing)then
     write(LonLat, '(I6)') GridID
-    fname = 'CRU_'//trim(LonLat)//'_forcing.csv'
+    fname = trim(filepath_out)//trim(ncversion)//trim(LonLat)//'_forcing.csv'
     open(15,file=trim(fname))
     write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
     do i=1,totalL
@@ -333,11 +332,14 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
           climateData(i)%CO2,  climateData(i)%eCO2
     enddo
     close(15)
-    WriteSample = .False.
+    command = 'gzip -f ' // trim(fname)
+    call execute_command_line(command, exitstat=iostat)
+    if (iostat /= 0) then
+      print *, 'Error zipping: ', trim(fname), ' (Exit status: ', iostat, ')'
+    endif
   endif
 
   !Release memory
-  deallocate(CRUtime)
   deallocate(hourly_data)
   deallocate(fdSW)
   deallocate(timecols)
