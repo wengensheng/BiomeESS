@@ -130,7 +130,7 @@ contains
     endif
 
     ! ----------------- Read in all data ----------------------!
-    do j= 1, N_vars ! 4
+    do j= 1, N_vars ! 4 or 7 (including pres, ugrd, vgrd)
       field_idx = fields(j)
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
@@ -186,7 +186,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real    :: Lati, Longi
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
-  real    :: SWdaily, SWmax
+  real    :: WindS1, WindS2, SWdaily, SWmax
   real    :: tmp1(12,10), tmp2(SHshift,10)  ! Shift hourly data
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
@@ -255,6 +255,10 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
       hourly_data(m,5) = GridData(i,2)/(6.0 * 3600.0)                  ! Precipitation, mm/second
       hourly_data(m,7) = GridData(i,4) + (GridData(i+1,4)-GridData(i,4))*j/steps_in_6H ! spfh
       hourly_data(m,10)= fdSW(i) + (fdSW(i+1)-fdSW(i))*j/steps_in_6H          ! fraction of Shortwave radiation
+      WindS1 = SQRT(GridData(i,  6)**2 + GridData(i,  7)**2)
+      WindS2 = SQRT(GridData(i+1,6)**2 + GridData(i+1,7)**2)
+      hourly_data(m,8) = GridData(i,5) + (GridData(i+1,5)-GridData(i,5))*j/steps_in_6H ! air presssure, Pa
+      hourly_data(m,9) = WindS1 + (WindS2 - WindS1)*j/steps_in_6H
     enddo
   enddo
   ! Last 6 hours' data
@@ -263,10 +267,14 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     hourly_data(totalL-j,5) = GridData(Nlines,2)/(6.0 * 3600.0)                    ! Precipitation, mm/second
     hourly_data(totalL-j,7) = GridData(Nlines,4) + (GridData(1,4)-GridData(Nlines,4))*j/steps_in_6H ! spfh
     hourly_data(totalL-j,10)= fdSW(Nlines) + (fdSW(1)-fdSW(Nlines))*j/steps_in_6H
+    WindS1 = SQRT(GridData(Nlines,6)**2 + GridData(Nlines,7)**2)
+    WindS2 = SQRT(GridData(1,     6)**2 + GridData(1,     7)**2)
+    hourly_data(totalL-j,8) = GridData(Nlines,5) + (GridData(1,5)-GridData(Nlines,5))*j/steps_in_6H ! air presssure, Pa
+    hourly_data(totalL-j,9) = WindS1 + (WindS2 - WindS1)*j/steps_in_6H
   enddo
   ! Assign air pressure and wind speed since they are not read in from NC files
-  hourly_data(:,8) = 101325.0 ! air presssure, Pa
-  hourly_data(:,9) = 1.2      ! Wind speed m/s
+  !hourly_data(:,8) = 101325.0 ! air presssure, Pa
+  !hourly_data(:,9) = 1.2      ! Wind speed m/s
 
   ! Shift data to fit a whole day
   m = int(timecols(1,3))
@@ -347,7 +355,6 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     close(15)
     command = 'gzip -f ' // trim(fname)
     call execute_command_line(command, exitstat=iostat)
-    endif
   endif
 
   !Release memory

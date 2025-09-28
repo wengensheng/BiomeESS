@@ -860,7 +860,8 @@ logical  :: do_WD_mort_function = .False.
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
 character (len = 20)  :: ncversion = 'crujra.v2.4.5d.'
-character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','dswrf','spfh']
+!character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','dswrf','spfh']
+character (len = 5)   :: ncfields(7)= [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
 character (len = 6)   :: GridIDFMT ='(I6.6)' ! For the file name string (GridID)
 logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
 
