@@ -16,82 +16,6 @@ module netcdf_io
   public unzip_gzip_file
 
 contains
-!===================================================
-
-subroutine SelectGrids(fpath,fields)
-  implicit none
-  character(len=*), intent(in) :: fpath
-  character(len=*), intent(in) :: fields(:)
-
-  !-------- local vars -----------------
-  character(len=256) :: command
-  character(len=256) :: fnc
-  character(len=20)  :: field_idx
-  character(len=3)   :: PFTID(9)
-  character(len=4)   :: yr_str
-  integer :: iostat,i,j,m,iLon,iLat
-  integer, pointer :: GridMask(:,:)    => null() ! Selected grids
-  real :: dataarray(Nlon,Nlat,Ntime)
-  real :: PFTdata(144,90,9),VegFraction(144,90)
-
-  ! Read in PFT map
-  PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
-  fnc = trim(fpath)//'BiomeE-PFTs.nc'
-  write(*,*)trim(fnc)
-  do i=1, 9
-    call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
-    write(*,*)"read PFT: ", PFTID(i)
-  enddo
-  do i =1, 144
-    do j=1, 90
-      VegFraction(i,j) = max(0.0,min(1.0, sum(PFTdata(i,j,:))))
-    enddo
-  enddo
-
-  ! Read one climate file
-  write(yr_str, '(I4)') yr_start
-  fnc = trim(fpath)//trim(fields(1))//'/'//trim(ncversion)//trim(fields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
-
-#ifdef ZippedNCfiles
-  call unzip_gzip_file(trim(fnc)//'.gz')
-#endif
-
-  call nc_read_3D(fnc,trim(fields(1)),Nlon,Nlat,Ntime,dataarray)
-
-#ifdef ZippedNCfiles
-  command = 'rm '//trim(fnc) ! Remove unziped file
-  call execute_command_line(command)
-#endif
-
-  ! Setup Grid mask for the valid grids
-  allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
-  GridMask = 0
-  m = 0
-  do iLon = LowerLon, UpperLon, StepLatLon
-    do iLat = LowerLat, UpperLat, StepLatLon
-      i = iLon/5 + 1
-      j = iLat/4 + 1
-      if(dataarray(ilon,ilat,1) < 9999.0 .and. VegFraction(i,j)>0.1)then
-        GridMask(ilon,ilat) = 1  ! Select the grids for model run
-        m = m + 1
-      endif
-    enddo
-  enddo
-  N_VegGrids = m
-  write(*,*)"Valid grids: ", N_VegGrids
-  ! Record Lon and Lat for each grid
-  allocate(GridLonLat(N_VegGrids))
-  m = 0
-  do iLon = LowerLon, UpperLon
-    do iLat = LowerLat, UpperLat
-      if(GridMask(ilon,ilat) > 0)then
-        m = m + 1
-        GridLonLat(m) = iLon * 1000 + iLat
-      endif
-    enddo
-  enddo
-  deallocate(GridMask)
-end subroutine SelectGrids
 
 !===================================================
   subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
@@ -165,12 +89,23 @@ end subroutine SelectGrids
     enddo
     N_VegGrids = m
     write(*,*)"Valid grids: ", N_VegGrids
+    allocate(GridLonLat(N_VegGrids))
+    ! Put GridID into an array
+    m = 0
+    do iLon = LowerLon, UpperLon
+      do iLat = LowerLat, UpperLat
+        if(GridMask(ilon,ilat) > 0)then
+          m = m + 1
+          GridLonLat(m) = iLon * 1000 + iLat
+        endif
+      enddo
+    enddo
 
+#ifndef Use_InterpolatedData
     ! Allocate data arrays
     allocate(CRUtime(totL))
     !allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
     allocate(ClimData(totL, N_vars, N_VegGrids))
-    allocate(GridLonLat(N_VegGrids))
     allocate(LandGrid(N_VegGrids))
 
     ! Record LonLat and PFT coverage for each grid
@@ -240,6 +175,8 @@ end subroutine SelectGrids
 #endif
       enddo ! N_yrs
     enddo   ! four variables
+#endif
+
     deallocate(GridMask)
   end subroutine ReadNCfiles
 
