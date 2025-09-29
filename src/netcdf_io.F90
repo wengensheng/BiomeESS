@@ -18,6 +18,82 @@ module netcdf_io
 contains
 !===================================================
 
+subroutine SelectGrids(fpath,fields)
+  implicit none
+  character(len=*), intent(in) :: fpath
+  character(len=*), intent(in) :: fields(:)
+
+  !-------- local vars -----------------
+  character(len=256) :: command
+  character(len=256) :: fnc
+  character(len=20)  :: field_idx
+  character(len=3)   :: PFTID(9)
+  character(len=4)   :: yr_str
+  integer :: iostat,i,j,m,iLon,iLat
+  integer, pointer :: GridMask(:,:)    => null() ! Selected grids
+  real :: dataarray(Nlon,Nlat,Ntime)
+  real :: PFTdata(144,90,9),VegFraction(144,90)
+
+  ! Read in PFT map
+  PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
+  fnc = trim(fpath)//'BiomeE-PFTs.nc'
+  write(*,*)trim(fnc)
+  do i=1, 9
+    call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
+    write(*,*)"read PFT: ", PFTID(i)
+  enddo
+  do i =1, 144
+    do j=1, 90
+      VegFraction(i,j) = max(0.0,min(1.0, sum(PFTdata(i,j,:))))
+    enddo
+  enddo
+
+  ! Read one climate file
+  write(yr_str, '(I4)') yr_start
+  fnc = trim(fpath)//trim(fields(1))//'/'//trim(ncversion)//trim(fields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
+
+#ifdef ZippedNCfiles
+  call unzip_gzip_file(trim(fnc)//'.gz')
+#endif
+
+  call nc_read_3D(fnc,trim(fields(1)),Nlon,Nlat,Ntime,dataarray)
+
+#ifdef ZippedNCfiles
+  command = 'rm '//trim(fnc) ! Remove unziped file
+  call execute_command_line(command)
+#endif
+
+  ! Setup Grid mask for the valid grids
+  allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
+  GridMask = 0
+  m = 0
+  do iLon = LowerLon, UpperLon, StepLatLon
+    do iLat = LowerLat, UpperLat, StepLatLon
+      i = iLon/5 + 1
+      j = iLat/4 + 1
+      if(dataarray(ilon,ilat,1) < 9999.0 .and. VegFraction(i,j)>0.1)then
+        GridMask(ilon,ilat) = 1  ! Select the grids for model run
+        m = m + 1
+      endif
+    enddo
+  enddo
+  N_VegGrids = m
+  write(*,*)"Valid grids: ", N_VegGrids
+  ! Record Lon and Lat for each grid
+  allocate(GridLonLat(N_VegGrids))
+  m = 0
+  do iLon = LowerLon, UpperLon
+    do iLat = LowerLat, UpperLat
+      if(GridMask(ilon,ilat) > 0)then
+        m = m + 1
+        GridLonLat(m) = iLon * 1000 + iLat
+      endif
+    enddo
+  enddo
+  deallocate(GridMask)
+end subroutine SelectGrids
+
+!===================================================
   subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     implicit none
     character(len=*), intent(in) :: fpath
@@ -178,7 +254,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   integer :: iLon, iLat ! Column and Lines (started from -179.75 and -89.75)
   type(climate_data_type), pointer :: climateData(:) ! will be pointed by forcingData
   character(len=256):: command, fname   ! For testing output
-  character(len=6)  :: LonLat  ! Used in output file name
+  character(len=6)  :: GridStr  ! Used in output file name
 
   real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
@@ -340,17 +416,15 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
   ! Write out a sample file
   if(WriteForcing)then
-    write(LonLat, GridIDFMT) GridID
-    fname = trim(filepath_out)//trim(ncversion)//trim(LonLat)//'_forcing.csv'
+    write(GridStr, GridIDFMT) GridID
+    fname = trim(filepath_out)//trim(ncversion)//trim(GridStr)//'_forcing.csv'
     open(15,file=trim(fname))
-    write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
+    !write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
+    write(15,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE'
     do i=1,totalL
-        write(15,'(2(I4,","),1(f8.2,","),30(E15.6,","))') &
-          climateData(i)%year, climateData(i)%doy,      climateData(i)%hod,  &
-          climateData(i)%PAR,  climateData(i)%radiation,climateData(i)%Tair, &
-          climateData(i)%Tsoil,climateData(i)%RH,       climateData(i)%rain, &
-          climateData(i)%windU,climateData(i)%P_air, &
-          climateData(i)%CO2,  climateData(i)%eCO2
+        write(15,'(6(E15.8,","))') &
+          climateData(i)%radiation,climateData(i)%Tair,climateData(i)%RH,  &
+          climateData(i)%rain,climateData(i)%windU,climateData(i)%P_air
     enddo
     close(15)
     command = 'gzip -f ' // trim(fname)
@@ -358,10 +432,115 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   endif
 
   !Release memory
-  deallocate(hourly_data)
-  deallocate(fdSW)
-  deallocate(timecols)
+  deallocate(hourly_data, fdSW, timecols)
 end subroutine CRU_Interpolation
+
+!=============================================================================
+!#ifdef Use_InterpolatedData
+! read in forcing data (Users need to write their own data input procedure)
+subroutine read_interpolatedCRU(GridID,year0,year1,steps_per_day,forcingData,FileExist)
+  integer, intent(in) :: GridID, year0, year1, steps_per_day
+  type(climate_data_type), pointer :: forcingData(:)
+  logical, intent(out) :: FileExist
+
+  !------------local var -------------------
+  type(climate_data_type), pointer :: climateData(:)
+  character(len=250) :: command, climfile, fname
+  character(len=6)  :: commts, GridStr
+  integer, parameter :: niterms = 6 ! 6 columns in the interpolated files
+
+  real,allocatable :: timecols(:,:), input_data(:,:)
+  real    :: temp(niterms)
+  integer :: istat1,istat2
+  integer :: totlines
+  integer :: m,n,i,iyr,iday,ihour
+
+  ! Findout the data file
+  write(GridStr,GridIDFMT) GridID
+  fname = trim(ncversion)//trim(GridStr)//'_forcing.csv'
+
+  ! Total days and lines
+  yr_data   = year1 - year0 + 1
+  days_data = yr_data * 365
+  datalines = days_data * steps_per_day
+
+  ! Allocate arrays for reading in data
+  allocate(input_data(niterms,datalines))
+  allocate(timecols(3,datalines))
+
+  ! Read in forcing data
+  climfile=trim(filepath_in)//trim(fname)
+  call unzip_gzip_file(trim(climfile)//'.gz')
+  ! Check whether file exists
+  inquire (file=climfile, iostat=istat1)
+  if (istat1 /= 0) then
+    FileExist = .False.
+    write (*, '("read_interpolatedCRU Error: ", a, " does not exist")') trim(climfile)
+    return
+  else
+    FileExist = .True.
+  endif
+  open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat1)
+  read(11,'(a160)') commts ! One line comments
+
+  m = 0
+  do
+    read(11,*,IOSTAT=istat2)(temp(n), n = 1,niterms)
+    if(istat2 < 0)exit
+    m = m + 1
+    if(m<= datalines) then  ! Only read in maximum of datalines
+      input_data(:,m) = temp(:)
+    else
+      exit
+    endif
+  enddo ! end of reading the forcing file
+
+  if(datalines /= m)then
+    write (*, '("Forcing file error (read_interpolatedCRU) ", a, " total lines: ",I12)') trim(fname),totlines
+    stop
+  endif
+  ! Close the file and delete it
+  close(11)    ! close forcing file
+  command = 'rm '//trim(climfile) ! Remove unziped nc data file
+  call execute_command_line(command)
+
+  ! Setup the time table
+  m=0
+  do iyr = year0, year1
+    do iday=1, 365
+      do ihour = 1, steps_per_day ! 24
+        m =  m + 1
+        timecols(1,m) = iyr
+        timecols(2,m) = iday
+        timecols(3,m) = 24.0 * (ihour - 1)/steps_per_day
+      enddo
+    enddo
+  enddo
+
+  ! Put the data into forcing
+  allocate(climateData(datalines))
+  do i=1,totlines
+     climateData(i)%year      = int(timecols(1,i))         ! Year
+     climateData(i)%doy       = int(timecols(2,i))         ! day of the year
+     climateData(i)%PAR       = input_data(1,i)*2.0        ! umol/m2/s
+     climateData(i)%radiation = input_data(1,i)            ! W/m2
+     climateData(i)%Tair      = input_data(2,i)  ! air temperature, K
+     climateData(i)%Tsoil     = input_data(2,i)*0.8 + 273.16*0.2  ! soil temperature, K
+     climateData(i)%RH        = input_data(3,i)        ! relative humidity (0.xx)
+     climateData(i)%rain      = input_data(4,i)        ! kgH2O m-2 s-1
+     climateData(i)%windU     = input_data(5,i)        ! wind velocity (m s-1)
+     climateData(i)%P_air     = input_data(6,i)        ! pa
+     climateData(i)%CO2       = CO2_c        !ppm
+     climateData(i)%eCO2      = CO2_c + 200. !ppm
+     climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+  enddo
+  forcingData => climateData
+  write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
+
+  !Close opened file and release memory
+  deallocate(input_data,timecols)
+end subroutine read_interpolatedCRU
+!#endif
 
 !==============================================================
   subroutine unzip_gzip_file(filename_gz)

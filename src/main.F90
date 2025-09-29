@@ -49,7 +49,10 @@ program BiomeE
     call cpu_time(last_time) ! Record time needed for one grid simulation
     ! Data interpolated to hourly
     call CRU_Interpolation(LandGrid(m),forcingData)
-    if(WriteForcing) cycle ! Skip model runs
+    if(WriteForcing)then
+      deallocate(forcingData)
+      cycle ! Skip model runs
+    endif
     call setup_output_files()
     call BiomeE_main()
     call zip_output_files()

@@ -92,6 +92,7 @@ R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Ni
 ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
 ncversion = 'crujra.v2.4.5d.',
 WriteForcing = .True., ! .False.
+! Total grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 205, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 206, ! 200, ! 209,
 LowerLat = 255, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
