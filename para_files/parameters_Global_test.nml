@@ -22,11 +22,10 @@ runID       = 'ESSPFT', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 CO2_c       = 370.0 ! ppm, Year 2000
-model_run_years = 200,
+model_run_years = 20,
 outputhourly    = .False. ! .True.
-outputdaily     = .True.  ! .False.
+outputdaily     = .False. ! .True.  !
 do_closedN_run  = .False. ! .True.  !
-do_U_mortality  = .True. ! .False. !
 do_fire         = .True.  !  .False. !
 do_migration    = .True.  !  .False. !
 /

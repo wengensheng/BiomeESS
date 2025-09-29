@@ -15,10 +15,8 @@ program BiomeE
   !-----------
   character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
   real :: start_time, end_time, last_time, elapsed_time
-  real, pointer :: GridData(:,:)    ! N_yr*Ntime, N_vars
-  integer :: N_yrs, totL
-  integer :: m, n
-  integer :: timeArray(3)
+  integer :: timeArray(3), m
+  logical :: file_exists
 
   ! ---------- Time stamp -------------
   call cpu_time(start_time)
@@ -39,20 +37,32 @@ program BiomeE
   !------------ Forcing data interpolation and model run
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = start_grid, N_VegGrids
-    GridID = GridLonLat(m) ! for file names
-    !fno{1~6} are defined in datatype as global variables
-    fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
-    fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
-    write(*,'(a30,3(I8,","))')'Running at grid (iLon, iLat): ', &
-               GridLonLat(m), LandGrid(m)%iLon, LandGrid(m)%iLat
-    print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
     call cpu_time(last_time) ! Record time needed for one grid simulation
+
+    ! ------ Get a grid's forcingData
+    GridID = GridLonLat(m) ! for file names
+#ifdef Use_InterpolatedData
+    call read_interpolatedCRU(GridID,yr_start,yr_end,forcingData,file_exists)
+    if(.not. file_exists)then
+      print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file'
+      cycle
+    endif
+#else
     ! Data interpolated to hourly
     call CRU_Interpolation(LandGrid(m),forcingData)
     if(WriteForcing)then
       deallocate(forcingData)
       cycle ! Skip model runs
     endif
+#endif
+
+    ! Output file grid ID
+    fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
+    fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
+    write(*,'(a20,3(I6,","))')'Running at grid: ', GridID
+    print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
+
+    ! ------- Run model -----------
     call setup_output_files()
     call BiomeE_main()
     call zip_output_files()
@@ -69,11 +79,14 @@ program BiomeE
   !$omp end parallel do
 
   ! Release netcdf-related allocatable data arrays
+  deallocate(GridLonLat)
+#ifndef Use_InterpolatedData
   !deallocate(CRUData)
   deallocate(CRUtime)
   deallocate(ClimData)
   deallocate(LandGrid)
-  deallocate(GridLonLat)
+#endif
+
 #else
   ! ---------- Single site run with csv/txt forcing data input ----------
   call setup_forcingdata(climfile)

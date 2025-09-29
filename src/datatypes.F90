@@ -846,7 +846,6 @@ type :: grid_initial_type
 end type grid_initial_type
 
 ! Model mechanisms setting
-logical  :: do_U_mortality      = .True. ! .False.
 logical  :: Do_DroughtMu        = .True. ! Drought-induced mortality, Lichstein (2024)
 logical  :: MergeLowDenCohorts  = .True.
 logical  :: update_annualLAImax = .False.
@@ -916,8 +915,8 @@ namelist /initial_state_nml/ &
     PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     yr_Check,outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,    &
-    update_annualLAImax, do_U_mortality,Do_DroughtMu,           &
-    MergeLowDenCohorts,do_migration, do_closedN_run, do_fire,   &
+    update_annualLAImax, Do_DroughtMu, MergeLowDenCohorts,      &
+    do_migration, do_closedN_run, do_fire,   &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------

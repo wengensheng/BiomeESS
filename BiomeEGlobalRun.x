@@ -14,6 +14,7 @@ CPPFLAGS+=' -DDO_Climate_VEG'
 #CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DZippedNCfiles'
+CPPFLAGS+=' -DUse_InterpolatedData'
 
 echo $FSRCS
 echo $CPPFLAGS
