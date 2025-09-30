@@ -868,7 +868,8 @@ logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
 integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010, yr_end = 2011
-integer :: start_grid = 1 ! for continuous model run once crashed at a grid
+integer :: grid_No1 = 1     ! the first grid in the grid list file
+integer :: grid_No2 = 56395 ! the last grid in vegetated land
 integer :: N_VegGrids = 1 ! Minimum
 integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
@@ -924,7 +925,7 @@ namelist /initial_state_nml/ &
 namelist /global_setting_nml/                                   &
       ncfilepath,ncversion,GridListFile,                        &
       yr_start,yr_end,LowerLon,UpperLon,LowerLat,UpperLat,      &
-      start_grid,StepLatLon,WriteForcing
+      grid_No1,grid_No2,StepLatLon,WriteForcing
 
 
 ! ---------- Soil hydraulic and heat parameter name list ---------

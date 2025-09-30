@@ -83,6 +83,9 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     N_VegGrids = m
     write(*,*)"Valid grids: ", N_VegGrids
     allocate(GridLonLat(N_VegGrids))
+    grid_No1 = 1
+    grid_No2 = N_VegGrids ! ! Run all the grids in GridLonLat
+
     ! Put GridID into an array
     m = 0
     do iLon = LowerLon, UpperLon
@@ -396,6 +399,8 @@ subroutine read_GridLonLat(fname,file_exists)
   N_VegGrids = m
   allocate(GridLonLat(N_VegGrids))
   GridLonLat(:) = GridNo(1:N_VegGrids)
+  grid_No1 = min(grid_No1,N_VegGrids)
+  grid_No2 = min(grid_No2,N_VegGrids)
 end subroutine read_GridLonLat
 
 !=============================================================================

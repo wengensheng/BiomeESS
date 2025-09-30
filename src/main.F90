@@ -33,7 +33,9 @@ program BiomeE
 
 #ifdef Use_InterpolatedData
   call read_GridLonLat(GridListFile,file_exists)
-  if(.not. file_exists) call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+  if(.not. file_exists)then
+    call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+  endif
 #else
   ! Read in netCDF global data files
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
@@ -45,7 +47,7 @@ program BiomeE
 
   !------------ Forcing data interpolation and model run
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
-  do m = start_grid, N_VegGrids
+  do m = grid_No1, grid_No2  ! Grids in GridLonLat
     call cpu_time(last_time) ! Record time needed for one grid simulation
 
     ! ------ Get a grid's forcingData
