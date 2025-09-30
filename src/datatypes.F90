@@ -1740,7 +1740,7 @@ function PotentialET(forcing)
   TairK = forcing%Tair
   Tair  = forcing%Tair - 273.16
   P_air = forcing%P_air
-  RH    = forcing%RH  ! Check forcing's unit of humidity
+  RH    = Max(0.01, min(0.99, forcing%RH))  ! Check forcing's unit of humidity
 
   ! --------- Potential evapotranspiration (PET) --------
   rhocp = cpair * P_air * mol_air / (Rgas*TairK)

@@ -179,7 +179,7 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
   TairK = forcing%Tair
   Tair  = forcing%Tair - 273.16
   P_air = forcing%P_air
-  RH    = forcing%RH  ! Check forcing's unit of humidity
+  RH    = Max(0.01, min(0.99, forcing%RH)) ! Check forcing's unit of humidity
 
   ! --------- Soil surface evaporation --------
   Rland = Rnet * exp(-kappa*vegn%LAI)

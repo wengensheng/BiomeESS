@@ -333,8 +333,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
      climateData(i)%rain  = hourly_data(i,5)          ! kgH2O m-2 second-1
      climateData(i)%radiation = hourly_data(i,6)      ! W/m2
      climateData(i)%PAR       = hourly_data(i,6) * 2.0 ! umol/m2/s
-     climateData(i)%RH    = hourly_data(i,7) / mol_h2o * mol_air * &
-                            hourly_data(i,8) / esat(hourly_data(i,4) - 273.16) ! relative humidity (0.xx)
+     climateData(i)%RH    = Max(0.01, min(0.99, hourly_data(i,7) / mol_h2o * mol_air * &
+                            hourly_data(i,8) / esat(hourly_data(i,4) - 273.16))) ! relative humidity (0.xx)
      climateData(i)%P_air = hourly_data(i,8)          ! pa
      climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1)
      climateData(i)%CO2   = CO2_c ! CO2_Hist(climateData(i)%year-1700)       ! ppm
@@ -490,7 +490,7 @@ subroutine read_interpolatedCRU(GridID,year0,year1,forcingData,file_exists)
      climateData(i)%radiation = input_data(1,i)            ! W/m2
      climateData(i)%Tair      = input_data(2,i)  ! air temperature, K
      climateData(i)%Tsoil     = input_data(2,i)*0.8 + 273.16*0.2  ! soil temperature, K
-     climateData(i)%RH        = input_data(3,i)        ! relative humidity (0.xx)
+     climateData(i)%RH        = Max(0.01, min(0.99, input_data(3,i) ))       ! relative humidity (0.xx)
      climateData(i)%rain      = input_data(4,i)        ! kgH2O m-2 s-1
      climateData(i)%windU     = input_data(5,i)        ! wind velocity (m s-1)
      climateData(i)%P_air     = input_data(6,i)        ! pa

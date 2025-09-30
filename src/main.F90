@@ -71,7 +71,7 @@ program BiomeE
     fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
     fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
     write(*,'(a20,3(I6,","))')'Running at grid: ', GridID
-    print '(A, I8, A, I8)', 'Grid ', m, ' of ', N_VegGrids
+    print '(A, I8, A, I8)', 'Grid ', m, ' of ', grid_No2 - grid_No1 + 1
 
     ! ------- Run model -----------
     call setup_output_files()
