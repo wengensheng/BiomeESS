@@ -31,8 +31,17 @@ program BiomeE
   ! Read in the namelist for global data and model settings
   call read_global_setting(fnml)
 
+#ifdef Use_InterpolatedData
+  call read_GridLonLat(GridListFile,file_exists)
+  if(.not. file_exists) call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+#else
   ! Read in netCDF global data files
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+#endif
+  ! ---------- Time stamp -------------
+  call cpu_time(end_time)
+  elapsed_time = end_time - start_time
+  write(*,'(a30,3(f8.2,","))')'Data reading time (minutes):', elapsed_time/60.
 
   !------------ Forcing data interpolation and model run
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
@@ -52,7 +61,7 @@ program BiomeE
     call CRU_Interpolation(LandGrid(m),forcingData)
     if(WriteForcing)then
       deallocate(forcingData)
-      cycle ! Skip model runs
+      cycle ! Skip model run. Only output interpolated grid forcing data
     endif
 #endif
 
@@ -88,11 +97,14 @@ program BiomeE
 #endif
 
 #else
+
   ! ---------- Single site run with csv/txt forcing data input ----------
   call setup_forcingdata(climfile)
   call setup_output_files()
   call BiomeE_main()
+
 #endif
+
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time

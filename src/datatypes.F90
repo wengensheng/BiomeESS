@@ -858,6 +858,7 @@ logical  :: do_WD_mort_function = .False.
 
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
+character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv'
 character (len = 20)  :: ncversion = 'crujra.v2.4.5d.'
 !character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','dswrf','spfh']
 character (len = 5)   :: ncfields(7)= [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
@@ -920,7 +921,8 @@ namelist /initial_state_nml/ &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------
-namelist /global_setting_nml/ ncfilepath,ncversion,             &
+namelist /global_setting_nml/                                   &
+      ncfilepath,ncversion,GridListFile,                        &
       yr_start,yr_end,LowerLon,UpperLon,LowerLat,UpperLat,      &
       start_grid,StepLatLon,WriteForcing
 

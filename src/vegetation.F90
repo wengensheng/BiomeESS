@@ -1741,7 +1741,7 @@ real function mortality_rate(cc) result(mu) ! per year
 
     if(DO_DroughtMu)then
       ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)
-      ! It can be turnoed off by setting a large sp%W_mu0
+      ! It can be turned off by setting a large sp%W_mu0
       if(cc%totDemand>0.00001)then
         cc%w_scale = cc%annualTrsp/cc%totDemand
       else

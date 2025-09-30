@@ -12,7 +12,8 @@ module netcdf_io
   implicit none
   private
 
-  public ReadNCfiles, CRU_Interpolation, read_interpolatedCRU
+  public ReadNCfiles, CRU_Interpolation
+  public read_GridLonLat, read_interpolatedCRU
   public unzip_gzip_file
 
 contains
@@ -125,10 +126,11 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
 
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
-      fname = trim(filepath_out)//trim(ncversion)//'VegGRid.csv'
+      fname = trim(filepath_out)//trim(ncversion)//'VegGrid.csv' ! List file name
       open(16,file=trim(fname))
       do m =1, N_VegGrids
         write(GridStr, GridIDFMT)GridLonLat(m)
+        fname = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
         write(16, '(a6,"," a35)')trim(GridStr),trim(fname)
       enddo
       close(16)
@@ -144,7 +146,6 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
         call unzip_gzip_file(trim(fnc)//'.gz') ! Unzip the nc data file
 #endif
 
-        write(*,*)'read nc file:', fnc
         call nc_read_3D(fnc,trim(fields(j)),Nlon,Nlat,Ntime,dataarray)
         m = 0
         do iLon = LowerLon, UpperLon
@@ -156,6 +157,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
             endif
           enddo
         enddo
+
         ! Read in the time array of the first variable
         if(j == 1)then
           call nc_read_1D(fnc,'time',Ntime,timearray)
@@ -169,7 +171,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
       enddo ! N_yrs
     enddo   ! four variables
 #endif
-
+    ! Release allocatable arrays
     deallocate(GridMask)
 end subroutine ReadNCfiles
 
@@ -366,8 +368,37 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 end subroutine CRU_Interpolation
 
 !=============================================================================
-!#ifdef Use_InterpolatedData
-! read in forcing data (Users need to write their own data input procedure)
+! Read the interpolated data file list
+subroutine read_GridLonLat(fname,file_exists)
+  character(len=*),intent(in) :: fname
+  logical, intent(inout) :: file_exists
+
+  ! ------- Local vars ---------------
+  integer :: GridNo(Nlon*Nlat)
+  integer :: m, istat1
+  character(len=300) :: listfile
+
+  listfile=trim(ncfilepath)//'interpolated/'//trim(fname)
+  INQUIRE (file=trim(listfile), EXIST=file_exists)
+  if (.not. file_exists) then
+    write (*, '("read_GridLonLat: ", a, " does not exist")') trim(listfile)
+    return
+  endif
+
+  ! Read the file
+  open(11,file=listfile,status='old',ACTION='read',IOSTAT=istat1)
+  m = 0
+  do
+    read(11,*,IOSTAT=istat1) GridNo(m+1)
+    if(istat1 < 0)exit
+    m = m + 1
+  enddo
+  N_VegGrids = m
+  allocate(GridLonLat(N_VegGrids))
+  GridLonLat(:) = GridNo(1:N_VegGrids)
+end subroutine read_GridLonLat
+
+!=============================================================================
 subroutine read_interpolatedCRU(GridID,year0,year1,forcingData,file_exists)
   integer, intent(in) :: GridID, year0, year1
   type(climate_data_type), pointer :: forcingData(:)
@@ -468,7 +499,6 @@ subroutine read_interpolatedCRU(GridID,year0,year1,forcingData,file_exists)
   !Close opened file and release memory
   deallocate(input_data,timecols)
 end subroutine read_interpolatedCRU
-!#endif
 
 !==============================================================
   subroutine unzip_gzip_file(filename_gz)
