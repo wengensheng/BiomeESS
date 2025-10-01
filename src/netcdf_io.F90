@@ -149,6 +149,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
         call unzip_gzip_file(trim(fnc)//'.gz') ! Unzip the nc data file
 #endif
 
+        write(*,*)'Reading: ', trim(fnc)
         call nc_read_3D(fnc,trim(fields(j)),Nlon,Nlat,Ntime,dataarray)
         m = 0
         do iLon = LowerLon, UpperLon
