@@ -7,14 +7,14 @@ FSRCS="src/datatypes.F90 \
        src/BiomeE.F90 \
        src/main.F90"
 
-CPPFLAGS=' '
+CPPFLAGS=''
+CPPFLAGS+=' -DGlobalRun'
+CPPFLAGS+=' -DDO_Climate_VEG'
+CPPFLAGS+=' -DZippedNCfiles'
+#CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
-CPPFLAGS+=' -DDO_Climate_VEG'
 #CPPFLAGS+=' -DScreenOutput'
-CPPFLAGS+=' -DGlobalRun'
-CPPFLAGS+=' -DZippedNCfiles'
-CPPFLAGS+=' -DUse_InterpolatedData'
 
 echo $FSRCS
 echo $CPPFLAGS

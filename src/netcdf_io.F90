@@ -10,9 +10,12 @@ module netcdf_io
   use netcdf
   use datatypes
   implicit none
+
+  integer :: flist = 16 ! Vegetation grids list file
+
   private
 
-  public ReadNCfiles, CRU_Interpolation
+  public ReadNCfiles, CRU_Interpolation, CRU_end
   public read_GridLonLat, read_interpolatedCRU
   public unzip_gzip_file
 
@@ -32,7 +35,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     character(len=6)   :: GridStr
     integer, pointer   :: GridMask(:,:) => null()
     integer :: N_yrs,totL,N_vars
-    integer :: iostat,i,j,k,m,iLon,iLat
+    integer :: istat1,i,j,k,m,iLon,iLat
     real :: dataarray(Nlon,Nlat,Ntime),timearray(Ntime)
     real :: PFTdata(144,90,9),VegFraction(144,90)
 
@@ -129,14 +132,8 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
 
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
-      fname = trim(filepath_out)//trim(ncversion)//'VegGrid.csv' ! List file name
-      open(16,file=trim(fname))
-      do m =1, N_VegGrids
-        write(GridStr, GridIDFMT)GridLonLat(m)
-        fname = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
-        write(16, '(a6,"," a35)')trim(GridStr),trim(fname)
-      enddo
-      close(16)
+      fname = trim(filepath_out)//trim(GridListFile) ! List file name
+      open(flist,file=trim(fname),ACTION='write', IOSTAT=istat1)
     endif
 
     ! ----------------- Read in all data ----------------------!
@@ -353,7 +350,9 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   ! Write out a sample file
   if(WriteForcing)then
     write(GridStr, GridIDFMT) GridID
-    fname = trim(filepath_out)//trim(ncversion)//trim(GridStr)//'_forcing.csv'
+    fname = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
+    write(flist, '(a6,"," a35)')trim(GridStr),trim(fname)
+    fname = trim(filepath_out)//trim(fname)
     open(15,file=trim(fname))
     !write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
     write(15,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE'
@@ -370,6 +369,18 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   !Release memory
   deallocate(hourly_data, fdSW, timecols)
 end subroutine CRU_Interpolation
+
+!==============================================
+subroutine CRU_end()
+  close(flist)
+  deallocate(GridLonLat)
+#ifndef Use_InterpolatedData
+  !deallocate(CRUData)
+  deallocate(CRUtime)
+  deallocate(ClimData)
+  deallocate(LandGrid)
+#endif
+end subroutine CRU_end
 
 !=============================================================================
 ! Read the interpolated data file list

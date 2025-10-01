@@ -70,8 +70,12 @@ program BiomeE
 #endif
 
     ! Output file grid ID
-    fno1=GridID+1; fno2=GridID+2; fno3=GridID+3
-    fno4=GridID+4; fno5=GridID+5; fno6=GridID+6
+    fno1=GridID+1
+    fno2=GridID+2
+    fno3=GridID+3
+    fno4=GridID+4
+    fno5=GridID+5
+    fno6=GridID+6
     ! ------- Run model -----------
     call setup_output_files()
     call BiomeE_main()
@@ -88,14 +92,8 @@ program BiomeE
   enddo
   !$omp end parallel do
 
-  ! Release netcdf-related allocatable data arrays
-  deallocate(GridLonLat)
-#ifndef Use_InterpolatedData
-  !deallocate(CRUData)
-  deallocate(CRUtime)
-  deallocate(ClimData)
-  deallocate(LandGrid)
-#endif
+  ! Release netcdf-related allocatable data arrays and close files
+  call CRU_end()
 
 #else
 
