@@ -34,6 +34,7 @@ program BiomeE
 #ifdef Use_InterpolatedData
   call read_GridLonLat(GridListFile,file_exists)
   if(.not. file_exists)then
+    write(*,*)trim(GridListFile), 'does not exist. Use NC file.'
     call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
   endif
 #else
@@ -48,12 +49,13 @@ program BiomeE
   !------------ Forcing data interpolation and model run
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = grid_No1, grid_No2  ! Grids in GridLonLat
+    ! ------ Get a grid's forcingData
+    GridID = GridLonLat(m) ! for file names
+
     call cpu_time(last_time) ! Record time needed for one grid simulation
     write(*,'(a20,3(I6,","))')'Working at grid: ', GridID
     print '(A, I8, A, I8)', 'Grid ', m, ' of ', grid_No2 - grid_No1 + 1
 
-    ! ------ Get a grid's forcingData
-    GridID = GridLonLat(m) ! for file names
 #ifdef Use_InterpolatedData
     call read_interpolatedCRU(GridID,yr_start,yr_end,forcingData,file_exists)
     if(.not. file_exists)then
