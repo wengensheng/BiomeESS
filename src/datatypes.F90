@@ -1274,7 +1274,7 @@ subroutine initialize_PFT_data(fnml)
  subroutine init_derived_species_data(sp)
    type(spec_data_type), intent(inout) :: sp
    ! ---- local vars ------
-   integer :: i,j
+   integer :: j
    real :: rdepth(0:soil_L)
    real :: residual
    real :: R_WD
@@ -1383,7 +1383,7 @@ subroutine initialize_PFT_data(fnml)
    integer :: PFTID(N_PFTID) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
    real, allocatable :: dailyET(:),dailyTc(:),dailyPr(:),meanTc(:),TminYr(:)
    real :: tmpL(mw*2+1)
-   real :: totPrcp, totPET, meanTmin, meanPrcp, meanPET, Mst_IDX
+   real :: totPrcp, totPET, meanTmin, meanPrcp, Mst_IDX
 
    integer :: i,j,k,m,n,L,w
    integer :: N_Yrs, N_days
@@ -1495,9 +1495,6 @@ subroutine initialize_PFT_data(fnml)
  subroutine Assign_Std_Cohorts (PFTID,totPFT)
    implicit none
    integer, intent(in) :: PFTID(:), totPFT
-
-   !--------- local vars ------------
-   integer :: i
 
    ! Assign initial cohorts
    ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
@@ -1722,7 +1719,6 @@ function PotentialET(forcing)
   real :: P_air, Dair   ! Air pressure and VPD, (pa)
   ! Assumed vegetation states
   real :: Karman = 0.41 ! von Kármán constant (~0.41)
-  real :: kappa  = 0.75 ! light extinction coefficient of corwn layers
   real :: dV     = 0.1  ! a small number
   real :: Zmh    = 2.0   ! Measurement height (m)
   real :: Zvg    = 0.12  ! FAO, short-crop height (m), for PET
@@ -1757,9 +1753,8 @@ function PotentialET(forcing)
 end function PotentialET
 
 ! ============================================================================
-function c3c4(c, temp, precip) result (pt)
+function c3c4(temp, precip) result (pt)
   integer :: pt
-  type(cohort_type), intent(in) :: c
   real,              intent(in) :: temp   ! temperatire, degK
   real,              intent(in) :: precip ! precipitation, ???
 

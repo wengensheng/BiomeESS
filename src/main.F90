@@ -53,8 +53,8 @@ program BiomeE
     GridID = GridLonLat(m) ! for file names
 
     call cpu_time(last_time) ! Record time needed for one grid simulation
-    write(*,'(a20,3(I6,","))')'Working at grid: ', GridID
-    print '(A, I8, A, I8)', 'Grid ', m, ' of ', grid_No2 - grid_No1 + 1
+    print '(A, I6, A, I6)', 'Working at grid: ', GridID, '. Grid No. ', m
+    print '(A, I6, A, I6)', 'The ', m- grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
 #ifdef Use_InterpolatedData
     call read_interpolatedCRU(GridID,yr_start,yr_end,forcingData,file_exists)
