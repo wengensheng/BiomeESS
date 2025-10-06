@@ -1072,9 +1072,9 @@ end subroutine read_CRUforcing
 subroutine setup_output_files()
 
    ! ----------Local vars ------------
-   character(len=150) :: YearlyCohort2,DailyPatch2  ! For DroughtMIP only
-   character(len=120)  :: filesuffix,fpath
-   character(len=6) :: LonLat
+   character(len=150) :: YearlyCohort2, DailyPatch2  ! For DroughtMIP only
+   character(len=120) :: filesuffix, fpath
+   character(len=6)   :: LonLat
    integer :: istat1, istat2, istat3
 
     ! File path and names
@@ -1098,7 +1098,7 @@ subroutine setup_output_files()
     ! Open files
     if(outputhourly)then
       open(fno1,file=trim(file_out(1)),ACTION='write', IOSTAT=istat1)
-      write(fno1,'(5(a8,","),30(a12,","))')'tile', &       ! Hourly cohort
+      write(fno1,'(5(a8,","),30(a12,","))')'G'//LonLat, &       ! Hourly cohort
          'year','doy','hour','cID','sp','layer', &
          'density','dbh','height','Acrown',      &
          'bl','LAI','GPP', 'NPP', 'Transp',      &
@@ -1110,7 +1110,7 @@ subroutine setup_output_files()
 
       open(fno2,file=trim(file_out(2)), ACTION='write', IOSTAT=istat1)
       write(fno2,'(5(a8,","),30(a12,","))')    &       ! Hourly tile
-         'tile','year','doy','hour','rad',     &
+         'G'//LonLat,'year','doy','hour','rad',&
          'Tair','Prcp', 'GPP', 'Resp',         &
          'Transp','Evap','Runoff','Soilwater', &
          'wcl', 'psi_soil','k_soil',           &
@@ -1119,7 +1119,7 @@ subroutine setup_output_files()
 
     if(outputdaily)then
       open(fno3,file=trim(file_out(3)), ACTION='write', IOSTAT=istat2)
-      write(fno3,'(60(a8,","))')'year','doy',          &  ! Daily cohort
+      write(fno3,'(60(a8,","))')'yr'//LonLat,'doy',    &  ! Daily cohort
          'c_No','PFT','layer','Pheno','ndm','ncd',     &
          'density','Acrown','LAI','LeafAge',           &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
@@ -1128,7 +1128,7 @@ subroutine setup_output_files()
          'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
          'GDD','ALT','AWD'
       open(fno4,file=trim(file_out(4)),  ACTION='write', IOSTAT=istat2)
-      write(fno4,'(2(a5,","),55(a10,","))')'year', 'doy',   &  ! Daily tile, 'tile',
+      write(fno4,'(2(a8,","),55(a10,","))')'Yr'//LonLat, 'doy',   &  ! Daily tile, 'tile',
          'Tc','Prcp','Trsp','Evap','Roff','WaterS','thetaS',&
          'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',     &
          'LAI','GPP','Rauto','Rh',                          &
@@ -1180,8 +1180,8 @@ subroutine setup_output_files()
 
 #else
     open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
-    write(fno5,'(4(a5,","),80(a7,","))')                &    ! Yearly cohort
-      'tile','yr','cNo.','cID', 'PFT','layer',          &
+    write(fno5,'(4(a8,","),80(a7,","))')                &    ! Yearly cohort
+      'G'//LonLat,'yr','cNo.','cID', 'PFT','layer',     &
       'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
       'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
       'GPP','NPP','Gtree','f_sd','f_lf','f_fr','f_wd',  &
@@ -1203,7 +1203,7 @@ subroutine setup_output_files()
          'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',  &
          'CO2'
 #else
-    write(fno6,'(1(a5,","),80(a12,","))')'tile','year',        &  ! Yearly tile
+    write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',         &  ! Yearly tile
         'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
         'rain','SoilWater','Transp','Evap','Runoff',                 &
         'plantC', 'soilC', 'plantN', 'soilN',                        &
