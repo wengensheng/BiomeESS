@@ -90,7 +90,9 @@ R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Ni
 &global_setting_nml
 ncfilepath   = '/Users/eweng/Documents/Data/CRU/zipped/',
 ncversion    = 'crujra.v2.4.5d.',
-GridListFile = 'TestVegGrids.csv',
+int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/',
+int_prefix = 'crujra.v2.4.5d.',
+GridListFile = 'GlobalVegGridList.csv' ! 'TestVegGrids.csv',
 WriteForcing = .True., ! .False.
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 205, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
@@ -100,6 +102,6 @@ UpperLat = 256, ! 247,252
 yr_start = 2010, ! 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! 2011, ! Data end year
 grid_No1 = 1,
-grid_No2 = 56395, ! Maximum grids in the vegetated land
+grid_No2 = 20, ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = 1
 /

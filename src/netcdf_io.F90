@@ -219,7 +219,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   totalL = Nlines * Hours_NCstep * steps_per_hour ! for hourly data
   totyr = totalL/hours_per_year
   totDays = totyr * 365
-  year0 = int(CRUtime(1)/365) + 1901 ! Hours started from 1850/1/1/1
+  year0 = int(CRUtime(1)/365) + 1901 ! Started from 1901/1/1
   year1 = year0 + totyr - 1
 
   ! Allocate allocatable variables
@@ -385,15 +385,16 @@ end subroutine CRU_end
 !=============================================================================
 ! Read the interpolated data file list
 subroutine read_GridLonLat(fname,file_exists)
+  implicit none
   character(len=*),intent(in) :: fname
   logical, intent(inout) :: file_exists
 
   ! ------- Local vars ---------------
-  integer :: GridNo(Nlon*Nlat)
-  integer :: m, istat1
+  integer :: GridNo(Nlon*Nlat),tmpNo(Nlon*Nlat) ! max grids, 720*360
+  integer :: i,j,k,m,n,istat1
   character(len=300) :: listfile
 
-  listfile=trim(ncfilepath)//'interpolated/'//trim(fname)
+  listfile=trim(int_fpath)//trim(fname)
   INQUIRE (file=trim(listfile), EXIST=file_exists)
   if (.not. file_exists) then
     write (*, '("read_GridLonLat: ", a, " does not exist")') trim(listfile)
@@ -408,15 +409,50 @@ subroutine read_GridLonLat(fname,file_exists)
     if(istat1 < 0)exit
     m = m + 1
   enddo
+  
+  ! Update GridNo and m with StepLatLon
+  if(StepLatLon > 1 .or. UpperLon < 720)then ! Regional or partial run
+    N_VegGrids = m
+    tmpNo = GridNo
+    m = 0
+    n = 1
+    do i = LowerLat, UpperLon, StepLatLon
+      do j = LowerLon, UpperLat, StepLatLon
+        k = i*1000 + j
+        if(k < tmpNo(n))then
+          cycle
+        elseif (k == tmpNo(n))then
+          m = m + 1
+          GridNo(m) = tmpNo(n)
+          n = n + StepLatLon
+        elseif (k > tmpNo(n)) then
+          do while(k > tmpNo(n) .and. n < N_VegGrids)
+            n = n + 1
+          enddo
+          if (k == tmpNo(n))then
+            m = m + 1
+            GridNo(m) = tmpNo(n)
+            n = n + StepLatLon
+          endif
+        endif
+        if(n>=N_VegGrids)exit
+      enddo
+    enddo
+  endif
+
+  ! Update N_VegGrids and GridLonLat
   N_VegGrids = m
   allocate(GridLonLat(N_VegGrids))
   GridLonLat(:) = GridNo(1:N_VegGrids)
   grid_No1 = min(grid_No1,N_VegGrids)
   grid_No2 = min(grid_No2,N_VegGrids)
+  
+  write(*,*)"Read GridLonLat", N_VegGrids, grid_No1, grid_No2
 end subroutine read_GridLonLat
 
 !=============================================================================
-subroutine read_interpolatedCRU(GridID,year0,year1,forcingData,file_exists)
+subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,file_exists)
+  character(len=*),intent(in) :: fpath,fprefix
   integer, intent(in) :: GridID, year0, year1
   type(climate_data_type), pointer :: forcingData(:)
   logical, intent(out) :: file_exists
@@ -434,8 +470,8 @@ subroutine read_interpolatedCRU(GridID,year0,year1,forcingData,file_exists)
 
   ! Findout the data file
   write(GridStr,GridIDFMT) GridID
-  fname = trim(ncversion)//trim(GridStr)//'_forcing.csv'
-  climfile=trim(ncfilepath)//'interpolated/'//trim(fname)
+  fname = trim(fprefix)//trim(GridStr)//'_forcing.csv'
+  climfile=trim(fpath)//trim(fname)
   INQUIRE (file=trim(climfile)//'.gz', EXIST=file_exists)
   if (file_exists) then
     call unzip_gzip_file(trim(climfile)//'.gz')

@@ -13,7 +13,7 @@ program BiomeE
 
   implicit none
   !-----------
-  character(len=80)  :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
+  character(len=256) :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'  
   real :: start_time, end_time, last_time, elapsed_time
   integer :: timeArray(3), m
   logical :: file_exists
@@ -57,7 +57,7 @@ program BiomeE
     print '(A, I6, A, I6)', 'The ', m- grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
 #ifdef Use_InterpolatedData
-    call read_interpolatedCRU(GridID,yr_start,yr_end,forcingData,file_exists)
+    call read_interpolatedCRU(int_fpath,int_prefix,GridID,yr_start,yr_end,forcingData,file_exists)
     if(.not. file_exists)then
       print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file'
       cycle
