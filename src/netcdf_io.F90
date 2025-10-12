@@ -390,7 +390,7 @@ subroutine read_GridLonLat(fname,file_exists)
   logical, intent(inout) :: file_exists
 
   ! ------- Local vars ---------------
-  integer :: GridNo(Nlon*Nlat),tmpNo(Nlon*Nlat) ! max grids, 720*360
+  integer :: GridNo(Nlon*Nlat),tmpNo(Nlon*Nlat) ! maximum grids, 720*360
   integer :: i,j,k,m,n,istat1
   character(len=300) :: listfile
 
@@ -419,21 +419,17 @@ subroutine read_GridLonLat(fname,file_exists)
     do i = LowerLat, UpperLon, StepLatLon
       do j = LowerLon, UpperLat, StepLatLon
         k = i*1000 + j
-        if(k < tmpNo(n))then
-          cycle
-        elseif (k == tmpNo(n))then
-          m = m + 1
-          GridNo(m) = tmpNo(n)
-          n = n + StepLatLon
-        elseif (k > tmpNo(n)) then
+        if (k > tmpNo(n)) then
           do while(k > tmpNo(n) .and. n < N_VegGrids)
             n = n + 1
           enddo
-          if (k == tmpNo(n))then
+        elseif (k < tmpNo(n)) then
+          cycle
+        endif
+        if (k == tmpNo(n))then
             m = m + 1
             GridNo(m) = tmpNo(n)
-            n = n + StepLatLon
-          endif
+            n = n + 1
         endif
         if(n>=N_VegGrids)exit
       enddo

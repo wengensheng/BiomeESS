@@ -18,24 +18,23 @@ TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 ! Model run
 filepath_in = './input/',
 filepath_out= './output/',
-runID       = 'ESSPFT', ! Output file name
+runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-CO2_c       = 370.0 ! ppm, Year 2000
-model_run_years = 600,
+CO2_c       = 370.0, ! ppm, The year of 2000
+model_run_years = 900,
 outputhourly    = .False. ! .True.
-outputdaily     = .False. ! .True.  !
+outputdaily     = .True.  ! .False. !
 do_closedN_run  = .False. ! .True.  !
-do_fire         = .True.  !  .False. !
-do_migration    = .True.  !  .False. !
+do_fire         = .True.  ! .False. !
+do_migration    = .True.  ! .False. !
 /
 
 &soil_data_nml
 soiltype = 3,
-WaterLeakRate = 0.0, ! fraction per day
 thksl    = 0.05, 0.25, 0.5, 1.0, 1.2,  ! m, soil layer thickness
-GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
-chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+GMD      = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+chb      = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
 psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
 k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
 vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
@@ -48,20 +47,18 @@ K_nitrogen = 1.2, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! organic nitrogen release rate
 etaN       = 0.02, ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
-l_fract    = 0.0,
-retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 MI0Fire    = 0.3333, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
-! Set PFT 6 (Nfx)  as deciduous, Weng, 09-19-2025
+! Set PFT 6 (Nfx)  back to evergreen (LMA 0.12, LNbase 0.7E-3), Weng, 10-11-2025
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
 phenotype = 0,      0,      1,      0,      1,      0,      1,      0,      ! 0: Deciduous, 1: evergreen
 lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! life form of PFTs: 0 for grasses, 1 for trees
 s0_plant  = 0.005,  0.005,  0.02,   0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
 LAImax    = 3.0,    3.0,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0,    ! maximum LAI for a tree
-LMA       = 0.02,   0.02,   0.07,   0.03,   0.14,   0.02,   0.03,   0.035,  ! leaf mass per unit area, kg C/m2
-LNbase    = 1.0E-3, 1.2E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 1.0E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+LMA       = 0.02,   0.02,   0.07,   0.03,   0.14,   0.02 ,  0.12,   0.035,  ! leaf mass per unit area, kg C/m2
+LNbase    = 1.0E-3, 1.2E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.7E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 alphaHT   = 30.,    30.,    36.,    36.,    36.,    36.,    36.,    20.,    ! Height parameter
 alphaCA   = 120.,   120.,   150.,   150.,   150.,   150.,   150.,   200.,   ! Crown area
 phiRL     = 1.5,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    2.5,    ! ratio of fine root area to leaf area
@@ -87,21 +84,22 @@ gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0
 R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
 /
 
+! Total grids are 56395 when Lat 61~320 and Lon 1~720
 &global_setting_nml
-ncfilepath   = '/Users/eweng/Documents/Data/CRU/zipped/',
+ncfilepath   = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/',
 ncversion    = 'crujra.v2.4.5d.',
 int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/',
 int_prefix = 'crujra.v2.4.5d.',
-GridListFile = 'GlobalVegGridList.csv' ! 'TestVegGrids.csv',
+GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
 WriteForcing = .True., ! .False.
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
-LowerLon = 205, ! 160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
-UpperLon = 206, ! 200, ! 209,
-LowerLat = 255, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 256, ! 247,252
+LowerLon = 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
+UpperLon = 720, !  209,
+LowerLat = 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 320, ! 247,252
 yr_start = 2010, ! 2010, ! Data start year of netCDF files
-yr_end   = 2011, ! 2011, ! Data end year
-grid_No1 = 1,
-grid_No2 = 20, ! 56395, ! Maximum grids in the vegetated land
-StepLatLon = 1
+yr_end   = 2019, ! 2011, ! Data end year
+grid_No1 = 1, ! 1,
+grid_No2 = 10, ! 56395, ! Maximum grids in the vegetated land
+StepLatLon = 2
 /

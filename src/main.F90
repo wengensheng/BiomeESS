@@ -34,8 +34,8 @@ program BiomeE
 #ifdef Use_InterpolatedData
   call read_GridLonLat(GridListFile,file_exists)
   if(.not. file_exists)then
-    write(*,*)trim(GridListFile), 'does not exist. Use NC file.'
-    call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+    write(*,*)trim(GridListFile), 'does not exist. Stopped!'
+    stop ! call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
   endif
 #else
   ! Read in netCDF global data files
@@ -72,16 +72,16 @@ program BiomeE
 #endif
 
     ! Output file grid ID
-    fno1=GridID+1
-    fno2=GridID+2
-    fno3=GridID+3
-    fno4=GridID+4
-    fno5=GridID+5
-    fno6=GridID+6
+    fno1=GridID + 1000000
+    fno2=GridID + 2000000
+    fno3=GridID + 3000000
+    fno4=GridID + 4000000
+    fno5=GridID + 5000000
+    fno6=GridID + 6000000
     ! ------- Run model -----------
     call setup_output_files()
     call BiomeE_main()
-    call zip_output_files()
+    !call zip_output_files()
 
     ! ---------- Time stamp -------------
     call cpu_time(end_time)

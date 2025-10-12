@@ -1091,9 +1091,11 @@ subroutine setup_output_files()
     file_out(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
     file_out(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
 
+#ifdef DroughtMIP
     ! For DroughtMIP
     YearlyCohort2 = trim(fpath)//trim(filesuffix)//'2_Cohort_yearly.csv'       ! Yearly
     DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'    ! Daily
+#endif
 
     ! Open files
     if(outputhourly)then
@@ -1119,6 +1121,18 @@ subroutine setup_output_files()
 
     if(outputdaily)then
       open(fno3,file=trim(file_out(3)), ACTION='write', IOSTAT=istat2)
+      if(istat2 /= 0)then
+        write(*,*) 'fno3 open error. Stopped!'
+        stop
+      endif
+
+      open(fno4,file=trim(file_out(4)),  ACTION='write', IOSTAT=istat2)
+      if(istat2 /= 0)then
+        write(*,*) 'fno3 open error. Stopped!'
+        stop
+      endif
+
+      ! Write in file headers
       write(fno3,'(60(a8,","))')'yr'//LonLat,'doy',    &  ! Daily cohort
          'c_No','PFT','layer','Pheno','ndm','ncd',     &
          'density','Acrown','LAI','LeafAge',           &
@@ -1127,7 +1141,7 @@ subroutine setup_output_files()
          'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
          'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
          'GDD','ALT','AWD'
-      open(fno4,file=trim(file_out(4)),  ACTION='write', IOSTAT=istat2)
+      
       write(fno4,'(2(a8,","),55(a10,","))')'Yr'//LonLat, 'doy',   &  ! Daily tile, 'tile',
          'Tc','Prcp','Trsp','Evap','Roff','WaterS','thetaS',&
          'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',     &
@@ -1138,6 +1152,19 @@ subroutine setup_output_files()
          'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
          'mineralN', 'N_uptk' !,'Kappa'
+    endif
+
+    ! Open yearly output files
+    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
+    if(istat3 /= 0)then
+      write(*,*) 'fno5 open error. Stopped!'
+      stop
+    endif
+
+    open(fno6,file=trim(file_out(6)), ACTION='write', IOSTAT=istat3)
+    if(istat3 /= 0)then
+      write(*,*) 'fno6 open error. Stopped!'
+      stop
     endif
 
 #ifdef DroughtMIP
@@ -1151,7 +1178,6 @@ subroutine setup_output_files()
      write(fno4+10,'(2(a5,","),55(a10,","))')'YEAR', 'Month','DAY',   &  ! Daily tile, 'tile',
      'GPP','NPP','ET','LAI','LFLIT','SW1','SW2','SW3','SW4'
 
-     open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
      write(fno5,'(3(a5,","),55(a10,","))')'YEAR', 'SP','ID',   &
         'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
@@ -1160,7 +1186,6 @@ subroutine setup_output_files()
         'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
 #elif DBEN_run
-    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a9,","))')'tile',         &    ! Yearly cohort
       'yr','cNo.','cID','PFT','Woody','Layer',          &
       'Density','f_L','dbh','height','Acrown','Aleaf',  &
@@ -1168,8 +1193,16 @@ subroutine setup_output_files()
       'GPP','NPP','dDBH','dBA','dCA',                   &
       'Gtree','f_sd','f_lf','f_fr','f_wd','mu'
 
+    write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile
+         'CAI', 'LAI', 'GPP', 'Rauto', 'Rh',               &
+         'rain','SoilWater','Transp','Evap','Runoff',      &
+         'plantC', 'soilC', 'plantN', 'soilN',             &
+         'leafC', 'rootC', 'swC', 'hwC', 'SeedC', 'NSC',   &
+         'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
+         'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
+         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON'
+
 #elif FACE_run
-    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
     write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
       'yr','cNo.','PFT','layer','f_L','N_ha','mu',      &
       'dD','dCA','dbh','ht','Acrown','Aleaf',           &
@@ -1177,21 +1210,6 @@ subroutine setup_output_files()
       'N_lf','N_fr','N_SW','N_HW','N_sd','NSN','N_up',  &
       'GPP','NPP','NPPl','NPPfr','NPPw','Trsp',         &
       'demandW','Asap','Ktree','treeHU','treeW0'
-
-#else
-    open(fno5,file=trim(file_out(5)),ACTION='write', IOSTAT=istat3)
-    write(fno5,'(4(a8,","),80(a7,","))')                &    ! Yearly cohort
-      'G'//LonLat,'yr','cNo.','cID', 'PFT','layer',     &
-      'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
-      'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
-      'GPP','NPP','Gtree','f_sd','f_lf','f_fr','f_wd',  &
-      'mu','Trsp','dmdW','Nup','Nfix','gddON','TcOFF',  &
-      'Atrunk','Asap','Ktree','treeHU','treeW0',        &
-      'farea1','farea2','farea3','farea4','farea5'
-#endif
-
-    open(fno6,file=trim(file_out(6)), ACTION='write', IOSTAT=istat3)
-#ifdef FACE_run
     write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile
          'CAI', 'LAI', 'GPP', 'Rauto', 'Rh',               &
          'rain','SoilWater','Transp','Evap','Runoff',      &
@@ -1202,7 +1220,17 @@ subroutine setup_output_files()
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
          'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',  &
          'CO2'
+
 #else
+    write(fno5,'(4(a8,","),80(a7,","))')                &    ! Yearly cohort
+      'G'//LonLat,'yr','cNo.','cID', 'PFT','layer',     &
+      'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
+      'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
+      'GPP','NPP','Gtree','f_sd','f_lf','f_fr','f_wd',  &
+      'mu','Trsp','dmdW','Nup','Nfix','gddON','TcOFF',  &
+      'Atrunk','Asap','Ktree','treeHU','treeW0',        &
+      'farea1','farea2','farea3','farea4','farea5'
+
     write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',         &  ! Yearly tile
         'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
         'rain','SoilWater','Transp','Evap','Runoff',                 &

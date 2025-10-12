@@ -857,7 +857,7 @@ logical  :: do_VariedWTC0       = .True.
 logical  :: do_WD_mort_function = .False.
 
 ! For global/regional run, Weng, 2025-07-22
-character (len = 256) :: ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/'
+character (len = 256) :: ncfilepath = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
 character (len = 20)  :: ncversion  = 'crujra.v2.4.5d.'
 character(len=256)    :: int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
 character(len=80)     :: int_prefix = 'crujra.v2.4.5d.'
@@ -867,9 +867,10 @@ character (len = 5)   :: ncfields(7)= [character(len=5):: 'tmp','pre','dswrf','s
 character (len = 6)   :: GridIDFMT ='(I6.6)' ! For the file name string (GridID)
 logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
 
-integer :: LowerLon=215, UpperLon=216 ! Grid number from -179.75 (latitude)
-integer :: LowerLat=263, UpperLat=264 ! Grid number from -89.75 (longitude)
-integer :: yr_start = 2010, yr_end = 2011
+integer :: LowerLon=1,  UpperLon=720 ! Grid number from -179.75 (latitude)
+integer :: LowerLat=61, UpperLat=320 ! Grid number from -89.75 (longitude)
+integer :: yr_start = 2010
+integer :: yr_end   = 2019
 integer :: grid_No1 = 1     ! the first grid in the grid list file
 integer :: grid_No2 = 56395 ! the last grid in vegetated land
 integer :: N_VegGrids = 1 ! Minimum
