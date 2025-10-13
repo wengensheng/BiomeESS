@@ -488,29 +488,27 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   allocate(timecols(3,datalines))
 
   ! Read in forcing data
-  open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat1)
-  read(11,'(a160)') commts ! One line comments
-
+  open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
+  read(11,'(a160)',IOSTAT=istat2) commts ! One line comments
   m = 0
-  do
+  do while (m < datalines .and. istat2 == 0) ! Only read in maximum of datalines
     read(11,*,IOSTAT=istat2)(temp(n), n = 1,niterms)
-    if(istat2 < 0)exit
     m = m + 1
-    if(m<= datalines) then  ! Only read in maximum of datalines
-      input_data(:,m) = temp(:)
-    else
-      exit
-    endif
+    input_data(:,m) = temp(:)
   enddo ! end of reading the forcing file
 
-  if(datalines /= m)then
-    write (*, '("Forcing file error (read_interpolatedCRU) ", a, " total lines: ",I12)') trim(fname),datalines
-    stop
-  endif
   ! Close the file and delete it
   close(11)    ! close forcing file
-  command = 'rm '//trim(climfile) ! Remove unziped nc data file
+  command = 'rm '//trim(climfile) ! Remove unziped file
   call execute_command_line(command)
+
+  ! Check the consistency between the file data lines and required
+  if(m /= datalines) then
+    write (*, '("In read_interpolatedCRU, File ",a," is shorter than needed: lines: ",I12)') trim(fname),m
+    file_exists = .False.
+    deallocate(input_data,timecols)
+    return
+  endif
 
   ! Setup the time table
   m=0

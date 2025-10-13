@@ -49,21 +49,14 @@ program BiomeE
   !------------ Forcing data interpolation and model run
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = grid_No1, grid_No2  ! Grids in GridLonLat
-    ! ------ Get a grid's forcingData
+    ! Get this grid's ID
     GridID = GridLonLat(m) ! for file names
-
     call cpu_time(last_time) ! Record time needed for one grid simulation
     print '(A, I6, A, I6)', 'Working at grid: ', GridID, '. Grid No. ', m
     print '(A, I6, A, I6)', 'The ', m- grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
-#ifdef Use_InterpolatedData
-    call read_interpolatedCRU(int_fpath,int_prefix,GridID,yr_start,yr_end,forcingData,file_exists)
-    if(.not. file_exists)then
-      print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file'
-      cycle
-    endif
-#else
-    ! Data interpolated to hourly
+#ifndef Use_InterpolatedData
+    ! Interpolate grid data to hourly
     call CRU_Interpolation(LandGrid(m),forcingData)
     if(WriteForcing)then
       deallocate(forcingData)
@@ -71,17 +64,28 @@ program BiomeE
     endif
 #endif
 
-    ! Output file grid ID
+    ! Set up output files for this grid
     fno1=GridID + 1000000
     fno2=GridID + 2000000
     fno3=GridID + 3000000
     fno4=GridID + 4000000
     fno5=GridID + 5000000
     fno6=GridID + 6000000
+    call setup_output_files() ! Setup output files before reading forcing data
+
+    ! Get this grid's forcingData
+#ifdef Use_InterpolatedData
+    ! Read interpolated data from disk files. Moved here to avoid reading errors
+    call read_interpolatedCRU(int_fpath,int_prefix,GridID,yr_start,yr_end,forcingData,file_exists)
+    if(.not. file_exists)then
+      print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
+      cycle
+    endif
+#endif
+
     ! ------- Run model -----------
-    call setup_output_files()
     call BiomeE_main()
-    !call zip_output_files()
+    call zip_output_files()
 
     ! ---------- Time stamp -------------
     call cpu_time(end_time)
