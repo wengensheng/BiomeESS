@@ -11,8 +11,6 @@ module netcdf_io
   use datatypes
   implicit none
 
-  integer :: flist = 16 ! Vegetation grids list file
-
   private
 
   public ReadNCfiles, CRU_Interpolation, CRU_end
@@ -133,7 +131,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
       fname = trim(filepath_out)//trim(GridListFile) ! List file name
-      open(flist,file=trim(fname),ACTION='write', IOSTAT=istat1)
+      open(NEWUNIT=Grids_Unit,file=trim(fname),ACTION='write', IOSTAT=istat1)
     endif
 
     ! ----------------- Read in all data ----------------------!
@@ -183,12 +181,10 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   type(climate_data_type), pointer :: forcingData(:) ! output
 
   !---------- local variables ------------------
-  real, pointer :: GridData(:,:)
-  integer :: iLon, iLat ! Column and Lines (started from -179.75 and -89.75)
   type(climate_data_type), pointer :: climateData(:) ! will be pointed by forcingData
   character(len=256):: command, fname   ! For testing output
   character(len=6)  :: GridStr  ! Used in output file name
-
+  real, pointer     :: GridData(:,:)
   real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
   real, allocatable :: hourly_data(:,:)
@@ -197,6 +193,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real    :: td,cosz,solarelev,solarzen,r_light
   real    :: WindS1, WindS2, SWdaily, SWmax
   real    :: tmp1(12,10), tmp2(SHshift,10)  ! Shift hourly data
+  integer :: forcing_unit ! for interpolated grid forcing file writting
+  integer :: iLon, iLat   ! Column and Lines (started from -179.75 and -89.75)
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
   integer :: ndays,nyear,totalL,Nsteps
@@ -351,17 +349,17 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   if(WriteForcing)then
     write(GridStr, GridIDFMT) GridID
     fname = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
-    write(flist, '(a6,"," a35)')trim(GridStr),trim(fname)
+    write(Grids_Unit, '(a6,"," a35)')trim(GridStr),trim(fname)
     fname = trim(filepath_out)//trim(fname)
-    open(15,file=trim(fname))
+    open(NEWUNIT=forcing_unit,file=trim(fname))
     !write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
-    write(15,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE'
+    write(forcing_unit,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE'
     do i=1,totalL
-        write(15,'(6(E15.8,","))') &
+        write(forcing_unit,'(6(E15.8,","))') &
           climateData(i)%radiation,climateData(i)%Tair,climateData(i)%RH,  &
           climateData(i)%rain,climateData(i)%windU,climateData(i)%P_air
     enddo
-    close(15)
+    close(forcing_unit)
     command = 'gzip -f ' // trim(fname)
     call execute_command_line(command, exitstat=iostat)
   endif
@@ -372,7 +370,7 @@ end subroutine CRU_Interpolation
 
 !==============================================
 subroutine CRU_end()
-  close(flist)
+  close(Grids_Unit)
   deallocate(GridLonLat)
 #ifndef Use_InterpolatedData
   !deallocate(CRUData)
@@ -409,7 +407,7 @@ subroutine read_GridLonLat(fname,file_exists)
     if(istat1 < 0)exit
     m = m + 1
   enddo
-  
+
   ! Update GridNo and m with StepLatLon
   if(StepLatLon > 1 .or. UpperLon < 720)then ! Regional or partial run
     N_VegGrids = m
@@ -442,7 +440,7 @@ subroutine read_GridLonLat(fname,file_exists)
   GridLonLat(:) = GridNo(1:N_VegGrids)
   grid_No1 = min(grid_No1,N_VegGrids)
   grid_No2 = min(grid_No2,N_VegGrids)
-  
+
   write(*,*)"Read GridLonLat", N_VegGrids, grid_No1, grid_No2
 end subroutine read_GridLonLat
 

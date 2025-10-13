@@ -862,11 +862,10 @@ character (len = 20)  :: ncversion  = 'crujra.v2.4.5d.'
 character(len=256)    :: int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
 character(len=80)     :: int_prefix = 'crujra.v2.4.5d.'
 character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv'
-!character (len = 5)   :: ncfields(4)= [character(len=5):: 'tmp','pre','dswrf','spfh']
 character (len = 5)   :: ncfields(7)= [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
 character (len = 6)   :: GridIDFMT ='(I6.6)' ! For the file name string (GridID)
 logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
-
+integer :: Grids_Unit = 21    ! Vegetation grids list file
 integer :: LowerLon=1,  UpperLon=720 ! Grid number from -179.75 (latitude)
 integer :: LowerLat=61, UpperLat=320 ! Grid number from -89.75 (longitude)
 integer :: yr_start = 2010
