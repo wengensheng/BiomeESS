@@ -13,7 +13,7 @@ program BiomeE
 
   implicit none
   !-----------
-  character(len=256) :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'  
+  character(len=256) :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
   real :: start_time, end_time, last_time, elapsed_time
   integer :: timeArray(3), m
   logical :: file_exists
@@ -35,10 +35,11 @@ program BiomeE
   call read_GridLonLat(GridListFile,file_exists)
   if(.not. file_exists)then
     write(*,*)trim(GridListFile), 'does not exist. Stopped!'
-    stop ! call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+    stop !
   endif
 #else
   ! Read in netCDF global data files
+  !call Get_vegetated_grids()
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 #endif
   ! ---------- Time stamp -------------

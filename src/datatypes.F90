@@ -857,11 +857,13 @@ logical  :: do_VariedWTC0       = .True.
 logical  :: do_WD_mort_function = .False.
 
 ! For global/regional run, Weng, 2025-07-22
+character (len = 256) :: veg_path   = '/Users/eweng/Documents/Data/Vegetation/'
+character (len = 20)  :: veg_file   = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
 character (len = 256) :: ncfilepath = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
 character (len = 20)  :: ncversion  = 'crujra.v2.4.5d.'
-character(len=256)    :: int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
-character(len=80)     :: int_prefix = 'crujra.v2.4.5d.'
-character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv'
+character (len = 256) :: int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
+character (len = 80)  :: int_prefix = 'crujra.v2.4.5d.'
+character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv' ! in int_fpath
 character (len = 5)   :: ncfields(7)= [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
 character (len = 6)   :: GridIDFMT ='(I6.6)' ! For the file name string (GridID)
 logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
@@ -875,9 +877,11 @@ integer :: grid_No2 = 56395 ! the last grid in vegetated land
 integer :: N_VegGrids = 1 ! Minimum
 integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
+!integer :: GridMask(Nlon, Nlat) = 0
 
 type(grid_initial_type), pointer :: LandGrid(:) => null()
-integer, pointer :: GridLonLat(:)    => null() ! iLon, iLat
+integer, pointer :: GridMask(:,:)    => null() ! Nlon, Nlat
+integer, pointer :: GridLonLat(:)    => null() ! LonLat
 real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
 real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
 real,    pointer :: CRUtime(:)       => null() ! Days since 1901-01-01 in CRU data
@@ -924,10 +928,11 @@ namelist /initial_state_nml/ &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------
-namelist /global_setting_nml/                                   &
-      ncfilepath,ncversion,int_fpath,int_prefix,GridListFile,   &
-      yr_start,yr_end,LowerLon,UpperLon,LowerLat,UpperLat,      &
-      grid_No1,grid_No2,StepLatLon,WriteForcing
+namelist /global_setting_nml/ ncfilepath,ncversion,        &
+    veg_path,veg_file,int_fpath,int_prefix,GridListFile,   &
+    grid_No1,grid_No2,yr_start,yr_end,LowerLon,UpperLon,   &
+    LowerLat,UpperLat,StepLatLon,WriteForcing
+
 
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
