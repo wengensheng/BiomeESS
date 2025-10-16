@@ -877,10 +877,8 @@ integer :: grid_No2 = 56395 ! the last grid in vegetated land
 integer :: N_VegGrids = 1 ! Minimum
 integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
-!integer :: GridMask(Nlon, Nlat) = 0
 
 type(grid_initial_type), pointer :: LandGrid(:) => null()
-integer, pointer :: GridMask(:,:)    => null() ! Nlon, Nlat
 integer, pointer :: GridLonLat(:)    => null() ! LonLat
 real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
 real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids

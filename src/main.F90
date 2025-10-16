@@ -39,7 +39,6 @@ program BiomeE
   endif
 #else
   ! Read in netCDF global data files
-  !call Get_vegetated_grids()
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 #endif
   ! ---------- Time stamp -------------
