@@ -16,6 +16,9 @@ program BiomeE
   character(len=256) :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
   real :: start_time, end_time, last_time, elapsed_time
   integer :: timeArray(3), m
+  ! Wall time counting
+  INTEGER(kind=8) :: start_count, end_count, count_rate, count_max
+  REAL(kind=8)    :: wall_time
   logical :: file_exists
 
   ! ---------- Time stamp -------------
@@ -23,6 +26,12 @@ program BiomeE
   call itime(timeArray)     ! Get current time
   write(*,'(a20,3(I2,":"))')'Model run start at: ', timeArray
 
+  ! Get initial clock information
+  CALL SYSTEM_CLOCK(COUNT_RATE=count_rate, COUNT_MAX=count_max)
+  ! Get the starting time
+  CALL SYSTEM_CLOCK(COUNT=start_count)
+
+  ! ---------------------------- Model Initialization  ---------------------------------
   ! Read in model initialization and plant & soil parameters
   call model_para_init(fnml)
 
@@ -44,16 +53,29 @@ program BiomeE
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
-  write(*,'(a30,3(f8.2,","))')'Data reading time (minutes):', elapsed_time/60.
+  write(*,'(A,3(f8.2,","))')'Data reading CPU time (minutes): ', elapsed_time/60.
 
-  !------------ Forcing data interpolation and model run
+  ! Get the ending time
+  CALL SYSTEM_CLOCK(COUNT=end_count)
+
+  ! Calculate wall time
+  IF (end_count < start_count) THEN
+    ! Handle clock wrap-around if it occurs
+    wall_time = REAL(end_count + count_max - start_count, kind=8) / count_rate/60.0
+  ELSE
+    wall_time = REAL(end_count - start_count, kind=8) / count_rate / 60.0
+  END IF
+  PRINT *, "Data reading wall time:", wall_time, " minutes"
+
+
+  !------------ Forcing data interpolation and model run ---------------------------
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = grid_No1, grid_No2  ! Grids in GridLonLat
     ! Get this grid's ID
     GridID = GridLonLat(m) ! for file names
     call cpu_time(last_time) ! Record time needed for one grid simulation
     print '(A, I6, A, I6)', 'Working at grid: ', GridID, '. Grid No. ', m
-    print '(A, I6, A, I6)', 'The ', m- grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
+    print '(A, I6, A, I6)', 'The ', m - grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
 #ifndef Use_InterpolatedData
     ! Interpolate grid data to hourly
@@ -90,9 +112,9 @@ program BiomeE
     ! ---------- Time stamp -------------
     call cpu_time(end_time)
     elapsed_time = end_time - last_time
-    write(*,'(a6,f6.1, a12, I6, a14, f7.1, a9)') &
-            'Used: ', elapsed_time, ' seconds at ', GridID, &
-            '. Total time: ', (end_time-start_time)/60.0, ' minutes.'
+    write(*,'(a6,f6.1, a12, I6, a17, f7.1, a9)') &
+        'Used: ', elapsed_time, ' seconds at ', GridID, &
+        '. Total CPU time: ', (end_time-start_time)/60.0, ' minutes.'
 
     last_time = end_time
   enddo
@@ -113,6 +135,17 @@ program BiomeE
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
-  write(*,'(a24,3(f8.2,","))')'Total time (minutes):', elapsed_time/60.
+  write(*,'(A,3(f8.2,","))')'Total CPU time (minutes): ', elapsed_time/60.
+
+    ! Get the ending time
+  CALL SYSTEM_CLOCK(COUNT=end_count)
+  ! Calculate wall time
+  IF (end_count < start_count) THEN
+    ! Handle clock wrap-around if it occurs
+    wall_time = REAL(end_count + count_max - start_count, kind=8) / count_rate/60.0
+  ELSE
+    wall_time = REAL(end_count - start_count, kind=8) / count_rate / 60.0
+  END IF
+  PRINT '(A, f9.2, A)', "Total wall time:", wall_time, " minutes"
 
 end program BiomeE

@@ -439,7 +439,7 @@ end subroutine daily_diagnostics
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
         associate ( sp => spdata(cc%species))
-        treeG = cc%seedC + cc%NPPleaf + cc%NPProot + cc%NPPwood
+        treeG = MAX(1.0E-6, cc%seedC + cc%NPPleaf + cc%NPProot + cc%NPPwood)
         fseed = cc%seedC/treeG
         fleaf = cc%NPPleaf/treeG
         froot = cc%NPProot/treeG

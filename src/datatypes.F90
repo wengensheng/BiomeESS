@@ -1075,6 +1075,11 @@ subroutine read_global_setting(fnml)
   endif
   !write(*,nml=initial_state_nml)
   close (fu)
+  ! In case the values are not in reasonable ranges
+  LowerLon = max(LowerLon, 1)
+  UpperLon = min(UpperLon, Nlon)
+  LowerLat = max(LowerLat, 1)
+  UpperLat = max(UpperLat, Nlat)
 end subroutine read_global_setting
 
 !=============================================================================
