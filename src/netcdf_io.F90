@@ -418,8 +418,8 @@ subroutine read_GridLonLat(fname,file_exists)
     tmpNo = GridNo
     m = 0
     n = 1
-    do i = LowerLat, UpperLon, StepLatLon
-      do j = LowerLon, UpperLat, StepLatLon
+    do i = LowerLon, UpperLon, StepLatLon
+      do j = LowerLat, UpperLat, StepLatLon
         k = i*1000 + j
         if (k > tmpNo(n)) then
           do while(k > tmpNo(n) .and. n < N_VegGrids)
