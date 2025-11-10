@@ -331,8 +331,9 @@ endif
   endif
 
 #else
-  if(outputdaily.and. iday>equi_days)then
+  if(outputdaily .and. iday>equi_days)then
     !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
+    !! Cohort daily
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       write(fno3,'(8(I5,","),60(E12.6,","))')iyears,idoy,i, &
@@ -340,10 +341,10 @@ endif
           cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
           cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
           cc%NPPleaf,cc%NPProot,cc%NPPwood,                &
-          cc%W_leaf,cc%W_stem,cc%W_dead,                   &
-          cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
-          cc%NSN*1000, cc%seedN*1000, cc%leafN*1000,       &
-          cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,       &
+          !cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
+          !cc%NSN*1000,cc%seedN*1000, cc%leafN*1000,        &
+          !cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,       &
+          !cc%W_leaf,cc%W_stem,cc%W_dead,                   &
           cc%gdd,cc%ALT,cc%AWD
     enddo
     !! Tile daily
@@ -352,11 +353,6 @@ endif
        vegn%dailyEvap,vegn%dailyRoff,                           &
        vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
        vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh,    &
-       vegn%W_leaf,vegn%W_stem,vegn%W_dead,                     &
-       vegn%NSC, vegn%SeedC, vegn%leafC, vegn%rootC,            &
-       vegn%SapwoodC, vegn%woodC,                               &
-       vegn%NSN*1000, vegn%SeedN*1000, vegn%leafN*1000,         &
-       vegn%rootN*1000, vegn%SapwoodN *1000, vegn%WoodN *1000,  &
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),           &
        vegn%mineralN*1000,vegn%dailyNup*1000 !,vegn%kp(1)
   endif
@@ -1133,22 +1129,19 @@ subroutine setup_output_files()
       endif
 
       ! Write in file headers
-      write(fno3,'(60(a8,","))')'yr'//LonLat,'doy',    &  ! Daily cohort
+      write(fno3,'(60(a8,","))')'yr'//LonLat,'doy',    &  ! Cohort daily
          'c_No','PFT','layer','Pheno','ndm','ncd',     &
          'density','Acrown','LAI','LeafAge',           &
          'gpp','resp','transp','NPPL','NPPR','NPPW',   &
-         'W_LF','W_SW','W_HW',                         &
-         'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
-         'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+         !'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
+         !'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+         !'W_LF','W_SW','W_HW',                         & 
          'GDD','ALT','AWD'
       
-      write(fno4,'(2(a8,","),55(a10,","))')'Yr'//LonLat, 'doy',   &  ! Daily tile, 'tile',
+      write(fno4,'(2(a8,","),55(a10,","))')'Yr'//LonLat, 'doy',   &  ! Tile daily
          'Tc','Prcp','Trsp','Evap','Roff','WaterS','thetaS',&
          'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',     &
          'LAI','GPP','Rauto','Rh',                          &
-         'W_LF','W_SW','W_HW',                              &
-         'NSC','seedC','leafC','rootC','SW-C','HW-C',       &
-         'NSN','seedN','leafN','rootN','SW-N','HW-N',       &
          'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
          'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
          'mineralN', 'N_uptk' !,'Kappa'

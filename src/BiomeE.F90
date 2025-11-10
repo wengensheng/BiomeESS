@@ -95,7 +95,9 @@ subroutine BiomeE_initialization()
   ! Setup total days of model run
   totdays   = INT(model_run_years/yr_data+1)*days_data
   equi_days = Max(0, totdays - days_data)
-
+#ifdef GlobalRun
+  equi_days = Max(0, totdays - min(3650, days_data))
+#endif
   ! ------ Land grid, vegetation tiles, and plant cohorts ------
   allocate(land)
   land%nTiles = 0

@@ -394,6 +394,7 @@ subroutine read_GridLonLat(fname,file_exists)
   ! ------- Local vars ---------------
   integer :: GridNo(Nlon*Nlat),tmpNo(Nlon*Nlat) ! maximum grids, 720*360
   integer :: i,j,k,m,n,istat1
+  integer :: TotalFiles ! Each file represents a grid
   character(len=300) :: listfile
 
   listfile=trim(int_fpath)//trim(fname)
@@ -414,7 +415,7 @@ subroutine read_GridLonLat(fname,file_exists)
 
   ! Update GridNo and m with StepLatLon
   if(StepLatLon > 1 .or. UpperLon < 720)then ! Regional or partial run
-    N_VegGrids = m
+    TotalFiles = m
     tmpNo = GridNo
     m = 0
     n = 1
@@ -422,7 +423,7 @@ subroutine read_GridLonLat(fname,file_exists)
       do j = LowerLat, UpperLat, StepLatLon
         k = i*1000 + j
         if (k > tmpNo(n)) then
-          do while(k > tmpNo(n) .and. n < N_VegGrids)
+          do while(k > tmpNo(n) .and. n < TotalFiles)
             n = n + 1
           enddo
         elseif (k < tmpNo(n)) then
@@ -433,8 +434,9 @@ subroutine read_GridLonLat(fname,file_exists)
             GridNo(m) = tmpNo(n)
             n = n + 1
         endif
-        if(n>=N_VegGrids)exit
+        if(n >= TotalFiles)exit ! Exit LowerLat-UpperLat loop
       enddo
+      if(n >= TotalFiles)exit   ! Exit LowerLon-UpperLon loop
     enddo
   endif
 
@@ -445,7 +447,9 @@ subroutine read_GridLonLat(fname,file_exists)
   grid_No1 = min(grid_No1,N_VegGrids)
   grid_No2 = min(grid_No2,N_VegGrids)
 
-  write(*,*)"Read GridLonLat", N_VegGrids, grid_No1, grid_No2
+  write(*,*)"StepLatLon:", StepLatLon
+  write(*,*)"LowerLon, UpperLon, LowerLat, UpperLat:", LowerLon, UpperLon, LowerLat, UpperLat
+  write(*,*)"In read_GridLonLat, N_VegGrids, grid_No1, grid_No2:", N_VegGrids, grid_No1, grid_No2
 end subroutine read_GridLonLat
 
 !=============================================================================
