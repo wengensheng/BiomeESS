@@ -595,9 +595,11 @@ real :: retransN  = 0.0     ! retranslocation coefficient of Nitrogen
 real :: f_iniBSW  = 0.1     !0.01, 0.2
 real :: f_N_add   = 0.02    ! re-fill of N for sapwood
 real :: f_LFR_max = 0.85    ! max allocation to leaves and fine roots each step
-real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! for leaf life span and LMA leafLS = c_LLS * LMA, when LMAs = 0.035.
+real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
 real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
 real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
+real :: MaxGrassAge = 3.0   ! Maximum grass  age (years)
+integer :: MaxGrassLyr = 3    ! Maximal layers that grasses can survive
 
 ! Plant hydraulics
 real :: psi0_osm = 0.5     ! MPa, leaf osmotic pressure
@@ -618,7 +620,6 @@ real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 
 ! Phenology parameters
 ! gdd_threshold = gdd_par1 + gdd_par2*exp(gdd_par3*ncd)
-integer :: GrassMaxL = 3     ! Maximal layers that grasses can survive
 integer :: N0_GD     = 90    ! base growing days, 90 days, with a -5 substraction of Tc_crit
 integer :: Days_thld = 60    ! minimum days of the growing or non-growing season
 real    :: cold_thld = -20.  ! threshold of accumulative low temperature (sum(dT*day)
@@ -628,7 +629,7 @@ real    :: T0_chill  = 10.0  ! Celcus degree
 ! Fire regimes
 real :: Frisk        = 0.0 ! fire probability due to environment, 0.5
 real :: MI0Fire      = 0.5  ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
-real :: A_MI         = 20.0 ! shape parameter of Frisk vs. P/PET curve
+real :: A_MI         = 20.0 ! shape parameter of Fire risk vs. P/PET curve
 real :: FSBM0        = 0.2 ! kgC m-2, grass fire severity parameter, as a function of grass BM
 real :: m0_g_fire    = 0.2 ! mortality rates of grasses due to fire
 real :: m0_w_fire    = 0.99! mortality rates of trees due to fire
@@ -949,10 +950,10 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   rho_N_up0, N_roots0,                                                &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
-  R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,                &
-  retransN,gamma_L, gamma_LN, gamma_SW, gamma_FR,                     &
+  R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,retransN,       &
+  gamma_L, gamma_LN, gamma_SW, gamma_FR, MaxGrassLyr, MaxGrassAge,    &
   ! Phenology
-  gdd_crit,Tc0_OFF,Tc0_ON,betaON,betaOFF,AWD_crit,GrassMaxL,N0_GD,    &
+  gdd_crit, Tc0_OFF, Tc0_ON, betaON, betaOFF, AWD_crit, N0_GD,        &
   Days_thld,cold_thld,T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,     &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &

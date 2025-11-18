@@ -886,13 +886,14 @@ subroutine vegn_growth(vegn)
           dBSW = Cgrowth - G_LFR
       endif
 
-      ! For grasses, temporary
-      if(sp%lifeform ==0 )then
-          dSeed = dSeed + 0.15*G_LFR
-          G_LFR = 0.85 * G_LFR
-          dBR   = 0.85 * dBR
-          dBL   = 0.85 * dBL
+      ! For grasses, temporary, added addtional allocation to seeds for grasses in all layers
+      if(sp%lifeform == 0) then
+          dSeed = dSeed + sp%v_seed * G_LFR
+          dBR   = (1.0 - sp%v_seed) * dBR
+          dBL   = (1.0 - sp%v_seed) * dBL
+          G_LFR = dBL + dBR
       endif
+
       !! Nitrogen adjustment on allocations between wood and leaves+roots
       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
       N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
@@ -940,7 +941,6 @@ subroutine vegn_growth(vegn)
       cc%bsw   = cc%bsw   + dBSW
       cc%seedC = cc%seedC + dSeed
       ! Update leaf age
-      !cc%leafage = (1.0 - dBL/cc%bl)*cc%leafage + 1.0/365.0
       cc%leafage = cc%bl/(dBL+cc%bl)*cc%leafage + 1.0/365.0
 
       !!update nitrogen pools, Nitrogen allocation
@@ -1106,8 +1106,8 @@ subroutine vegn_phenology(vegn) ! daily step
         PhenoON = ( cc%status/=LEAF_ON )                              &
          !.and.(cc%gdd>sp%gdd_crit    .and. vegn%tc_pheno>sp%tc0_on)  &  ! Thermal conditions
           .and.(cc%gdd > gdd_ON       .and. vegn%tc_pheno>sp%tc0_on)  &  ! Thermal conditions
-          .and.(vegn%thetaS>sp%betaON .and. cc%Ndm>Days_thld)         &  ! Water
-          .and.(.NOT.(sp%lifeform==0  .and. cc%layer > GrassMaxL))       ! If grasses, layer< 3
+          .and.(vegn%thetaS>sp%betaON .and. cc%Ndm > Days_thld)       &  ! Water
+          .and.(.NOT.(sp%lifeform==0  .and. cc%layer > MaxGrassLyr))     ! If grasses, layer<= 3
 
         if(PhenoON)then
           cc%status = LEAF_ON ! Turn on a growing season
@@ -1178,18 +1178,14 @@ subroutine vegn_tissue_turnover(vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-     ! leave turnover rate, fraction per day
-     alpha_L = MIN(.2, Max(2.*cc%leafage/sp%leafLS - 1., 0.))
+     ! turnover rate, fraction per day
+     alpha_L = MIN(.2, Max(2.*cc%leafage/sp%leafLS - 1., 0.)) ! Leaves
+     alpha_R = sp%alpha_FR /days_per_year                     ! Roots
+     alpha_S = 0.0                                            ! Woody stems
+     ! Grass stems
+     if(sp%lifeform == 0) alpha_S = alpha_L
 
-     ! Stem turnover
-     if(sp%lifeform == 0)then
-        alpha_S = alpha_L
-     else
-        alpha_S = 0.0
-     endif
-     ! Root turnover
-     alpha_R = sp%alpha_FR /days_per_year
-
+     ! Tissue changes
      dBL    = cc%bl    * alpha_L
      dNL    = cc%leafN * alpha_L
      dBStem = cc%bsw   * alpha_S
@@ -1339,7 +1335,7 @@ subroutine Seasonal_fall(cc,vegn)
      cc%bl    = cc%bl  - dBL
      cc%br    = cc%br  - dBR
      cc%bsw   = cc%bsw - dBStem ! for grass
-     if(cc%bl<0.0001)cc%leafage = 0.0
+     if(cc%bl<0.0001) cc%leafage = 0.0
 
      cc%leafN = cc%leafN - dNL
      cc%rootN = cc%rootN - dNR
@@ -1349,7 +1345,7 @@ subroutine Seasonal_fall(cc,vegn)
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
      cc%NPProot = cc%NPProot - l_fract * dBR
      cc%NPPwood = cc%NPPwood - l_fract * dBStem
-     cc%Aleaf= BL2Aleaf(cc%bl,cc)
+     cc%Aleaf   = BL2Aleaf(cc%bl,cc)
      cc%lai     = cc%Aleaf/(cc%Acrown *(1.0-sp%f_cGap))
 
      !put C and N into soil pools:  Substraction of C and N from leaf and root pools
@@ -2658,7 +2654,7 @@ subroutine kill_old_grass(vegn)
   do i = 1, vegn%n_cohorts
     cp =>vegn%cohorts(i)
     associate(sp=>spdata(cp%species))
-      OldGrass = (sp%lifeform ==0 .and. cp%age > 3.0)
+      OldGrass = (sp%lifeform ==0 .and. cp%age > MaxGrassAge)
       if (.not. OldGrass) k=k+1
     end associate
   enddo
@@ -2674,7 +2670,7 @@ subroutine kill_old_grass(vegn)
      do i = 1,vegn%n_cohorts
         cp =>vegn%cohorts(i)
         associate(sp=>spdata(cp%species))
-        OldGrass = (sp%lifeform ==0 .and. cp%age > 3.0)
+        OldGrass = (sp%lifeform ==0 .and. cp%age > MaxGrassAge)
         if (.not. OldGrass) then
            j=j+1
            cc(j) = cp

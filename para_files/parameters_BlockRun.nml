@@ -28,7 +28,21 @@
 ! Problem of 1113 run: N fixer is too high in tropical regions
 ! Parameter tuning:
 ! Nfx: LNbase 1.0 --> 0.8; phiRL 1.2 --> 1.5; C0_Nfix 12 --> 15; r0mort_c 0.05 --> 0.06
-! TrD: betaON 0.4 --> 0.3; betaOFF 0.7 -->0.5
+! TrD: betaOFF 0.4 --> 0.3; betaON 0.7 -->0.5
+
+! Update 11/15/2025
+! Problem of 1114 run: N fixer is still high; TrD takes the heart region of Amazon
+! TrE LMA 0.06 --> 0.05; Nfx r0mort_c 0.06 --> 0.08
+! TrD: betaOFF 0.3 --> 0.4; betaON 0.5-->0.6
+
+! Update 11/16/2025
+! Not ideal in Amazon. I will stop here.
+! N_input 2 g/m2
+
+! Update 11/17/2025
+! Reduced grass mortality at fire m0_g_fire 0.20 --> 0.05
+! Reduced grass's betaOn and betaOFF, 0.2, 0.3
+! Reduced Nfx's mortality rate r0mort_c 0.08 --> 0.05, LNbase 0.8 --> 0.9
 
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
@@ -39,7 +53,7 @@
 init_fast_soil_C    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
 init_slow_soil_C    = 12.,    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
 init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
-N_input             = 3.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
 MI0DeSB = 0.20,   ! Prcp/PET, Desert shrub vs trees
@@ -57,7 +71,7 @@ Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 CO2_c       = 370.0, ! ppm, The year of 2000
 model_run_years = 890,
 outputhourly    = .False., ! .True.
-outputdaily     = .True.,  ! .False. !
+outputdaily     = .False., ! .True., !
 do_closedN_run  = .False., ! .True.  !
 do_fire         = .True.,  ! .False. !
 do_migration    = .True.   ! .False. !
@@ -81,8 +95,11 @@ rho_SON    = 0.0,  ! organic nitrogen release rate
 etaN       = 0.02, ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8,  ! fraction of microbes to litter
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
+c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
 MI0Fire    = 0.33, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+m0_g_fire  = 0.05, ! mortality rates of grasses due to fire
+
 ! Set PFT 6 (Nfx)  back to evergreen (LMA=0.12), LNbase 0.8E-3, Weng, 11-06-2025
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
@@ -90,15 +107,15 @@ phenotype = 0,      0,      1,      0,      1,      0,      0,      0,      ! 0:
 lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! life form of PFTs: 0 for grasses, 1 for trees
 s0_plant  = 0.005,  0.005,  0.02,   0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
 LAImax    = 2.5,    2.5,    4.5,    4.5,    3.5,    3.5,    3.0,    2.0,    ! maximum LAI for a tree
-LMA       = 0.03,   0.03,   0.06,   0.03,   0.14,   0.03,   0.03,   0.03,   ! leaf mass per unit area, kg C/m2
-LNbase    = 1.0E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.8E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+LMA       = 0.025,  0.02,   0.05,   0.025,  0.14,   0.02,   0.02,   0.03,   ! leaf mass per unit area, kg C/m2
+LNbase    = 1.0E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.9E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 alphaHT   = 30.,    30.,    36.,    36.,    36.,    36.,    36.,    18.,    ! Height parameter
 alphaCA   = 120.,   120.,   150.,   150.,   150.,   150.,   150.,   120.,   ! Crown area
 phiRL     = 1.5,    1.5,    1.5,    1.5,    1.2,    1.2,    1.5,    1.5,    ! ratio of fine root area to leaf area
 tauNSC    = 2.0,    2.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    ! NSC residence time,years
 m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    ! 7.0 !
 rho_wood  = 90.,    90.,    320.,   320.,   330.,   350.,   280.,   450.,   ! kgC m-3
-r0mort_c  = .02,    .02,    .025,   .025,   .02,    .015,   .06,    .02,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+r0mort_c  = .02,    .02,    .025,   .025,   .02,    .015,   .05,    .02,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.8,    ! m, Mortality curve parameter
 A_sd      = 0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0,    ! Max multiplier for seedling mortality
 B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mortality sensitivity for seedlings
@@ -107,10 +124,10 @@ B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,   .125,   .125,   ! Si
 W_mu0     = 2.5,    2.5,    0.65,   0.85,   0.85,   0.85,   0.75,   1.5,    ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 IgniteP   = 1.0,    1.0,    .01,    .02,    .02,    .02,    .02,    .02,    ! Intrinsic flammability
 gamma_SW  = .02,    .02,    .02,    .02,    .02,    .02,    .02,    .02,    ! Wood Acambium respiration rate (kgC/m2/yr)
-Tc0_OFF   = 12.,    10.,     15.,    15.,   -50.,   12.,    12.0,   12.,    ! 283.16 ! OFF ! C for convenience
-Tc0_ON    = 10.,     5.,     10.,    10.,   -50.,   8.,     8.,     8.,     ! 280.16 ! ON  ! C for convenience
-betaON    = 0.4,    0.6,    0.0,    0.5,    0.0,    0.3,    0.7,    0.2,    ! Critical soil moisture for phenology ON
-betaOFF   = 0.2,    0.3,    0.0,    0.3,    0.0,    0.2,    0.4,    0.1,    ! Critical soil moisture for phenology OFF
+Tc0_OFF   = 12.,    8.,     15.,    15.,    -50.,   12.,    12.0,   12.,    ! 283.16 ! OFF ! C for convenience
+Tc0_ON    = 10.,    5.,     10.,    10.,    -50.,   8.,     8.,     8.,     ! 280.16 ! ON  ! C for convenience
+betaON    = 0.3,    0.3,    0.0,    0.6,    0.0,    0.3,    0.6,    0.2,    ! Critical soil moisture for phenology ON
+betaOFF   = 0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.4,    0.1,    ! Critical soil moisture for phenology OFF
 gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
 gdd_par2  = 800.,   600.,   0.0,    600.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
