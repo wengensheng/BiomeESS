@@ -8,7 +8,7 @@ Dir='OutDir'
 # namelist file (Parameter and model setting file)
 nmlID='Block'$G2
 echo "Model run: " $nmlID
-fp1='./para_files/parameters_BlockRun.nml'
+fp1='./para_files/parameters_GlobalBlock.nml'
 fp2='./para_files/parameters_'$nmlID'.nml'
 sed -e "s/StartGrid/$G1/g" \
     -e "s/EndGrid/$G2/g" \
