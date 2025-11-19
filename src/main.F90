@@ -135,7 +135,7 @@ program BiomeE
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
-  write(*,'(A,3(f8.2,","))')'Total CPU time (minutes): ', elapsed_time/60.
+  write(*,'(A,3(f7.2,","))')'Total CPU time (minutes): ', elapsed_time/60.
 
     ! Get the ending time
   CALL SYSTEM_CLOCK(COUNT=end_count)
@@ -146,6 +146,6 @@ program BiomeE
   ELSE
     wall_time = REAL(end_count - start_count, kind=8) / count_rate / 60.0
   END IF
-  PRINT '(A, f9.2, A)', "Total wall time:", wall_time, " minutes"
+  PRINT '(A, f7.2, A, f6.2, A)', "Total wall time:", wall_time, " minutes (", wall_time/60., ' hours).'
 
 end program BiomeE
