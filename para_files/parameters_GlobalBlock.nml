@@ -56,7 +56,7 @@
 ! LNbase: TrE 1.0 --> 0.9; Nfx 0.6 --> 0.9; DeS 0.8 --> 1.0
 ! alphaCA: Des 180 (incease crown area at given D)
 ! D0mu: Nfx 0.8 --> 0.5 (Increase the mortality of big trees)
-! IgniteP  .02 --> .05
+! DeS IgniteP  .02 --> .05
 
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
