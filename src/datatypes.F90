@@ -1097,15 +1097,15 @@ subroutine Set_ESS_PFT_parameters()
    s0_plant(0:N_EST)  = [0.005,  0.005,  0.02,   0.02,   0.02,   0.02,   0.02,   0.01  ] ! kgC, initial seedling size
    LAImax(0:N_EST)    = [2.5,    2.5,    4.5,    4.5,    3.5,    3.5,    3.0,    2.0   ] ! maximum LAI for a tree
    LMA(0:N_EST)       = [0.025,  0.02,   0.05,   0.025,  0.14,   0.02,   0.02,   0.03  ] ! leaf mass per unit area, kg C/m2
-   LNbase(0:N_EST)    = [1.0E-3, 1.0E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.6E-3, 1.0E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+   LNbase(0:N_EST)    = [1.0E-3, 1.0E-3, 0.9E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.9E-3, 1.0E-3] !functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
    alphaHT(0:N_EST)   = [30.,    30.,    36.,    36.,    36.,    36.,    36.,    18.   ] ! Height parameter (HT = alphatHT * D^0.5)
    alphaCA(0:N_EST)   = [120.,   120.,   150.,   150.,   150.,   150.,   150.,   120.  ] ! Crown area parameter (CA = alphaCA * D^1.5)
-   phiRL(0:N_EST)     = [1.5,    1.5,    1.5,    1.5,    1.2,    1.2,    1.5,    1.5   ] ! ratio of fine root area to leaf area
+   phiRL(0:N_EST)     = [1.5,    1.5,    1.5,    1.5,    1.2,    1.2,    1.8,    1.5   ] ! ratio of fine root area to leaf area
    tauNSC(0:N_EST)    = [2.0,    2.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0   ] ! NSC residence time,years
    m_cond(0:N_EST)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 
    rho_wood(0:N_EST)  = [90.,    90.,    320.,   320.,   330.,   350.,   280.,   450.  ] ! kgC m-3
-   r0mort_c(0:N_EST)  = [.02,    .02,    .025,   .025,   .02,    .015,   .06,    .02   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-   D0mu(0:N_EST)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.8   ] ! m, Mortality curve parameter
+   r0mort_c(0:N_EST)  = [.02,    .02,    .025,   .025,   .02,    .015,   .06,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+   D0mu(0:N_EST)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.5,    0.25  ] ! m, Mortality curve parameter
    A_sd(0:N_EST)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0   ] ! Max multiplier for seedling mortality
    B_sd(0:N_EST)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
    A_DBH(0:N_EST)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
