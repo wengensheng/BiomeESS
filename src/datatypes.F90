@@ -879,6 +879,7 @@ integer :: grid_No2 = 56395 ! the last grid in vegetated land
 integer :: N_VegGrids = 1 ! Minimum
 integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
 integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
+integer :: HemiSP = 1 ! 1: North hemisphere; 0: South hemisphere
 
 type(grid_initial_type), pointer :: LandGrid(:) => null()
 integer, pointer :: GridLonLat(:)    => null() ! LonLat
@@ -1103,7 +1104,7 @@ subroutine Set_ESS_PFT_parameters()
    alphaCA(0:N_EST)   = [120.,   120.,   150.,   150.,   150.,   150.,   150.,   120.  ] ! Crown area parameter (CA = alphaCA * D^1.5)
    phiRL(0:N_EST)     = [1.5,    1.5,    1.5,    1.5,    1.2,    1.2,    1.8,    1.5   ] ! ratio of fine root area to leaf area
    tauNSC(0:N_EST)    = [2.0,    2.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0   ] ! NSC residence time,years
-   m_cond(0:N_EST)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] ! 
+   m_cond(0:N_EST)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] !
    rho_wood(0:N_EST)  = [90.,    90.,    320.,   320.,   330.,   350.,   280.,   450.  ] ! kgC m-3
    r0mort_c(0:N_EST)  = [.02,    .02,    .025,   .025,   .02,    .015,   .06,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
    D0mu(0:N_EST)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.5,    0.25  ] ! m, Mortality curve parameter

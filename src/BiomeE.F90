@@ -227,6 +227,7 @@ subroutine BiomeE_run()
     enddo
 
     ! Annual update
+    ! Southern hemisphere has been shifted up for 182 days with "ShiftSHdata"
     ! Check if the next step is a new year
     year0 = forcingData(idata)%year  ! Current step year
     idata = MOD(n_steps, datalines) + 1 ! Next step idata
