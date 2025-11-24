@@ -63,10 +63,16 @@
 ! Nfx: r0mu_c 0.06 --> 0.05; C0_Nfix 15 --> 12
 
 ! Update 11/21/2025
-! N_input 3 g/yr
+! N_input 2 g/yr
 ! MI0Fire: 0.33 --> 0.25
 ! Nfx: r0mort_c 0.05--> 0.06; phiRL 1.5 --> 1.8; D0mu 0.5 --> 0.4
 ! Des: r0mort_c 0.02 --> 0.01; D0mu 0.8 --> 0.25
+
+! Update 11/23/2025
+! N_input 2 g/yr
+! MI0Fire 0.25 --> 0.33
+! FSBM0 0.08 --> 0.06
+! C3 gdd_par2 600 --> 300
 
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
@@ -120,8 +126,8 @@ etaN       = 0.02, ! Nitrogen loss rate with runoff (mm/step)
 f_M2SOM    = 0.8,  ! fraction of microbes to litter
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
-MI0Fire    = 0.25, ! 0.33, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
-FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+MI0Fire    = 0.33, ! 0.25, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
+FSBM0      = 0.06, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 m0_g_fire  = 0.05, ! mortality rates of grasses due to fire
 
 ! Set PFT 6 (Nfx)  back to evergreen (LMA=0.12), LNbase 0.8E-3, Weng, 11-06-2025
@@ -153,7 +159,7 @@ Tc0_ON    = 10.,    5.,     10.,    10.,    -50.,   8.,     10.,     8.,    ! 28
 betaON    = 0.3,    0.3,    0.0,    0.6,    0.0,    0.3,    0.6,    0.2,    ! Critical soil moisture for phenology ON
 betaOFF   = 0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.4,    0.1,    ! Critical soil moisture for phenology OFF
 gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
-gdd_par2  = 800.,   600.,   0.0,    600.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
+gdd_par2  = 800.,   300.,   0.0,    600.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
 R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0,    ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
 C0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    12.0,   0.0     ! Carbon cost per unit N fixation, 15 gC/gN (11/17)

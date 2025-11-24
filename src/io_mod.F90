@@ -170,6 +170,7 @@ subroutine Zero_diagnostics(vegn)
   vegn%NupYr      = 0.0
   vegn%GrassBM    = 0.0
   vegn%annualPET  = 0.0
+  vegn%YearlyTmp  = 0.0
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
@@ -551,8 +552,8 @@ end subroutine daily_diagnostics
 
 #else
       write(fno6,'(2(I5,","),120(E15.6,","))')  &
-        vegn%tileID,iyears,vegn%CAI,vegn%LAI,                           &
-        vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
+        vegn%tileID,iyears,vegn%CAI,vegn%LAI,vegn%annualGPP,            &
+        vegn%annualResp,vegn%annualRh,vegn%C_burned,vegn%YearlyTmp,     &  
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
         vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
         vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SapwoodC,vegn%woodC,      &
@@ -1225,7 +1226,7 @@ subroutine setup_output_files()
       'farea1','farea2','farea3','farea4','farea5'
 
     write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',         &  ! Yearly tile
-        'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
+        'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned','Tmp',            &
         'rain','SoilWater','Transp','Evap','Runoff',                 &
         'plantC', 'soilC', 'plantN', 'soilN',                        &
         'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',              &

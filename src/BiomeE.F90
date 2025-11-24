@@ -220,6 +220,7 @@ subroutine BiomeE_run()
     vegn => land%firstVegn
     do while(ASSOCIATED(vegn))
       vegn%Tc_daily = land%Tc_daily
+      vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
       call vegn_daily_update(vegn,dt_daily_yr)
       call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
       vegn => vegn%next
@@ -240,6 +241,9 @@ subroutine BiomeE_run()
 
         ! Fire disturbance
         if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+
+        ! Yearly mean temperature
+        vegn%YearlyTmp = vegn%YearlyTmp/ 365.0
 
 #ifdef SingleTreeTest
         call vegn_SingleCohort_annual_update(vegn)

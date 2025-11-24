@@ -450,6 +450,7 @@ type :: vegn_tile_type
   real :: grasscover= 0.0 ! grass CAI, for the initial fire severity
   real :: GrassBM   = 0.0 ! Grass biomass at the end of growing season, for fire severity
   real :: annualPET = 0.0 ! Potential ET, yearly, for fire risk calculation
+  real :: YearlyTmp = 0.0 ! Yearly mean air temperature, Celcius degree
   real :: Frisk     = 0.0 ! Probability of climatic fire risk
   real :: P_burn    = 0.0 ! Probability of burning
 
