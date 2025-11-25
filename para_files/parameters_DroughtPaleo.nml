@@ -29,7 +29,6 @@ CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0,
 m0_kx      = 5.0,
 c_LLS      = 20.0, ! LeafLS = c_LLS * LMA
-envi_fire_prb = 0.0, ! No disturbance
 ! for FACE MDS: 1 Populus tremuloides; 2 Liquidambar; 3 Pinus taedus
 ! species     0        1        2        3        4        5
 lifeform    = 1,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody

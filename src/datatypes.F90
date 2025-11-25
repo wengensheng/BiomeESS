@@ -39,9 +39,10 @@
  real,    parameter :: min_nindivs= 0.1E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
 
  ! Plant hydraulics-mortality
+ integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
  real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3
  real, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
- integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
+ real, parameter    :: LMAmin       = 0.02    ! minimum LMA (kgC/m2), boundary condition
 
  ! Soil SOM reference C/N ratios
  integer, parameter :: N_SOM = 5
@@ -165,7 +166,7 @@ type spec_data_type
   real :: f_taper
 
   ! Fire related
-  real :: IgniteP ! Probability of ignition when climatic conditions are met.
+  real :: IgniteP ! Probability of ignition when climatic conditions are met (i.e., flammability).
 
   ! Plant hydraulics
   real :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
@@ -452,7 +453,7 @@ type :: vegn_tile_type
   real :: annualPET = 0.0 ! Potential ET, yearly, for fire risk calculation
   real :: YearlyTmp = 0.0 ! Yearly mean air temperature, Celcius degree
   real :: Frisk     = 0.0 ! Probability of climatic fire risk
-  real :: P_burn    = 0.0 ! Probability of burning
+  real :: Pfire     = 0.0 ! Probability of burning
 
   ! Daily diagnostics
   real :: dailyGPP
@@ -587,7 +588,6 @@ real :: heat_capacity_dry(n_dim_soil_types) = &
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
 
 ! Growth parameters:
-real :: LMAmin    = 0.02    ! minimum LMA, boundary condition
 real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
 real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
 real :: GR_factor = 0.33    ! growth respiration factor
@@ -628,23 +628,23 @@ real    :: T0_gdd    = 5.0   ! Celcus degree
 real    :: T0_chill  = 10.0  ! Celcus degree
 
 ! Fire regimes
-real :: Frisk        = 0.0 ! fire probability due to environment, 0.5
-real :: MI0Fire      = 0.5  ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
-real :: A_MI         = 20.0 ! shape parameter of Fire risk vs. P/PET curve
-real :: FSBM0        = 0.2 ! kgC m-2, grass fire severity parameter, as a function of grass BM
-real :: m0_g_fire    = 0.2 ! mortality rates of grasses due to fire
-real :: m0_w_fire    = 0.99! mortality rates of trees due to fire
-real :: f_bk         = 0.1105   ! coefficient of bark thickness,
+real :: EnvF0        = 0.0   ! Fixed environmental fire risk, 11/25/2025
+real :: MI0Fire      = 0.5   ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
+real :: A_MI         = 20.0  ! shape parameter of Fire risk vs. P/PET curve
+real :: FSBM0        = 0.2   ! kgC m-2, grass fire severity parameter, as a function of grass BM
+real :: m0_g_fire    = 0.2   ! mortality rates of grasses due to fire
+real :: m0_w_fire    = 0.99  ! mortality rates of trees due to fire
+real :: f_bk         = 0.1105! coefficient of bark thickness,
                         ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
-real :: r_BK0        = -240.0  ! bark resistance, exponential equation, 120 --> 0.006 m of bark
+real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
 ! An old scheme
-real :: f_HT0        = 10.0 ! shape parameter fire resistence (due to growth of bark) as a function of height
-real :: h0_escape    = 5.0 ! tree height that escapes direct burning of grass fires
-real :: D_BK0        = 5.9/1000.0 ! half survival bark thickness, m
+real :: f_HT0        = 10.0  ! shape parameter fire resistence (due to growth of bark) as a function of height
+real :: h0_escape    = 5.0   ! tree height that escapes direct burning of grass fires
+real :: D_BK0        = 5.9e-3! half survival bark thickness, m
 
 ! Soil organic matter decomposition
 real :: K0SOM(5)     = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
-real :: K_DeNitr    = 8.0     ! mineral Nitrogen turnover rate
+real :: K_DeNitr     = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON         = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON      = 0.05    ! SON release rate per year
 real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
@@ -967,12 +967,10 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                                  &
   ! Soil
-  LMAmin,fsc_fine,fsc_wood,K0SOM,                                     &
-  K_DeNitr,rho_SON,f_M2SOM,fDON,etaN,                                 &
-  ! Fire model parameters, Weng, 01/13/2021
-  Frisk, MI0Fire, A_MI, FSBM0,                                        &
-  IgniteP, m0_w_fire, m0_g_fire, f_bk, r_BK0,                         &
-  f_HT0 , h0_escape, D_BK0                     ! for an old scheme
+  K0SOM,fsc_fine,fsc_wood,K_DeNitr,rho_SON,f_M2SOM,fDON,etaN,         &
+  ! Fire model parameters, updated 11/25/2025
+  EnvF0,MI0Fire,FSBM0,A_MI,m0_w_fire,m0_g_fire,f_bk,r_BK0,IgniteP,    &
+  f_HT0 , h0_escape, D_BK0              ! for an old scheme (2018)
 
 !-------------Vars for parameter types -----------------------
 ! PFT-specific parameters

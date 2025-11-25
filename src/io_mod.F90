@@ -564,7 +564,7 @@ end subroutine daily_diagnostics
         vegn%NfixedYr*1000,vegn%NupYr*1000,                             &
         vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &
         vegn%treecover,vegn%grasscover,vegn%GrassBM,vegn%annualPET,     &
-        vegn%Frisk,vegn%P_burn
+        vegn%Frisk,vegn%Pfire
 #endif
 
 endif
@@ -1235,7 +1235,7 @@ subroutine setup_output_files()
         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
         'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                  &
-        'treecover','grasscover','BMgrass','PET','Frisk','Pburn'
+        'treecover','grasscover','BMgrass','PET','Frisk','Pfire'
 
 #endif
 

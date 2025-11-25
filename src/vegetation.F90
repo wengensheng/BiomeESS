@@ -2831,8 +2831,9 @@ subroutine vegn_fire (vegn, deltat)
   type(spec_data_type), pointer :: sp
   ! -- fire effects variables --
   real :: P_ET    ! ratio of P to ET, for fire probability calculation
-  real :: r_fire  ! random number for fire occurence
-  real :: Ignition_G0, Ignition_W0 ! Grass and wood ignition probability
+  real :: Frisk   ! Environmental fire risk (a function of P_ET)
+  real :: P_Ign, r_Ign  ! Probability of ignition, and a random number for fire occurence
+  real :: Ign_G0, Ign_W0 ! Grass and wood ignition probability
   real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
   real :: flmb_G, flmb_W ! Flamability of grasses and woody plants
   real :: d_tree ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
@@ -2842,13 +2843,13 @@ subroutine vegn_fire (vegn, deltat)
   real :: Cfire, Cfast, Cslow, Nfire, Nfast, Nslow ! C and N fates at fires
   integer :: i, k
 
-  !  ! Parameters (defined in datatypes.F90 and read in from the namelist file):
+  !  Parameters (defined in datatypes.F90 and read in from the namelist file):
   !  Frisk: Environmental fire occurrence probability, a function of environmental
   !  conditions that can result in fire if fuel is available
   !  (i.e., (match-dropping probability). It should be function of environmental conditions
-  ! Vegetation flammability parameters, Ignition_G0, Ignition_W0: Ignition probability
-  ! for grasses and woody plants once environmental conditions meet Frisk
-  !  For grasses: Ignition_G0 = 1.0; For woody plants: Ignition_W0 = 0.025
+  !  Vegetation flammability parameters, Ign_G0, Ign_W0: 
+  !  Ignition probability for grasses and woody plants once environmental conditions meet Frisk
+  !  For grasses: Ign_G0 = 1.0; For woody plants: Ign_W0 = 0.025
   !  m0_w_fire, m0_g_fire: mortality rates of trees and grasses due to fire
   !  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
   !                                  120 --> 0.006 m of bark 0.5 survival
@@ -2858,43 +2859,43 @@ subroutine vegn_fire (vegn, deltat)
   !  D_BK0: Bark thickness at half survival rate.
 
   ! Environmental risk
+  ! Frisk = EnvF0 ! Fixed environment risk
   P_ET = vegn%annualPrcp / vegn%annualPET
   Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
-  vegn%Frisk = Frisk
 
   ! Ignition probabilities of grasses and woody PFTs
-  Ignition_G0 = 0.0
-  Ignition_W0 = 0.0
+  Ign_G0 = 0.0
+  Ign_W0 = 0.0
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate ( sp => spdata(cc%species))
       if(sp%lifeform==0) then  ! grasses
-        Ignition_G0 = max(Ignition_G0, sp%IgniteP)
+        Ign_G0 = max(Ign_G0, sp%IgniteP) ! Use the max IgniteP
       else                     ! trees
-        Ignition_W0 = max(Ignition_W0, sp%IgniteP)
+        Ign_W0 = max(Ign_W0, sp%IgniteP)
       endif
     end associate
   enddo
 
   ! Burning probability
-  f_grass  = min(1.0, vegn%grasscover)
-  f_wood   = min(1.0, vegn%treecover)
-  flmb_G = Ignition_G0 * f_grass
-  flmb_W = Ignition_W0 * f_wood
-  vegn%P_burn = 1.-(1.- flmb_G * Frisk)*(1. - flmb_W * Frisk)
+  f_grass = min(1.0, vegn%grasscover)
+  f_wood  = min(1.0, vegn%treecover)
+  flmb_G  = Ign_G0 * f_grass
+  flmb_W  = Ign_W0 * f_wood
+  P_Ign   = 1.0 - (1.- flmb_G * Frisk)*(1. - flmb_W * Frisk)
 
   ! fire effects on vegetation and soil
-  CALL RANDOM_NUMBER(r_fire) ! r_fire    = rand(0) !
+  CALL RANDOM_NUMBER(r_Ign) ! r_Ign    = rand(0) !
   Cfire = 0.0; Cfast = 0.0; Cslow = 0.0
   Nfire = 0.0; Nfast = 0.0; Nslow = 0.0
-  if(r_fire < vegn%P_burn)then ! Fire_ON
+  if(r_Ign < P_Ign)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
       if(sp%lifeform==0) then  ! grasses
          mu_fire = m0_g_fire
       else                     ! trees
-         if(r_fire < flmb_W * Frisk) then   ! tree canopy fire
+         if(r_Ign < flmb_W * Frisk) then   ! tree canopy fire
             mu_fire = 0.99 * min(1.0, 1.25 * f_wood)
          else                                     ! grass fire
             ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass.
@@ -2950,9 +2951,12 @@ subroutine vegn_fire (vegn, deltat)
 
 #ifdef ScreenOutput
     write(*,*)"fire, treecover, grasscover", &
-        r_fire < vegn%P_burn, vegn%treecover, vegn%grasscover
+        r_Ign < P_Ign, vegn%treecover, vegn%grasscover
 #endif
   endif
+  ! Record Frisk and Pfire for output
+  vegn%Frisk = Frisk 
+  vegn%Pfire = P_Ign
 
 end subroutine vegn_fire
 
