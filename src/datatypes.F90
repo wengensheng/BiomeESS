@@ -447,8 +447,8 @@ type :: vegn_tile_type
 
   !  fire disturbance
   real :: C_burned  = 0.0 ! Carbon released to atmosphere via fire
-  real :: treecover = 0.0 ! tree CAI in the top layer, for fire spread
-  real :: grasscover= 0.0 ! grass CAI, for the initial fire severity
+  real :: TreeCA    = 0.0 ! tree CAI in the top layer, for fire spread
+  real :: GrassCA   = 0.0 ! grass CAI, for the initial fire severity
   real :: GrassBM   = 0.0 ! Grass biomass at the end of growing season, for fire severity
   real :: annualPET = 0.0 ! Potential ET, yearly, for fire risk calculation
   real :: YearlyTmp = 0.0 ! Yearly mean air temperature, Celcius degree

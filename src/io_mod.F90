@@ -112,9 +112,9 @@ subroutine vegn_sum_tile(vegn)
 
   ! Update grass vs. tree coverage when all cohorts are LEAF_ON
   if(all(vegn%cohorts(:)%status == LEAF_ON))then ! All cohorts are "LEAF_ON"
-    vegn%treecover = 0.0
-    vegn%grasscover= 0.0
-    BMG            = 0.0
+    vegn%TreeCA  = 0.0
+    vegn%GrassCA = 0.0
+    BMG          = 0.0
     do i = 1, vegn%n_cohorts
        cc => vegn%cohorts(i)
        associate ( sp => spdata(cc%species))
@@ -122,9 +122,9 @@ subroutine vegn_sum_tile(vegn)
             BMG = BMG + (cc%bl+cc%br+cc%bsw)*cc%nindivs
        if(cc%layer == 1)then
          if(sp%lifeform==0) &
-            vegn%grasscover = vegn%grasscover + cc%Acrown*cc%nindivs
+            vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
          if(sp%lifeform==1) &
-            vegn%treecover = vegn%treecover + cc%Acrown*cc%nindivs
+            vegn%TreeCA = vegn%TreeCA + cc%Acrown*cc%nindivs
        endif
        end associate
     enddo
@@ -142,19 +142,19 @@ subroutine Zero_diagnostics(vegn)
   type(cohort_type),pointer :: cc
   integer :: i
   !daily
-  vegn%NfixDaily = 0.
+  vegn%NfixDaily = 0.0
   vegn%dailyPrcp = 0.0
   vegn%dailyTrsp = 0.0
   vegn%dailyEvap = 0.0
   vegn%dailyRoff = 0.0
   vegn%dailyNup  = 0.0
-  vegn%dailyGPP = 0.0
-  vegn%dailyNPP = 0.0
+  vegn%dailyGPP  = 0.0
+  vegn%dailyNPP  = 0.0
   vegn%dailyResp = 0.0
   vegn%dailyRh   = 0.0
 
   !annual
-  vegn%NfixedYr = 0.
+  vegn%NfixedYr   = 0.0
   vegn%annualPrcp = 0.0
   vegn%annualTrsp = 0.0
   vegn%annualEvap = 0.0
@@ -182,15 +182,15 @@ subroutine Zero_diagnostics(vegn)
      cc%resg     = 0.0
      cc%transp   = 0.0
      !daily
-     cc%dailyWdmd = 0.0
-     cc%dailyTrsp = 0.0
+     cc%dailyWdmd= 0.0
+     cc%dailyTrsp= 0.0
      cc%dailyGPP = 0.0
      cc%dailyNPP = 0.0
      cc%dailyResp= 0.0
-     cc%dailyNup   = 0.0
-     cc%NfixDaily = 0.0
+     cc%dailyNup = 0.0
+     cc%NfixDaily= 0.0
      ! annual
-     cc%annualTrsp = 0.0
+     cc%annualTrsp= 0.0
      cc%annualGPP = 0.0
      cc%annualNPP = 0.0
      cc%annualResp= 0.0
@@ -256,10 +256,10 @@ end subroutine Zero_diagnostics
     !write(fno1,'(4(I8,","))')vegn%n_cohorts
     do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
-        write(fno1,'(7(I8,","),40(F12.4,","))')vegn%tileID,          &
-          iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,  &
-          cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,    &
-          cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,           &
+        write(fno1,'(7(I8,","),40(F12.4,","))')vegn%tileID, &
+          iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,    &
+          cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,      &
+          cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,             &
 #ifdef Hydro_test
           cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_stem
 #else
@@ -269,8 +269,8 @@ end subroutine Zero_diagnostics
     enddo
     ! Hourly tile
     associate ( cc1 => vegn%cohorts(1))
-    write(fno2,'(4(I5,","),30(E12.4,","),25(F12.4,","))')  &
-      vegn%tileID,iyears,idoy,ihour,forcing%radiation,forcing%Tair,    &
+    write(fno2,'(4(I5,","),60(E12.4,","))') vegn%tileID,   &
+      iyears,idoy,ihour,forcing%radiation,forcing%Tair,    &
       forcing%rain,vegn%GPP,vegn%resp,vegn%transp,         &
       vegn%evap,vegn%runoff,vegn%soilwater,                &
       vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2),         &
@@ -426,7 +426,7 @@ end subroutine daily_diagnostics
        vegn%LAImax = vegn%LAImax + cc%Aleafmax * cc%nindivs
     enddo
 #ifdef ScreenOutput
-    write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts,vegn%FLDCAP,vegn%WILTPT,soilpars(soiltype)%vlc_min
+    write(*,'(2(I6,","),3(F9.3,","))')iyears,vegn%n_cohorts
     write(*,'(3(a4,","),30(a9,","))')'cc','PFT','L',      &
       'n','f_CA','dD','DBH','NSC','Atrunk','Asap','Ktree', &
       'GPP','mu','W_scale','treeHU','treeW0'
@@ -563,7 +563,7 @@ end subroutine daily_diagnostics
         (vegn%wcl(j),j=1,soil_L),                                       &
         vegn%NfixedYr*1000,vegn%NupYr*1000,                             &
         vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &
-        vegn%treecover,vegn%grasscover,vegn%GrassBM,vegn%annualPET,     &
+        vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,     &
         vegn%Frisk,vegn%Pfire
 #endif
 
@@ -1235,7 +1235,7 @@ subroutine setup_output_files()
         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
         'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                  &
-        'treecover','grasscover','BMgrass','PET','Frisk','Pfire'
+        'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire'
 
 #endif
 

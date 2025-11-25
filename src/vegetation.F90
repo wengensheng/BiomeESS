@@ -2878,8 +2878,8 @@ subroutine vegn_fire (vegn, deltat)
   enddo
 
   ! Burning probability
-  f_grass = min(1.0, vegn%grasscover)
-  f_wood  = min(1.0, vegn%treecover)
+  f_grass = min(1.0, vegn%GrassCA)
+  f_wood  = min(1.0, vegn%TreeCA)
   flmb_G  = Ign_G0 * f_grass
   flmb_W  = Ign_W0 * f_wood
   P_Ign   = 1.0 - (1.- flmb_G * Frisk)*(1. - flmb_W * Frisk)
@@ -2950,8 +2950,8 @@ subroutine vegn_fire (vegn, deltat)
     vegn%NorgP2S = vegn%NorgP2S + Cfast + Cslow
 
 #ifdef ScreenOutput
-    write(*,*)"fire, treecover, grasscover", &
-        r_Ign < P_Ign, vegn%treecover, vegn%grasscover
+    write(*,*)"fire, TreeCA, GrassCA", &
+        r_Ign < P_Ign, vegn%TreeCA, vegn%GrassCA
 #endif
   endif
   ! Record Frisk and Pfire for output
