@@ -52,12 +52,13 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   real                , intent(in)    :: thetaS
 
   !---- local var -------------
+  real :: fNlossMax = 0.2     ! Maximum fraction of N loss through runoff in one hour 
   real :: d_C(5), d_N(5), newM(5)
   real :: CUEf0, CUEs0
   real :: extraN, N_m    ! Mineralized nitrogen
   real :: N_loss ! Mineral Nitrogen loss, kg N m-2 step-1
   real :: runoff ! kg m-2 /step
-  real :: Kmax, K_rf, K_dn ! Maximum loss rate, runoff loss rate, and denitrofication rate
+  real :: K_rf, K_dn ! Maximum loss rate, runoff loss rate, and denitrofication rate
   real :: dN_SOM4, dN_SOM5 ! Dissolved organic N loss, kg N m-2 step-1
   real :: A  ! decomp rate reduction due to moisture and temperature
   real :: McrbMax = 0.2 ! kgC m-2, Maximum microbial biomass (as a function of SON)
@@ -124,12 +125,10 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   vegn%SON(5) = vegn%SON(5) - dN_SOM5
 
   ! Mineral nitrogen loss
-  !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_nitrogen*dt_fast_yr))
-  !N_loss = vegn%mineralN * MIN(0.2, (A * K_nitrogen * dt_fast_yr + etaN * runoff))
-  ! Maximum N loss rate per step
-  Kmax   = 0.2 * 8760.0 * dt_fast_yr ! 0.2/hour
-  K_dn   = A * K_nitrogen * dt_fast_yr
-  K_rf   = Kmax * (1.0 - exp(-etaN/Kmax * runoff))
+  !N_loss = MAX(0.,vegn%mineralN) * (1. - exp(0.0 - etaN*runoff - A*K_DeNitr*dt_fast_yr))
+  !N_loss = vegn%mineralN * MIN(0.2, (A * K_DeNitr * dt_fast_yr + etaN * runoff))
+  K_dn   = A * K_DeNitr * dt_fast_yr
+  K_rf   = fNlossMax * (1.0 - exp(-etaN/fNlossMax * runoff))
   N_loss = vegn%mineralN * (K_dn + K_rf - K_dn * K_rf)
   vegn%N_OutYr = vegn%N_OutYr + N_loss + dN_SOM4 + dN_SOM5
 

@@ -14,7 +14,7 @@
 ! For Nfx, LAImax is set as 3.0
 ! Changed C0_Nfix to 15.0
 ! MI0DeSB, FSBM0 are changed to reduce DeS and expand grass distribution
-! K_nitrogen is increased to 1.0 for expanding TrE. (But may reduce TmD)
+! K_DeNitr is increased to 1.0 for expanding TrE. (But may reduce TmD)
 
 ! Updated 11/13/2025
 ! Problems in version 11/12/2025:
@@ -74,6 +74,10 @@
 ! FSBM0 0.08 --> 0.06
 ! C3 gdd_par2 600 --> 300
 
+! Update 11/25/2025
+! Parametrs are the same as thos in 11/23
+! StepLatLon = 1 and daily output turned on
+
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
 ! init_cohort_N   = 2, ! total 5
@@ -101,7 +105,7 @@ Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 CO2_c       = 370.0, ! ppm, The year of 2000
 model_run_years = 890,
 outputhourly    = .False., ! .True.
-outputdaily     = .False., ! .True., !
+outputdaily     = .True.,  ! .False., !
 do_closedN_run  = .False., ! .True.  !
 do_fire         = .True.,  ! .False. !
 do_migration    = .True.   ! .False. !
@@ -120,7 +124,7 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW   = 0.1,
 K0SOM      = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_nitrogen = 1.0,  ! 1.2 ! 2.4 ! rate of a year, 2.5
+K_DeNitr   = 1.0,  ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0,  ! organic nitrogen release rate
 etaN       = 0.02, ! Nitrogen loss rate with runoff (mm/step)
 f_M2SOM    = 0.8,  ! fraction of microbes to litter
@@ -181,6 +185,6 @@ yr_start = 1990, ! 2010, ! Data start year of netCDF files
 yr_end   = 2019, ! 2011, ! Data end year
 grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
-StepLatLon = 2
+StepLatLon = 1
 /
 

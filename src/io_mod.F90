@@ -1226,15 +1226,15 @@ subroutine setup_output_files()
       'farea1','farea2','farea3','farea4','farea5'
 
     write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',         &  ! Yearly tile
-        'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned','Tmp',            &
-        'rain','SoilWater','Transp','Evap','Runoff',                 &
+        'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
+        'Tmp','rain','SoilWater','Transp','Evap','Runoff',           &
         'plantC', 'soilC', 'plantN', 'soilN',                        &
         'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',              &
         'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',              &
         'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',            &
         'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
         'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
-        'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                &
+        'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                  &
         'treecover','grasscover','BMgrass','PET','Frisk','Pburn'
 
 #endif

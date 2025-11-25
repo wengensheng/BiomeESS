@@ -77,11 +77,11 @@ subroutine BiomeE_initialization()
 
   ! Hack for closedN setting
   if(do_closedN_run) then
-    K_nitrogen = 0.0 ! rate of a year, 2.5
-    rho_SON    = 0.0 ! organic nitrogen release rate
-    etaN       = 0.0 ! Nitrogen loss rate with runoff
-    fDON       = 0.0 ! DON fraction
-    N_input    = 0.0 ! N input, kg N m-2 yr-1
+    K_DeNitr  = 0.0 ! rate of a year, 2.5
+    rho_SON   = 0.0 ! organic nitrogen release rate
+    etaN      = 0.0 ! Nitrogen loss rate with runoff
+    fDON      = 0.0 ! DON fraction
+    N_input   = 0.0 ! N input, kg N m-2 yr-1
   endif
 
 #ifdef DO_Climate_VEG

@@ -12,7 +12,7 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW = 0.1,
 K0SOM    = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_nitrogen = 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
+K_DeNitr   = 0.0, ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! organic nitrogen release rate
 etaN       = 0.0, ! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
@@ -27,8 +27,6 @@ CR0_LF     = 0.5,
 CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
-Ignition_W0 = 0.05
-envi_fire_prb = 0.0, ! No disturbance
 ! species     0        1        2        3        4        5
 lifeform    = 0,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
 phenotype   = 0,       1,       0,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen

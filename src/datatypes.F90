@@ -644,11 +644,11 @@ real :: D_BK0        = 5.9/1000.0 ! half survival bark thickness, m
 
 ! Soil organic matter decomposition
 real :: K0SOM(5)     = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
-real :: K_nitrogen   = 8.0     ! mineral Nitrogen turnover rate
+real :: K_DeNitr    = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON         = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON      = 0.05    ! SON release rate per year
 real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
-real :: etaN         = 0.025   ! N loss through runoff (organic and mineral)
+real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
 
 ! -------- PFT-specific parameters ----------
 ! c4grass  c3grass  temp-decid  tropical  evergreen  BE  BD  BN  NE  ND  G  D  T  A
@@ -968,9 +968,9 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                                  &
   ! Soil
   LMAmin,fsc_fine,fsc_wood,K0SOM,                                     &
-  K_nitrogen,rho_SON,f_M2SOM,fDON,etaN,                               &
+  K_DeNitr,rho_SON,f_M2SOM,fDON,etaN,                                 &
   ! Fire model parameters, Weng, 01/13/2021
-  Frisk, MI0Fire, A_MI, FSBM0,                                &
+  Frisk, MI0Fire, A_MI, FSBM0,                                        &
   IgniteP, m0_w_fire, m0_g_fire, f_bk, r_BK0,                         &
   f_HT0 , h0_escape, D_BK0                     ! for an old scheme
 
