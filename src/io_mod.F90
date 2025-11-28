@@ -560,10 +560,9 @@ end subroutine daily_diagnostics
         vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
         vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
-        (vegn%wcl(j),j=1,soil_L),                                       &
-        vegn%NfixedYr*1000,vegn%NupYr*1000,                             &
+        (vegn%wcl(j),j=1,soil_L),vegn%NfixedYr*1000,vegn%NupYr*1000,    &
         vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &
-        vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,     &
+        vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,           &
         vegn%Frisk,vegn%Pfire
 #endif
 

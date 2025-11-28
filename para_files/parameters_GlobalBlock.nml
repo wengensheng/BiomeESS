@@ -74,9 +74,21 @@
 ! FSBM0 0.08 --> 0.06
 ! C3 gdd_par2 600 --> 300
 
-! Update 11/25/2025
-! Parametrs are the same as thos in 11/23
+! Update 11/25/2025 (Base run: 0.5x0.5, daily output ON)
+! Parametrs are the same as those in 11/23
 ! StepLatLon = 1 and daily output turned on
+
+! Update 11/28/2025
+! Parametrs are the same as those in 11/25
+! StepLatLon = 1 -->2 and daily output turned OFF
+! CO2_c       = 370.0, ! ppm, The year of 2000
+! N_input 2 --> 4 g/m2/yr
+
+! Update 11/28/2025 (2)
+! Parametrs are the same as those in 11/25
+! StepLatLon = 1 -->2 and daily output turned OFF
+! CO2_c      = 370.0 --> 570.0, ! ppm, The year of 2000
+! N_input 4 --> 2 g/m2/yr
 
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
@@ -102,10 +114,10 @@ filepath_out= 'TargetDir/', ! './output/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv', ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-CO2_c       = 370.0, ! ppm, The year of 2000
+CO2_c       = 570.0, ! 370.0, ! ppm, The year of 2000
 model_run_years = 890,
 outputhourly    = .False., ! .True.
-outputdaily     = .True.,  ! .False., !
+outputdaily     = .False., ! .True., !
 do_closedN_run  = .False., ! .True.  !
 do_fire         = .True.,  ! .False. !
 do_migration    = .True.   ! .False. !
@@ -185,6 +197,6 @@ yr_start = 1990, ! 2010, ! Data start year of netCDF files
 yr_end   = 2019, ! 2011, ! Data end year
 grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
-StepLatLon = 1
+StepLatLon = ResGrid
 /
 
