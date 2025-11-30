@@ -27,7 +27,7 @@ outputhourly    = .False. ! .True.
 outputdaily     = .True.  ! .False. !
 do_closedN_run  = .False. ! .True.  !
 do_fire         = .True.  ! .False. !
-do_migration    = .True.  ! .False. !
+do_RecoverSP    = .True.  ! .False. !
 /
 
 &soil_data_nml

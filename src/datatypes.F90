@@ -80,8 +80,8 @@
           LU_CROP    = 2, & ! crops
           LU_NTRL    = 3, & ! natural vegetation
           LU_SCND    = 4    ! secondary vegetation
-
-real, parameter :: CO2_Hist(325) = & ! CO2 concentration 1700~2024, ppm
+ integer, parameter :: CO2Yrs = 325
+ real, parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2024, ppm
 ! 1,     2,     3,     4,     5,     6,     7,     8,     9,     10
 (/276.59,276.62,276.65,276.67,276.70,276.72,276.75,276.78,276.80,276.83,  &
   276.86,276.89,276.92,276.95,276.98,277.02,277.05,277.09,277.13,277.17,  &
@@ -851,7 +851,7 @@ end type grid_initial_type
 logical  :: Do_DroughtMu        = .True. ! Drought-induced mortality, Lichstein (2024)
 logical  :: MergeLowDenCohorts  = .True.
 logical  :: update_annualLAImax = .False.
-logical  :: do_migration        = .False.
+logical  :: do_RecoverSP        = .False.
 logical  :: do_fire             = .False.
 logical  :: do_closedN_run      = .True.
 logical  :: do_VariedKx         = .True. ! trunk new xylem has the same kx or not
@@ -894,7 +894,7 @@ integer  :: totyears, totdays
 integer  :: steps_per_day = 24 ! 24 or 48
 integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
 integer  :: yr_Baseline  = 1000 ! for DroughtMIP baseline model run years
-integer  :: yr_Check     = 5 ! Interval (yrs) of checking and recovering initial species comoposition
+integer  :: F_Recovery   = 5 ! Interval (yrs) of recovering initial species
 integer  :: equi_days    = 0 ! 100 * 365
 integer  :: steps_per_hour = 1
 real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
@@ -909,6 +909,7 @@ logical  :: outputdaily  = .True.
 ! Scenarios
 character(len=4)  :: CO2Tag = 'aCO2' ! only takes 'aCO2' or 'eCO2', for FACE-MDS-3
 real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
+real     :: Sc_dT   = 0.0 ! Scenario of temperature changes
 real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
 
 ! ------------- Model initialization name list ------------
@@ -923,9 +924,9 @@ namelist /initial_state_nml/ &
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
-    yr_Check,outputhourly,outputdaily,Sc_prcp,CO2_c, CO2Tag,    &
-    update_annualLAImax, Do_DroughtMu, MergeLowDenCohorts,      &
-    do_migration, do_closedN_run, do_fire,   &
+    outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
+    update_annualLAImax, MergeLowDenCohorts,F_Recovery,         &
+    Do_DroughtMu, do_RecoverSP, do_closedN_run, do_fire,        &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
 ! ------------- Global setting name list ------------

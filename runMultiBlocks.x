@@ -24,7 +24,7 @@ rm *.mod
 
 # Define the directory path
 GridRS='2'
-runTag='Test' # 'eCO2'
+runTag='Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory does NOT exist
@@ -76,7 +76,8 @@ for iB in "${!Grid2[@]}"; do
   runID='Block'$iB
   nmlID='Block'${Grid2[$iB]}
   fr2='./run'$runID'.x'
-  fp2='./para_files/parameters_'$nmlID'.nml'
+  #fp2='./para_files/parameters_'$nmlID'.nml'
+  fp2=$DIRECTORY'/parameters_'$nmlID'.nml'
   
   echo "Block ${Grid1[$iB]}-${Grid2[$iB]}"
   
@@ -96,7 +97,7 @@ for iB in "${!Grid2[@]}"; do
     echo "Run block ${Grid1[$iB]}-${Grid2[$iB]}"
     cat $fp2 > ./para_files/input.nml
     chmod u+x $fr2
-    #nohup ./$fr2 > $runTag'_'$runID'.out' 2>&1 &
+    nohup ./$fr2 > $runTag'_'$runID'.out' 2>&1 &
 
     # wait 10 seconds for model being initiated before starting the next model run
     sleep 10

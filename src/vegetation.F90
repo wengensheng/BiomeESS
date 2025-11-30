@@ -17,7 +17,7 @@ module esdvm
  public :: kill_lowdensity_cohorts,kill_old_grass,vegn_mergecohorts
 
  !For specific experiments
- public :: vegn_fire, vegn_migration, vegn_species_switch
+ public :: vegn_fire, vegn_species_recovery, vegn_species_switch
  public :: vegn_annualLAImax_update, vegn_gap_fraction_update
  public :: reset_vegn_initial
 
@@ -3004,9 +3004,9 @@ end subroutine vegn_fire
  end subroutine vegn_species_switch
 
 !=======================================================================
-! Put missing PFTs back with information of initial cohorts (initialCC)
+! Put missing PFTs back from the initial cohorts (initialCC)
 ! 10/17/2018, Weng
-subroutine vegn_migration (vegn)
+subroutine vegn_species_recovery (vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -3126,7 +3126,7 @@ subroutine vegn_migration (vegn)
      vegn%SON(2) = vegn%SON(2) - min(0.99*vegn%SON(2),addedN)
   endif ! set up newly moved-in cohorts
 
-end subroutine vegn_migration
+end subroutine vegn_species_recovery
 
 ! =============================================================================
 ! Added by Weng 2015-02-29

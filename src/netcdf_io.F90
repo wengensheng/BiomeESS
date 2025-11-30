@@ -337,7 +337,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
                             hourly_data(i,8) / esat(hourly_data(i,4) - 273.16))) ! relative humidity (0.xx)
      climateData(i)%P_air = hourly_data(i,8)          ! pa
      climateData(i)%windU = hourly_data(i,9)          ! wind velocity (m s-1)
-     climateData(i)%CO2   = CO2_c ! CO2_Hist(climateData(i)%year-1700)       ! ppm
+     climateData(i)%CO2   = CO2_Hist(Min(CO2Yrs,Max(1,climateData(i)%year-1700+1))) ! CO2_c   ! ppm
      climateData(i)%eCO2  = climateData(i)%CO2 + 200.       ! ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
   enddo
@@ -542,8 +542,8 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
      climateData(i)%rain      = input_data(4,i)        ! kgH2O m-2 s-1
      climateData(i)%windU     = input_data(5,i)        ! wind velocity (m s-1)
      climateData(i)%P_air     = input_data(6,i)        ! pa
-     climateData(i)%CO2       = CO2_c        !ppm
-     climateData(i)%eCO2      = CO2_c + 200. !ppm
+     climateData(i)%CO2       = CO2_Hist(Min(CO2Yrs,Max(1,climateData(i)%year-1700+1))) ! CO2_c        !ppm
+     climateData(i)%eCO2      = climateData(i)%CO2 + 200. !ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
   enddo
   forcingData => climateData

@@ -186,7 +186,10 @@ subroutine BiomeE_run()
       idata = MOD(n_steps-1, datalines) + 1
       climateData = forcingData(idata)
       ! Set up scenarios for rainfall and CO2 concentration
-      climateData%rain = forcingData(idata)%rain !* Sc_prcp
+      climateData%rain = forcingData(idata)%rain * Sc_prcp
+      climateData%Tair = forcingData(idata)%Tair + Sc_dT
+      climateData%CO2  = CO2_c
+
 #ifdef DroughtPaleo
       climateData%CO2  = CO2_c ! ppm
 #endif
@@ -255,25 +258,25 @@ subroutine BiomeE_run()
 #endif
 
         ! Case studies
-        if(do_migration .and. n_yr == yr_Check*(n_yr/yr_Check)) &
-                  call vegn_migration(vegn) ! for competition
+        if(do_RecoverSP .and. MOD(n_yr,F_Recovery)==0) &
+          call vegn_species_recovery(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
         ! --------- Cohort management ---------
         ! calculate the number of cohorts with indivs>mindensity
-         k = 0
-         do i = 1, vegn%n_cohorts
-            if (vegn%cohorts(i)%nindivs > 0.5*min_nindivs) k=k+1
-         enddo
-         if(k==0)then
+        k = 0
+        do i = 1, vegn%n_cohorts
+          if (vegn%cohorts(i)%nindivs > 0.5*min_nindivs) k=k+1
+        enddo
+        if(k==0)then
            write(*,*)"zero cohorts, reset!"
            call reset_vegn_initial(vegn)
-         endif
-         call kill_old_grass(vegn)
-         !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
-         call relayer_cohorts(vegn)
-         call vegn_mergecohorts(vegn)
-         call kill_lowdensity_cohorts(vegn)
+        endif
+        call kill_old_grass(vegn)
+        !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
+        call relayer_cohorts(vegn)
+        call vegn_mergecohorts(vegn)
+        call kill_lowdensity_cohorts(vegn)
         ! Summarize tile and zero annual reporting variables
         call vegn_sum_tile(vegn)
         call Zero_diagnostics(vegn)
