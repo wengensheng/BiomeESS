@@ -24,7 +24,7 @@ rm *.mod
 
 # Define the directory path
 GridRS='2'
-runTag='Warming2C' # 'eCO2'
+runTag='N2g16Hyrs' #'Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory does NOT exist

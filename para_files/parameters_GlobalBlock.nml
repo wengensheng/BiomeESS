@@ -94,6 +94,11 @@
 ! Added Sc_dT = 2.0: for temperature changes
 ! CO2_c 570.0 --> 370.0
 
+! Update 12/01/2025
+! Added Sc_dT 0.0: for temperature changes
+! CO2_c 370.0
+! model_run_years: 890 --> 1590
+
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
 ! init_cohort_N   = 2, ! total 5
@@ -118,9 +123,9 @@ filepath_out= 'TargetDir/', ! './output/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv', ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-Sc_dT       = 2.0, ! degree C
+Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
-model_run_years = 890,
+model_run_years = 1590, ! 890,
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True., !
 do_closedN_run  = .False., ! .True.  !

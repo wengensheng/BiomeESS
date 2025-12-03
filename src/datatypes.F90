@@ -599,8 +599,9 @@ real :: f_LFR_max = 0.85    ! max allocation to leaves and fine roots each step
 real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
 real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
 real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
+real :: MaxGrassCA = 1.2 ! Maximum grass CA in the top layer
 real :: MaxGrassAge = 3.0   ! Maximum grass  age (years)
-integer :: MaxGrassLyr = 3    ! Maximal layers that grasses can survive
+integer :: MaxGrassLyr = 2    ! Maximal layers that grasses can survive
 
 ! Plant hydraulics
 real :: psi0_osm = 0.5     ! MPa, leaf osmotic pressure
@@ -954,7 +955,8 @@ namelist /vegn_parameters_nml/  diff_S0,                              &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
   R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,retransN,       &
-  gamma_L, gamma_LN, gamma_SW, gamma_FR, MaxGrassLyr, MaxGrassAge,    &
+  gamma_L, gamma_LN, gamma_SW, gamma_FR,                              &
+  MaxGrassLyr, MaxGrassAge, MaxGrassCA,                               &
   ! Phenology
   gdd_crit, Tc0_OFF, Tc0_ON, betaON, betaOFF, AWD_crit, N0_GD,        &
   Days_thld,cold_thld,T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,     &

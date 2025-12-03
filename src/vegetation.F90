@@ -93,6 +93,7 @@ subroutine vegn_daily_update(vegn, deltat)
   call vegn_age(vegn,deltat) ! Update vegn age
   call vegn_phenology(vegn)
   call vegn_growth(vegn)
+  call grass_thinning(vegn) ! Added 12/03/2025
   !call vegn_daily_starvation(vegn)
   call Vegn_N_deposition(vegn,deltat) ! Daily N deposition
   call vegn_sum_tile(vegn)  ! Update tile variables
@@ -860,7 +861,7 @@ subroutine vegn_growth(vegn)
     ! Skip non-growing season
     if(cc%status == LEAF_OFF)then
       cc%resg = 0.0 ! Zero growth respiration
-      cycle
+      cycle ! Skip the following growth processes
     endif
 
     ! Get carbon from NSC pool
@@ -991,6 +992,45 @@ subroutine vegn_growth(vegn)
 #endif
 end subroutine vegn_growth ! daily
 
+!===============================================================================
+subroutine grass_thinning(vegn)
+  ! Kill extra grasses, 12/03/2025
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  ! ---- local vars -------------
+  type(cohort_type), pointer :: cc    ! current cohort
+  real :: TopGC, r_rem ! for grass thinning
+  integer :: i
+  
+  ! Calculate grass CA (TopGC) in the top layer for grass thinning
+  TopGC = 0.0
+  do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      if(cc%layer > 1) exit
+      associate ( sp => spdata(cc%species))
+        if(sp%lifeform == 0 .and. cc%layer == 1 .and. cc%status == LEAF_ON) then 
+          TopGC = TopGC + cc%Acrown*cc%nindivs
+        endif
+      end associate
+  enddo
+
+  ! Reduce cohort density when TopGC is 0.05 greater than MaxGrassCA
+  if(TopGC > MaxGrassCA + 0.05)then ! 0.05 is used for delaying correction
+    r_rem = 1.0 - MaxGrassCA/TopGC
+    do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      if(cc%layer > 1) exit
+      associate ( sp => spdata(cc%species))
+      if(sp%lifeform == 0 .and. cc%layer == 1 .and. cc%status == LEAF_ON)then
+        call plant2soil(vegn,cc,r_rem*cc%nindivs)
+        cc%nindivs = (1.0 - r_rem) * cc%nindivs
+      endif
+      end associate
+    enddo
+  endif
+end subroutine grass_thinning ! daily
+
 !========= Calculate carbon and nitrogen supply ==========================
 subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
   !@sum Fetch C from labile C pool according to the demand of leaves and fine roots,
@@ -1042,7 +1082,7 @@ subroutine update_max_LFR_NSN(cc)
 
   ! Update bl_max and br_max daily, Weng 2014-01-23, 2021-06-04, 08/24/2022
   ! The new updates allow a gradual increase of BLmax when a tree enters
-  ! the canopy layer and a abrupt increase for grasses.
+  ! the canopy layer and an abrupt increase for grasses.
   associate ( sp => spdata(cc%species) )
     f_CO2 =Min(Max(SQRT(cc%CO2_c/400.0), 0.5),2.0) ! CO2 effects on max LAI, for FACE-MDS
     BL_c = f_CO2 * sp%LAImax * sp%LMA * cc%Acrown * (1.0-sp%f_cGap)
@@ -1107,7 +1147,7 @@ subroutine vegn_phenology(vegn) ! daily step
          !.and.(cc%gdd>sp%gdd_crit    .and. vegn%tc_pheno>sp%tc0_on)  &  ! Thermal conditions
           .and.(cc%gdd > gdd_ON       .and. vegn%tc_pheno>sp%tc0_on)  &  ! Thermal conditions
           .and.(vegn%thetaS>sp%betaON .and. cc%Ndm > Days_thld)       &  ! Water
-          .and.(.NOT.(sp%lifeform==0  .and. cc%layer > MaxGrassLyr))     ! If grasses, layer<= 3
+          .and.(.NOT.(sp%lifeform==0  .and. cc%layer > MaxGrassLyr))     ! If grasses, layer <= MaxGrassLyr
 
         if(PhenoON)then
           cc%status = LEAF_ON ! Turn on a growing season
@@ -1119,7 +1159,7 @@ subroutine vegn_phenology(vegn) ! daily step
           cc%AWD = 1.0 ! Accumulative water available ratio
         endif
 
-        ! Reset deciduous grass at the first day of a growing season
+        ! Reset deciduous grasses at the first day of a growing season
         if(sp%lifeform ==0 .and. (cc%firstday .and. cc%age>0.5))then
             ccNSC = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
             ccNSN = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs

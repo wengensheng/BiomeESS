@@ -118,13 +118,13 @@ subroutine vegn_sum_tile(vegn)
     do i = 1, vegn%n_cohorts
        cc => vegn%cohorts(i)
        associate ( sp => spdata(cc%species))
-         if(sp%lifeform==0) &
-            BMG = BMG + (cc%bl+cc%br+cc%bsw)*cc%nindivs
+       if(sp%lifeform==0)BMG = BMG + (cc%bl+cc%br+cc%bsw)*cc%nindivs
        if(cc%layer == 1)then
-         if(sp%lifeform==0) &
+         if(sp%lifeform==0) then
             vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
-         if(sp%lifeform==1) &
-            vegn%TreeCA = vegn%TreeCA + cc%Acrown*cc%nindivs
+         else
+            vegn%TreeCA  = vegn%TreeCA  + cc%Acrown*cc%nindivs
+         endif
        endif
        end associate
     enddo
