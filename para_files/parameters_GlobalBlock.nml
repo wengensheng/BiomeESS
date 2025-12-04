@@ -21,18 +21,18 @@
 ! China's subtropical region is occupied by cold-deciduous (high LMA of TmE reduced net carbon gain)
 ! Tropicl drought-deciduous is low
 ! N fixing plants are high in tropical regions
-! Parameter changes: Nfx: LNbase 1.5 --> 1.0; C0_Nfix 15 --> 12; r0mort_c 0.06 --> 0.05
+! Parameter changes: Nfx: LNbase 1.5 --> 1.0; C0_Nfix 15 --> 12; mu0_topL 0.06 --> 0.05
 ! C3 LNbase 1.2 -->1.0; C3 and C4 LAImax 2.5, LMA 0.03
 
 ! Update 11/14/2025
 ! Problem of 1113 run: N fixer is too high in tropical regions
 ! Parameter tuning:
-! Nfx: LNbase 1.0 --> 0.8; phiRL 1.2 --> 1.5; C0_Nfix 12 --> 15; r0mort_c 0.05 --> 0.06
+! Nfx: LNbase 1.0 --> 0.8; phiRL 1.2 --> 1.5; C0_Nfix 12 --> 15; mu0_topL 0.05 --> 0.06
 ! TrD: betaOFF 0.4 --> 0.3; betaON 0.7 -->0.5
 
 ! Update 11/15/2025
 ! Problem of 1114 run: N fixer is still high; TrD takes the heart region of Amazon
-! TrE LMA 0.06 --> 0.05; Nfx r0mort_c 0.06 --> 0.08
+! TrE LMA 0.06 --> 0.05; Nfx mu0_topL 0.06 --> 0.08
 ! TrD: betaOFF 0.3 --> 0.4; betaON 0.5-->0.6
 
 ! Update 11/16/2025
@@ -42,7 +42,7 @@
 ! Update 11/17/2025
 ! Reduced grass mortality at fire mu0_FireG 0.20 --> 0.05
 ! Reduced grass's betaOn and betaOFF, 0.2, 0.3
-! Reduced Nfx's mortality rate r0mort_c 0.08 --> 0.05, LNbase 0.8 --> 0.9
+! Reduced Nfx's mortality rate mu0_topL 0.08 --> 0.05, LNbase 0.8 --> 0.9
 
 ! Update 11/18/2025:
 ! Probelm of 1117 run: N fixer is too high in Amazaon
@@ -65,8 +65,8 @@
 ! Update 11/21/2025
 ! N_input 2 g/yr
 ! MI0Fire: 0.33 --> 0.25
-! Nfx: r0mort_c 0.05--> 0.06; phiRL 1.5 --> 1.8; D0mu 0.5 --> 0.4
-! Des: r0mort_c 0.02 --> 0.01; D0mu 0.8 --> 0.25
+! Nfx: mu0_topL 0.05--> 0.06; phiRL 1.5 --> 1.8; D0mu 0.5 --> 0.4
+! Des: mu0_topL 0.02 --> 0.01; D0mu 0.8 --> 0.25
 
 ! Update 11/23/2025
 ! N_input 2 g/yr
@@ -171,7 +171,7 @@ phiRL     = 1.5,    1.5,    1.5,    1.5,    1.2,    1.2,    1.8,    1.5,    ! ra
 tauNSC    = 2.0,    2.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    ! NSC residence time,years
 m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    ! 7.0 !
 rho_wood  = 90.,    90.,    320.,   320.,   330.,   350.,   280.,   450.,   ! kgC m-3
-r0mort_c  = .02,    .02,    .025,   .025,   .02,    .015,   .06,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+mu0_topL  = .02,    .02,    .025,   .025,   .02,    .015,   .06,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.4,    0.25,   ! m, Mortality curve parameter
 A_sd      = 0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0,    ! Max multiplier for seedling mortality
 B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mortality sensitivity for seedlings

@@ -1773,7 +1773,7 @@ real function mortality_rate(cc) result(mu) ! per year
     f_S = sp%A_sd * exp(sp%B_sd*cc%dbh) + 1.0    ! Understory seedling
     f_D = 1.0 + sp%A_DBH/(1.+exp((sp%D0mu-cc%dbh)/sp%B_DBH)) ! Size effects (big tees, U-shaped)
     ! Background mortality rate
-    mu_bg = Min(0.5,sp%r0mort_c * (1.d0+f_L*f_S)*f_D) ! per year
+    mu_bg = Min(0.5,sp%mu0_topL * (1.d0+f_L*f_S)*f_D) ! per year
 
     if(DO_DroughtMu)then
       ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)

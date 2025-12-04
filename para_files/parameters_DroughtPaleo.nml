@@ -43,7 +43,7 @@ m_cond      = 9.0,     9.0,     9.0,     9.0,     9.0,     9.0,
 laimax      = 3.2,     3.2,     3.2,     3.2,     3.2,     3.2,     ! maximum crown LAI
 Nfixrate0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
 NfixCost0   = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! N fixation carbon cost: 12 gC/gN
-r0mort_c    = 0.01,    0.01,    0.01,    0.01,    0.01,    0.01,    ! canopy tree mortality rate, year-1
+mu0_topL    = 0.01,    0.01,    0.01,    0.01,    0.01,    0.01,    ! canopy tree mortality rate, year-1
 /
 
 &initial_state_nml

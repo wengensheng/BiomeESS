@@ -212,7 +212,7 @@ type spec_data_type
   real :: s0_plant     ! size of the seedlings, kgC/indiv
   real :: prob_g       ! seed germination probability
   real :: prob_e       ! seed establishment probability
-  real :: r0mort_c     ! yearly mortality rate in canopy
+  real :: mu0_topL     ! yearly mortality rate of canopy layer trees
   real :: D0mu         ! Reference diameter for size-dependent mortality
   real :: A_un         ! Parameter for understory mortality affected by layers
   real :: A_sd         ! Max multiplier for seedling mortality
@@ -739,7 +739,7 @@ real :: prob_g(0:MSPECIES)   = 1.0
 real :: prob_e(0:MSPECIES)   = 1.0
 
 ! Mortality parameters
-real :: r0mort_c(0:MSPECIES) = 0.012 ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+real :: mu0_topL(0:MSPECIES) = 0.012 ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 real :: D0mu(0:MSPECIES)     = 1.2     ! m, Mortality curve parameter
 real :: A_un(0:MSPECIES)     = 3.0     ! Multiplier for understory mortality
 real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
@@ -965,7 +965,7 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   gdd_crit, T0_gdd, gdd_par1, gdd_par2, gdd_par3,               &
   ! Reproduction and Mortality
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                       &
-  r0mort_c,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,          &
+  mu0_topL,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,          &
   ! Tisue C/N ratios
   LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,       &
   ! Plant hydraulics
@@ -1103,7 +1103,7 @@ subroutine Set_ESS_PFT_parameters()
    tauNSC(0:N_EST)    = [2.0,    2.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0   ] ! NSC residence time,years
    m_cond(0:N_EST)    = [7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0   ] !
    rho_wood(0:N_EST)  = [90.,    90.,    320.,   320.,   330.,   350.,   280.,   450.  ] ! kgC m-3
-   r0mort_c(0:N_EST)  = [.02,    .02,    .025,   .025,   .02,    .015,   .06,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+   mu0_topL(0:N_EST)  = [.02,    .02,    .025,   .025,   .02,    .015,   .06,    .01   ] ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
    D0mu(0:N_EST)      = [0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.5,    0.25  ] ! m, Mortality curve parameter
    A_sd(0:N_EST)      = [0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0   ] ! Max multiplier for seedling mortality
    B_sd(0:N_EST)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
@@ -1222,7 +1222,7 @@ subroutine initialize_PFT_data(fnml)
   spdata%s0_plant = s0_plant
   spdata%prob_g   = prob_g
   spdata%prob_e   = prob_e
-  spdata%r0mort_c = r0mort_c
+  spdata%mu0_topL = mu0_topL
   spdata%D0mu     = D0mu
   spdata%A_un     = A_un
   spdata%A_sd     = A_sd
@@ -1275,7 +1275,7 @@ subroutine initialize_PFT_data(fnml)
   ! Plant flammability
   spdata%IgniteP = IgniteP
 
-  !write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    r0mort_c'
+  !write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    mu0_topL'
   do i = 0, MSPECIES
      call init_derived_species_data(spdata(i))
   enddo
@@ -1338,9 +1338,9 @@ subroutine initialize_PFT_data(fnml)
 
    ! Mortality rate as a function of wood density
    if(do_WD_mort_function)then
-      sp%r0mort_c = 0.048 - 0.024 * R_WD
+      sp%mu0_topL = 0.048 - 0.024 * R_WD
    endif
-   !write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%r0mort_c
+   !write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%mu0_topL
 
    ! -------- Check parameter boundaries
    if(sp%lifeform==0)then
