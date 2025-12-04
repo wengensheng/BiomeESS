@@ -2469,12 +2469,12 @@ subroutine initialize_soil(vegn)
    type(vegn_tile_type),intent(inout) :: vegn
 
    ! Initial Soil pools and environmental conditions
-   vegn%SOC(4)    = init_fast_soil_C ! kgC m-2
-   vegn%SOC(5)    = init_slow_soil_C ! slow soil carbon pool, (kg C/m2)
+   vegn%SOC(4)    = init_fast_SOC ! kgC m-2
+   vegn%SOC(5)    = init_slow_SOC ! slow soil carbon pool, (kg C/m2)
    vegn%SON(4)    = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
    vegn%SON(5)    = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
    vegn%N_input   = N_input  ! kgN m-2 yr-1, N input to soil
-   vegn%mineralN  = init_Nmineral  ! Mineral nitrogen pool, (kg N/m2)
+   vegn%mineralN  = init_mineralN  ! Mineral nitrogen pool, (kg N/m2)
    vegn%previousN = vegn%mineralN
    !Soil water
    vegn%soiltype = soiltype
@@ -2890,13 +2890,9 @@ subroutine vegn_fire (vegn, deltat)
   !  Vegetation flammability parameters, Ign_G0, Ign_W0: 
   !  Ignition probability for grasses and woody plants once environmental conditions meet Frisk
   !  For grasses: Ign_G0 = 1.0; For woody plants: Ign_W0 = 0.025
-  !  m0_w_fire, m0_g_fire: mortality rates of trees and grasses due to fire
+  !  mu0_FireW, mu0_FireG: mortality rates of trees and grasses due to fire
   !  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
   !                                  120 --> 0.006 m of bark 0.5 survival
-  !  For an old scheme
-  !  f_HT0: shape parameter fire resistance (due to growth of bark) as a function of height
-  !  h0_escape: tree height that escapes direct burning of grass fires
-  !  D_BK0: Bark thickness at half survival rate.
 
   ! Environmental risk
   ! Frisk = EnvF0 ! Fixed environment risk
@@ -2933,7 +2929,7 @@ subroutine vegn_fire (vegn, deltat)
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
       if(sp%lifeform==0) then  ! grasses
-         mu_fire = m0_g_fire
+         mu_fire = mu0_FireG
       else                     ! trees
          if(r_Ign < flmb_W * Frisk) then   ! tree canopy fire
             mu_fire = 0.99 * min(1.0, 1.25 * f_wood)
@@ -2946,18 +2942,8 @@ subroutine vegn_fire (vegn, deltat)
             cc%D_bark = f_bk * cc%dbh    ! bark thickness,
             d_tree = exp(r_BK0*cc%D_bark)! Tree's fire sensitivity to grass fire
             !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
-            mu_fire = m0_w_fire * d_tree * f_grass * s_fireG
+            mu_fire = mu0_FireW * d_tree * f_grass * s_fireG
          endif
-
-         !!!!----- Old scheme -------- !!!!!!
-         ! d_tree = 1.0 - cc%height/(cc%height+f_HT0)
-         !if(cc%height < h0_escape) then ! Short trees
-         !   mu_fire = m0_w_fire * d_tree * f_grass
-         !   ! Didn't consider the probability of protection of big trees over small trees
-         !   ! by excluding grasses and it leads to heterogeinity.
-         !else  ! Tall trees
-         !   mu_fire = m0_w_fire * d_tree * f_wood
-         !endif
       endif
 
       ! Burned vegetation and soils

@@ -40,7 +40,7 @@
 ! N_input 2 g/m2
 
 ! Update 11/17/2025
-! Reduced grass mortality at fire m0_g_fire 0.20 --> 0.05
+! Reduced grass mortality at fire mu0_FireG 0.20 --> 0.05
 ! Reduced grass's betaOn and betaOFF, 0.2, 0.3
 ! Reduced Nfx's mortality rate r0mort_c 0.08 --> 0.05, LNbase 0.8 --> 0.9
 
@@ -105,10 +105,10 @@
 ! init_cohort_sps = 4,  5,  6,  1
 
 ! Soil initial values
-init_fast_soil_C    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_soil_C    = 12.,    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
-init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
-N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+init_fast_SOC    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_SOC    = 12.,    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_mineralN    = 5.0E-3, ! 402.5E-3, ! kg N m-2
+N_input          = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
 MI0DeSB = 0.20,   ! Prcp/PET, Desert shrub vs trees
@@ -125,7 +125,7 @@ climfile    = 'KNZ_amb.csv', ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
-model_run_years = 1590, ! 890,
+model_run_years =  890, ! 1590, !
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True., !
 do_closedN_run  = .False., ! .True.  !
@@ -154,7 +154,7 @@ diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
 MI0Fire    = 0.33, ! 0.25, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.06, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
-m0_g_fire  = 0.05, ! mortality rates of grasses due to fire
+mu0_FireG  = 0.05, ! mortality rates of grasses due to fire
 
 ! Set PFT 6 (Nfx)  back to evergreen (LMA=0.12), LNbase 0.8E-3, Weng, 11-06-2025
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS

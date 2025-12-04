@@ -148,7 +148,7 @@ type spec_data_type
   ! root traits
   real :: rho_FR       ! material density of fine roots (kgC m-3)
   real :: root_r       ! radius of the fine roots, m
-  real :: root_zeta    ! e-folding parameter of root vertical distribution (m)
+  real :: root_zeta    ! e-folding parameter (zeta) of root vertical distribution (m)
   real :: root_frac(soil_L)    ! root fraction
   real :: SRA          ! speific fine root area, m2/kg C
   real :: SRL          ! specific root lenght
@@ -633,15 +633,11 @@ real :: EnvF0        = 0.0   ! Fixed environmental fire risk, 11/25/2025
 real :: MI0Fire      = 0.5   ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
 real :: A_MI         = 20.0  ! shape parameter of Fire risk vs. P/PET curve
 real :: FSBM0        = 0.2   ! kgC m-2, grass fire severity parameter, as a function of grass BM
-real :: m0_g_fire    = 0.2   ! mortality rates of grasses due to fire
-real :: m0_w_fire    = 0.99  ! mortality rates of trees due to fire
-real :: f_bk         = 0.1105! coefficient of bark thickness,
-                        ! Hoffmann et 2012. shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
+real :: mu0_FireG    = 0.2   ! mortality rates of grasses due to fire
+real :: mu0_FireW    = 0.99  ! mortality rates of trees due to fire
+real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012. 
+                             ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
 real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
-! An old scheme
-real :: f_HT0        = 10.0  ! shape parameter fire resistence (due to growth of bark) as a function of height
-real :: h0_escape    = 5.0   ! tree height that escapes direct burning of grass fires
-real :: D_BK0        = 5.9e-3! half survival bark thickness, m
 
 ! Soil organic matter decomposition
 real :: K0SOM(5)     = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
@@ -682,11 +678,11 @@ real :: LNbase(0:MSPECIES)   = 1.3E-3 !functional nitrogen per unit leaf area, k
 real :: CN0leafST(0:MSPECIES)= 40.0 ! 80.0 ! CN ratio of leaf supporting tissues
 
 ! photosynthesis parameters
-real :: Vmax(0:MSPECIES)= 35.0E-6 ! mol m-2 s-1
-real :: m_cond(0:MSPECIES)= 9.0 ! 7.0 !
-real :: alpha_ps(0:MSPECIES)=  0.06 !
-real :: Vannual(0:MSPECIES) = 1.2 ! kgC m-2 yr-1
-real :: ps_wet(0:MSPECIES) = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 means
+real :: Vmax(0:MSPECIES)     = 35.0E-6 ! mol m-2 s-1
+real :: m_cond(0:MSPECIES)   = 9.0 ! 7.0 !
+real :: alpha_ps(0:MSPECIES) =  0.06 !
+real :: Vannual(0:MSPECIES)  = 1.2 ! kgC m-2 yr-1
+real :: ps_wet(0:MSPECIES)   = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 means
         ! photosynthesis of completely wet leaf will be 30% reduction
 
 ! Wood parameters
@@ -697,8 +693,8 @@ real :: IgniteP(0:MSPECIES)  = 0.02 ! Ignition probability at fire-friendly clim
 ! root parameters
 real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
 !(/0.8, 0.8,0.8, 0.8, 0.8,0.8,0.8,0.8,1.0,1.0,0.6, 1.0, 0.55, 0.9, 0.55, 0.55/)
-real :: rho_FR(0:MSPECIES) = 200 ! woody density, kgC m-3
-real :: root_r(0:MSPECIES) = 2.9E-4
+real :: rho_FR(0:MSPECIES)   = 200 ! woody density, kgC m-3
+real :: root_r(0:MSPECIES)   = 2.9E-4
 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.6 ! 0.29 !
 real :: root_perm(0:MSPECIES) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
@@ -766,38 +762,38 @@ real :: f_supply(0:MSPECIES) = 0.5
 real :: f_plc(0:MSPECIES)    = 0.05  ! fraction of WTC loss due to low water potential (per day)
 
 ! C/N ratios for plant pools
-real :: CNleaf0(0:MSPECIES)   = 25. ! C/N ratios for leaves
-real :: CNsw0(0:MSPECIES)     = 350.0 ! C/N ratios for woody biomass
-real :: CNwood0(0:MSPECIES)   = 350.0 ! C/N ratios for woody biomass
-real :: CNroot0(0:MSPECIES)   = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
-real :: CNseed0(0:MSPECIES)   = 20.0 ! C/N ratios for seeds
-real :: R0_Nfix(0:MSPECIES)   = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
-real :: C0_Nfix(0:MSPECIES)   = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
+real :: CNleaf0(0:MSPECIES)  = 25. ! C/N ratios for leaves
+real :: CNsw0(0:MSPECIES)    = 350.0 ! C/N ratios for woody biomass
+real :: CNwood0(0:MSPECIES)  = 350.0 ! C/N ratios for woody biomass
+real :: CNroot0(0:MSPECIES)  = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
+real :: CNseed0(0:MSPECIES)  = 20.0 ! C/N ratios for seeds
+real :: R0_Nfix(0:MSPECIES)  = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
+real :: C0_Nfix(0:MSPECIES)  = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
 
 ! Standard cohorts for the ESS PFTs, Weng, 09/12/2025
-!-------------------------------0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
-real :: std_nindivs(0:N_EST) = [8.0,   8.0,   .05,   .05,   .05,   .05,   .05,   .05]  ! initial individual density, individual/m2
-real :: std_bsw(0:N_EST)     = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial biomass of sapwood, kg C/individual
-real :: std_nsc(0:N_EST)     = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial non-structural biomass, kg C/individual
+!--------------------------------------0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
+real, parameter :: std_den(0:N_EST) = [8.0,   8.0,   .05,   .05,   .05,   .05,   .05,   .05]  ! initial individual density, individual/m2
+real, parameter :: std_bsw(0:N_EST) = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial biomass of sapwood, kg C/individual
+real, parameter :: std_nsc(0:N_EST) = [.005,  .005,  .02,   .02,   .02,   .02,   .02,   .02]  ! initial non-structural biomass, kg C/individual
 
 !----- Initial conditions and model control -------------
 integer :: I
-integer, parameter :: N_InitC_max = MSPECIES ! 5 ! Weng, 2014-10-01
-integer :: init_cohort_N = 1 ! N_InitC_max
-integer :: init_cohort_sps(N_InitC_max) = (/ (I, I = 0, N_InitC_max-1) /)
-real :: init_cohort_Indiv(N_InitC_max) = -9.  ! initial individual density, individual/m2
-real :: init_cohort_bl(N_InitC_max)      = 0.0  ! initial biomass of leaves, kg C/individual
-real :: init_cohort_br(N_InitC_max)      = 0.0  ! initial biomass of fine roots, kg C/individual
-real :: init_cohort_bsw(N_InitC_max)     = .01  ! initial biomass of sapwood, kg C/individual
-real :: init_cohort_bHW(N_InitC_max)     = 0.0  ! initial biomass of heartwood, kg C/tree
-real :: init_cohort_seedC(N_InitC_max)   = 0.0  ! initial biomass of seeds, kg C/individual
-real :: init_cohort_nsc(N_InitC_max)     = .01  ! initial non-structural biomass, kg C/individual
+integer, parameter :: M_initialCH = MSPECIES ! Weng, 2014-10-01
+integer :: init_cohort_N = 1 ! M_initialCH
+integer :: init_cohort_sps(M_initialCH) = (/ (I, I = 0, M_initialCH-1) /)
+real :: init_cohort_Indiv(M_initialCH)  = -9.  ! initial individual density, individual/m2
+real :: init_cohort_bl(M_initialCH)     = 0.0  ! initial biomass of leaves, kg C/individual
+real :: init_cohort_br(M_initialCH)     = 0.0  ! initial biomass of fine roots, kg C/individual
+real :: init_cohort_bsw(M_initialCH)    = .01  ! initial biomass of sapwood, kg C/individual
+real :: init_cohort_bHW(M_initialCH)    = 0.0  ! initial biomass of heartwood, kg C/tree
+real :: init_cohort_seedC(M_initialCH)  = 0.0  ! initial biomass of seeds, kg C/individual
+real :: init_cohort_nsc(M_initialCH)    = .01  ! initial non-structural biomass, kg C/individual
 
 ! Initial soil type, carbon and nitrogen at a vegn tile, Weng 2012-10-24
-integer :: soiltype = SandyLoam  ! lookup table for soil hydrologic parameters
-real :: init_fast_soil_C  = 0.5  ! initial fast soil C, kg C/m2
-real :: init_slow_soil_C  = 2.0  ! initial slow soil C, kg C/m2
-real :: init_Nmineral     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
+integer :: soiltype       = SandyLoam  ! lookup table for soil hydrologic parameters
+real :: init_fast_SOC  = 0.5  ! initial fast soil C, kg C/m2
+real :: init_slow_SOC  = 2.0  ! initial slow soil C, kg C/m2
+real :: init_mineralN     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
 real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
 ! Climate-vegetation initialization, 09/20/2025
@@ -860,27 +856,27 @@ logical  :: do_VariedWTC0       = .True.
 logical  :: do_WD_mort_function = .False.
 
 ! For global/regional run, Weng, 2025-07-22
-character (len = 256) :: veg_path   = '/Users/eweng/Documents/Data/Vegetation/'
-character (len = 20)  :: veg_file   = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
-character (len = 256) :: ncfilepath = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
-character (len = 20)  :: ncversion  = 'crujra.v2.4.5d.'
-character (len = 256) :: int_fpath  = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
-character (len = 80)  :: int_prefix = 'crujra.v2.4.5d.'
+character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
+character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
+character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
+character (len = 20)  :: ncversion    = 'crujra.v2.4.5d.'
+character (len = 256) :: int_fpath    = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
+character (len = 80)  :: int_prefix   = 'crujra.v2.4.5d.'
 character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv' ! in int_fpath
-character (len = 5)   :: ncfields(7)= [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
-character (len = 6)   :: GridIDFMT ='(I6.6)' ! For the file name string (GridID)
-logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
-integer :: Grids_Unit = 21    ! Vegetation grids list file
-integer :: LowerLon=1,  UpperLon=720 ! Grid number from -179.75 (latitude)
-integer :: LowerLat=61, UpperLat=320 ! Grid number from -89.75 (longitude)
-integer :: yr_start = 2010
-integer :: yr_end   = 2019
-integer :: grid_No1 = 1     ! the first grid in the grid list file
-integer :: grid_No2 = 56395 ! the last grid in vegetated land
+character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
+character (len = 6)   :: GridIDFMT    = '(I6.6)' ! For the file name string (GridID)
+integer :: LowerLon   = 1
+integer :: UpperLon   = 720 ! Grid number from -179.75 (latitude)
+integer :: LowerLat   = 61
+integer :: UpperLat   = 320 ! Grid number from -89.75 (longitude)
+integer :: yr_start   = 2010
+integer :: yr_end     = 2019
+integer :: grid_No1   = 1     ! the first grid in the grid list file
+integer :: grid_No2   = 56395 ! the last grid in vegetated land
 integer :: N_VegGrids = 1 ! Minimum
 integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
-integer :: GridID = 999999 ! 216264                ! = iLon*1000 + iLat
-integer :: HemiSP = 1 ! 1: North hemisphere; 0: South hemisphere
+integer :: GridID     = 999999 ! 216264                ! = iLon*1000 + iLat
+integer :: HemiSP     = 1 ! 1: North hemisphere; 0: South hemisphere
 
 type(grid_initial_type), pointer :: LandGrid(:) => null()
 integer, pointer :: GridLonLat(:)    => null() ! LonLat
@@ -888,20 +884,24 @@ real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
 real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
 real,    pointer :: CRUtime(:)       => null() ! Days since 1901-01-01 in CRU data
 
+! Output interpolated grid climate data files
+logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
+integer :: Grids_Unit   = 99    ! Vegetation grids list file
+
 ! Model run control
 character(len=256) :: file_out(6) ! Output file names
 integer  :: model_run_years = 100
 integer  :: totyears, totdays
-integer  :: steps_per_day = 24 ! 24 or 48
-integer  :: yr_ResetVeg  = 0 ! reseting vegetation to the initial, clearcut
-integer  :: yr_Baseline  = 1000 ! for DroughtMIP baseline model run years
-integer  :: F_Recovery   = 5 ! Interval (yrs) of recovering initial species
-integer  :: equi_days    = 0 ! 100 * 365
+integer  :: steps_per_day  = 24 ! 24 or 48
+integer  :: yr_ResetVeg    = 0 ! reseting vegetation to the initial, clearcut
+integer  :: yr_Baseline    = 1000 ! for DroughtMIP baseline model run years
+integer  :: F_Recovery     = 5 ! Interval (yrs) of recovering initial species
+integer  :: equi_days      = 0 ! 100 * 365
 integer  :: steps_per_hour = 1
-real     :: step_hour    = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
-real     :: step_seconds = 1.0 * 3600.0
-real     :: dt_fast_yr   = 1.0 / (365.0 * 24.0) ! Hourly
-real     :: dt_daily_yr  = 1.0/365.0 ! Daily
+real     :: step_hour      = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
+real     :: step_seconds   = 1.0 * 3600.0
+real     :: dt_fast_yr     = 1.0 / (365.0 * 24.0) ! Hourly
+real     :: dt_daily_yr    = 1.0/365.0 ! Daily
 
 ! Model output
 logical  :: outputhourly = .True.
@@ -913,14 +913,24 @@ real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
 real     :: Sc_dT   = 0.0 ! Scenario of temperature changes
 real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
 
+!-------------Plant and soil parameter types -----------------------
+type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
+type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! Soil hydraulics parameters
+
+! ------------- Global run model setting name list ------------
+namelist /global_setting_nml/ ncfilepath, ncversion,            &
+    veg_path, veg_file, int_fpath, int_prefix, GridListFile,    &
+    grid_No1, grid_No2, yr_start, yr_end, LowerLon, UpperLon,   &
+    LowerLat, UpperLat, StepLatLon, WriteForcing
+
 ! ------------- Model initialization name list ------------
 namelist /initial_state_nml/ &
     ! initial vegetation states
     init_cohort_N, init_cohort_sps, init_cohort_Indiv,          &
     init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
     init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
-    init_fast_soil_C, init_slow_soil_C, init_Nmineral, N_input, &
-    Pr_thld,MI0DeSB,MI0C3C4,TcrTREE,TcrC3C4,                    &
+    init_fast_SOC, init_slow_SOC, init_mineralN, N_input,       &
+    Pr_thld, MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                &
     ! Model run controls
     filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
     PaleoPfile, PaleoTfile, iDraw,                              &
@@ -930,56 +940,42 @@ namelist /initial_state_nml/ &
     Do_DroughtMu, do_RecoverSP, do_closedN_run, do_fire,        &
     do_VariedKx, do_variedWTC0, do_WD_mort_function
 
-! ------------- Global setting name list ------------
-namelist /global_setting_nml/ ncfilepath,ncversion,        &
-    veg_path,veg_file,int_fpath,int_prefix,GridListFile,   &
-    grid_No1,grid_No2,yr_start,yr_end,LowerLon,UpperLon,   &
-    LowerLat,UpperLat,StepLatLon,WriteForcing
-
-
-
 ! ---------- Soil hydraulic and heat parameter name list ---------
-namelist /soil_data_nml/ soiltype,WaterLeakRate,thksl,  &
-     GMD, GSD, vwc_sat, k_sat_ref, psi_sat_ref, chb,    &
-     alphaSoil,heat_capacity_dry
+namelist /soil_data_nml/ soiltype, WaterLeakRate, thksl, GMD,   &
+     GSD, vwc_sat, k_sat_ref, psi_sat_ref, chb,alphaSoil,       &
+     heat_capacity_dry
 
 ! --------- Vegetation parameter name list ---------
-namelist /vegn_parameters_nml/  diff_S0,                              &
-  pt, phenotype, lifeform,                                            &
-  alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,f_taper,f_cGap,     &
+namelist /vegn_parameters_nml/  diff_S0,                        &
+  pt, phenotype, lifeform, f_taper,f_cGap,                      &
+  alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,              &
   ! Leaf
-  LAImax,LAI_light,LMA,Vmax,m_cond,Vannual,ps_wet,c_LLS,leaf_size,    &
+  LMA,LAImax,Vmax,m_cond,Vannual,ps_wet,c_LLS,leaf_size,        &
   ! Wood and root
-  rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,                &
-  rho_N_up0, N_roots0,                                                &
+  rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,          &
+  rho_N_up0, N_roots0,                                          &
   ! Growth & respiration
-  f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,          &
-  R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,retransN,       &
-  gamma_L, gamma_LN, gamma_SW, gamma_FR,                              &
-  MaxGrassLyr, MaxGrassAge, MaxGrassCA,                               &
+  f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,    &
+  R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,retransN, &
+  gamma_L, gamma_LN, gamma_SW, gamma_FR,                        &
+  MaxGrassLyr, MaxGrassAge, MaxGrassCA,                         &
   ! Phenology
-  gdd_crit, Tc0_OFF, Tc0_ON, betaON, betaOFF, AWD_crit, N0_GD,        &
-  Days_thld,cold_thld,T0_gdd,T0_chill,gdd_par1,gdd_par2,gdd_par3,     &
+  Tc0_OFF, Tc0_ON, T0_chill, betaON, betaOFF, AWD_crit,         &
+  Days_thld, cold_thld, N0_GD,                                  &
+  gdd_crit, T0_gdd, gdd_par1, gdd_par2, gdd_par3,               &
   ! Reproduction and Mortality
-  AgeRepro,v_seed,s0_plant,prob_g,prob_e,                             &
-  r0mort_c,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,                &
+  AgeRepro,v_seed,s0_plant,prob_g,prob_e,                       &
+  r0mort_c,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,          &
   ! Tisue C/N ratios
-  LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,             &
+  LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,       &
   ! Plant hydraulics
-  WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,fsup0_WD,CR0_LF,CR0_WD,       &
-  TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,             &
-  fplc0_WD,A_plc0_WD,f_plc,plc_crit,                                  &
+  WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,fsup0_WD,CR0_LF,CR0_WD, &
+  TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,       &
+  fplc0_WD,A_plc0_WD,f_plc,plc_crit,                            &
   ! Soil
-  K0SOM,fsc_fine,fsc_wood,K_DeNitr,rho_SON,f_M2SOM,fDON,etaN,         &
+  K0SOM,fsc_fine,fsc_wood,K_DeNitr,rho_SON,f_M2SOM,fDON,etaN,   &
   ! Fire model parameters, updated 11/25/2025
-  EnvF0,MI0Fire,FSBM0,A_MI,m0_w_fire,m0_g_fire,f_bk,r_BK0,IgniteP,    &
-  f_HT0 , h0_escape, D_BK0              ! for an old scheme (2018)
-
-!-------------Vars for parameter types -----------------------
-! PFT-specific parameters
-type(spec_data_type), save :: spdata(0:MSPECIES) ! define PFTs
-! Soil hydraulic parameters
-type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! soil parameters
+  EnvF0,MI0Fire,FSBM0,A_MI,mu0_FireW,mu0_FireG,f_bk,r_BK0,IgniteP
 
 !---------------------------------
  contains
@@ -1245,6 +1241,7 @@ subroutine initialize_PFT_data(fnml)
   spdata%Kexp_WD  = Kexp_WD
   spdata%f_plc    = f_plc
 
+  LAI_light = LAImax
   spdata%LAImax   = LAImax
   spdata%LAImax_u = LAImax/3.0
   spdata%LAI_light= LAI_light
@@ -1369,7 +1366,7 @@ subroutine initialize_PFT_data(fnml)
    GridPFTs = GridPFTs - 1 ! PFT No. starts from 0.
 
    ! Find out PFTs in this grid
-   init_cohort_N = min(N_InitC_max,Max(1, COUNT(LandGrid%fPFT > f_min)))
+   init_cohort_N = min(M_initialCH,Max(1, COUNT(LandGrid%fPFT > f_min)))
    do i=1, init_cohort_N
      init_cohort_sps(i)   = GridPFTs(i)
      init_cohort_Indiv(i) = 0.2  ! initial individual density, individual/m2
@@ -1378,10 +1375,10 @@ subroutine initialize_PFT_data(fnml)
    enddo
 
   ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
-   init_fast_soil_C  = 0.5  ! initial fast soil C, kg C/m2
-   init_slow_soil_C  = 20.0 ! initial slow soil C, kg C/m2
-   init_Nmineral     = 0.02 ! Mineral nitrogen pool, (kg N/m2)
-   N_input           = 2.0  ! 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
+   init_fast_SOC  = 0.5  ! initial fast soil C, kg C/m2
+   init_slow_SOC  = 20.0 ! initial slow soil C, kg C/m2
+   init_mineralN  = 0.02 ! Mineral nitrogen pool, (kg N/m2)
+   N_input        = 2.0  ! 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
  end subroutine Set_PFTs_from_map
 
  !=============================================================================
@@ -1494,8 +1491,7 @@ subroutine initialize_PFT_data(fnml)
    ! Screen output
    write(*,'(a15, 2(f8.2,","))')'Prcp, PET: ', totPrcp/N_yrs,totPET/N_yrs
    write(*,'(2(a6,f8.2,";"), a12, 4(I6,","))')   &
-         'P/ET: ', Mst_IDX, 'Tmin: ', meanTmin, &
-          'Grid PFTs: ', PFTID
+      'P/ET: ', Mst_IDX, 'Tmin: ', meanTmin, 'Grid PFTs: ', PFTID
 
    ! Assign standard initial cohorts by updating init_cohort_*
    call Assign_Std_Cohorts (PFTID,N_PFTID)
@@ -1514,7 +1510,7 @@ subroutine initialize_PFT_data(fnml)
    ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
    init_cohort_N = totPFT
    init_cohort_sps(1:totPFT)   = PFTID(1:totPFT)
-   init_cohort_Indiv(1:totPFT) = std_nindivs(PFTID(1:totPFT))
+   init_cohort_Indiv(1:totPFT) = std_den(PFTID(1:totPFT))
    init_cohort_bsw(1:totPFT)   = std_bsw(PFTID(1:totPFT))
    init_cohort_nsc(1:totPFT)   = std_nsc(PFTID(1:totPFT))
 

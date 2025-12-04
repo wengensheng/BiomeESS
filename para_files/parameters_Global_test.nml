@@ -4,10 +4,10 @@
 ! init_cohort_sps = 4,  5,  6,  1
 
 ! Soil initial values
-init_fast_soil_C    = 0.5     ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_soil_C    = 12.     ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
-init_Nmineral       = 5.0E-3, ! 402.5E-3, ! kg N m-2
-N_input             = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+init_fast_SOC = 0.5     ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_SOC = 12.     ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_mineralN = 5.0E-3, ! 402.5E-3, ! kg N m-2
+N_input       = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
 MI0DeSB = 0.25,   ! Prcp/PET, Desert shrub vs trees
