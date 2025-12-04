@@ -23,8 +23,8 @@ gfortran $FSRCS $CPPFLAGS -o ess_global -I/usr/local/include -L/usr/local/lib -l
 rm *.mod
 
 # Define the directory path
-GridRS='2'
-runTag='GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+GridRS='1'
+runTag='BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory does NOT exist

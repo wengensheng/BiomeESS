@@ -99,6 +99,11 @@
 ! CO2_c 370.0
 ! model_run_years: 890 --> 1590
 
+! Update 12/03/2025
+! A new base run:
+! Added grass_thinning to keep grass CA < 1.25
+! 0.5x0.5, N_input = 2g/m2/yr
+
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
 ! init_cohort_N   = 2, ! total 5
@@ -127,7 +132,7 @@ Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
 model_run_years =  890, ! 1590, !
 outputhourly    = .False., ! .True.
-outputdaily     = .False., ! .True., !
+outputdaily     = .True.,  ! .False., !
 do_closedN_run  = .False., ! .True.  !
 do_fire         = .True.,  ! .False. !
 do_RecoverSP    = .True.   ! .False. !

@@ -40,6 +40,7 @@
 
  ! Plant hydraulics-mortality
  integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
+ integer, parameter :: CLmax        = 5 ! Maximum crown layers
  real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3
  real, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
  real, parameter    :: LMAmin       = 0.02    ! minimum LMA (kgC/m2), boundary condition
@@ -387,9 +388,10 @@ type :: vegn_tile_type
   real :: LAI               ! leaf area index
   real :: LAImax            ! growing season max
   real :: CAI               ! crown area index
-  real :: LAIlayer(5) = 0.0 ! LAI of each crown layer, max. 9
-  real :: f_gap(5)    = 0.0 ! gap fraction of each crown layer
-  real :: kp(5)       = 0.0 ! light extinction coefficient fro each layer
+  real :: LAI_L(CLmax) = 0.0 ! LAI of each crown layer, max. 9
+  real :: f_gap(CLmax) = 0.0 ! gap fraction of each crown layer
+  real :: CAI_L(CLmax) = 1.0 ! crown overlap of each crown layer (squeeze factor)
+  real :: kp(CLmax)    = 0.0 ! light extinction coefficient for each layer
   ! uptake-related variables
   real :: root_distance(soil_L) ! characteristic half-distance between fine roots, m
   real :: ArootL(soil_L) = 0.0 ! Root are per layer
@@ -1622,11 +1624,21 @@ end function
 
  !-------------------------------------------
  function BL2Aleaf(bl,cc) result (area)
- real :: area ! returned value
- real, intent(in) :: bl      ! biomass of leaves, kg C/individual
- type(cohort_type), intent(in) :: cc    ! cohort to update
+   real :: area ! returned value
+   real, intent(in) :: bl      ! biomass of leaves, kg C/individual
+   type(cohort_type), intent(in) :: cc    ! cohort to update
 
- area = bl/spdata(cc%species)%LMA
+   area = bl/spdata(cc%species)%LMA
+ end function
+
+  !-------------------------------------------
+ function Aleaf2LAI(CAI_L,cc) result (LAI)
+  ! Squeeze leaves within canopy when CAI > 1.0. Weng, 12/04/2025
+  ! Since we do realyering once per year, it is possible CAI>1 with growth
+   real :: LAI ! returned value
+   real, intent(in) :: CAI_L           ! biomass of leaves, kg C/individual
+   type(cohort_type), intent(in) :: cc ! cohort to update
+   LAI = Max(CAI_L,1.0)*cc%Aleaf/(cc%Acrown*(1.0-spdata(cc%species)%f_cGap))
  end function
 
  ! ============================================================================

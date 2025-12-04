@@ -45,12 +45,13 @@ end subroutine
 !=================================================
 ! Weng, 2021-06-02
 subroutine vegn_sum_tile(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !----- local var --------------
   type(cohort_type),pointer :: cc
   real :: BMG ! Grass BM, temporary var
-  integer :: i, layer
+  integer :: i
 
   vegn%NSC     = 0.0
   vegn%SeedC   = 0.0
@@ -73,19 +74,9 @@ subroutine vegn_sum_tile(vegn)
   vegn%LAI    = 0.0
   vegn%CAI    = 0.0
   vegn%ArootL = 0.0
-
-  vegn%LAIlayer = 0.0
-  vegn%f_gap    = 0.0
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species))
-       ! update accumulative LAI for each corwn layer
-       layer = Max (1, Min(cc%layer,9)) ! between 1~9
-       vegn%LAIlayer(layer) = vegn%LAIlayer(layer) + &
-                              cc%Aleaf * cc%nindivs/(1.0-sp%f_cGap)
-       vegn%f_gap(layer)    = vegn%f_gap(layer)    +  &
-                              cc%Acrown * cc%nindivs * sp%f_cGap
-
       ! Vegn C, N, and water pools
        vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
        vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
