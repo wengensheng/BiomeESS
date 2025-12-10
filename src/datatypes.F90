@@ -300,8 +300,8 @@ type :: cohort_type
   real :: NSNmax = 0.
   real :: NSN    = 0.    ! non-structural N pool
   real :: leafN  = 0.
-  real :: sapwN  = 0.
-  real :: woodN  = 0. ! N of heart wood
+  real :: swN    = 0.
+  real :: hwN    = 0. ! N of heart wood
   real :: rootN  = 0. ! N of fine roots
   real :: seedN  = 0. !
   real :: N_uptake = 0.
@@ -478,8 +478,8 @@ type :: vegn_tile_type
   real :: NupYr  = 0.0   ! accumulated N uptake kgN m-2 yr-1
   real :: NfixedYr = 0.  ! fixe N in a tile
   ! for annual reporting at tile level
-  real :: NSC, SeedC, leafC, rootC, SapwoodC, WoodC
-  real :: NSN, SeedN, leafN, rootN, SapwoodN, WoodN
+  real :: NSC, SeedC, leafC, rootC, SwC, HwC
+  real :: NSN, SeedN, leafN, rootN, SwN, HwN
   real :: totSeedC,totSeedN
   ! for cohort plant types (climate-vegetation relationship, Biome, LM3)
   real :: t_ann  = 0.0 ! annual mean T, degK
@@ -627,8 +627,8 @@ real :: plc_crit = 0.5     ! Critical value of plc for making a damage to xylems
 integer :: N0_GD     = 90    ! base growing days, 90 days, with a -5 substraction of Tc_crit
 integer :: Days_thld = 60    ! minimum days of the growing or non-growing season
 real    :: cold_thld = -20.  ! threshold of accumulative low temperature (sum(dT*day)
-real    :: T0_gdd    = 5.0   ! Celcus degree
-real    :: T0_chill  = 10.0  ! Celcus degree
+real    :: T0_gdd    = 5.0   ! Celsius degree
+real    :: T0_chill  = 10.0  ! Celsius degree
 
 ! Fire regimes
 real :: EnvF0        = 0.0   ! Fixed environmental fire risk, 11/25/2025

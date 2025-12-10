@@ -57,15 +57,15 @@ subroutine vegn_sum_tile(vegn)
   vegn%SeedC   = 0.0
   vegn%leafC   = 0.0
   vegn%rootC   = 0.0
-  vegn%SapwoodC= 0.0
-  vegn%WoodC   = 0.0
+  vegn%SwC     = 0.0
+  vegn%HwC     = 0.0
 
   vegn%NSN     = 0.0
   vegn%SeedN   = 0.0
   vegn%leafN   = 0.0
   vegn%rootN   = 0.0
-  vegn%SapwoodN= 0.0
-  vegn%WoodN   = 0.0
+  vegn%SwN     = 0.0
+  vegn%HwN     = 0.0
 
   vegn%W_stem = 0.0
   vegn%W_dead = 0.0
@@ -82,8 +82,8 @@ subroutine vegn_sum_tile(vegn)
        vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
        vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
        vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
-       vegn%SapwoodC= vegn%SapwoodC+ cc%bsw    * cc%nindivs
-       vegn%woodC   = vegn%woodC   + cc%bHW    * cc%nindivs
+       vegn%SwC     = vegn%SwC     + cc%bsw    * cc%nindivs
+       vegn%HwC      = vegn%HwC    + cc%bHW    * cc%nindivs
        vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
        vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
        vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
@@ -92,8 +92,8 @@ subroutine vegn_sum_tile(vegn)
        vegn%SeedN   = vegn%SeedN   + cc%seedN * cc%nindivs
        vegn%leafN   = vegn%leafN   + cc%leafN * cc%nindivs
        vegn%rootN   = vegn%rootN   + cc%rootN * cc%nindivs
-       vegn%SapwoodN= vegn%SapwoodN+ cc%sapwN * cc%nindivs
-       vegn%woodN   = vegn%woodN   + cc%woodN * cc%nindivs
+       vegn%SwN     = vegn%SwN     + cc%swN * cc%nindivs
+       vegn%HwN     = vegn%HwN     + cc%hwN * cc%nindivs
 
        vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
        vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
@@ -335,7 +335,7 @@ endif
           cc%NPPleaf,cc%NPProot,cc%NPPwood,                &
           !cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
           !cc%NSN*1000,cc%seedN*1000, cc%leafN*1000,        &
-          !cc%rootN*1000,cc%sapwN*1000,cc%woodN*1000,       &
+          !cc%rootN*1000,cc%swN*1000,cc%hwN*1000,       &
           !cc%W_leaf,cc%W_stem,cc%W_dead,                   &
           cc%gdd,cc%ALT,cc%AWD
     enddo
@@ -467,12 +467,12 @@ end subroutine daily_diagnostics
           cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
 #elif FACE_run
-        write(fno5,'(4(I8,","),300(E15.6,","))')iyears,i,     &
+        write(fno5,'(4(I8,","),300(E15.6,","))')iyears,i,   &
           cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
           cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
           cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
-          cc%nsc,cc%leafN*1000,cc%rootN*1000,cc%sapwN*1000, &
-          cc%woodN*1000,cc%seedN*1000, cc%NSN*1000,         &
+          cc%nsc,cc%leafN*1000,cc%rootN*1000,cc%swN*1000,   &
+          cc%hwN*1000,cc%seedN*1000, cc%NSN*1000,           &
           cc%NupYr*1000,cc%annualGPP,cc%annualNPP,          &
           cc%NPPleaf,cc%NPProot,cc%NPPwood,cc%annualTrsp,   &
           cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
@@ -512,19 +512,19 @@ end subroutine daily_diagnostics
     if(iyr_out > 0) then
       call vegn_sum_tile(vegn)
       plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
-               vegn%SapwoodC + vegn%woodC
+               vegn%SwC + vegn%HwC
       soilC  = sum(vegn%SOC(:))
       plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
-               vegn%rootN + vegn%SapwoodN + vegn%woodN
+               vegn%rootN + vegn%SwN + vegn%HwN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
 #ifdef FACE_run
       write(fno6,'(1(I5,","),80(E15.6,","))') iyears, &
        vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
        vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
        vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
-       vegn%leafC, vegn%rootC, vegn%SapwoodC, vegn%woodC, vegn%SeedC,      &
-       vegn%NSC, vegn%leafN*1000,vegn%rootN*1000,vegn%SapwoodN*1000,       &
-       vegn%WoodN*1000, vegn%SeedN*1000, vegn%NSN*1000,                    &
+       vegn%leafC, vegn%rootC, vegn%SwC, vegn%HwC, vegn%SeedC,             &
+       vegn%NSC, vegn%leafN*1000,vegn%rootN*1000,vegn%SwN*1000,            &
+       vegn%HwN*1000, vegn%SeedN*1000, vegn%NSN*1000,                      &
        (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
        vegn%mineralN*1000, vegn%annualN*1000, vegn%NupYr*1000,             &
        vegn%Nm_Fire*1000, vegn%N_OutYr*1000, vegn%CO2_c
@@ -535,9 +535,9 @@ end subroutine daily_diagnostics
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
         vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
-        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SapwoodC,vegn%woodC,      &
+        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
         vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
-        vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
+        vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
         (vegn%wcl(j),j=1,soil_L)
 
@@ -547,9 +547,9 @@ end subroutine daily_diagnostics
         vegn%annualResp,vegn%annualRh,vegn%C_burned,vegn%YearlyTmp,     &  
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
         vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
-        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SapwoodC,vegn%woodC,      &
+        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
         vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
-        vegn%SapwoodN*1000,vegn%WoodN*1000,(vegn%SOC(j),j=1,5),         &
+        vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
         (vegn%wcl(j),j=1,soil_L),vegn%NfixedYr*1000,vegn%NupYr*1000,    &
         vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &

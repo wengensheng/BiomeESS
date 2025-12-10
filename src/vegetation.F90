@@ -152,7 +152,7 @@ subroutine vegn_reprod_samesized(vegn)
      cc => vegn%cohorts(i)
      !Carbon content of a current individual of this cohort
      plantC = cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc
-     plantN = cc%leafN+cc%rootN+cc%sapwN+cc%woodN+cc%NSN
+     plantN = cc%leafN+cc%rootN+cc%swN+cc%hwN+cc%NSN
      n_newC  = cc%seedC * cc%nindivs / plantC
      n_newN  = cc%seedN * cc%nindivs / plantN
      n_new = min(n_newC, n_newN)
@@ -194,15 +194,15 @@ subroutine vegn_Wood_turnover(vegn)
      ! Wood turnover
      alpha_WD = mortality_rate(cc)
      dCSW = cc%bsw   * alpha_WD
-     dNSW = cc%sapwN * alpha_WD
+     dNSW = cc%swN * alpha_WD
      dCHW = cc%bHW   * alpha_WD
-     dNHW = cc%woodN * alpha_WD
+     dNHW = cc%hwN * alpha_WD
 
      ! Update plant C and N pools
-     cc%bsw    = cc%bsw   - dCSW
-     cc%bHW    = cc%bHW   - dCHW
-     cc%sapwN  = cc%sapwN - dNSW
-     cc%woodN  = cc%woodN - dNHW
+     cc%bsw  = cc%bsw - dCSW
+     cc%bHW  = cc%bHW - dCHW
+     cc%swN  = cc%swN - dNSW
+     cc%hwN  = cc%hwN - dNHW
 
      !! update plant architecture given increase of bsw
      call BM2Architecture(cc, cc%bsw+cc%bHW)
@@ -934,11 +934,11 @@ subroutine vegn_growth(vegn)
       cc%leafN = cc%leafN + dBL   /sp%CNleaf0
       cc%rootN = cc%rootN + dBR   /sp%CNroot0
       cc%seedN = cc%seedN + dSeed /sp%CNseed0
-      cc%sapwN = cc%sapwN + f_N_add * cc%NSN + &
+      cc%swN = cc%swN + f_N_add * cc%NSN + &
          (Ngrowth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
-      !extraN = max(0.0,cc%sapwN+cc%woodN - (cc%bsw+cc%bHW)/sp%CNsw0)
-      extraN   = max(0.0,cc%sapwN - cc%bsw/sp%CNsw0)
-      cc%sapwN = cc%sapwN - extraN
+      !extraN = max(0.0,cc%swN+cc%hwN - (cc%bsw+cc%bHW)/sp%CNsw0)
+      extraN   = max(0.0,cc%swN - cc%bsw/sp%CNsw0)
+      cc%swN = cc%swN - extraN
       cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - Ngrowth !! update NSN
 
       ! accumulated C allocated to leaf, root, and wood
@@ -1105,12 +1105,8 @@ subroutine update_max_LFR_NSN(cc)
       BL_u = BL_c / (1+cc%layer)            ! Woody plants only
     endif
     cc%bl_max = BL_u + min(1., cc%topyear/sp%transT) * (BL_c - BL_u)
-!#ifdef UFL_test
 !    if(cc%layer > 1) cc%bl_max = sp%LMA * 1.0 * cc%Acrown * (1.0-sp%f_cGap)
-!#endif
-    ! Root max
     cc%br_max = BLmax2BRmax(cc)
-    ! NSN max
     cc%NSNmax = ccNSNmax(cc)
   end associate
 end subroutine update_max_LFR_NSN
@@ -1122,7 +1118,7 @@ subroutine vegn_phenology(vegn) ! daily step
 
   ! ---- local vars
   type(cohort_type), pointer :: cc
-  integer :: i,j
+  integer :: i,j !,var_acc
   real    :: gdd_ON, Tc_OFF
   real    :: totC, totN, ccNSC, ccNSN
   logical :: PhenoON, PhenoOFF
@@ -1141,7 +1137,8 @@ subroutine vegn_phenology(vegn) ! daily step
            cc%ndm = cc%ndm + 1
            if(vegn%tc_pheno<T0_chill) cc%ncd = cc%ncd + 1
            ! Keep gdd as zero in early non-growing season when days < Days_thld
-           if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd)
+           ! var_acc = merge(1, 0, cc%ndm > Days_thld)
+           if(cc%ndm>Days_thld)cc%gdd = cc%gdd + max(0.0,vegn%tc_pheno-T0_gdd) ! * var_acc
         endif ! cc%status
       endif   ! sp%phenotype == 0
 
@@ -1181,7 +1178,7 @@ subroutine vegn_phenology(vegn) ! daily step
         ! Reset deciduous grasses at the first day of a growing season
         if(sp%lifeform ==0 .and. (cc%firstday .and. cc%age>0.5))then
             ccNSC = (cc%NSC +cc%bl +  cc%bsw  +cc%bHW  +cc%br   +cc%seedC) * cc%nindivs
-            ccNSN = (cc%NSN +cc%leafN+cc%sapwN+cc%woodN+cc%rootN+cc%seedN) * cc%nindivs
+            ccNSN = (cc%NSN +cc%leafN+cc%swN+cc%hwN+cc%rootN+cc%seedN) * cc%nindivs
             cc%nindivs = MIN(ccNSC /sp%s0_plant, ccNSN/(sp%s0_plant/sp%CNroot0))
             totC = ccNSC / cc%nindivs
             totN = ccNSN / cc%nindivs
@@ -1248,7 +1245,7 @@ subroutine vegn_tissue_turnover(vegn)
      dBL    = cc%bl    * alpha_L
      dNL    = cc%leafN * alpha_L
      dBStem = cc%bsw   * alpha_S
-     dNStem = cc%sapwN * alpha_S
+     dNStem = cc%swN   * alpha_S
      dBR    = cc%br    * alpha_R
      dNR    = cc%rootN * alpha_R
 
@@ -1268,7 +1265,7 @@ subroutine vegn_tissue_turnover(vegn)
      cc%br    = cc%br    - dBR
 
      cc%leafN = cc%leafN - dNL
-     cc%sapwN = cc%sapwN - dNStem
+     cc%swN   = cc%swN   - dNStem
      cc%rootN = cc%rootN - dNR
 
      ! update NPP for leaves, fine roots, and wood
@@ -1359,7 +1356,7 @@ subroutine Seasonal_fall(cc,vegn)
      dBR = min( root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
      if(sp%lifeform == 0)then  ! grasses
          dBStem = MIN(1.0,dBL/cc%bl) * cc%bsw
-         dNStem = MIN(1.0,dBL/cc%bl) * cc%sapwN
+         dNStem = MIN(1.0,dBL/cc%bl) * cc%swN
          dWStem = MIN(1.0,dBL/cc%bl) * cc%W_stem
      else
          dBStem = 0.0 ! trees
@@ -1393,7 +1390,7 @@ subroutine Seasonal_fall(cc,vegn)
 
      cc%leafN = cc%leafN - dNL
      cc%rootN = cc%rootN - dNR
-     cc%sapwN = cc%sapwN - dNStem
+     cc%swN   = cc%swN - dNStem
 
      !update NPP for leaves, fine roots, and wood
      cc%NPPleaf = cc%NPPleaf - l_fract * dBL
@@ -1603,10 +1600,10 @@ subroutine setup_seedling(cc,totC,totN)
      ! Nitrogen pools
      cc%leafN  = cc%bl/sp%CNleaf0
      cc%rootN  = cc%br/sp%CNroot0
-     cc%sapwN  = cc%bsw/sp%CNsw0
-     cc%woodN  = cc%bHW/sp%CNwood0
+     cc%swN  = cc%bsw/sp%CNsw0
+     cc%hwN  = cc%bHW/sp%CNwood0
      cc%seedN  = 0.0
-     cc%NSN    = totN - (cc%leafN+cc%rootN+cc%sapwN) !cc%br/sp%CNroot0
+     cc%NSN    = totN - (cc%leafN+cc%rootN+cc%swN) !cc%br/sp%CNroot0
 
      ! Structure
      call BM2Architecture(cc,cc%bsw+cc%bHW )
@@ -1740,7 +1737,7 @@ subroutine plant2soil(vegn,cc,deadtrees)
     ! Carbon and Nitrogen from plants to soil pools
      loss_coarse  = deadtrees * (cc%bHW + cc%bsw   + cc%bl    - cc%Aleaf*LMAmin)
      loss_fine    = deadtrees * (cc%nsc + cc%seedC + cc%br    + cc%Aleaf*LMAmin)
-     lossN_coarse = deadtrees * (cc%woodN+cc%sapwN + cc%leafN - cc%Aleaf*sp%LNbase)
+     lossN_coarse = deadtrees * (cc%hwN + cc%swN   + cc%leafN - cc%Aleaf*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%Aleaf*sp%LNbase)
 #ifdef Hydro_test
      ! Assume water in plants goes to first layer of soil
@@ -2039,8 +2036,8 @@ subroutine vegn_SW2HW_hydro(vegn)
      if(sp%lifeform>0)then
        ! Calculate heartwood diameter
        D_hw  = SQRT(Max(0.0, PI*(cc%DBH/2)**2 - cc%Asap)/PI)
-       woodC  = cc%bsw   + cc%bHW
-       woodN  = cc%sapwN + cc%woodN
+       woodC  = cc%bsw + cc%bHW
+       woodN  = cc%swN + cc%hwN
 
        ! Convert sapwood to heart wood
        newSW = sp%alphaBM * (cc%dbh**sp%thetaBM - D_hw**sp%thetaBM)
@@ -2049,8 +2046,8 @@ subroutine vegn_SW2HW_hydro(vegn)
        cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
        cc%bHW    = cc%bHW + dSW
        cc%bsw    = woodC - cc%bHW
-       cc%sapwN  = woodN * cc%bsw/woodC
-       cc%woodN  = woodN * cc%bHW/woodC
+       cc%swN    = woodN * cc%bsw/woodC
+       cc%hwN    = woodN * cc%bHW/woodC
      endif
      end associate
 
@@ -2087,12 +2084,12 @@ subroutine vegn_SW2HW_fixedHv(vegn)
           D_hw   = 2*sqrt(CSAwd/PI)
           BSWmax = sp%alphaBM * (cc%DBH**sp%thetaBM - D_hw**sp%thetaBM)
           dSW    = max(cc%bsw - BSWmax, 0.0)
-          dNS    = dSW/cc%bsw *cc%sapwN
+          dNS    = dSW/cc%bsw *cc%swN
           ! update C and N of sapwood and wood
           cc%bHW   = cc%bHW   + dSW
           cc%bsw   = cc%bsw   - dSW
-          cc%sapwN = cc%sapwN - dNS
-          cc%woodN = cc%woodN + dNS
+          cc%swN = cc%swN - dNS
+          cc%hwN = cc%hwN + dNS
           cc%W_stem = cc%W_stem - cc%W_stem * dSW/cc%bSW
           cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
 
@@ -2492,8 +2489,8 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%NSN    = 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
     cc%leafN  = cc%bl/sp%CNleaf0
     cc%rootN  = cc%br/sp%CNroot0
-    cc%sapwN  = cc%bsw/sp%CNsw0
-    cc%woodN  = cc%bHW/sp%CNwood0
+    cc%swN  = cc%bsw/sp%CNsw0
+    cc%hwN  = cc%bHW/sp%CNwood0
     cc%seedN  = 0.0
 
     ! ----------Plant hydraulics----------
@@ -2739,8 +2736,8 @@ subroutine merge_cohorts(c1,c2) ! Put c1 into c2
      !  Nitrogen
      c2%leafN = x1*c1%leafN + x2*c2%leafN
      c2%rootN = x1*c1%rootN + x2*c2%rootN
-     c2%sapwN = x1*c1%sapwN + x2*c2%sapwN
-     c2%woodN = x1*c1%woodN + x2*c2%woodN
+     c2%swN   = x1*c1%swN   + x2*c2%swN
+     c2%hwN   = x1*c1%hwN   + x2*c2%hwN
      c2%seedN = x1*c1%seedN + x2*c2%seedN
      c2%NSN   = x1*c1%NSN   + x2*c2%NSN
 
@@ -2834,8 +2831,7 @@ function TotalN(vegn)
   type(vegn_tile_type), intent(in) :: vegn
 
   TotalN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
-           vegn%SapwoodN + vegn%woodN + &
-           vegn%mineralN + sum(vegn%SON(:))
+           vegn%SwN + vegn%HwN + vegn%mineralN + sum(vegn%SON(:))
 end function
 
 !======================= Specific experiments ================================
@@ -2932,9 +2928,9 @@ subroutine vegn_fire (vegn, deltat)
       Cfire = Cfire + (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw+cc%bHW)     + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
       Cfast = Cfast + (0.8*cc%NSC + 0.3*cc%bl    + 0.0*(cc%bsw+cc%bHW)     + 1.0*cc%br    + 1.0*cc%seedC) * deadtrees
       Cslow = Cfast + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW)     + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
-      Nfire = Nfire + (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%sapwN+cc%woodN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
-      Nfast = Nfast + (0.8*cc%NSN + 0.3*cc%leafN + 0.0*(cc%sapwN+cc%woodN) + 1.0*cc%rootN + 1.0*cc%seedN) * deadtrees
-      Nslow = Nslow + (0.0*cc%NSN + 0.0*cc%leafN + 0.8*(cc%sapwN+cc%woodN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
+      Nfire = Nfire + (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
+      Nfast = Nfast + (0.8*cc%NSN + 0.3*cc%leafN + 0.0*(cc%swN+cc%hwN) + 1.0*cc%rootN + 1.0*cc%seedN) * deadtrees
+      Nslow = Nslow + (0.0*cc%NSN + 0.0*cc%leafN + 0.8*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
 
       ! Update plant density
       cc%nindivs = cc%nindivs - deadtrees
@@ -3116,7 +3112,7 @@ subroutine vegn_species_recovery (vegn)
             endif
         enddo
         totC = cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc
-        totN = cc%leafN + cc%rootN + cc%sapwN + cc%woodN + cc%NSN
+        totN = cc%leafN + cc%rootN + cc%swN + cc%hwN + cc%NSN
         addedC = addedC + cc%nindivs * totC
         addedN = addedN + cc%nindivs * totN
         call setup_seedling(cc,totC,totN)

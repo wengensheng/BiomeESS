@@ -23,8 +23,8 @@ gfortran $FSRCS $CPPFLAGS -o ess_global -I/usr/local/include -L/usr/local/lib -l
 rm *.mod
 
 # Define the directory path
-GridRS='1'
-runTag='BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+GridRS='2'
+runTag='N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory does NOT exist
@@ -51,11 +51,11 @@ START_VAL=1
 if [[ "$GridRS" == "1" ]]; then
     # For 0.5x0.5 grid
     END_VAL=55001
-    INCREMENT=2500 # Optional step value
+    INCREMENT=2200 # 2500 # Optional step value
 else
     # For 1x1 grid
-    END_VAL=13601
-    INCREMENT=800 # Optional step value 
+    END_VAL=14001
+    INCREMENT=500 # 800 # Optional step value 
 fi
 Grid1=($(seq $START_VAL $INCREMENT $END_VAL))
 for (( i=0; i<${#Grid1[@]}; i++ )); do
