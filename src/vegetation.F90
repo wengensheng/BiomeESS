@@ -2866,13 +2866,16 @@ subroutine vegn_fire (vegn, deltat)
   !  Ignition probability for grasses and woody plants once environmental conditions meet Frisk
   !  For grasses: Ign_G0 = 1.0; For woody plants: Ign_W0 = 0.025
   !  mu0_FireW, mu0_FireG: mortality rates of trees and grasses due to fire
-  !  r_BK0: shape parameter ! -480.0  ! for bark resistance, exponential equation,
+  !  r_BK0: shape parameter, for bark resistance, exponential equation,
   !                                  120 --> 0.006 m of bark 0.5 survival
 
   ! Environmental risk
-  ! Frisk = EnvF0 ! Fixed environment risk
+#ifdef FixedFireRisk
+  Frisk = EnvF0 ! Fixed environment risk
+#else
   P_ET = vegn%annualPrcp / vegn%annualPET
   Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
+#endif
 
   ! Ignition probabilities of grasses and woody PFTs
   Ign_G0 = 0.0
