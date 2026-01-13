@@ -31,14 +31,14 @@ program BiomeE
   ! Get the starting time
   CALL SYSTEM_CLOCK(COUNT=start_count)
 
-  ! ---------------------------- Model Initialization  ---------------------------------
-  ! Read in model initialization and plant & soil parameters
-  call model_para_init(fnml)
+  ! Read in model setting and control namelist (for both global and site runs)
+  call read_init_namelist(fnml)
 
 #ifdef GlobalRun
   ! ---------- Global or regional run with netcdf input files -----
-  ! Read in the namelist for global data and model settings
-  call read_global_setting(fnml)
+  call read_global_setting(fnml) ! Read in global data and model run settings
+  call Preset_GlobalPFTs()   ! Hardwired global pft parameters
+  call model_para_init(fnml) ! Update hardwired global PFT & soil parameters from namelists
 
 #ifdef Use_InterpolatedData
   call read_GridLonLat(GridListFile,file_exists)
@@ -126,6 +126,7 @@ program BiomeE
 #else
 
   ! ---------- Single site run with csv/txt forcing data input ----------
+  call model_para_init(fnml) ! Read in PFT & soil parameters from namelists
   call setup_forcingdata(climfile)
   call setup_output_files()
   call BiomeE_main()

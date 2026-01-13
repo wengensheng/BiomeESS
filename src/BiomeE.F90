@@ -54,7 +54,6 @@ module BiomeE_mod
 
  ! ------ public subroutines ---------
  public :: BiomeE_main
- !public :: BiomeE_Initialization, BiomeE_run, BiomeE_end
 
  contains
 
@@ -244,10 +243,10 @@ subroutine BiomeE_run()
         call vegn_hydraulic_states(vegn,real(seconds_per_year))
 
         ! Fire disturbance
-        if(do_fire) call vegn_fire (vegn, real(seconds_per_year))
+        if(do_fire) call vegn_fire(vegn,real(seconds_per_year))
 
         ! Yearly mean temperature
-        vegn%YearlyTmp = vegn%YearlyTmp/ 365.0
+        vegn%YearlyTmp = vegn%YearlyTmp/365.0
 
 #ifdef SingleTreeTest
         call vegn_SingleCohort_annual_update(vegn)

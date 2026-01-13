@@ -637,7 +637,7 @@ real :: A_MI         = 20.0  ! shape parameter of Fire risk vs. P/PET curve
 real :: FSBM0        = 0.2   ! kgC m-2, grass fire severity parameter, as a function of grass BM
 real :: mu0_FireG    = 0.2   ! mortality rates of grasses due to fire
 real :: mu0_FireW    = 0.99  ! mortality rates of trees due to fire
-real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012. 
+real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012.
                              ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
 real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
 
@@ -650,7 +650,7 @@ real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from m
 real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
 
 ! -------- PFT-specific parameters ----------
-! c4grass  c3grass  temp-decid  tropical  evergreen  BE  BD  BN  NE  ND  G  D  T  A
+! Define parameter arrays with the same value. Preset of global PFTs is in Preset_GlobalPFTs
 integer :: pt(0:MSPECIES)       = 0 ! 0 for C3, 1 for C4
 integer :: phenotype(0:MSPECIES)= 0 ! 0 for Deciduous, 1 for evergreen
 integer :: lifeform(0:MSPECIES) = 1 ! life form of PFTs: 0 for grasses, 1 for trees
@@ -694,10 +694,8 @@ real :: IgniteP(0:MSPECIES)  = 0.02 ! Ignition probability at fire-friendly clim
 
 ! root parameters
 real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
-!(/0.8, 0.8,0.8, 0.8, 0.8,0.8,0.8,0.8,1.0,1.0,0.6, 1.0, 0.55, 0.9, 0.55, 0.55/)
 real :: rho_FR(0:MSPECIES)   = 200 ! woody density, kgC m-3
-real :: root_r(0:MSPECIES)   = 2.9E-4
-!(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
+real :: root_r(0:MSPECIES)   = 2.9E-4 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.6 ! 0.29 !
 real :: root_perm(0:MSPECIES) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
 real :: Kw_root(0:MSPECIES)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
@@ -792,11 +790,11 @@ real :: init_cohort_seedC(M_initialCH)  = 0.0  ! initial biomass of seeds, kg C/
 real :: init_cohort_nsc(M_initialCH)    = .01  ! initial non-structural biomass, kg C/individual
 
 ! Initial soil type, carbon and nitrogen at a vegn tile, Weng 2012-10-24
-integer :: soiltype       = SandyLoam  ! lookup table for soil hydrologic parameters
+integer :: soiltype    = SandyLoam  ! lookup table for soil hydrologic parameters
 real :: init_fast_SOC  = 0.5  ! initial fast soil C, kg C/m2
 real :: init_slow_SOC  = 2.0  ! initial slow soil C, kg C/m2
-real :: init_mineralN     = 0.005  ! Mineral nitrogen pool, (kg N/m2)
-real :: N_input           = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
+real :: init_mineralN  = 0.005  ! Mineral nitrogen pool, (kg N/m2)
+real :: N_input        = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
 ! Climate-vegetation initialization, 09/20/2025
 real :: Pr_thld = 300.0  ! Desert shrub vs trees, not used!
@@ -987,9 +985,8 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
 !----------------------------------------------------------------
 subroutine model_para_init(fnml)
   character(len=*),intent(in) :: fnml
-  call read_init_namelist(fnml)
   call initialize_soilpars(fnml)
-  call initialize_PFT_data(fnml)
+  call initialize_PFT_pars(fnml)
 end subroutine model_para_init
 
 !============================ Subroutines =================================
@@ -1088,9 +1085,9 @@ end subroutine read_global_setting
 ! For global testing of tree-grass-desert shrub and evergreen-deciduous forests
 ! Eight PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
 ! Weng, 09/06/2025
-subroutine Set_ESS_PFT_parameters()
+subroutine Preset_GlobalPFTs()
   implicit none
-  !------------------------ Update ESS PFT parameters --------------------------------
+  !------------------------ Pre-setup global PFT parameters --------------------
   !---------------------0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
    pt(0:N_EST)        = [1,      0,      0,      0,      0,      0,      0,      0     ] ! 0 for C3, 1 for C4
    phenotype(0:N_EST) = [0,      0,      1,      0,      1,      0,      0,      0     ] ! 0: Deciduous, 1: evergreen
@@ -1129,8 +1126,8 @@ subroutine Set_ESS_PFT_parameters()
    s_hu(0:N_EST)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
    AWD_crit(0:N_EST)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
 
-   write(*,*)"ESS PFTs'parameters implemented"
-end subroutine Set_ESS_PFT_parameters
+   write(*,*)"GlobalPFT parameters implemented for Biome ESS"
+end subroutine Preset_GlobalPFTs
 
 !========================Parameter initialization =========================
 subroutine initialize_soilpars(fnml)
@@ -1169,15 +1166,11 @@ subroutine initialize_soilpars(fnml)
 end subroutine initialize_soilpars
 
 ! ================================================
-subroutine initialize_PFT_data(fnml)
+subroutine initialize_PFT_pars(fnml)
   character(len=*),intent(in) :: fnml
 
   ! ---- local vars
   integer :: i
-
-  ! For tree-grass-desert shrub and evergreen-deciduous forest transition, 09/07/2025
-  ! Eight PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD, 6: Nfx, 7: DeS
-  call set_ESS_PFT_parameters()
 
   ! Update parameters in vegn_parameters_nml
   call read_vegn_namelist(fnml)
@@ -1281,7 +1274,7 @@ subroutine initialize_PFT_data(fnml)
   do i = 0, MSPECIES
      call init_derived_species_data(spdata(i))
   enddo
-  end subroutine initialize_pft_data
+  end subroutine initialize_PFT_pars
 
 !------------------------------------------
  subroutine init_derived_species_data(sp)

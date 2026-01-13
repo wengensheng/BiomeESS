@@ -1015,14 +1015,14 @@ subroutine grass_thinning(vegn)
   type(cohort_type), pointer :: cc    ! current cohort
   real :: TopGC, r_rem ! for grass thinning
   integer :: i
-  
+
   ! Calculate grass CA (TopGC) in the top layer for grass thinning
   TopGC = 0.0
   do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       if(cc%layer > 1) exit
       associate ( sp => spdata(cc%species))
-        if(sp%lifeform == 0 .and. cc%layer == 1 .and. cc%status == LEAF_ON) then 
+        if(sp%lifeform == 0 .and. cc%layer == 1 .and. cc%status == LEAF_ON) then
           TopGC = TopGC + cc%Acrown*cc%nindivs
         endif
       end associate
@@ -2862,7 +2862,7 @@ subroutine vegn_fire (vegn, deltat)
   !  Frisk: Environmental fire occurrence probability, a function of environmental
   !  conditions that can result in fire if fuel is available
   !  (i.e., (match-dropping probability). It should be function of environmental conditions
-  !  Vegetation flammability parameters, Ign_G0, Ign_W0: 
+  !  Vegetation flammability parameters, Ign_G0, Ign_W0:
   !  Ignition probability for grasses and woody plants once environmental conditions meet Frisk
   !  For grasses: Ign_G0 = 1.0; For woody plants: Ign_W0 = 0.025
   !  mu0_FireW, mu0_FireG: mortality rates of trees and grasses due to fire
@@ -2899,7 +2899,7 @@ subroutine vegn_fire (vegn, deltat)
   P_Ign   = 1.0 - (1.- flmb_G * Frisk)*(1. - flmb_W * Frisk)
 
   ! fire effects on vegetation and soil
-  CALL RANDOM_NUMBER(r_Ign) ! r_Ign    = rand(0) !
+  CALL RANDOM_NUMBER(r_Ign) ! r_Ign = rand(0)
   Cfire = 0.0; Cfast = 0.0; Cslow = 0.0
   Nfire = 0.0; Nfast = 0.0; Nslow = 0.0
   if(r_Ign < P_Ign)then ! Fire_ON
@@ -2928,9 +2928,9 @@ subroutine vegn_fire (vegn, deltat)
       deadtrees = cc%nindivs * MIN(1.0,mu_fire * deltat/seconds_per_year) ! individuals / m2
 
       ! Carbon and Nitrogen release by burning
-      Cfire = Cfire + (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw+cc%bHW)     + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
-      Cfast = Cfast + (0.8*cc%NSC + 0.3*cc%bl    + 0.0*(cc%bsw+cc%bHW)     + 1.0*cc%br    + 1.0*cc%seedC) * deadtrees
-      Cslow = Cfast + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW)     + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
+      Cfire = Cfire + (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
+      Cfast = Cfast + (0.8*cc%NSC + 0.3*cc%bl    + 0.0*(cc%bsw+cc%bHW) + 1.0*cc%br    + 1.0*cc%seedC) * deadtrees
+      Cslow = Cfast + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
       Nfire = Nfire + (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
       Nfast = Nfast + (0.8*cc%NSN + 0.3*cc%leafN + 0.0*(cc%swN+cc%hwN) + 1.0*cc%rootN + 1.0*cc%seedN) * deadtrees
       Nslow = Nslow + (0.0*cc%NSN + 0.0*cc%leafN + 0.8*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
@@ -2958,8 +2958,9 @@ subroutine vegn_fire (vegn, deltat)
         r_Ign < P_Ign, vegn%TreeCA, vegn%GrassCA
 #endif
   endif
+
   ! Record Frisk and Pfire for output
-  vegn%Frisk = Frisk 
+  vegn%Frisk = Frisk
   vegn%Pfire = P_Ign
 
 end subroutine vegn_fire
