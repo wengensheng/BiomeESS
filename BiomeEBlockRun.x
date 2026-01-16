@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# Strings that will be replaced
+# Tag a block ID to the model run
 G2='Grid2'
-
-# namelist file (Parameter and model setting file)
 nmlID='Block'$G2
 echo "Model run: " $nmlID
 
