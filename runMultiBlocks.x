@@ -55,7 +55,7 @@ if [[ "$GridRS" == "1" ]]; then
 else
     # For 1x1 grid
     END_VAL=14001
-    INCREMENT=500 # 800 # Optional step value 
+    INCREMENT=500 # 800 # Optional step value
 fi
 Grid1=($(seq $START_VAL $INCREMENT $END_VAL))
 for (( i=0; i<${#Grid1[@]}; i++ )); do
@@ -70,7 +70,7 @@ echo "Grid2: ${Grid2[@]}"
 fr1='./BiomeEBlockRun.x'
 fp1='./para_files/parameters_GlobalBlock.nml'
 echo "Runscript: " $fr1
-echo "nml file: " $fp1 
+echo "nml file: " $fp1
 
 for iB in "${!Grid2[@]}"; do
   runID='Block'$iB
@@ -78,9 +78,9 @@ for iB in "${!Grid2[@]}"; do
   fr2='./run'$runID'.x'
   #fp2='./para_files/parameters_'$nmlID'.nml'
   fp2=$DIRECTORY'/parameters_'$nmlID'.nml'
-  
+
   echo "Block ${Grid1[$iB]}-${Grid2[$iB]}"
-  
+
   # Setup run script and parameter files
   if [ "${Grid1[$iB]}" -lt "${Grid2[$iB]}" ]; then
     echo "Runscript: " $fr2
@@ -93,7 +93,7 @@ for iB in "${!Grid2[@]}"; do
         -e "s/ResGrid/$GridRS/g" \
         -e "s#TargetDir#$DIRECTORY#g" \
     $fp1 > $fp2
-    
+
     echo "Run block ${Grid1[$iB]}-${Grid2[$iB]}"
     cat $fp2 > ./para_files/input.nml
     chmod u+x $fr2
@@ -104,5 +104,5 @@ for iB in "${!Grid2[@]}"; do
     rm $fr2
     rm ./para_files/input.nml
   fi
-  
+
 done

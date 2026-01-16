@@ -1,3 +1,4 @@
+! Model tests notes:
 ! Updated 11/06/2025: PFT parameters and N loss parameters, tropicl critical temperature
 ! Updated 11/09/2025:
 ! The previous parameters (11/06) generate high coverage of N fixers in boreal regions
@@ -123,6 +124,7 @@
 
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
+! Must be commented out if 'DO_Climate_VEG' is defined in the runscript
 ! init_cohort_N   = 2, ! total 5
 ! init_cohort_sps = 4,  5,  6,  1
 
@@ -139,11 +141,10 @@ TcrTREE = 10.0,   ! degree C, Tropical trees vs Temperate/boreal trees
 TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 
 ! Model run
-filepath_in = './input/',
-!filepath_out= '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun/',
+filepath_in = './input/',   ! For site run forcing data only
 filepath_out= 'TargetDir/', ! './output/',
 runID       = 'ESSPT_', ! Output file name
-climfile    = 'KNZ_amb.csv', ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
+climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
@@ -214,13 +215,19 @@ C0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    12.0,   0.0     ! Ca
 /
 
 &global_setting_nml
+! For netCDF files
 ncfilepath   = '/media/eweng/HD2/weng/Data/unzippedNC/',
 ncversion    = 'crujra.v2.4.5d.',
+veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/'
+veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
+WriteForcing = .False., ! .True., ! Write interpolated grid forcing data
+
+! For the interpolated grid data files
 int_fpath  = '/media/eweng/HD2/weng/Data/interp30yrs/',
 int_prefix = 'crujra.v2.4.5d.',
 GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
-WriteForcing = .False., ! .True., !
-! Total grids are 56395 when Lat 61~320 and Lon 1~720
+
+! Total vegetated grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 720, !  209,
 LowerLat = 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
@@ -231,4 +238,3 @@ grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = ResGrid
 /
-

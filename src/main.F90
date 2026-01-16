@@ -1,6 +1,6 @@
 ! ------------ Model driver -------------
 ! ------------- 08/30/2022 --------------
-! BiomeE global version 0.1, Ensheng Weng, 07/18/2025
+! BiomeE global version 0.1, Ensheng Weng, 07/18/2025, almost done, 01/15/2025
 
 program BiomeE
   !use omp_lib

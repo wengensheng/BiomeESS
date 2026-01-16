@@ -17,19 +17,24 @@ font = {'family' : 'serif',
         'weight' : 'normal',
         'size'   : 14,
         }
-
-#%% Path and file names
-fpath = '../output/GlobalTest/'
-fout  = '../output/GlobalTest/'
 dtype = ['Ecosystem_yearly','Cohort_yearly']
-N_pfts = 8 # total PFTs at one site, 4
 N_Layers = 3
 PI = 3.1415926
 DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
+#%% Path and file names
+#fpath = '../output/GlobalTest/'
+#fout  = '../output/GlobalTest/'
+#N_pfts = 8 # total PFTs at one site, 4
+
+fpath = '../output/'
+fout  = '../output/'
+N_pfts = 2 # total PFTs at one site, 4
+PFT1 = 1 # The number of the first PFT
 
 # Site and experiments
-siteID = 'ED_Nin12LNE09D12' # 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-PFTID = np.array(['PFT0','PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7'])
+# 'BCI_SOM40_LMA0.12_Rain1.0_NoDrtMu_DC0' # 'ED_Nin12LNE09D12' # 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
+siteID = 'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
+PFTID = np.array(['PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7','PFT8'])
 
 #%% Retrieve data
 # File name
@@ -53,13 +58,13 @@ f.close()
 # Land Data dimensions
 rows = len(LandYrV)
 col  = len(LandYrV[1]) - 1
-LandYr = LandYrV[0:rows,1:col].astype(np.float)
+LandYr = LandYrV[0:rows,1:col].astype(float)
 totYrs = rows
 
 # Total cohort yearly dimensions
 rows = len(CCYrV)
 col  = len(CCYrV[1]) - 1
-CCYr = CCYrV[0:rows,0:col].astype(np.float)
+CCYr = CCYrV[0:rows,0:col].astype(float)
 totCCL = rows
 
 #% Data calculation and analysis
@@ -98,7 +103,7 @@ stemmort_size = np.zeros((totYrs,16, N_pfts))
 
 for i in range(totCCL):
     iYr  = int(CCYr[i,1])-1
-    iPFT = int(CCYr[i,4]) # -1
+    iPFT = int(CCYr[i,4]) - PFT1
     iLayer = min(2,int(CCYr[i,5])-1)
     Nstem1[iYr,iPFT] = Nstem1[iYr,iPFT]  + CCYr[i,6]
     BA[iYr,iPFT]  = BA[iYr,iPFT]  + CCYr[i,6]*PI*0.25*CCYr[i,11]**2

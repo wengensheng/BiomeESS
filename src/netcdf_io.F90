@@ -36,7 +36,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    integer :: N_yrs,totL,N_vars
    integer :: istat1,i,j,k,m,iLon,iLat
    real :: dataarray(Nlon,Nlat,Ntime),timearray(Ntime)
-   real :: PFTdata(144,90,9),VegFraction(144,90)
+   real :: PFTdata(144,90,9),VegFraction(144,90) ! Not used, Weng 01/15/2026
    real :: Vegetated(Nlon,Nlat)
    logical :: Do_HighResVegMap = .True. ! 0.5x0.5
 
@@ -50,7 +50,10 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    if(Do_HighResVegMap) then ! Read in 0.5x0.5 Vegetation coverage data file
      write(*,*)'Reading ',trim(fveg)
      call nc_read_2D(fveg,trim(Vegstr),Nlon,Nlat,Vegetated(:,:))
+
    else                      ! Read in 2x2.5 BiomeE PFT data
+     ! Not used anymore. I keep this section here just in case we are
+     ! going to define grid PFTs with a vegetation map. 01/15/2026
      write(*,*)'Reading ',trim(fnc)
      do i=1, 9
        call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
