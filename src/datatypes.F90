@@ -430,6 +430,7 @@ type :: vegn_tile_type
   real :: psi_soil(soil_L)  ! MPa
   real :: K_soil(soil_L)    ! Kg H2O/(m2 s MPa)
   real :: soilWater         ! kg m-2 in root zone
+  real :: soilWP0           ! kg m-2, minimum soil water (at WILTPT)
 
   ! Vegetation water content
   real :: W_leaf  ! Leaves
@@ -648,6 +649,7 @@ real :: fDON         = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON      = 0.05    ! SON release rate per year
 real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
 real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
+real :: fdsvN        = 0.33    ! Fraction of soluable N exposed to runoff (01/17/2026, Weng)
 
 ! -------- PFT-specific parameters ----------
 ! Define parameter arrays with the same value. Preset of global PFTs is in Preset_GlobalPFTs
@@ -973,7 +975,8 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,       &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                            &
   ! Soil
-  K0SOM,fsc_fine,fsc_wood,K_DeNitr,rho_SON,f_M2SOM,fDON,etaN,   &
+  K0SOM,fsc_fine,fsc_wood,f_M2SOM,                              &
+  K_DeNitr,rho_SON,fDON,etaN,fdsvN,                             &
   ! Fire model parameters, updated 11/25/2025
   EnvF0,MI0Fire,FSBM0,A_MI,mu0_FireW,mu0_FireG,f_bk,r_BK0,IgniteP
 

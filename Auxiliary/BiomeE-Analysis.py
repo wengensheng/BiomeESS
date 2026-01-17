@@ -33,7 +33,7 @@ PFT1 = 1 # The number of the first PFT
 
 # Site and experiments
 # 'BCI_SOM40_LMA0.12_Rain1.0_NoDrtMu_DC0' # 'ED_Nin12LNE09D12' # 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-siteID = 'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
+siteID = 'BCI_Nfix_Ndep1.4gN_K0SC.05' #'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
 PFTID = np.array(['PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7','PFT8'])
 
 #%% Retrieve data
@@ -69,7 +69,8 @@ totCCL = rows
 
 #% Data calculation and analysis
 #LandC = np.copy(LandYr[:,[5,6,7,14,15]]) # GPP, Rauto, Rh, PlantC, SoilC
-LandC = np.copy(LandYr[:,[3,4,5,12,13]]) # GPP, Rauto, Rh, PlantC, SoilC
+#LandC = np.copy(LandYr[:,[3,4,5,12,13]]) # GPP, Rauto, Rh, PlantC, SoilC
+LandC = np.copy(LandYr[:,[3,4,5,13,14]]) # GPP, Rauto, Rh, PlantC, SoilC
 
 AGB = np.zeros(totYrs)
 Rh  = np.zeros(totYrs)
