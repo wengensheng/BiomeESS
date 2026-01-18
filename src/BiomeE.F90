@@ -78,8 +78,7 @@ subroutine BiomeE_initialization()
   if(do_closedN_run) then
     K_DeNitr  = 0.0 ! rate of a year, 2.5
     rho_SON   = 0.0 ! organic nitrogen release rate
-    etaN      = 0.0 ! Nitrogen loss rate with runoff
-    fDON      = 0.0 ! DON fraction
+    fdsvN     = 0.0 ! Maximum nitrogen loss rate with runoff
     N_input   = 0.0 ! N input, kg N m-2 yr-1
   endif
 

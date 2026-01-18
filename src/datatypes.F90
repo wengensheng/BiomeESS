@@ -648,8 +648,8 @@ real :: K_DeNitr     = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON         = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON      = 0.05    ! SON release rate per year
 real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
-real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
-real :: fdsvN        = 0.33    ! Fraction of soluable N exposed to runoff (01/17/2026, Weng)
+real :: etaN         = 0.02    ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
+real :: fdsvN        = 0.30    ! Max fraction of soluble N taken out by runoff (01/17/2026, Weng)
 
 ! -------- PFT-specific parameters ----------
 ! Define parameter arrays with the same value. Preset of global PFTs is in Preset_GlobalPFTs
@@ -974,7 +974,7 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,fsup0_WD,CR0_LF,CR0_WD, &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,       &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                            &
-  ! Soil
+  ! Soil BGC
   K0SOM,fsc_fine,fsc_wood,f_M2SOM,                              &
   K_DeNitr,rho_SON,fDON,etaN,fdsvN,                             &
   ! Fire model parameters, updated 11/25/2025
@@ -1177,6 +1177,9 @@ subroutine initialize_PFT_pars(fnml)
 
   ! Update parameters in vegn_parameters_nml
   call read_vegn_namelist(fnml)
+
+  ! Update derived vegn & soil BGC parameters
+  etaN = max(etaN,1.0e-6)
 
   ! initialize vegetation data structure
   spdata%pt       = pt
