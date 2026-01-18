@@ -106,7 +106,7 @@ for iB in "${!Grid2[@]}"; do
     # BiomeE is hardwired to read "input.nml" from "./para_files/"
     cat $fp2 > ./para_files/input.nml
     chmod u+x $fr2
-    nohup ./$fr2 > $runTag'_'$runID'.out' 2>&1 &
+    #nohup ./$fr2 > $runTag'_'$runID'.out' 2>&1 &
 
     # wait 10 seconds before removing "input.nml" and starting
     # the next model run so that the model has time to get started

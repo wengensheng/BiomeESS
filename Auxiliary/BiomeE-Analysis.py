@@ -26,14 +26,14 @@ DBHbins=[0.0,0.01,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,99]
 #fout  = '../output/GlobalTest/'
 #N_pfts = 8 # total PFTs at one site, 4
 
-fpath = '../output/'
-fout  = '../output/'
+fpath = '/media/eweng/HD2/weng/NfixationRuns/' # '../output/'
+fout  = '/media/eweng/HD2/weng/NfixationRuns/' # '../output/'
 N_pfts = 2 # total PFTs at one site, 4
 PFT1 = 1 # The number of the first PFT
 
 # Site and experiments
 # 'BCI_SOM40_LMA0.12_Rain1.0_NoDrtMu_DC0' # 'ED_Nin12LNE09D12' # 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-siteID = 'BCI_Nfix_Ndep1.4gN_K0SC.05' #'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
+siteID = 'BCI_Nfix_Ndep0.8gN_K0SC.05' #'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
 PFTID = np.array(['PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7','PFT8'])
 
 #%% Retrieve data

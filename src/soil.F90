@@ -119,8 +119,8 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
 
   ! ------- DON and mineralN losses ----------
   K_dn = A * K_DeNitr * dt_fast_yr
-  K_rf = fdsvN * (1.0 - exp(-etaN/fNlossMax * runoff))
-  !K_rf = fdsvN * runoff/(vegn%soilWP0+vegn%soilwater+runoff)
+  !K_rf = 0.2 * (1.0 - exp(-etaN/0.2 * runoff)) ! 0.2 is maximum loss rate per step when runoff is extremely high
+  K_rf = fdsvN * runoff/(50.0 * vegn%FLDCAP + runoff) ! Fully mixed with top 50 mm soil water
 
   ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
   dN_SOM4 = fDON * d_N(4) * K_rf + vegn%SON(4) * rho_SON * A * dt_fast_yr

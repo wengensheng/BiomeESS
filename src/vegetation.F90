@@ -2457,7 +2457,8 @@ subroutine initialize_soil(vegn)
    vegn%FLDCAP   = soilpars(soiltype)%vwc_fc
    vegn%WILTPT   = soilpars(soiltype)%vwc_wilt
    vegn%wcl      = soilpars(soiltype)%vwc_sat
-   vegn%soilWP0  = vegn%WILTPT * sum(thksl(:)) * 1000.0 ! Minimum soil water
+   vegn%soilZ    = sum(thksl(:))
+   vegn%soilWP0  = vegn%WILTPT * vegn%soilZ * 1000.0 ! Minimum soil water
    vegn%thetaS   = 1.0
    call SoilWater_psi_K(vegn)
 end subroutine initialize_soil

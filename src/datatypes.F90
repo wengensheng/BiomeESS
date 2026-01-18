@@ -310,7 +310,6 @@ type :: cohort_type
   ! ---- water uptake-related variables
   real :: root_length(soil_L) ! m
   real :: rootarea ! total fine root area per tree
-  real :: rootdepth  ! maximum depth of fine roots
   real :: ArootL(soil_L) = 0.0 ! Root area per layer
   real :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
   real :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
@@ -429,6 +428,7 @@ type :: vegn_tile_type
   real :: freewater(soil_L) ! Available water in each layer
   real :: psi_soil(soil_L)  ! MPa
   real :: K_soil(soil_L)    ! Kg H2O/(m2 s MPa)
+  real :: soilZ             ! Soil depth
   real :: soilWater         ! kg m-2 in root zone
   real :: soilWP0           ! kg m-2, minimum soil water (at WILTPT)
 
