@@ -35,7 +35,7 @@ PFT1 = 1 # The number of the first PFT
 
 # Site and experiments
 # 'BCI_SOM40_LMA0.12_Rain1.0_NoDrtMu_DC0' # 'ED_Nin12LNE09D12' # 'LowF1_' # 'PFTs1_' # 'BCI_Nfixer_Ndep0.0gN' # 'BCI_hydro' #'ORNL_test'
-siteID = 'BCI_Nfix_Ndep0.8gN_K0SC.05' #'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
+siteID = 'BCI_Nfix_Ndep0.6gN_K0SC.05' #'BCI_SOM32_LMA0.10_Rain0.5_DrtMu_EP1'
 PFTID = np.array(['PFT1','PFT2','PFT3','PFT4','PFT5','PFT6','PFT7','PFT8'])
 
 #%% Retrieve data
@@ -70,9 +70,13 @@ CCYr = CCYrV[0:rows,0:col].astype(float)
 totCCL = rows
 
 #% Data calculation and analysis
+# Ecosystem variables
+#	0	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	25	26	27	28	29	30	31	32	33	34	35	36	37	38	39	40	41	42	43	44	45	46	47	48	49	50	51	52	53	54	55
+# year CAI LAI GPP Rauto	 Rh burned Tmp   rain	   SoilWater Transp   Evap Runoff plantC  soilC plantN  soilN    NSC  SeedC  leafC  rootC    swC    hwC    NSN  SeedN  leafN  rootN    swN    hwN  fineL strucL  McrbC	     fastSOC	     slowSOC  fineN strucN  McrbN	     fastSON	     slowSON	    mineralN  WC1_5 WC2_25 WC3_50 WC4_100 WC5_120 N_fxed N_uptk  Nm_SL  Nm_FR N_loss TreeCA	     GrassCA	     BMgrass    PET  Frisk  Pfire
 #LandC = np.copy(LandYr[:,[5,6,7,14,15]]) # GPP, Rauto, Rh, PlantC, SoilC
 #LandC = np.copy(LandYr[:,[3,4,5,12,13]]) # GPP, Rauto, Rh, PlantC, SoilC
 LandC = np.copy(LandYr[:,[3,4,5,13,14]]) # GPP, Rauto, Rh, PlantC, SoilC
+LandN = np.copy(LandYr[:,[15,16,39,45,49]]) # PlantN, SoilN, mineralN, FixedN, Nloss
 
 AGB = np.zeros(totYrs)
 Rh  = np.zeros(totYrs)
@@ -205,29 +209,40 @@ plt.plot(xyear, cveg)
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('Biomass\n (KgC m$^{-2}$)', fontdict=font)
 
-# Ecosystem C
+# Ecosystem C & N
+#LandC = np.copy(LandYr[:,[3,4,5,13,14]]) # GPP, Rauto, Rh, PlantC, SoilC
+#LandN = np.copy(LandYr[:,[15,16,39,45,49]]) # PlantN, SoilN, mineralN, FixedN, Nloss
+
 plt.figure(3) #
 plt.clf()
 plt.subplot(221)
-plt.plot(xyear, LandC[:,0])
+plt.plot(xyear, LandC[:,[0,1]])
+plt.title('(a)', x=0.1, y=0.9)
+plt.legend((['GPP','NPP']),loc='best')
 plt.xlabel('Year', fontdict=font)
-plt.ylabel('GPP\n(KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
+plt.ylabel('C flux\n(KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
 
 plt.subplot(222)
-plt.plot(xyear, LandC[:,1])
+plt.plot(xyear, LandC[:,[3,4]])
+plt.title('(b)', x=0.1, y=0.9)
+plt.legend((['Vegn','Soil']),loc='best')
 plt.xlabel('Year', fontdict=font)
-plt.ylabel('Rauto\n(KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
+plt.ylabel('C stock \n(KgC m$^{-2}$)', fontdict=font)
 
 plt.subplot(223)
-plt.plot(xyear, LandC[:,3])
+plt.plot(xyear, LandN[:,[0,1]])
+plt.title('(c)', x=0.1, y=0.9)
+plt.legend((['Vegn','Soil']),loc='best')
 plt.xlabel('Year', fontdict=font)
-plt.ylabel('Plant C \n(KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
+plt.ylabel('N stock \n(gN m$^{-2}$)', fontdict=font)
 
 plt.subplot(224)
-plt.plot(xyear, LandC[:,4])
+plt.plot(xyear, LandN[:,[3,4]])
+plt.title('(d)', x=0.1, y=0.9)
+plt.legend((['FixedN','LostN']),loc='best')
 plt.xlabel('Year', fontdict=font)
-plt.ylabel('Soil C \n(KgC m$^{-2}$ yr$^{-1}$)', fontdict=font)
-
+plt.ylabel('N stock \n(gN m$^{-2}$ yr$^{-1}$)', fontdict=font)
+plt.ylim((0,10))
 
 # Size classes
 xbins = np.arange(16)
@@ -248,7 +263,6 @@ plt.subplot(223)
 plt.plot(xyear, CA_grow[:,0], CA_mort[:,0])
 plt.xlabel('Year', fontdict=font)
 plt.ylabel('dCA (m$^{2}$/ha)', fontdict=font)
-plt.ylim((0,500))
 
 plt.subplot(224)
 plt.plot(xyear, CA_grow[:,1], CA_mort[:,1])
