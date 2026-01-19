@@ -49,7 +49,7 @@
  integer, parameter :: N_SOM = 5
  !  fineL, structuralL, microbial, fast, slow
  real, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
- real, parameter :: CUEmax0 = 0.4 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
+ real, parameter :: CUEmax0 = 0.1 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
 
  ! Soil water layers
  integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
@@ -648,7 +648,7 @@ real :: K_DeNitr     = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON         = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON      = 0.05    ! SON release rate per year
 real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
-real :: etaN         = 0.02    ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
+real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
 real :: fdsvN        = 0.30    ! Max fraction of soluble N taken out by runoff (01/17/2026, Weng)
 
 ! -------- PFT-specific parameters ----------

@@ -56,13 +56,12 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   real :: CUEf0, CUEs0
   real :: extraN, N_m    ! Mineralized nitrogen
   real :: N_loss ! Mineral Nitrogen loss, kg N m-2 step-1
-  real :: runoff ! kg m-2 /step
   real :: K_rf, K_dn ! Maximum loss rate, runoff loss rate, and denitrofication rate
   real :: dN_SOM4, dN_SOM5 ! Dissolved organic N loss, kg N m-2 step-1
   real :: A  ! decomp rate reduction due to moisture and temperature
-  real :: McrbMax = 0.2 ! kgC m-2, Maximum microbial biomass (as a function of SON)
-  real :: fm_dcmp = 1.0
-  real :: fm_grow = 1.0 ! microbial growth rate, !Test for microbial controls on decomposition
+  !real :: McrbMax = 0.2 ! kgC m-2, Maximum microbial biomass (as a function of SON)
+  !real :: fm_dcmp = 1.0
+  !real :: fm_grow = 1.0 ! microbial growth rate, !Test for microbial controls on decomposition
   integer :: i
 
   ! Default microbial CUE for fast and slow SOM
@@ -71,7 +70,6 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
 
   ! Environmental scalar
   A = A_function(tsoil,thetaS)
-  runoff = vegn%runoff  !mm/step, weng 2017-10-15
 
   ! Put litters into soil to start decomposition processes
   do i=1, 2
@@ -84,43 +82,43 @@ subroutine Soil_BGC (vegn, tsoil, thetaS)
   enddo
 
   !For microbial controlled decomposition (Birch effect) ! Weng, 02/05/2025
-  McrbMax = Max(2.0E-5,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/2.0)
-  fm_dcmp = 1.0 ! 1.0 - exp(-5.0 * Max(0.05,vegn%SOC(3)/McrbMax))
-  fm_grow = 1.0 ! Max(0.0,1.0 - vegn%SOC(3)/McrbMax)
+  !McrbMax = Max(2.0E-5,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/2.0)
+  !fm_dcmp = 1.0 ! 1.0 - exp(-5.0 * Max(0.05,vegn%SOC(3)/McrbMax))
+  !fm_grow = 1.0 ! Max(0.0,1.0 - vegn%SOC(3)/McrbMax)
 
-  ! Turnover of SOM3 (microbial)
-  d_C(3) = vegn%SOC(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
-  d_N(3) = vegn%SON(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
-  ! Turnover rates of SOM4 and SOM5
-  do i=4, 5
+  !! Turnover of SOM3 (microbial), commented, 01/18/2026
+  !d_C(3) = vegn%SOC(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
+  !d_N(3) = vegn%SON(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
+  ! Turnover rates of SOM4 and SOM5 (included SOM3, 01/18/2026)
+  do i=3, 5 ! 4-->3, 01/18/2026
      !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
-     d_C(i) = vegn%SOC(i) * A * K0SOM(i) * dt_fast_yr * fm_dcmp
-     d_N(i) = vegn%SON(i) * A * K0SOM(i) * dt_fast_yr * fm_dcmp
+     d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr * A ! * fm_dcmp
+     d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr * A ! * fm_dcmp
   enddo
 
   ! New microbes grown from SOM decomposition
   ! "d_N(i)/CN0SOM(3)" --> "d_N(i)*CN0SOM(3)", found by Qi Yang (06/16/2025)
-  newM(4) = Min(CUEf0*d_C(4), d_N(4)*CN0SOM(3)) * fm_grow
-  newM(5) = Min(CUEs0*d_C(5), d_N(5)*CN0SOM(3)) * fm_grow
+  newM(4) = Min(CUEf0*d_C(4), d_N(4)*CN0SOM(3)) ! * fm_grow
+  newM(5) = Min(CUEs0*d_C(5), d_N(5)*CN0SOM(3)) ! * fm_grow
   newM(3) = (newM(4)+newM(5)) * (1.-f_M2SOM)
 
   ! Update C and N pools
   vegn%SOC(3) = vegn%SOC(3) - d_C(3) + newM(3)
-  vegn%SOC(4) = vegn%SOC(4) - d_C(4) + d_C(3) + newM(4) * f_M2SOM
+  vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM !  + d_C(3) ! moved d_C(3) out
   vegn%SOC(5) = vegn%SOC(5) - d_C(5) + newM(5) * f_M2SOM
 
   vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3)/CN0SOM(3)
-  vegn%SON(4) = vegn%SON(4) - d_N(4) + d_N(3) + newM(4)/CN0SOM(3) * f_M2SOM
+  vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4)/CN0SOM(3) * f_M2SOM !  + d_N(3) ! moved d_N(3) out
   vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5)/CN0SOM(3) * f_M2SOM
 
   ! Mineralized nitrogen and Heterotrophic respiration, kg m-2 step-1
-  vegn%rh = d_C(4) + d_C(5) - newM(4) - newM(5) !
-  N_m     = d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
+  vegn%rh = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5)) !
+  N_m     = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
 
   ! ------- DON and mineralN losses ----------
   K_dn = A * K_DeNitr * dt_fast_yr
-  !K_rf = fdsvN * (1.0 - exp(-etaN*runoff/fdsvN)) ! fdsvN is the max. loss rate when runoff is extremely high
-  K_rf = fdsvN * runoff/(fdsvN/etaN + runoff)
+  !K_rf = fdsvN * (1.0 - exp(-etaN*vegn%runoff/fdsvN)) ! fdsvN is the max. loss rate when runoff is extremely high
+  K_rf = fdsvN * vegn%runoff/(fdsvN/etaN + vegn%runoff)
 
   ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
   dN_SOM4 = fDON * d_N(4) * K_rf + vegn%SON(4) * rho_SON * A * dt_fast_yr
@@ -214,6 +212,7 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
 
   !! soil water refill by precipitation and leaking from upper to lower layers
   W_refill =  max(0.0, forcing%rain*step_seconds)
+  LeakW(:) = 0.0
   do i=1, soil_L
     ! for non-leak setting (WaterLeakRate = 0.0) when rainfall is zero
     if(W_refill <= 0.0 .and. WaterLeakRate <= 0.0) exit
@@ -232,7 +231,7 @@ subroutine SoilWaterDynamics(forcing,vegn)    !outputs
     ! Next layer
     W_refill = W_refill - W_add(i) + LeakW(i)
   enddo
-  vegn%runoff = W_refill ! total runoff, mm step-1
+  vegn%runoff = Max(W_refill,0.0) ! total runoff, mm step-1
 
   ! Total soil water
   vegn%wcl(:)       = vegn%wcl(:) +  WaterBudgetL(:)/(thksl(:)*1000.0)
