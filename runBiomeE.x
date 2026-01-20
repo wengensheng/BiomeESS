@@ -24,6 +24,7 @@ gfortran $FSRCS $CPPFLAGS -o ess
 #fparameter='./para_files/parameters_BCI_EG_DC.nml'
 #fparameter='./para_files/parameters_Konza_test.nml'
 fparameter='./para_files/parameters_ORNL_test.nml'
+#fparameter='./para_files/parameters_BCItest.nml'
 
 echo $fparameter
 
