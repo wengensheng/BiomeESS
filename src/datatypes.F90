@@ -49,7 +49,6 @@
  integer, parameter :: N_SOM = 5
  !  fineL, structuralL, microbial, fast, slow
  real, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
- real, parameter :: CUEmax0 = 0.1 ! CN0fastSOC  = 15.0 ! 25.0 ! 15.0
 
  ! Soil water layers
  integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
@@ -298,14 +297,15 @@ type :: cohort_type
 
   ! ---- Nitrogen model related parameters
   real :: NSNmax = 0.
-  real :: NSN    = 0.    ! non-structural N pool
+  real :: NSN    = 0. ! non-structural N pool
   real :: leafN  = 0.
   real :: swN    = 0.
   real :: hwN    = 0. ! N of heart wood
   real :: rootN  = 0. ! N of fine roots
   real :: seedN  = 0. !
+  real :: fixedN = 0. ! fixed N at each stem per tree
+  real :: extraC = 0. ! The carbon amount that is re-allocated to woody tissues due to N deficit
   real :: N_uptake = 0.
-  real :: fixedN ! fixed N at each stem per tree
 
   ! ---- water uptake-related variables
   real :: root_length(soil_L) ! m
@@ -643,7 +643,8 @@ real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 20
 real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
 
 ! Soil organic matter decomposition
-real :: K0SOM(5)     = (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
+real :: K0SOM(5)     = [0.8, 0.25, 3.0, 1.5, 0.05] ! (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
+real :: CUEmax0      = 0.1 ! Maximum carbon use efficiency of microbes
 real :: K_DeNitr     = 8.0     ! mineral Nitrogen turnover rate
 real :: fDON         = 0.02    ! fraction of DON production in decomposition
 real :: rho_SON      = 0.05    ! SON release rate per year
@@ -901,7 +902,7 @@ integer  :: F_Recovery     = 5 ! Interval (yrs) of recovering initial species
 integer  :: equi_days      = 0 ! 100 * 365
 integer  :: steps_per_hour = 1
 real     :: step_hour      = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
-real     :: step_seconds   = 1.0 * 3600.0
+real     :: step_seconds   = 3600.0
 real     :: dt_fast_yr     = 1.0 / (365.0 * 24.0) ! Hourly
 real     :: dt_daily_yr    = 1.0/365.0 ! Daily
 
@@ -975,7 +976,7 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,       &
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                            &
   ! Soil BGC
-  K0SOM,fsc_fine,fsc_wood,f_M2SOM,                              &
+  K0SOM,CUEmax0,fsc_fine,fsc_wood,f_M2SOM,                      &
   K_DeNitr,rho_SON,fDON,etaN,fdsvN,                             &
   ! Fire model parameters, updated 11/25/2025
   EnvF0,MI0Fire,FSBM0,A_MI,mu0_FireW,mu0_FireG,f_bk,r_BK0,IgniteP

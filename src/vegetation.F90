@@ -750,16 +750,21 @@ subroutine vegn_respiration(forcing,vegn)
        r_stem   = fnsc*sp%gamma_SW  * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
        r_root   = fnsc*sp%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
 
-       ! Facultive Nitrogen fixation
-       !if(cc%NSN < cc%NSNmax .and. cc%NSC > 0.5 * NSCtarget)then
-       !   cc%fixedN = sp%R0_Nfix * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-       !else
-       !   cc%fixedN = 0.0 ! sp%R0_Nfix * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-       !endif
+       if(sp%R0_Nfix > 1.0e-6)then
+          ! Baseline nitrogen fixation (Obligate)
+          cc%fixedN = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
+          r_Nfix    = sp%C0_Nfix * cc%fixedN ! KgC tree-1 step-1
 
-       ! Obligate Nitrogen Fixation
-       cc%fixedN = fnsc*sp%R0_Nfix * cc%br * tf * dt_fast_yr ! kgN tree-1 step-1
-       r_Nfix    = sp%C0_Nfix * cc%fixedN ! KgC tree-1 step-1
+#ifdef FaculativeNfixation
+          ! Extra C for N fixation (Facultative)
+          cc%fixedN = cc%fixedN + cc%extraC/steps_per_day / sp%C0_Nfix !
+          r_Nfix    = r_Nfix    + cc%extraC/steps_per_day
+          cc%nsc    = cc%nsc    - cc%extraC/steps_per_day
+#endif
+       else
+          cc%fixedN = 0.0
+          r_Nfix    = 0.0
+       endif
 
        ! Total Respiration and NPP
        cc%resl = r_leaf + r_stem ! tree-1 step-1
@@ -844,11 +849,11 @@ subroutine vegn_growth(vegn)
   type(cohort_type), pointer :: cc    ! current cohort
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: G_LFR  ! amount of carbon spent on leaf and root growth
-  real :: Cgrowth, Ngrowth
+  real :: Cgrowth, Nsupply
   real :: dBL, dBR, dBSW, dSeed ! growth of leaf, root, sapwood, and seeds, kgC/individual
   real :: DBH0 ! the DBH before grwoth
-  real :: N_demand, Nsupplyratio, extraN, N_used
-  real :: r_N_SD
+  real :: Ndemand, extraN, N_used
+  real :: r_N_SD ! Nitrogen Supply/Demand ratio
   integer :: i,j,k
 
   !Allocate C_gain to tissues
@@ -861,7 +866,7 @@ subroutine vegn_growth(vegn)
     endif
 
     ! Get carbon from NSC pool
-    call fetch_CN_for_growth(cc,Cgrowth,Ngrowth) ! Weng, 2017-10-19
+    call fetch_CN_for_growth(cc,Cgrowth,Nsupply) ! Weng, 2017-10-19
     associate (sp => spdata(cc%species))
       ! Allocate carbon to the plant pools
       ! calculate the carbon spent on growth of leaves and roots
@@ -891,35 +896,23 @@ subroutine vegn_growth(vegn)
           G_LFR = dBL + dBR
       endif
 
+      ! ------------Updated 2026-01-21 from a scheme 2019-05-21 -----------
       !! Nitrogen adjustment on allocations between wood and leaves+roots
+      ! same ratio reduction for leaf, root, and seed if(Nsupply < Ndemand), 
       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
-      N_demand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
-      !! Nitrogen available for all tisues, including wood
-      if(Ngrowth < N_demand)then
-        ! a new method, Weng, 2019-05-21
-        ! same ratio reduction for leaf, root, and seed if(Ngrowth < N_demand)
-        Nsupplyratio = MAX(0.0, MIN(1.0, Ngrowth/N_demand))
-        !r_N_SD = (Ngrowth-Cgrowth/sp%CNsw0)/(N_demand-Cgrowth/sp%CNsw0) ! fixed wood CN
-        r_N_SD = Ngrowth/N_demand ! = Nsupplyratio
-        if(sp%lifeform > 0 )then ! for trees
-           if(r_N_SD<=1.0 .and. r_N_SD>0.0)then
-            dBSW =  dBSW + (1.0-r_N_SD) * (dBL+dBR+dSeed)
-            dBR  =  r_N_SD * dBR
-            dBL  =  r_N_SD * dBL
-            dSeed=  r_N_SD * dSeed
-           elseif(r_N_SD <= 0.0)then
-            dBSW = Ngrowth/sp%CNsw0
-            dBR  =  0.0
-            dBL  =  0.0
-            dSeed=  0.0
-           endif
-        else ! for grasses
-           dBSW =  dBSW + (1.0 - Nsupplyratio) * (dBL+dBR+dSeed) ! Nsupplyratio * dBSW !
-           dBR  =  Nsupplyratio * dBR
-           dBL  =  Nsupplyratio * dBL
-           dSeed=  Nsupplyratio * dSeed
-        endif
+      Ndemand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
+      if(Ndemand > 0.0 .and. Nsupply < Ndemand) then
+        r_N_SD = MAX(0.0, Nsupply/Ndemand) ! N supply-demand ratio
+        cc%extraC   = (1.0-r_N_SD) * (dBL+dBR+dSeed)
+        dBSW =  dBSW + cc%extraC
+        dBR  =  r_N_SD * dBR
+        dBL  =  r_N_SD * dBL
+        dSeed=  r_N_SD * dSeed
+      else
+        cc%extraC   = 0.0
       endif
+
+      ! Update plant pools
       cc%NSC   = cc%NSC   - dBR - dBL -dSeed - dBSW
       cc%resg  = 0.5 * (dBR+dBL+dSeed+dBSW) !  daily
       !update biomass pools
@@ -935,11 +928,11 @@ subroutine vegn_growth(vegn)
       cc%rootN = cc%rootN + dBR   /sp%CNroot0
       cc%seedN = cc%seedN + dSeed /sp%CNseed0
       cc%swN = cc%swN + f_N_add * cc%NSN + &
-         (Ngrowth - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
+         (Nsupply - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
       !extraN = max(0.0,cc%swN+cc%hwN - (cc%bsw+cc%bHW)/sp%CNsw0)
       extraN   = max(0.0,cc%swN - cc%bsw/sp%CNsw0)
       cc%swN = cc%swN - extraN
-      cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - Ngrowth !! update NSN
+      cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - Nsupply !! update NSN
 
       ! accumulated C allocated to leaf, root, and wood
       cc%NPPleaf = cc%NPPleaf + dBL
@@ -1045,7 +1038,7 @@ subroutine grass_thinning(vegn)
 end subroutine grass_thinning ! daily
 
 !========= Calculate carbon and nitrogen supply ==========================
-subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
+subroutine fetch_CN_for_growth(cc,Cgrowth,Nsupply)
   !@sum Fetch C from labile C pool according to the demand of leaves and fine roots,
   !@+   and the push of labile C pool
   !@+   Daily call.
@@ -1053,7 +1046,7 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
 
   implicit none
   type(cohort_type), intent(inout) :: cc
-  real, intent(out):: Cgrowth, Ngrowth
+  real, intent(out):: Cgrowth, Nsupply
 
   !------local var -----------
   logical :: woody
@@ -1077,7 +1070,7 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Ngrowth)
     N_push = max(0.0,cc%NSN)/(days_per_year*sp%tauNSC)
 
     Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
-    Ngrowth = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
+    Nsupply = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
 
   end associate
 
