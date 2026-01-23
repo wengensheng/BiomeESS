@@ -160,6 +160,7 @@ type spec_data_type
   !  real :: N_roots0    ! root biomass at half of max. N-uptake rate
   real :: R0_Nfix    ! Reference N fixation rate (kgN kgC-1 root)
   real :: C0_Nfix    ! Carbon cost of N fixation (kgC kgN-1)
+  real :: S_facuN    ! Intensity of faculative N fixation, 0~1 usage of extraC
   ! wood traits
   real :: rho_wood     ! woody density, kg C m-3 wood
   real :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
@@ -193,7 +194,6 @@ type spec_data_type
   ! Default C/N ratios
   real :: CNleaf0
   real :: CNroot0
-  real :: CNsw0
   real :: CNwood0
   real :: CNseed0
   ! phenology
@@ -591,20 +591,21 @@ real :: heat_capacity_dry(n_dim_soil_types) = &
 real :: diff_S0 = 0.2 ! percentage of the difference between cohorts for merging
 
 ! Growth parameters:
+integer :: MaxGrassLyr = 2  ! Maximal layers that grasses can survive
+real :: MaxGrassAge = 3.0   ! Maximum grass  age (years)
+real :: MaxGrassCA = 1.2    ! Maximum grass CA in the top layer
 real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
 real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
 real :: GR_factor = 0.33    ! growth respiration factor
 real :: l_fract   = 0.0     ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
 real :: retransN  = 0.0     ! retranslocation coefficient of Nitrogen
-real :: f_iniBSW  = 0.1     !0.01, 0.2
+real :: f_iniBSW  = 0.1     ! 0.01, 0.2
 real :: f_N_add   = 0.02    ! re-fill of N for sapwood
 real :: f_LFR_max = 0.85    ! max allocation to leaves and fine roots each step
 real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
 real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
 real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
-real :: MaxGrassCA = 1.2 ! Maximum grass CA in the top layer
-real :: MaxGrassAge = 3.0   ! Maximum grass  age (years)
-integer :: MaxGrassLyr = 2    ! Maximal layers that grasses can survive
+real :: C0_Nfix   = 12.0      ! gC/gN, carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
 
 ! Plant hydraulics
 real :: psi0_osm = 0.5     ! MPa, leaf osmotic pressure
@@ -766,12 +767,12 @@ real :: f_plc(0:MSPECIES)    = 0.05  ! fraction of WTC loss due to low water pot
 
 ! C/N ratios for plant pools
 real :: CNleaf0(0:MSPECIES)  = 25. ! C/N ratios for leaves
-real :: CNsw0(0:MSPECIES)    = 350.0 ! C/N ratios for woody biomass
-real :: CNwood0(0:MSPECIES)  = 350.0 ! C/N ratios for woody biomass
+real :: CNwood0(0:MSPECIES)  = 300. ! 350.0 ! C/N ratios for woody biomass
 real :: CNroot0(0:MSPECIES)  = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
 real :: CNseed0(0:MSPECIES)  = 20.0 ! C/N ratios for seeds
 real :: R0_Nfix(0:MSPECIES)  = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
-real :: C0_Nfix(0:MSPECIES)  = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
+!real :: C0_Nfix(0:MSPECIES) = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
+real :: S_facuN(0:MSPECIES)  = 0.0  ! Faculative N fixation intensity, 0~1. 0: Non; 1.0 full extraC usage
 
 ! Standard cohorts for the ESS PFTs, Weng, 09/12/2025
 !--------------------------------------0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
@@ -959,8 +960,8 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   rho_N_up0, N_roots0,                                          &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,    &
-  R0_Nfix, C0_Nfix, f_N_add, fNSNmax, transT, l_fract,retransN, &
-  gamma_L, gamma_LN, gamma_SW, gamma_FR,                        &
+  R0_Nfix, C0_Nfix, S_facuN, f_N_add, fNSNmax, retransN,         &
+  transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   MaxGrassLyr, MaxGrassAge, MaxGrassCA,                         &
   ! Phenology
   Tc0_OFF, Tc0_ON, T0_chill, betaON, betaOFF, AWD_crit,         &
@@ -970,7 +971,7 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   AgeRepro,v_seed,s0_plant,prob_g,prob_e,                       &
   mu0_topL,D0mu,A_un,A_sd,B_sd,A_DBH,B_DBH,s_hu,W_mu0,          &
   ! Tisue C/N ratios
-  LNbase,CN0leafST,CNleaf0,CNsw0,CNwood0,CNroot0,CNseed0,       &
+  LNbase, CN0leafST, CNleaf0, CNwood0, CNroot0, CNseed0,        &
   ! Plant hydraulics
   WTC0_WD,kx0_WD,psi0_WD,p50_WD,ths0_WD,fsup0_WD,CR0_LF,CR0_WD, &
   TK0_leaf,kx0, WTC0, psi0_LF,psi0_osm,r_DF,m0_WTC,m0_kx,       &
@@ -1123,8 +1124,7 @@ subroutine Preset_GlobalPFTs()
    gdd_par2(0:N_EST)  = [800.,   600.,   0.0,    600.,   0.0,    600.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
    gdd_par3(0:N_EST)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
    R0_Nfix(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
-   C0_Nfix(0:N_EST)   = [12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0,   12.0  ] ! N fixation carbon cost: 12 gC/gN
-
+   S_facuN(0:N_EST)    = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.2,    0.0   ] ! Intensity of faculative N fixation
    ! Not used in current model setting (Global ESS PFTs)
    gdd_crit(0:N_EST)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
    s_hu(0:N_EST)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
@@ -1256,12 +1256,12 @@ subroutine initialize_PFT_pars(fnml)
 
   !! Nitrogen Weng 2012-10-24
   !spdata%CNleaf0 = CNleaf0
-  spdata%CNsw0    = CNsw0
   spdata%CNwood0  = CNwood0
   spdata%CNroot0  = CNroot0
   spdata%CNseed0  = CNseed0
   spdata%R0_Nfix  = R0_Nfix
-  spdata%C0_Nfix  = C0_Nfix
+  spdata%C0_Nfix  = C0_Nfix ! scalar, not an array, same cost for all PFTs
+  spdata%S_facuN  = S_facuN
 
   ! Phenology
   spdata%Tc0_OFF  = Tc0_OFF ! C

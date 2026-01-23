@@ -724,7 +724,8 @@ subroutine vegn_respiration(forcing,vegn)
   real :: r_leaf, r_stem, r_root
   real :: Acambium  ! cambium area, m2/tree
   real :: fnsc,NSCtarget ! used to regulation respiration rate
-  real :: r_Nfix    ! respiration due to N fixation
+  real :: r_Nfix    ! respiration cost for N fixation
+  real :: facuC     ! Carbon available for faculative N fixation 
   integer :: i
 
   !-----------------------
@@ -750,17 +751,16 @@ subroutine vegn_respiration(forcing,vegn)
        r_stem   = fnsc*sp%gamma_SW  * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
        r_root   = fnsc*sp%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
 
-       if(sp%R0_Nfix > 1.0e-6)then
+       if(sp%R0_Nfix > 1.0e-6)then ! Nitrogen fixer
           ! Baseline nitrogen fixation (Obligate)
           cc%fixedN = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
           r_Nfix    = sp%C0_Nfix * cc%fixedN ! KgC tree-1 step-1
 
-#ifdef FaculativeNfixation
           ! Extra C for N fixation (Facultative)
-          cc%fixedN = cc%fixedN + cc%extraC/steps_per_day / sp%C0_Nfix !
-          r_Nfix    = r_Nfix    + cc%extraC/steps_per_day
-          cc%nsc    = cc%nsc    - cc%extraC/steps_per_day
-#endif
+          facuC = sp%S_facuN * cc%extraC / steps_per_day ! Carbon used for faculative N fixation
+          cc%fixedN = cc%fixedN + facuC / sp%C0_Nfix !
+          r_Nfix    = r_Nfix    + facuC
+          cc%nsc    = cc%nsc    - facuC
        else
           cc%fixedN = 0.0
           r_Nfix    = 0.0
@@ -900,7 +900,7 @@ subroutine vegn_growth(vegn)
       !! Nitrogen adjustment on allocations between wood and leaves+roots
       ! same ratio reduction for leaf, root, and seed if(Nsupply < Ndemand), 
       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
-      Ndemand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNsw0
+      Ndemand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
       if(Ndemand > 0.0 .and. Nsupply < Ndemand) then
         r_N_SD = MAX(0.0, Nsupply/Ndemand) ! N supply-demand ratio
         cc%extraC   = (1.0-r_N_SD) * (dBL+dBR+dSeed)
@@ -929,8 +929,8 @@ subroutine vegn_growth(vegn)
       cc%seedN = cc%seedN + dSeed /sp%CNseed0
       cc%swN = cc%swN + f_N_add * cc%NSN + &
          (Nsupply - dBL/sp%CNleaf0 - dBR/sp%CNroot0 - dSeed/sp%CNseed0)
-      !extraN = max(0.0,cc%swN+cc%hwN - (cc%bsw+cc%bHW)/sp%CNsw0)
-      extraN   = max(0.0,cc%swN - cc%bsw/sp%CNsw0)
+      !extraN = max(0.0,cc%swN+cc%hwN - (cc%bsw+cc%bHW)/sp%CNwood0)
+      extraN   = max(0.0,cc%swN - cc%bsw/sp%CNwood0)
       cc%swN = cc%swN - extraN
       cc%NSN   = cc%NSN   + extraN - f_N_add*cc%NSN - Nsupply !! update NSN
 
@@ -1593,7 +1593,7 @@ subroutine setup_seedling(cc,totC,totN)
      ! Nitrogen pools
      cc%leafN  = cc%bl/sp%CNleaf0
      cc%rootN  = cc%br/sp%CNroot0
-     cc%swN  = cc%bsw/sp%CNsw0
+     cc%swN  = cc%bsw/sp%CNwood0
      cc%hwN  = cc%bHW/sp%CNwood0
      cc%seedN  = 0.0
      cc%NSN    = totN - (cc%leafN+cc%rootN+cc%swN) !cc%br/sp%CNroot0
@@ -2481,12 +2481,12 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
     cc%seedC  = 0.0
 
     ! N pools
-    cc%NSN    = 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
-    cc%leafN  = cc%bl/sp%CNleaf0
-    cc%rootN  = cc%br/sp%CNroot0
-    cc%swN  = cc%bsw/sp%CNsw0
-    cc%hwN  = cc%bHW/sp%CNwood0
-    cc%seedN  = 0.0
+    cc%NSN   = 5.0*(cc%bl_max/sp%CNleaf0 + cc%br_max/sp%CNroot0)
+    cc%leafN = cc%bl/sp%CNleaf0
+    cc%rootN = cc%br/sp%CNroot0
+    cc%swN   = cc%bsw/sp%CNwood0
+    cc%hwN   = cc%bHW/sp%CNwood0
+    cc%seedN = 0.0
 
     ! ----------Plant hydraulics----------
     cc%Nrings  = 1
