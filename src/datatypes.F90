@@ -697,9 +697,9 @@ real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
 real :: IgniteP(0:MSPECIES)  = 0.02 ! Ignition probability at fire-friendly climates
 
 ! root parameters
-real :: alpha_FR(0:MSPECIES) = 1.2 ! Fine root turnover rate yr-1
-real :: rho_FR(0:MSPECIES)   = 200 ! woody density, kgC m-3
-real :: root_r(0:MSPECIES)   = 2.9E-4 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
+real :: alpha_FR(0:MSPECIES)  = 1.2 ! Fine root turnover rate yr-1
+real :: rho_FR(0:MSPECIES)    = 200 ! woody density, kgC m-3
+real :: root_r(0:MSPECIES)    = 2.9E-4 !(/1.1e-4, 1.1e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 2.9e-4, 1.1e-4, 1.1e-4, 2.2e-4, 2.2e-4/)
 real :: root_zeta(0:MSPECIES) = 0.6 ! 0.29 !
 real :: root_perm(0:MSPECIES) = 0.5 ! kg H2O m-2 hour-1, defined by Weng
 real :: Kw_root(0:MSPECIES)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 6.3±3.1×10−8 (m s−1 MPa−1)
@@ -720,21 +720,21 @@ real :: Kw_root(0:MSPECIES)   = 6.3E-8 * 1.e3 ! (kg m-2 s−1 MPa−1) ! Ref: 
 !real :: N_roots0(0:MSPECIES) = 0.3 ! kgC m-2
 
 ! Respiration rates
-real :: gamma_L(0:MSPECIES) = 0.02 !
-real :: gamma_LN(0:MSPECIES)= 70.5 ! 25.0  ! kgC kgN-1 yr-1
-real :: gamma_SW(0:MSPECIES)= 0.02 ! 0.08 ! kgC m-2 Acambium yr-1
-real :: gamma_FR(0:MSPECIES)= 0.6 ! 12 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
+real :: gamma_L(0:MSPECIES)  = 0.02 !
+real :: gamma_LN(0:MSPECIES) = 70.5 ! 25.0  ! kgC kgN-1 yr-1
+real :: gamma_SW(0:MSPECIES) = 0.02 ! 0.08 ! kgC m-2 Acambium yr-1
+real :: gamma_FR(0:MSPECIES) = 0.6 ! 12 !kgC kgN-1 yr-1 ! 0.6: kgC kgN-1 yr-1
 
 ! Phenology parameters
-real :: Tc0_OFF(0:MSPECIES) = 15. ! Critical temperature (C) for phenology OFF
-real :: Tc0_ON(0:MSPECIES)  = 10. ! Critical temperature (C) for phenology ON
-real :: gdd_crit(0:MSPECIES)= 300. ! Replaced by an equation: sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd)
-real :: AWD_crit(0:MSPECIES)= 0.7  ! Critical plant water availability factor (0~1)
-real :: betaON(0:MSPECIES)  = 0.2  ! Critical soil moisture for phenology ON
-real :: betaOFF(0:MSPECIES) = 0.1  ! Critical soil moisture for phenology OFF
-real :: gdd_par1(0:MSPECIES)= 30.0   !50.d0   ! -68.d0
-real :: gdd_par2(0:MSPECIES)= 800. ! 650.d0  !800.d0  ! 638.d0
-real :: gdd_par3(0:MSPECIES)= -0.02 ! -0.01d0
+real :: Tc0_OFF(0:MSPECIES)  = 15. ! Critical temperature (C) for phenology OFF
+real :: Tc0_ON(0:MSPECIES)   = 10. ! Critical temperature (C) for phenology ON
+real :: gdd_crit(0:MSPECIES) = 300. ! Replaced by an equation: sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3*cc%ncd)
+real :: AWD_crit(0:MSPECIES) = 0.7  ! Critical plant water availability factor (0~1)
+real :: betaON(0:MSPECIES)   = 0.2  ! Critical soil moisture for phenology ON
+real :: betaOFF(0:MSPECIES)  = 0.1  ! Critical soil moisture for phenology OFF
+real :: gdd_par1(0:MSPECIES) = 30.0   !50.d0   ! -68.d0
+real :: gdd_par2(0:MSPECIES) = 800. ! 650.d0  !800.d0  ! 638.d0
+real :: gdd_par3(0:MSPECIES) = -0.02 ! -0.01d0
 ! Reproduction prarameters
 real :: AgeRepro(0:MSPECIES) = 5.0  ! year
 real :: v_seed(0:MSPECIES)   = 0.1  ! fraction of allocation to wood+seeds
@@ -766,8 +766,8 @@ real :: f_supply(0:MSPECIES) = 0.5
 real :: f_plc(0:MSPECIES)    = 0.05  ! fraction of WTC loss due to low water potential (per day)
 
 ! C/N ratios for plant pools
-real :: CNleaf0(0:MSPECIES)  = 25. ! C/N ratios for leaves
-real :: CNwood0(0:MSPECIES)  = 300. ! 350.0 ! C/N ratios for woody biomass
+real :: CNleaf0(0:MSPECIES)  = 25.  ! C/N ratios for leaves
+real :: CNwood0(0:MSPECIES)  = 350. ! C/N ratios for woody biomass
 real :: CNroot0(0:MSPECIES)  = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
 real :: CNseed0(0:MSPECIES)  = 20.0 ! C/N ratios for seeds
 real :: R0_Nfix(0:MSPECIES)  = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)

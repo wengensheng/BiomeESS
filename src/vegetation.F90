@@ -193,9 +193,9 @@ subroutine vegn_Wood_turnover(vegn)
 
      ! Wood turnover
      alpha_WD = mortality_rate(cc)
-     dCSW = cc%bsw   * alpha_WD
+     dCSW = cc%bsw * alpha_WD
      dNSW = cc%swN * alpha_WD
-     dCHW = cc%bHW   * alpha_WD
+     dCHW = cc%bHW * alpha_WD
      dNHW = cc%hwN * alpha_WD
 
      ! Update plant C and N pools
@@ -2018,29 +2018,30 @@ subroutine vegn_SW2HW_hydro(vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
-  real :: D_hw, woodC, newSW, woodN, dSW
+  real :: Atrunk, D_hw, SW1, dSW, r_sw
   integer :: i
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     !call Sap2HeartWood_fixedHv(cc)
      ! Woody plants only
      associate (sp => spdata(cc%species) )
-     if(sp%lifeform>0)then
-       ! Calculate heartwood diameter
-       D_hw  = SQRT(Max(0.0, PI*(cc%DBH/2)**2 - cc%Asap)/PI)
-       woodC  = cc%bsw + cc%bHW
-       woodN  = cc%swN + cc%hwN
+     if(sp%lifeform>0 .and. cc%bsw > 0.01)then
+       ! Heartwood diameter and new SW
+       Atrunk = PI * cc%DBH * cc%DBH * 0.25
+       D_hw   = 2.0 * SQRT(Max(0.0, (Atrunk - cc%Asap)/PI) )  ! Diameter, 2*r
+       SW1    = sp%alphaBM * (cc%dbh**sp%thetaBM - D_hw**sp%thetaBM)
 
-       ! Convert sapwood to heart wood
-       newSW = sp%alphaBM * (cc%dbh**sp%thetaBM - D_hw**sp%thetaBM)
-       dSW   = cc%bSW - newSW
-       cc%W_stem = cc%W_stem - cc%W_stem * dSW/cc%bSW
-       cc%W_dead = cc%W_dead + cc%W_stem * dSW/cc%bSW
-       cc%bHW    = cc%bHW + dSW
-       cc%bsw    = woodC - cc%bHW
-       cc%swN    = woodN * cc%bsw/woodC
-       cc%hwN    = woodN * cc%bHW/woodC
+       ! Convertion of sapwood to heartwood (C, N, and water)
+       if( cc%bsw > SW1)then
+          dSW       = cc%bsw - SW1
+          r_sw      = dSW / cc%bsw
+          cc%bsw    = cc%bsw    - dSW
+          cc%bhw    = cc%bhw    + dSW
+          cc%swN    = cc%swN    - cc%swN    * r_sw
+          cc%hwN    = cc%hwN    + cc%swN    * r_sw
+          cc%W_stem = cc%W_stem - cc%W_stem * r_sw
+          cc%W_dead = cc%W_dead + cc%W_stem * r_sw
+       endif
      endif
      end associate
 
