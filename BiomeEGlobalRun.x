@@ -10,7 +10,7 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=''
 CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DDO_Climate_VEG'
-CPPFLAGS+=' -DZippedNCfiles'
+CPPFLAGS+=' -DZippedNCfiles -DZip_outputs'
 #CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
@@ -36,7 +36,7 @@ echo $fparameter
 cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess_global
+./ess_global
 
 rm ./para_files/input.nml
 rm ess_global
