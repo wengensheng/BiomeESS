@@ -1083,7 +1083,7 @@ subroutine read_global_setting(fnml)
   LowerLon = max(LowerLon, 1)
   UpperLon = min(UpperLon, Nlon)
   LowerLat = max(LowerLat, 1)
-  UpperLat = max(UpperLat, Nlat)
+  UpperLat = min(UpperLat, Nlat)
 end subroutine read_global_setting
 
 !=============================================================================

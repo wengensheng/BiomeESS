@@ -725,7 +725,7 @@ subroutine vegn_respiration(forcing,vegn)
   real :: Acambium  ! cambium area, m2/tree
   real :: fnsc,NSCtarget ! used to regulation respiration rate
   real :: r_Nfix    ! respiration cost for N fixation
-  real :: facuC     ! Carbon available for faculative N fixation 
+  real :: facuC     ! Carbon available for faculative N fixation
   integer :: i
 
   !-----------------------
@@ -898,7 +898,7 @@ subroutine vegn_growth(vegn)
 
       ! ------------Updated 2026-01-21 from a scheme 2019-05-21 -----------
       !! Nitrogen adjustment on allocations between wood and leaves+roots
-      ! same ratio reduction for leaf, root, and seed if(Nsupply < Ndemand), 
+      ! same ratio reduction for leaf, root, and seed if(Nsupply < Ndemand),
       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
       Ndemand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
       if(Ndemand > 0.0 .and. Nsupply < Ndemand) then
@@ -2177,7 +2177,7 @@ subroutine calculate_Asap_Ktrunk (cc)
   cc%Asap   = 0.0
   do i=1, MIN(cc%Nrings, Ysw_max)
     cc%Asap     = cc%Asap   + cc%Aring(i) * cc%farea(i)
-    cc%Kring(i) = cc%farea(i)*cc%Aring(i) * cc%Kx(i)/maxval(cc%Lring(:))
+    cc%Kring(i) = cc%farea(i)*cc%Aring(i) * cc%Kx(i)/HT2Lpath(cc%height) ! maxval(cc%Lring(:))
     cc%Ktrunk   = cc%Ktrunk + cc%Kring(i)
   enddo
   cc%Atrunk = 0.25 * PI * cc%DBH**2 ! Just for updating merged cohorts
@@ -2285,7 +2285,7 @@ real function HT2MPa(ht) result(P) ! water gravational pressure
 end function HT2MPa
 
 !==========================================
-real function HT2Lpath(ht) result(L) ! water path lenght from root to leaves
+real function HT2Lpath(ht) result(L) ! water path length from root to leaves
   real, intent(in):: ht ! Plant height, m
   !---------------------
   L = ht * 1.5 + 0.2 ! m
