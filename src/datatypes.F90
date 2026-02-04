@@ -851,13 +851,13 @@ end type grid_initial_type
 ! Model mechanisms setting
 logical  :: Do_DroughtMu        = .True. ! Drought-induced mortality, Lichstein (2024)
 logical  :: MergeLowDenCohorts  = .True.
-logical  :: update_annualLAImax = .False.
+logical  :: update_LAImax       = .False.
 logical  :: do_RecoverSP        = .False.
 logical  :: do_fire             = .False.
 logical  :: do_closedN_run      = .True.
 logical  :: do_VariedKx         = .True. ! trunk new xylem has the same kx or not
 logical  :: do_VariedWTC0       = .True.
-logical  :: do_WD_mort_function = .False.
+logical  :: Do_mu0_F_WDen       = .False.
 
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
@@ -940,9 +940,9 @@ namelist /initial_state_nml/ &
     PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
-    update_annualLAImax, MergeLowDenCohorts,F_Recovery,         &
+    update_LAImax, MergeLowDenCohorts,F_Recovery,         &
     Do_DroughtMu, do_RecoverSP, do_closedN_run, do_fire,        &
-    do_VariedKx, do_variedWTC0, do_WD_mort_function
+    do_VariedKx, do_variedWTC0, Do_mu0_F_WDen
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
 namelist /soil_data_nml/ soiltype, WaterLeakRate, thksl, GMD,   &
@@ -1339,7 +1339,7 @@ subroutine initialize_PFT_pars(fnml)
    sp%f_plc    = fplc0_WD * exp(A_plc0_WD*R_WD)
 
    ! Mortality rate as a function of wood density
-   if(do_WD_mort_function)then
+   if(Do_mu0_F_WDen)then
       sp%mu0_topL = 0.048 - 0.024 * R_WD
    endif
    !write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%mu0_topL
