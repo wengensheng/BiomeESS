@@ -107,8 +107,9 @@ program BiomeE
 
     ! ------- Run model -----------
     call BiomeE_main()
+#ifdef Zip_outputs
     call zip_output_files()
-
+#endif
     ! ---------- Time stamp -------------
     call cpu_time(end_time)
     elapsed_time = end_time - last_time

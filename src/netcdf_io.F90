@@ -44,16 +44,16 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
    PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
    Vegstr= 'TOTAL_VEG'
-   fnc   = trim(fpath)//'BiomeE-PFTs.nc'
-   fveg  = trim(veg_path)//trim(veg_file)
 
    if(Do_HighResVegMap) then ! Read in 0.5x0.5 Vegetation coverage data file
+     fveg  = trim(veg_path)//trim(veg_file)
      write(*,*)'Reading ',trim(fveg)
      call nc_read_2D(fveg,trim(Vegstr),Nlon,Nlat,Vegetated(:,:))
 
    else                      ! Read in 2x2.5 BiomeE PFT data
      ! Not used anymore. I keep this section here just in case we are
      ! going to define grid PFTs with a vegetation map. 01/15/2026
+     fnc   = trim(fpath)//'BiomeE-PFTs.nc'
      write(*,*)'Reading ',trim(fnc)
      do i=1, 9
        call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
@@ -107,7 +107,8 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     totL     = N_yrs * Ntime
     grid_No1 = 1
     grid_No2 = N_VegGrids ! ! Run all the grids in GridLonLat
-    write(*,*)"Valid grids: ", N_VegGrids
+    write(*,*)'LowerLon,UpperLon,LowerLat,UpperLat', LowerLon, UpperLon,LowerLat,UpperLat
+    write(*,*)'Valid grids: grid_No1, grid_No2', grid_No1, grid_No2
 
     ! Allocate data arrays
     !allocate(CRUData(totL, 4, LowerLon:UpperLon, LowerLat:UpperLat))
