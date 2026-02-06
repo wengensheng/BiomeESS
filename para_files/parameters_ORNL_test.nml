@@ -12,7 +12,7 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW   = 0.1,
 K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
-K_DeNitr   = 1.2  ! 2.4 ! rate of a year, 2.5
+K_DeNitr   = 1.2, ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! 0.02 ! organic nitrogen release rate
 etaN       = 0.01,! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
@@ -64,7 +64,6 @@ gdd_par1  = 50.,    0.0,    0.0,    0.0,    0.0,    0.0,     ! 50.d0   ! These t
 gdd_par2  = 800.,   0.0,    600.,   600.,   600.,   600.,    ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,
 R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     ! 0.03 kgN kgRootC-1 yr-1
-C0_Nfix   = 12.,    12.,    12.,    12.,    12.,    12.,     ! N fixation carbon cost: 12 gC/gN
 AgeRepro  = 0,      5,      5,      5,      5,      5
 /
 

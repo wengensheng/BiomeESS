@@ -85,8 +85,7 @@ betaOFF   = 0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.4,    0.1,    ! Cr
 gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
 gdd_par2  = 800.,   300.,   0.0,    600.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
-R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0,    ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
-C0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    12.0,   0.0     ! Carbon cost per unit N fixation, 15 gC/gN (11/17)
+R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0    ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
 /
 
 &global_setting_nml

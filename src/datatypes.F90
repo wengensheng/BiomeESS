@@ -134,7 +134,7 @@ type spec_data_type
   real :: leafTK       ! leaf thickness, m
   real :: rho_leaf     ! leaf mass density (kgC/m3)
   real :: alpha_ps     ! photosynthesis efficiency
-  real :: m_cond       ! factor of stomatal conductance
+  real :: m_cond       ! Stomatal Sensitivity (g1): how "cautious" a plant is. low m indicates a water-conservative strategy
   real :: Vmax         ! max rubisco rate, mol m-2 s-1
   real :: Vannual      ! annual productivity per unit area at full fun (kgC m-2 yr-1)
   real :: gamma_L      ! leaf respiration coeficient (per yr)
@@ -771,7 +771,6 @@ real :: CNwood0(0:MSPECIES)  = 350. ! C/N ratios for woody biomass
 real :: CNroot0(0:MSPECIES)  = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
 real :: CNseed0(0:MSPECIES)  = 20.0 ! C/N ratios for seeds
 real :: R0_Nfix(0:MSPECIES)  = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
-!real :: C0_Nfix(0:MSPECIES) = 12.0 ! Carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
 real :: S_facuN(0:MSPECIES)  = 0.0  ! Faculative N fixation intensity, 0~1. 0: Non; 1.0 full extraC usage
 
 ! Standard cohorts for the ESS PFTs, Weng, 09/12/2025
@@ -960,7 +959,7 @@ namelist /vegn_parameters_nml/  diff_S0,                        &
   rho_N_up0, N_roots0,                                          &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,    &
-  R0_Nfix, C0_Nfix, S_facuN, f_N_add, fNSNmax, retransN,         &
+  R0_Nfix, C0_Nfix, S_facuN, f_N_add, fNSNmax, retransN,        &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   MaxGrassLyr, MaxGrassAge, MaxGrassCA,                         &
   ! Phenology
