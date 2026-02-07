@@ -1,13 +1,10 @@
 #!/bin/bash
 FSRCS="src/datatypes.F90 \
        src/io_mod.F90 \
-       src/netcdf_io.F90 \
        src/soil.F90 \
        src/vegetation.F90 \
        src/BiomeE.F90 \
        src/main.F90"
-
-
 
 CPPFLAGS=''
 CPPFLAGS+=' -DScreenOutput'
@@ -24,10 +21,11 @@ echo $FSRCS
 #gfortran $FSRCS -o ess -I/opt/local/include -L/opt/local/lib -lnetcdff
 #gfortran $FSRCS -o ess -I/Users/eweng/MACPORTS/gcc49-python3/include -L/Users/eweng/MACPORTS/gcc49-python3/lib -lnetcdff
 #gfortran src/datatypes.F90 src/io_mod.F90 src/soil.F90 src/vegetation.F90 src/BiomeE.F90 src/main.F90 -DHydro_test -o ess
-#gfortran $FSRCS $CPPFLAGS -o ess
-gfortran $FSRCS $CPPFLAGS -o BiomeE_paleo -I/usr/local/include -L/usr/local/lib -lnetcdff
+#gfortran $FSRCS $CPPFLAGS -o BiomeE_paleo -I/usr/local/include -L/usr/local/lib -lnetcdff
+gfortran $FSRCS $CPPFLAGS -o BiomeE_paleo
 
 runTag='PaleoDrought'
+#DIRECTORY='./output/'$runTag
 DIRECTORY='/media/eweng/HD2/weng/'$runTag
 
 # Check if the directory exists. If not, create it.
@@ -68,9 +66,4 @@ done
 
 rm ./para_files/input.nml
 rm BiomeE_paleo
-rm esdvm.mod
-rm datatypes.mod
-rm io_mod.mod
-rm soil_mod.mod
-rm biomee_mod.mod
-rm netcdf_io.mod
+rm *.mod

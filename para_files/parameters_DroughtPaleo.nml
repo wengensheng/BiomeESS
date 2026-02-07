@@ -39,13 +39,13 @@ phenotype = 0,      0,      1,      0,      1,      0,      1,      0,      ! 0:
 lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! life form of PFTs: 0 for grasses, 1 for trees
 s0_plant  = 0.005,  0.005,  0.02,   0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
 LAImax    = 3.0,    3.0,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0,    ! maximum LAI for a tree
-LMA       = 0.02,   0.02,   0.07,   0.03,   0.14,   0.02 ,  0.12,   0.07,   ! leaf mass per unit area, kg C/m2
-LNbase    = 1.0E-3, 1.2E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.7E-3, 1.2E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+LMA       = 0.02,   0.02,   0.07,   0.03,   0.14,   0.02 ,  0.12,   0.07,   ! Leaf mass per unit area, kg C/m2
+LNbase    = 1.0E-3, 1.2E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 1.2E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
 alphaHT   = 30.,    30.,    36.,    36.,    36.,    36.,    36.,    15.,    ! Height parameter
 alphaCA   = 120.,   120.,   150.,   150.,   150.,   150.,   150.,   300.,   ! Crown area
 phiRL     = 1.5,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    0.8,    ! ratio of fine root area to leaf area
 tauNSC    = 3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    ! NSC residence time,years
-m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    ! 7.0 !
+m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    6.0,    ! Lower values mean a more water-conservative strategy
 rho_wood  = 100.,   100.,   330.,   330.,   350.,   350.,   350.,   400.,   ! kgC m-3
 mu0_topL  = .02,    .02,    .03,    .03,    .02,    .02,    .02,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
 D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.8,    ! m, Mortality curve parameter
@@ -89,7 +89,7 @@ PaleoPfile  = 'RMA_P.csv',
 PaleoTfile  = 'RMA_T.csv',
 iDraw       = Draw_No,
 runID       = 'PaleoRunID', ! Output file name, DCK, RMA, SJC
-CO2_c       = 400.0, ! 285.24, ! Year 1850 ! 412 PPM, CO2 concentration at 2020
+CO2_c       = 285.24, ! Year 1850 ! 400.0, !  412 PPM, CO2 concentration at 2020
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 model_run_years =  RunYears, !600, ! 1600,
 outputhourly    = .False. ! .True.  !
@@ -101,3 +101,6 @@ do_RecoverSP    = .False. ! .True.   !
 do_VariedWTC0   = .True. ! .False. !
 do_VariedKx     = .True. ! .False. !
 /
+
+!Site information
+!Sonora Junction (General): 38.35° N, -119.45° W

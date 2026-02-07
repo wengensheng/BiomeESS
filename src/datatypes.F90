@@ -605,7 +605,7 @@ real :: f_LFR_max = 0.85    ! max allocation to leaves and fine roots each step
 real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
 real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
 real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
-real :: C0_Nfix   = 12.0      ! gC/gN, carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
+real :: C0_Nfix   = 12.0    ! gC/gN, carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
 
 ! Plant hydraulics
 real :: psi0_osm = 0.5     ! MPa, leaf osmotic pressure

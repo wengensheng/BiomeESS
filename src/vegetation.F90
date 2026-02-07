@@ -559,7 +559,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              Ag_l   = sp%alpha_ps              &
                   * (ci-capgam)/(ci+2.*capgam) * par_net   &
                   * (exp(-lai_eq*kappa)-exp(-lai*kappa))  &
-                  / kappa !  (1.0-exp(-lai*kappa)) ! Yang Qi's corrrection (should be k, not 1.0-exp(-lai*kappa))
+                  / kappa !  (1.0-exp(-lai*kappa)) ! Yang Qi's correction (should be k, not 1.0-exp(-lai*kappa))
              ! gross photosynthesis for rubisco-limited part of the canopy
              Ag_rb  = dum2*lai_eq
              Ag = (Ag_l+Ag_rb) /((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
@@ -578,7 +578,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
        an_w=an_w*(1-sp%ps_wet*f_w)
     endif
     !gs_w = 1.56 * gsbar *(1-sp%ps_wet*f_w) !Weng: 1.56 for H2O?
-    gs_w = gsbar *(1-sp%ps_wet*f_w) ! per Qi Yang's correction (09/24), 02/06/2026
+    gs_w = gsbar * (1-sp%ps_wet*f_w) ! Yang Qi's correction (09/24, no 1.56), 02/06/2026
     if (gs_w > gs_lim) then
         if(an_w > 0.) an_w = an_w*gs_lim/gs_w
         gs_w = gs_lim
