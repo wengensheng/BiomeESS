@@ -2869,12 +2869,12 @@ subroutine vegn_fire (vegn, deltat)
   !                                  120 --> 0.006 m of bark 0.5 survival
 
   ! Environmental risk
-#ifdef FixedFireRisk
-  Frisk = EnvF0 ! Fixed environment risk
-#else
-  P_ET = vegn%annualPrcp / vegn%annualPET
-  Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
-#endif
+  if(Do_FixedFrisk) then
+    Frisk = EnvF0 ! Fixed environment risk
+  else
+    P_ET = vegn%annualPrcp / vegn%annualPET
+    Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
+  endif
 
   ! Ignition probabilities of grasses and woody PFTs
   Ign_G0 = 0.0

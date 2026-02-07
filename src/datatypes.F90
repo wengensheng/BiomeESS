@@ -848,15 +848,16 @@ type :: grid_initial_type
 end type grid_initial_type
 
 ! Model mechanisms setting
-logical  :: Do_DroughtMu        = .True. ! Drought-induced mortality, Lichstein (2024)
-logical  :: MergeLowDenCohorts  = .True.
-logical  :: update_LAImax       = .False.
-logical  :: do_RecoverSP        = .False.
-logical  :: do_fire             = .False.
-logical  :: do_closedN_run      = .True.
-logical  :: do_VariedKx         = .True. ! trunk new xylem has the same kx or not
-logical  :: do_VariedWTC0       = .True.
-logical  :: Do_mu0_F_WDen       = .False.
+logical  :: Do_DroughtMu        = .True.  ! Drought-induced mortality, Lichstein (2024)
+logical  :: MergeLowDenCohorts  = .True.  ! Merge low density cohorts to their closest ones
+logical  :: update_LAImax       = .False. ! Update LAImax annually according to N availability
+logical  :: Do_RecoverSP        = .False. ! Species recovery from initial conditions
+logical  :: Do_Fire             = .False. ! Allow fire disturbances
+logical  :: Do_FixedFrisk       = .False. ! Fixed fire risk (regardless of climatic condtions)
+logical  :: Do_ClosedN_run      = .True.  ! Nitrogen input and output are zero
+logical  :: Do_VariedKx         = .True.  ! trunk new xylem has the same kx or not
+logical  :: Do_VariedWTC0       = .True.  ! WTC0 changes with trunk size
+logical  :: Do_mu0_F_WDen       = .False. ! mu0 as a function of wood density
 
 ! For global/regional run, Weng, 2025-07-22
 character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
@@ -898,7 +899,7 @@ integer  :: totyears, totdays
 integer  :: steps_per_day  = 24 ! 24 or 48
 integer  :: yr_ResetVeg    = 0 ! reseting vegetation to the initial, clearcut
 integer  :: yr_Baseline    = 1000 ! for DroughtMIP baseline model run years
-integer  :: F_Recovery     = 5 ! Interval (yrs) of recovering initial species
+integer  :: FreqY0         = 5 ! Interval (yrs) of recovering initial species
 integer  :: equi_days      = 0 ! 100 * 365
 integer  :: steps_per_hour = 1
 real     :: step_hour      = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
@@ -939,9 +940,9 @@ namelist /initial_state_nml/ &
     PaleoPfile, PaleoTfile, iDraw,                              &
     N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
     outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
-    update_LAImax, MergeLowDenCohorts,F_Recovery,         &
-    Do_DroughtMu, do_RecoverSP, do_closedN_run, do_fire,        &
-    do_VariedKx, do_variedWTC0, Do_mu0_F_WDen
+    update_LAImax, MergeLowDenCohorts, Do_ClosedN_run,          &
+    Do_RecoverSP, FreqY0, Do_Fire, Do_FixedFrisk,               &
+    Do_DroughtMu, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen
 
 ! ---------- Soil hydraulic and heat parameter name list ---------
 namelist /soil_data_nml/ soiltype, WaterLeakRate, thksl, GMD,   &

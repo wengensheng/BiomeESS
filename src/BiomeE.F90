@@ -256,7 +256,7 @@ subroutine BiomeE_run()
 #endif
 
         ! Case studies
-        if(do_RecoverSP .and. MOD(n_yr,F_Recovery)==0) &
+        if(do_RecoverSP .and. MOD(n_yr, FreqY0)==0) &
           call vegn_species_recovery(vegn) ! for competition
         ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 

@@ -19,16 +19,9 @@ f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
-kx0_WD     = 5.0,  ! kx0 at reference WD
-p50_WD     = -1.565, ! stem psi50 at reference WD
-ths0_WD    = 3.0,    ! exponential of the PLC function for (psi/psi50)
-WTC0_WD    = 9.0E+3, ! 1.5E+3, ! 1200.0,  ! Water transport capacity at ref. wood density
-CR0_LF     = 0.5,
-CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
-m0_WTC     = 5.0
-m0_kx      = 5.0
-mu0_FireG  = 0.05, ! mortality rates of grasses due to fire
-FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+MI0Fire    = 0.33, ! 0.20, ! 0.33, ! 0.5, ! 0.3, ! when it is P/ET, Frisk = 0.5; High for high fire probability at given P
+mu0_FireG  = 0.02, ! mortality rates of grasses due to fire
+FSBM0      = 0.12, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
 
@@ -54,7 +47,7 @@ B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mo
 A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    ! Max multiplier for DBH-based mortality
 B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,   .125,   .125,   ! Size-based Mortality sensitivity, m
 W_mu0     = 2.5,    2.5,    0.50,   0.75,   0.75,   0.75,   0.75,   1.5,    ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
-IgniteP   = 1.0,    1.0,    .01,    .02,    .03,    .02,    .02,    .03,    ! Intrinsic flammability
+IgniteP   = 1.0,    1.0,    .01,    .02,    .03,    .02,    .02,    .02,    ! Intrinsic flammability
 gamma_SW  = .02,    .02,    .02,    .02,    .02,    .02,    .02,    .02,    ! Wood Acambium respiration rate (kgC/m2/yr)
 Tc0_OFF   = 12.,    10.,     15.,    15.,   -50.,   12.,    12.0,   12.,    ! 283.16 ! OFF ! C for convenience
 Tc0_ON    = 10.,     5.,     12.,    12.,   -50.,   10.,    10.0,   10.,    ! 280.16 ! ON  ! C for convenience
@@ -69,11 +62,11 @@ R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Ni
 &initial_state_nml
 !!   plant
 init_cohort_N     = 2, ! total 5
-init_cohort_sps   = 7,     1,    3,    2,    2,
-init_cohort_Indiv = .50,  .01,  .01,  .005, .002,
-init_cohort_bsw   = 0.2,  0.2,  0.8,  1.6,  3.2,
+init_cohort_sps   = 7,     0,    3,    2,    2,
+init_cohort_Indiv = .05,  .50,  .01,  .005, .002,
+init_cohort_bsw   = 0.2,  0.02, 0.8,  1.6,  3.2,
 init_cohort_bHW   = 0.0,  0.0,  0.0,  0.0,  0.0,
-init_cohort_nsc   = 0.5,  0.5,  0.5,  0.5,  0.5,
+init_cohort_nsc   = 0.5,  0.03, 0.5,  0.5,  0.5,
 
 !  Soil
 init_fast_SOC    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
@@ -94,12 +87,11 @@ Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 model_run_years =  RunYears, !600, ! 1600,
 outputhourly    = .False. ! .True.  !
 outputdaily     = .True.  ! .False. !
-do_closedN_run  = .False. ! .True.  !
+Do_ClosedN_run  = .False. ! .True.  !
 Do_DroughtMu    = .False. ! .True.  !
-do_fire         = .False. ! .True.
-do_RecoverSP    = .False. ! .True.   !
-do_VariedWTC0   = .True. ! .False. !
-do_VariedKx     = .True. ! .False. !
+Do_Fire         = .True.  ! .False. !
+Do_FixedFrisk   = .False. !
+do_RecoverSP    = .True.  ! .False. !
 /
 
 !Site information

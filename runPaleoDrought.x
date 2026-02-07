@@ -11,7 +11,6 @@ CPPFLAGS+=' -DScreenOutput'
 #CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DDroughtFMT'
 CPPFLAGS+=' -DDroughtPaleo'
-CPPFLAGS+=' -DFixedFireRisk'
 #CPPFLAGS+=' -DDBEN_runs'
 #CPPFLAGS+=" -DHydro_test"
 #CPPFLAGS+=" -DDroughtMu"
