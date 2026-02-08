@@ -62,7 +62,7 @@ R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Ni
 &initial_state_nml
 !!   plant
 init_cohort_N     = 2, ! total 5
-init_cohort_sps   = 7,     0,    3,    2,    2,
+init_cohort_sps   = SiteSP, 7,     0,    3,
 init_cohort_Indiv = .05,  .50,  .01,  .005, .002,
 init_cohort_bsw   = 0.2,  0.02, 0.8,  1.6,  3.2,
 init_cohort_bHW   = 0.0,  0.0,  0.0,  0.0,  0.0,
@@ -77,9 +77,9 @@ N_input          = 2.0E-3 ! 2.4E-3 ! N deposit, kg N m-2 yr-1,
 ! Model run
 filepath_in = '../forcingData/PaleoDrought/'
 filepath_out = 'TargetDir/', ! './output/PaleoDrought/',
-climfile    = 'ForcingFileName', ! 'DroughtPaleo_RMA_yrs1514_forcing.csv',  ! 'DroughtPaleo_RMA_forcing.csv', ! DCK, RMA, SJC
-PaleoPfile  = 'RMA_P.csv',
-PaleoTfile  = 'RMA_T.csv',
+climfile    = 'DroughtPaleo_SiteID_yrs1514_forcing.csv', !'ForcingFileName', ! 'DroughtPaleo_RMA_yrs1514_forcing.csv',  ! 'DroughtPaleo_RMA_forcing.csv', ! DCK, RMA, SJC
+PaleoPfile  = 'SiteID_P.csv',
+PaleoTfile  = 'SiteID_T.csv',
 iDraw       = Draw_No,
 runID       = 'PaleoRunID', ! Output file name, DCK, RMA, SJC
 CO2_c       = 285.24, ! Year 1850 ! 400.0, !  412 PPM, CO2 concentration at 2020
