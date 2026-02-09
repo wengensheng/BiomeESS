@@ -7,7 +7,7 @@ FSRCS="src/datatypes.F90 \
        src/main.F90"
 
 CPPFLAGS=''
-CPPFLAGS+=' -DScreenOutput'
+#CPPFLAGS+=' -DScreenOutput'
 #CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DDroughtFMT'
 CPPFLAGS+=' -DDroughtPaleo'
@@ -17,10 +17,10 @@ CPPFLAGS+=' -DDroughtPaleo'
 
 echo $FSRCS
 
-Site='RMA'
-PFTs='7, 0'
-#Site='SJC'
-#PFTs='4, 1'
+#Site='RMA'
+#FTs='7, 0'
+Site='SJC'
+PFTs='4, 1'
 
 #gfortran $FSRCS -o ess -I/opt/local/include -L/opt/local/lib -lnetcdff
 #gfortran $FSRCS -o ess -I/Users/eweng/MACPORTS/gcc49-python3/include -L/Users/eweng/MACPORTS/gcc49-python3/lib -lnetcdff
@@ -30,7 +30,7 @@ gfortran $FSRCS $CPPFLAGS -o BiomeE_$Site
 
 runTag='Paleo'$Site
 #DIRECTORY='./output/'$runTag
-DIRECTORY='/media/eweng/HD2/weng/'$runTag
+DIRECTORY='/media/eweng/HD2/weng/PaleoTests/'$runTag
 
 # Check if the directory exists. If not, create it.
 if [ ! -d "$DIRECTORY" ]; then
@@ -53,7 +53,7 @@ echo $fp1
 Run_years='1699'
 
 #for iDraw in {1..200}; do
-for iDraw in {1..1}; do
+for iDraw in {1..200}; do
   runID='Paleo_'$Site'_'$iDraw
   fp2=$DIRECTORY'/parameters_'$runID'.nml'
   echo "Model run: " $runID
