@@ -37,6 +37,7 @@
                        BAND_NIR = 2    ! near infra-red radiation (wavelenght range?)
 
  real,    parameter :: min_nindivs= 0.1E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
+ real,    parameter :: tiny = 1.0e-12
 
  ! Plant hydraulics-mortality
  integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
