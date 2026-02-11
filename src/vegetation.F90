@@ -406,49 +406,53 @@ end subroutine vegn_photosynthesis
 !============================================================================
 subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
                    p_surf, ws, pft, pt, ca, kappa, f_w, layer, &
-                   apot, acl,wd, transp)
-  real,    intent(in)   :: rad_top ! PAR dn on top of the canopy, w/m2
-  real,    intent(in)   :: rad_net ! PAR net on top of the canopy, w/m2
-  real,    intent(in)   :: tl   ! leaf temperature, degK
-  real,    intent(in)   :: ea   ! specific humidity in the canopy air, kg/kg
-  real,    intent(in)   :: lai  ! leaf area index
-  !real,    intent(in)   :: leafage ! age of leaf since budburst (deciduos), days
-  real,    intent(in)   :: p_surf ! surface pressure, Pa
-  real,    intent(in)   :: ws   ! water supply, mol H20/(m2 of leaf s)
-  integer, intent(in)   :: pft  ! species
-  integer, intent(in)   :: pt   ! physiology type (C3 or C4)
-  real,    intent(in)   :: ca   ! concentartion of CO2 in the canopy air space, mol CO2/mol dry air
-  real,    intent(in)   :: kappa! canopy extinction coefficient (move inside f(pft))
-  real,    intent(in)   :: f_w ! fraction of leaf that's wet or snow-covered
-  integer, intent(in)   :: layer  ! the layer of this canopy
-  ! note that the output is per area of leaf; to get the quantities per area of
-  ! land, multiplyNorgP2S them by LAI
-  !real,    intent(out)   :: gs   ! stomatal conductance, m/s
-  real,    intent(out)   :: apot ! net photosynthesis, mol C/(m2 s)
-  real,    intent(out)   :: acl  ! leaf respiration, mol C/(m2 s)
-  real,    intent(out)   :: wd,transp  ! transpiration, mol H20/(m2 of leaf s)
+                   apot, acl, wd, transp)
+  ! Note: included Yang Qi's corrections on:
+  ! lai_eq, Ag_l, and gs_w (02/11/2026)
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
+  implicit none
+
+  ! ---- arguments
+  real,    intent(in)   :: rad_top   ! PAR dn on top of the canopy, w/m2
+  real,    intent(in)   :: rad_net   ! PAR net on top of the canopy, w/m2
+  real,    intent(in)   :: tl        ! leaf temperature, degK
+  real,    intent(in)   :: ea        ! specific humidity in the canopy air, kg/kg
+  real,    intent(in)   :: lai       ! leaf area index
+  real,    intent(in)   :: p_surf    ! surface pressure, Pa
+  real,    intent(in)   :: ws        ! water supply, mol H20/(m2 of leaf s)
+  integer, intent(in)   :: pft       ! species
+  integer, intent(in)   :: pt        ! physiology type (C3 or C4)
+  real,    intent(in)   :: ca        ! CO2 in canopy air, mol/mol dry air
+  real,    intent(in)   :: kappa     ! canopy extinction coefficient
+  real,    intent(in)   :: f_w       ! fraction of leaf wet/snow-covered
+  integer, intent(in)   :: layer     ! canopy layer index
+  real,    intent(out)  :: apot      ! net photosynthesis, mol C/(m2 leaf s)
+  real,    intent(out)  :: acl       ! leaf respiration, mol C/(m2 leaf s)
+  real,    intent(out)  :: wd, transp ! mol H2O/(m2 leaf s)
 
   ! ---- local vars
   ! photosynthesis
   real :: vm
-  real :: kc,ko  ! Michaelis-Menten constants for CO2 and O2, respectively
+  real :: kc, ko          ! Michaelis-Menten constants for CO2 and O2
   real :: ci
-  real :: capgam ! CO2 compensation point
-  real :: f2,f3
-  real :: coef0,coef1
+  real :: capgam          ! CO2 compensation point
+  real :: f2, f3
+  real :: coef0, coef1
   real :: Resp
 
   ! conductance related
   real :: gs
   real :: b
-  real :: ds  ! humidity deficit, kg/kg
-  real :: hl  ! saturated specific humidity at the leaf temperature, kg/kg
+  real :: ds              ! humidity deficit, kg/kg
+  real :: hl              ! saturated specific humidity at leaf temp, kg/kg
   real :: do1
 
-  ! misceleneous
+  ! miscellaneous / numerics
   real :: dum2
-  real, parameter :: light_crit = 0
-  real, parameter :: gs_lim = 0.25
+  real, parameter :: light_crit = 0.0
+  real, parameter :: gs_lim     = 0.25
+  real, parameter :: lai_min    = 1.0e-6
+  real, parameter :: kappa_min  = 1.0e-6
 
   ! new average computations
   real :: lai_eq
@@ -465,18 +469,32 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   ! soil water stress
   real :: Ed, an_w, gs_w
 
-  b=0.01
-  do1=0.09 ! kg/kg
-  !if (pft < 2) do1=0.15 ! Commented out by Weng, 09/24/2023
+  ! protected/clamped values
+  real :: kappa_eff, f_w_eff, arg
 
-  ! Convert Solar influx from W/(m^2s) to mol_of_quanta/(m^2s) PAR,
-  ! empirical relationship from McCree is light=rn*0.0000046
-  light_top = rad_top*rad_phot ! for lai_eq
-  par_net   = rad_net*rad_phot ! for leaf photosynthesis rate
+  b   = 0.01
+  do1 = 0.09 ! kg/kg
+
+  ! Clamp wet fraction and kappa (extra safety)
+  f_w_eff   = min(1.0, max(0.0, f_w))
+  kappa_eff = max(kappa, kappa_min)
+
+  ! Convert Solar influx from W/(m^2) to mol_of_quanta/(m^2 s) PAR
+  light_top = rad_top * rad_phot ! for lai_eq
+  par_net   = rad_net * rad_phot ! for leaf photosynthesis rate
 
   ! Humidity deficit, kg/kg
   call qscomp(tl, p_surf, hl)
-  ds = max(hl - ea,0.0)
+  ds = max(hl - ea, 0.0)
+
+  ! Guard LAI to avoid division by zero
+  if (lai <= lai_min) then
+     apot   = 0.0
+     acl    = 0.0
+     wd     = 0.0
+     transp = 0.0
+     return
+  endif
 
   associate ( sp => spdata(pft) )
     !  ko=0.25   *exp(1400.0*(1.0/288.2-1.0/tl))*p_sea/p_surf
@@ -484,9 +502,9 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     !  vm=sp%Vmax*exp(3000.0*(1.0/288.2-1.0/tl))
 
     ! Weng, 2013-01-10
-    ko = 0.248    * exp(35948.0/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
-    kc = 0.000404 * exp(59356.0/Rgas*(1.0/298.2-1.0/tl))*p_sea/p_surf ! Weng, 2013-01-10
-    vm = sp%Vmax  * exp(24920.0/Rgas*(1.0/298.2-1.0/tl)) ! / ((layer-1)*1.0+1.0) ! Ea = 33920
+    ko = 0.248    * exp(35948.0/Rgas*(1.0/298.2-1.0/tl)) * p_sea/p_surf
+    kc = 0.000404 * exp(59356.0/Rgas*(1.0/298.2-1.0/tl)) * p_sea/p_surf
+    vm = sp%Vmax  * exp(24920.0/Rgas*(1.0/298.2-1.0/tl))
 
     !decrease Vmax due to aging of temperate deciduous leaves
     !(based on Wilson, Baldocchi and Hanson (2001)."Plant,Cell, and Environment", vol 24, 571-583)
@@ -511,119 +529,130 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     !! as a function of LMA
     !  Resp=(sp%gamma_LNbase*sp%LNbase+sp%gamma_LMA*sp%LMA)  & ! basal rate, mol m-2 s-1
     !  Resp=sp%gamma_LNbase*(2.5*sp%LNA-1.5*sp%LNbase)     & ! basal rate, mol m-2 s-1
-    Resp= sp%gamma_LN/seconds_per_year          & ! per seconds,  mol m-2 s-1
-         * sp%LNA * lai / mol_c                 & ! whole canopy, mol m-2 s-1
-         * exp(24920/Rgas*(1.0/298.2-1.0/tl))     ! temperature scaled
 
-    ! Temperature effects
+    ! Respiration for whole canopy (scales with LAI)
+    Resp = sp%gamma_LN/seconds_per_year          & ! per seconds,  mol m-2 s-1
+         * sp%LNA * lai / mol_c                 & ! whole canopy, mol m-2 s-1
+         * exp(24920.0/Rgas*(1.0/298.2-1.0/tl))   ! temperature scaled
+
+    ! Temperature effects (suppression at cold/hot)
     Resp = Resp / ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
                  * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
 
-    ! ignore the difference in [CO2] near the leaf and in the canopy air, rb=0.
-    Ag_l  = 0.
-    Ag_rb = 0.
-    Ag    = 0.
-    anbar = -Resp/lai
+    ! initialize
+    Ag_l  = 0.0
+    Ag_rb = 0.0
+    Ag    = 0.0
+    An    = -Resp
+    anbar = -Resp / lai
     gsbar = b
+
     ! find the LAI level at which gross photosynthesis rates are equal
-    ! only if PAR is positive
-    if(light_top > light_crit)then
-       if(pt==PT_C4) then ! C4 species
-          coef0=(1+ds/do1)/sp%m_cond;
-          ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
-          if (ci>capgam) then
-             f2=vm
-             f3=18000.0*vm*ci ! 18000 or 1800?
-             dum2=min(f2,f3)
+    if (light_top > light_crit) then
 
-             ! find LAI level at which rubisco limited rate is equal to light limited rate
-             !lai_eq = -log(dum2/(kappa*sp%alpha_ps*light_top))/kappa
-             lai_eq = -log(dum2/(sp%alpha_ps*light_top))/kappa ! Yang Qi's correction, no "kappa"
-             lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
+       if (pt == PT_C4) then
+          coef0 = (1.0 + ds/do1) / sp%m_cond
+          ci    = (ca + 1.6*coef0*capgam) / (1.0 + 1.6*coef0)
 
-             ! gross photosynthesis for light-limited part of the canopy
-             Ag_l   = sp%alpha_ps * par_net     &
-                    * (exp(-lai_eq*kappa)-exp(-lai*kappa)) &
-                    / kappa ! (1-exp(-lai*kappa)) ! Yang Qi's correction
+          if (ci > capgam) then
+             f2   = vm
+             f3   = 18000.0 * vm * ci
+             dum2 = min(f2, f3)
 
-             ! gross photosynthesis for rubisco-limited part of the canopy
-             Ag_rb  = dum2*lai_eq
-             Ag=(Ag_l+Ag_rb)/ &
-               ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
-               *(1.0+exp(0.4*(tl-45.0-TFREEZE))))
-             An=Ag-Resp ! Resp includes all LAI. Weng, 09/24/2023
-             anbar=An/lai
-
-             if(anbar>0.0) then
-                 gsbar=anbar/(ci-capgam)/coef0;
+             ! lai_eq = -log(dum2/(sp%alpha_ps*light_top))/kappa
+             arg = dum2 / max(sp%alpha_ps*light_top, tiny)
+             if (arg > tiny) then
+                lai_eq = -log(arg) / kappa_eff
+             else
+                lai_eq = 0.0
              endif
-          endif ! ci>capgam
-       else ! C3 species
-          coef0=(1+ds/do1)/sp%m_cond;
-          coef1=kc*(1.0+0.209/ko);
-          ci=(ca+1.6*coef0*capgam)/(1+1.6*coef0);
-          f2=vm*(ci-capgam)/(ci+coef1);
-          f3=vm/2.;
-          dum2=min(f2,f3);
-          if (ci>capgam) then
-             ! find LAI level at which rubisco limited rate is equal to light limited rate
-             lai_eq=-log(dum2*(ci+2.*capgam)/(ci-capgam)/ &
-                    !(sp%alpha_ps*light_top*kappa))/kappa
-                     (sp%alpha_ps*light_top))/kappa ! Yang Qi's correction (no kappa)
-             lai_eq = min(max(0.0,lai_eq),lai) ! limit lai_eq to physically possible range
+             lai_eq = min(max(0.0, lai_eq), lai)
 
-             ! gross photosynthesis for light-limited part of the canopy
-             Ag_l   = sp%alpha_ps              &
-                  * (ci-capgam)/(ci+2.*capgam) * par_net   &
-                  * (exp(-lai_eq*kappa)-exp(-lai*kappa))  &
-                  / kappa !  (1.0-exp(-lai*kappa)) ! Yang Qi's correction (should be k, not 1.0-exp(-lai*kappa))
-             ! gross photosynthesis for rubisco-limited part of the canopy
-             Ag_rb  = dum2*lai_eq
-             Ag = (Ag_l+Ag_rb) /((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
-                * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
-             An = Ag - Resp
-             anbar = An/lai
-             if(anbar>0.0) then
-               gsbar=anbar/(ci-capgam)/coef0
+             Ag_l  = sp%alpha_ps * par_net * (exp(-lai_eq*kappa_eff) - exp(-lai*kappa_eff)) / kappa_eff
+             Ag_rb = dum2 * lai_eq
+
+             Ag = (Ag_l + Ag_rb) / ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+                                  * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
+
+             An    = Ag - Resp
+             anbar = An / lai
+
+             if (anbar > 0.0) then
+                gsbar = anbar / (ci - capgam) / coef0
              endif
-          endif ! ci>capgam
+          endif
+
+       else  ! C3
+          coef0 = (1.0 + ds/do1) / sp%m_cond
+          coef1 = kc * (1.0 + 0.209/ko)
+          ci    = (ca + 1.6*coef0*capgam) / (1.0 + 1.6*coef0)
+
+          f2   = vm * (ci - capgam) / (ci + coef1)
+          f3   = vm / 2.0
+          dum2 = min(f2, f3)
+
+          if (ci > capgam) then
+             ! lai_eq=-log(dum2*(ci+2*capgam)/(ci-capgam)/(sp%alpha_ps*light_top))/kappa
+             arg = dum2 * (ci + 2.0*capgam) / max((ci - capgam) * sp%alpha_ps * light_top, tiny)
+             !(sp%alpha_ps*light_top*kappa) --> (sp%alpha_ps*light_top) ! Yang Qi: no kappa)
+             if (arg > tiny) then
+                lai_eq = -log(arg) / kappa_eff
+             else
+                lai_eq = 0.0
+             endif
+             lai_eq = min(max(0.0, lai_eq), lai)
+
+             Ag_l  = sp%alpha_ps * (ci-capgam)/(ci+2.0*capgam) * par_net  &
+                   * (exp(-lai_eq*kappa_eff) - exp(-lai*kappa_eff)) / kappa_eff
+                   ! Yang Qi: 1.0-exp(-lai*kappa)) --> kappa (kappa_eff)
+             Ag_rb = dum2 * lai_eq
+
+             Ag = (Ag_l + Ag_rb) / ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
+                                  * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
+
+             An    = Ag - Resp
+             anbar = An / lai
+
+             if (anbar > 0.0) then
+                gsbar = anbar / (ci - capgam) / coef0
+             endif
+          endif
        endif
-    endif ! light is available for photosynthesis
 
-    an_w=anbar
-    if (an_w > 0.) then
-       an_w=an_w*(1-sp%ps_wet*f_w)
-    endif
-    !gs_w = 1.56 * gsbar *(1-sp%ps_wet*f_w) !Weng: 1.56 for H2O?
-    gs_w = gsbar * (1-sp%ps_wet*f_w) ! Yang Qi's correction (09/24, no 1.56), 02/06/2026
+    endif ! light_top > light_crit
+
+    ! Wet/snow-covered leaf scaling
+    an_w = anbar * (1.0 - sp%ps_wet * f_w_eff)
+    gs_w = gsbar * (1.0 - sp%ps_wet * f_w_eff) ! ! Yang Qi's correction (09/24, no 1.56)
     if (gs_w > gs_lim) then
-        if(an_w > 0.) an_w = an_w*gs_lim/gs_w
-        gs_w = gs_lim
+       if (an_w > 0.0) an_w = an_w * gs_lim / gs_w
+       gs_w = gs_lim
     endif
   end associate
-  ! find water availability diagnostic demand
-  Ed = gs_w * ds*mol_air/mol_h2o ! ds*mol_air/mol_h2o is the humidity deficit in [mol_h2o/mol_air]
-  ! the factor mol_air/mol_h2o makes units of gs_w and humidity deficit ds compatible:
-  if (Ed>ws) then
-     w_scale=ws/Ed
-     gs_w=w_scale*gs_w
-     if(an_w > 0.0) an_w = an_w*w_scale
-     if(an_w < 0.0.and.gs_w >b) gs_w=b
-  endif
-  gs   = gs_w
-  apot = an_w
-  acl  = -Resp/lai
-  transp = min(ws,Ed) ! mol H20/(m2 of leaf s)
-  wd = Ed
 
-  ! Convert units of stomatal conductance to m/s from mol/(m2 s) by
-  ! multiplying it by a volume of a mole of gas
+  ! Water availability diagnostic demand
+  Ed = gs_w * ds * mol_air / mol_h2o
+
+  if (Ed > ws) then
+     w_scale = ws / Ed
+     gs_w = w_scale * gs_w
+     if (an_w > 0.0) an_w = an_w * w_scale
+     if (an_w < 0.0 .and. gs_w > b) gs_w = b
+  endif
+
+  apot   = an_w
+  acl    = -Resp / lai
+  transp = min(ws, Ed)   ! mol H2O/(m2 leaf s)
+  wd     = Ed
+
+  ! Convert stomatal conductance to m/s (kept local; not returned)
+  gs = gs_w
   gs = gs * Rgas * Tl / p_surf
 
   ! Error check
-  if(isnan(transp))then
-    write(*,*)'ws,ed',ws,ed
-    stop '"transp" is a NaN'
+  if (ieee_is_nan(transp)) then
+     write(*,*) 'ws, Ed = ', ws, Ed
+     stop '"transp" is a NaN'
   endif
 end subroutine gs_Leuning
 
