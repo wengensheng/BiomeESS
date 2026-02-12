@@ -163,7 +163,7 @@ subroutine vegn_reprod_samesized(vegn)
      C_left = cc%seedC * cc%nindivs - C_demand
 
      ! Update density and seed pools
-     if(n_new > 0.0)then
+     if(n_new > zero_thld)then
         cc%nindivs  = cc%nindivs + n_new
         cc%NSN = cc%NSN + N_left/cc%nindivs ! put the left N back to NSN pool
         cc%NSC = cc%NSC + C_left/cc%nindivs
@@ -295,12 +295,12 @@ end subroutine vegn_selfthinning
 ! Weng 2017-10-18:compute stomatal conductance, photosynthesis and respiration
 ! updates cc%An_op and cc%An_cl, from LM3
 subroutine vegn_photosynthesis (forcing, vegn)
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
-  !use datatypes
+  use datatypes, only: climate_data_type, vegn_tile_type, cohort_type, spdata, &
+      LEAF_ON, f_PAR, mol_air, mol_h2o, mol_C, step_seconds, zero_thld, CLmax
   implicit none
 
   type(climate_data_type), intent(in)    :: forcing
-  type(vegn_tile_type), intent(inout)    :: vegn
+  type(vegn_tile_type),    intent(inout) :: vegn
 
   !----- local var --------------
   type(cohort_type), pointer :: cc
@@ -316,26 +316,28 @@ subroutine vegn_photosynthesis (forcing, vegn)
   real :: resp         ! leaf respiration, mol C/(m2 leaf s)
   real :: wd, transp   ! mol H2O per m2 of leaf per second
   real :: wd1          ! Kg H2O per tree per time step
-  real :: kappa        ! light extinction coefficient of crown layers
-  real, dimension(10) :: f_light
+  real :: lai_eff, extinct_eff
+  real :: f_light(CLmax) = 0.0 ! for canopy light profile
   integer :: i, layer, nlayers, ncoh
 
+  ! total cohorts and layers
   ncoh = vegn%n_cohorts
-  ! Determine number of light layers to use for f_light calculation.
-  nlayers = min(int(vegn%CAI + 1.0), 9)
+  nlayers   = min( int(vegn%CAI + 1.0), CLmax )
 
   !! Light supply for photosynthesis
-  ! Initialize kp (ensure vegn%kp has appropriate bounds)
   vegn%kp = 0.0
   do i = 1, ncoh
      cc => vegn%cohorts(i)
-     layer = max(1, min(cc%layer, 9))
+     layer = max(1, min(cc%layer, CLmax))
+
+     ! Clamp extinction to reasonable range
+     extinct_eff = min(ext_max, max(ext_min, cc%extinct))
+
      ! accumulate per-layer projected crown area * extinction
-     vegn%kp(layer) = vegn%kp(layer) + cc%extinct * cc%Acrown * cc%nindivs
+     vegn%kp(layer) = vegn%kp(layer) + extinct_eff * cc%Acrown * cc%nindivs
   end do
 
-  ! Light fraction -- compute up to nlayers
-  f_light = 0.0
+  ! Light fraction
   f_light(1) = 1.0
   do i = 2, nlayers
       f_light(i) = f_light(i-1) * (exp(-vegn%kp(i-1) * vegn%LAI_L(i-1)) + vegn%f_gap(i-1))
@@ -345,38 +347,38 @@ subroutine vegn_photosynthesis (forcing, vegn)
   do i = 1, ncoh
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
-       if (cc%status == LEAF_ON .and. cc%Aleaf > tiny) then
-          ! Convert forcing data / units
+       if (cc%status == LEAF_ON .and. cc%Aleaf > zero_thld) then
+
           layer = max(1, min(cc%layer, nlayers))
-          ! ensure forcing%radiation is PAR or convert accordingly
+
+          ! Guard LAI range
+          lai_eff = min(lai_max, max(lai_min, cc%LAI))
+
           rad_top = f_light(layer) * f_PAR * forcing%radiation
           rad_net = f_light(layer) * f_PAR * forcing%radiation * 0.9
 
-          p_surf = forcing%P_air          ! Pa
-          TairK  = forcing%Tair          ! K
-          Tair   = forcing%Tair - 273.16 ! degC (esat expects degC)
-          cana_q = (esat(Tair) * forcing%RH * mol_h2o) / (p_surf * mol_air) ! specific humidity
-          cana_co2 = forcing%CO2 * 1.0e-6  ! ppm -> mol/mol
-          water_supply = cc%W_supply / (cc%Aleaf * step_seconds * mol_h2o) ! water supply: mol H2O m-2 leaf s-1
+          p_surf = forcing%P_air
+          TairK  = forcing%Tair
+          Tair   = forcing%Tair - 273.16
 
-          fc = 0.0 ! Assume it is zero
-          call gs_Leuning(rad_top, rad_net, TairK, cana_q, cc%LAI, &
-                          p_surf, water_supply, cc%species, sp%pt, &
-                          cana_co2, cc%extinct, fc, cc%layer,      &
+          cana_q = (esat(Tair) * forcing%RH * mol_h2o) / (p_surf * mol_air)
+          cana_co2 = forcing%CO2 * 1.0e-6
+
+          water_supply = cc%W_supply / max(cc%Aleaf * step_seconds * mol_h2o, zero_thld)
+
+          fc = 0.0
+          call gs_Leuning(rad_top, rad_net, TairK, cana_q, lai_eff, &
+                          p_surf, water_supply, cc%species, sp%pt,  &
+                          cana_co2, cc%extinct, fc, cc%layer,       &
                           psyn, resp, wd, transp)
 
-          ! store outputs (document sign conventions)
-          cc%An_op = psyn          ! mol C s-1 m-2 leaf
-          cc%An_cl = -resp         ! (kept negative here as original — verify convention)
+          cc%An_op = psyn
+          cc%An_cl = -resp
           cc%gpp   = (psyn - resp) * mol_C * cc%Aleaf * step_seconds
           cc%transp = transp * mol_h2o * cc%Aleaf * step_seconds
-          if (abs(wd) > tiny) then
-             cc%w_scale = transp / wd
-          else
-             cc%w_scale = -9999.0
-          endif
+          cc%w_scale = transp / max(wd, zero_thld)
 
-          ! For UFL drought mortality (accumulate potential demand)
+          ! For UFL drought mortality
           wd1 = wd * mol_h2o * cc%Aleaf * step_seconds
           cc%totDemand = cc%totDemand + wd1
           cc%dailyWdmd = cc%dailyWdmd + wd1
@@ -388,18 +390,8 @@ subroutine vegn_photosynthesis (forcing, vegn)
           cc%transp  = 0.0
           cc%w_scale = -9999.0
        endif
-
-       ! NaN checks using ieee_is_nan for portability
-       if (ieee_is_nan(cc%gpp)) then
-          write(*,*) 'Error: cc%gpp is NaN for cohort ', i, ' species ', cc%species
-          stop 1
-       endif
-       if (ieee_is_nan(cc%transp)) then
-          write(*,*) 'Error: transp is NaN, wd, transp, lai = ', wd, transp, cc%LAI
-          stop 1
-       endif
      end associate
-  end do  ! cohorts loop
+  end do
 
 end subroutine vegn_photosynthesis
 
@@ -449,10 +441,6 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
   ! miscellaneous / numerics
   real :: dum2
-  real, parameter :: light_crit = 0.0
-  real, parameter :: gs_lim     = 0.25
-  real, parameter :: lai_min    = 1.0e-6
-  real, parameter :: kappa_min  = 1.0e-6
 
   ! new average computations
   real :: lai_eq
@@ -477,7 +465,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
   ! Clamp wet fraction and kappa (extra safety)
   f_w_eff   = min(1.0, max(0.0, f_w))
-  kappa_eff = max(kappa, kappa_min)
+  kappa_eff = max(kappa, ext_min)
 
   ! Convert Solar influx from W/(m^2) to mol_of_quanta/(m^2 s) PAR
   light_top = rad_top * rad_phot ! for lai_eq
@@ -560,8 +548,8 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              dum2 = min(f2, f3)
 
              ! lai_eq = -log(dum2/(sp%alpha_ps*light_top))/kappa
-             arg = dum2 / max(sp%alpha_ps*light_top, tiny)
-             if (arg > tiny) then
+             arg = dum2 / max(sp%alpha_ps*light_top, zero_thld)
+             if (arg > zero_thld) then
                 lai_eq = -log(arg) / kappa_eff
              else
                 lai_eq = 0.0
@@ -577,7 +565,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              An    = Ag - Resp
              anbar = An / lai
 
-             if (anbar > 0.0) then
+             if (anbar > zero_thld) then
                 gsbar = anbar / (ci - capgam) / coef0
              endif
           endif
@@ -593,9 +581,9 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
 
           if (ci > capgam) then
              ! lai_eq=-log(dum2*(ci+2*capgam)/(ci-capgam)/(sp%alpha_ps*light_top))/kappa
-             arg = dum2 * (ci + 2.0*capgam) / max((ci - capgam) * sp%alpha_ps * light_top, tiny)
+             arg = dum2 * (ci + 2.0*capgam) / max((ci - capgam) * sp%alpha_ps * light_top, zero_thld)
              !(sp%alpha_ps*light_top*kappa) --> (sp%alpha_ps*light_top) ! Yang Qi: no kappa)
-             if (arg > tiny) then
+             if (arg > zero_thld) then
                 lai_eq = -log(arg) / kappa_eff
              else
                 lai_eq = 0.0
@@ -613,7 +601,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              An    = Ag - Resp
              anbar = An / lai
 
-             if (anbar > 0.0) then
+             if (anbar > zero_thld) then
                 gsbar = anbar / (ci - capgam) / coef0
              endif
           endif
@@ -625,7 +613,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     an_w = anbar * (1.0 - sp%ps_wet * f_w_eff)
     gs_w = gsbar * (1.0 - sp%ps_wet * f_w_eff) ! ! Yang Qi's correction (09/24, no 1.56)
     if (gs_w > gs_lim) then
-       if (an_w > 0.0) an_w = an_w * gs_lim / gs_w
+       if (an_w > zero_thld) an_w = an_w * gs_lim / gs_w
        gs_w = gs_lim
     endif
   end associate
@@ -636,8 +624,8 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   if (Ed > ws) then
      w_scale = ws / Ed
      gs_w = w_scale * gs_w
-     if (an_w > 0.0) an_w = an_w * w_scale
-     if (an_w < 0.0 .and. gs_w > b) gs_w = b
+     if (an_w > zero_thld) an_w = an_w * w_scale
+     if (an_w < zero_thld .and. gs_w > b) gs_w = b
   endif
 
   apot   = an_w
@@ -782,8 +770,6 @@ subroutine vegn_respiration(forcing,vegn)
      cc => vegn%cohorts(i)
      TairK = forcing%tair
      associate ( sp => spdata(cc%species) )
-       ! Maintenance respiration
-       !call plant_respiration(cc,forcing%tair) ! get resp per tree per time step
        ! temperature response function
        tf  = exp(9000.0*(1.0/298.16-1.0/tairK))
 
@@ -795,12 +781,11 @@ subroutine vegn_respiration(forcing,vegn)
        Acambium = PI * cc%DBH * cc%height * 1.2
 
        ! r_leaf = fnsc*sp%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
-       ! LeafN  = sp%LNA * cc%Aleaf
        r_leaf   = cc%An_cl * mol_C * cc%Aleaf * step_seconds
-       r_stem   = fnsc*sp%gamma_SW  * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
-       r_root   = fnsc*sp%gamma_FR  * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
+       r_stem   = fnsc*sp%gamma_SW * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
+       r_root   = fnsc*sp%gamma_FR * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
 
-       if(sp%R0_Nfix > 1.0e-6)then ! Nitrogen fixer
+       if(sp%R0_Nfix > zero_thld)then ! Nitrogen fixer
           ! Baseline nitrogen fixation (Obligate)
           cc%fixedN = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
           r_Nfix    = sp%C0_Nfix * cc%fixedN ! KgC tree-1 step-1
@@ -849,7 +834,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
   ! how many roots it has and how many roots other individuals have.
   N_Roots  = 0.0
   vegn%N_uptake = 0.0
-  if(vegn%mineralN > 0.0)then
+  if(vegn%mineralN > zero_thld)then
      do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
         associate (sp => spdata(cc%species))
@@ -950,7 +935,7 @@ subroutine vegn_growth(vegn)
       ! same ratio reduction for leaf, root, and seed if(Nsupply < Ndemand),
       !! Nitrogen demand by leaves, roots, and seeds (Their C/N ratios are fixed.)
       Ndemand = dBL/sp%CNleaf0 + dBR/sp%CNroot0 + dSeed/sp%CNseed0 + dBSW/sp%CNwood0
-      if(Ndemand > 0.0 .and. Nsupply < Ndemand) then
+      if(Ndemand > zero_thld .and. Nsupply < Ndemand) then
         r_N_SD = MAX(0.0, Nsupply/Ndemand) ! N supply-demand ratio
         cc%extraC   = (1.0-r_N_SD) * (dBL+dBR+dSeed)
         dBSW =  dBSW + cc%extraC
@@ -1174,7 +1159,7 @@ subroutine vegn_phenology(vegn) ! daily step
         if(cc%status == LEAF_ON)then
            cc%ngd = Min(366, cc%ngd + 1)
            if(cc%ngd > Days_thld) cc%ALT = cc%ALT + MIN(0.,vegn%tc_pheno-sp%tc0_off)
-           if(cc%dailyWdmd > 0.0) cc%AWD = 0.9*cc%AWD + 0.1 * (cc%dailyTrsp/cc%dailyWdmd)
+           if(cc%dailyWdmd > zero_thld) cc%AWD = 0.9*cc%AWD + 0.1 * (cc%dailyTrsp/cc%dailyWdmd)
         else  ! cc%status == LEAF_OFF
            cc%ndm = cc%ndm + 1
            if(vegn%tc_pheno<T0_chill) cc%ncd = cc%ncd + 1
@@ -1393,7 +1378,7 @@ subroutine Seasonal_fall(cc,vegn)
   root_mort_rate = 0.025
   !End a growing season: leaves fall for deciduous
   associate (sp => spdata(cc%species) )
-  if(cc%status == LEAF_OFF .AND. cc%bl > 0.0)then
+  if(cc%status == LEAF_OFF .AND. cc%bl > zero_thld)then
      dBL = min(leaf_fall_rate * cc%bl_max, cc%bl)
      dBR = min( root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
      if(sp%lifeform == 0)then  ! grasses
@@ -1694,7 +1679,7 @@ function cohort_can_reproduce(cc); logical cohort_can_reproduce
 
   associate (sp => spdata(cc%species) )! F2003
   cohort_can_reproduce = (cc%layer == 1 .and. &
-                          cc%nindivs > 0.0 .and. &
+                          cc%nindivs > zero_thld .and. &
                           cc%age   > sp%AgeRepro.and. &
                           cc%seedC > sp%s0_plant .and. &
                           cc%seedN > sp%s0_plant/sp%CNseed0)
@@ -2036,7 +2021,7 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
 
          ! Check if the plant needs this ammount of water
          Q_tot = sum(cc%Q_soil)
-         if(Q_tot > 0.0) &
+         if(Q_tot > zero_thld) &
            cc%Q_soil = cc%Q_soil * Min(1.0,(W_psi_s0-cc%W_stem)/Q_tot)
 
          ! Update stem and soil water content, and stem psi
@@ -2830,7 +2815,7 @@ function Mergeable_cohorts(c1,c2); logical Mergeable_cohorts
    LowDensity = .False. ! Default
 
    ! Mergeable criteria:
-   Not_ZeroDensity = c1%nindivs > 0.0 .and. c2%nindivs > 0.0
+   Not_ZeroDensity = c1%nindivs > zero_thld .and. c2%nindivs > zero_thld
    sameSpecies  = c1%species == c2%species
    sameLayer    = (c1%layer == c2%layer) .or. &
                   ((spdata(c1%species)%lifeform ==0) .and. &
@@ -3027,7 +3012,7 @@ end subroutine vegn_fire
 
      cc => vegn%cohorts(1)
      associate (sp => spdata(cc%species)) ! F2003
-     if(cc%bl > 0.0) then ! remove all leaves to keep mass balance
+     if(cc%bl > zero_thld) then ! remove all leaves to keep mass balance
         loss_coarse  = cc%nindivs * (cc%bl - cc%Aleaf*LMAmin)
         loss_fine    = cc%nindivs *  cc%Aleaf*LMAmin
         lossN_coarse = cc%nindivs * (cc%leafN - cc%Aleaf*sp%LNbase)
@@ -3238,7 +3223,7 @@ subroutine vegn_annualLAImax_update(vegn)
   !        associate ( sp => spdata(cc%species) )
   !        if(sp%LAImax < LAImin)then
   !           LAI_nitrogen = 0.5*(vegn%previousN+cc%NfixedYr)*sp%CNleaf0*sp%leafLS/sp%LMA
-  !           if(sp%R0_Nfix > 0.0)
+  !           if(sp%R0_Nfix > zero_thld)
   !           sp%LAImax    = MAX(LAImin, MIN(LAI_nitrogen,sp%LAI_light))
   !        endif
   !        end associate
@@ -3485,7 +3470,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !  proj_leaf_psi = max( leaf_psi_lwr_d                                         &
     !                     , ((ap * leaf_psi_d + bp) * exp_term - bp) / ap )
     !  wflux_wl_d = (proj_leaf_psi - leaf_psi_d) * c_leaf_d / dt_d + transp_d
-    if(cc%Aleaf > 0.0)then
+    if(cc%Aleaf > zero_thld)then
       ap = -k_stem/cc%H_leaf
       bp = ((cc%psi_stem - psi_ht)*k_stem - transp/step_seconds)/cc%H_leaf
       exp_term = exp(ap * step_seconds)

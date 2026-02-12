@@ -37,7 +37,15 @@
                        BAND_NIR = 2    ! near infra-red radiation (wavelenght range?)
 
  real,    parameter :: min_nindivs= 0.1E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
- real,    parameter :: tiny = 1.0e-12
+ real,    parameter :: zero_thld = 1.0e-12
+
+ ! For vegn_photosynthesis
+ real, parameter :: light_crit = 1.0e-12
+ real, parameter :: gs_lim     = 0.25
+ real, parameter :: lai_min = 1.0e-6
+ real, parameter :: lai_max = 8.0        ! cc%LAI ranges from 0 to ~8
+ real, parameter :: ext_min = 0.10       ! cc%extinct is usually 0.2~0.9
+ real, parameter :: ext_max = 0.90
 
  ! Plant hydraulics-mortality
  integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
@@ -1698,12 +1706,12 @@ subroutine calc_solarzen(td,latdegrees,cosz,solarelev,solarzen)
      !* Calculate solar zenith angle **in radians**
      !* From Spitters, C. J. T. (1986), AgForMet 38: 231-242.
      implicit none
-     real,intent(in) :: td             ! day(to minute fraction)
-     real,intent(in) :: latdegrees     ! latitude in degrees
+     real,intent(in) :: td            ! day(to minute fraction)
+     real,intent(in) :: latdegrees    ! latitude in degrees
      real :: hour,latrad
      real :: delta    ! declination angle
      real :: pi, rad
-     real,intent(out) :: cosz        ! cosz=cos(zen angle)=sin(elev angle)
+     real,intent(out) :: cosz         ! cosz=cos(zen angle)=sin(elev angle)
      real,intent(out) :: solarelev    ! solar elevation angle (rad)
      real,intent(out) :: solarzen     ! solar zenith angle (rad)
      pi  = 3.1415926
