@@ -45,290 +45,290 @@
 
 !---------------
 module BiomeE_mod
- use datatypes
- use io_mod
- use esdvm
+  use datatypes
+  use io_mod
+  use esdvm
 
- implicit none
- private
+  implicit none
+  private
 
- ! ------ public subroutines ---------
- public :: BiomeE_main
+  ! ------ public subroutines ---------
+  public :: BiomeE_main
 
- contains
+  contains
 
 !================== BiomeE Driver ===========================================
- subroutine BiomeE_main() ! Weng 03/20/2023, main BiomeE module
-  implicit none
+  subroutine BiomeE_main() ! Weng 03/20/2023, main BiomeE module
+    implicit none
 
-  call BiomeE_initialization()
-  call BiomeE_run()
-  call BiomeE_end()
-end subroutine BiomeE_main
+    call BiomeE_initialization()
+    call BiomeE_run()
+    call BiomeE_end()
+  end subroutine BiomeE_main
 
 !----------------------------------------------------------------------------
-subroutine BiomeE_initialization()
-  ! Weng 08/08/2022, for model initialization
-  implicit none
-  type(vegn_tile_type), pointer :: vegn => NULL()
-  type(vegn_tile_type), pointer :: pveg => NULL()
-  integer :: i
+  subroutine BiomeE_initialization()
+    ! Weng 08/08/2022, for model initialization
+    implicit none
+    type(vegn_tile_type), pointer :: vegn => NULL()
+    type(vegn_tile_type), pointer :: pveg => NULL()
+    integer :: i
 
-  ! Hack for closedN setting
-  if(do_closedN_run) then
-    K_DeNitr  = 0.0 ! rate of a year, 2.5
-    rho_SON   = 0.0 ! organic nitrogen release rate
-    fdsvN     = 0.0 ! Maximum nitrogen loss rate with runoff
-    N_input   = 0.0 ! N input, kg N m-2 yr-1
-  endif
+    ! Hack for closedN setting
+    if(do_closedN_run) then
+      K_DeNitr  = 0.0 ! rate of a year, 2.5
+      rho_SON   = 0.0 ! organic nitrogen release rate
+      fdsvN     = 0.0 ! Maximum nitrogen loss rate with runoff
+      N_input   = 0.0 ! N input, kg N m-2 yr-1
+    endif
 
 #ifdef DO_Climate_VEG
-  ! Update init_cohort_* arrays, 09/09/2025
-  call Vegn_PFTs_from_Climate(forcingData,steps_per_day)
+    ! Update init_cohort_* arrays, 09/09/2025
+    call Vegn_PFTs_from_Climate(forcingData,steps_per_day)
 #endif
 
-  if(init_cohort_Indiv(1)<0.0) &
-     call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
+    if(init_cohort_Indiv(1)<0.0) &
+    call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
 
-  ! Setup total days of model run
-  totdays   = INT(model_run_years/yr_data+1)*days_data
-  equi_days = Max(0, totdays - days_data)
+    ! Setup total days of model run
+    totdays   = INT(model_run_years/yr_data+1)*days_data
+    equi_days = Max(0, totdays - days_data)
 #ifdef GlobalRun
-  equi_days = Max(0, totdays - min(3650, days_data))
+    equi_days = Max(0, totdays - min(3650, days_data))
 #endif
-  ! ------ Land grid, vegetation tiles, and plant cohorts ------
-  allocate(land)
-  land%nTiles = 0
-  do i =1, N_VegTile
-    allocate(vegn)
-    call initialize_vegn_tile(vegn)
-    call relayer_cohorts(vegn)
-    call Zero_diagnostics(vegn)
-    vegn%Tc_pheno = forcingData(1)%Tair
-    vegn%tileID = i
-    land%nTiles = land%nTiles + 1
-    if(i==1)then
-      land%firstVegn => vegn
-      pveg => vegn
-    else
-      pveg%next => vegn
-      vegn%prev => pveg
-      pveg      => vegn
-    endif
-    vegn => NULL()
-  enddo
-  vegn => land%firstVegn
-  pveg => NULL()
+    ! ------ Land grid, vegetation tiles, and plant cohorts ------
+    allocate(land)
+    land%nTiles = 0
+    do i =1, N_VegTile
+      allocate(vegn)
+      call initialize_vegn_tile(vegn)
+      call relayer_cohorts(vegn)
+      call Zero_diagnostics(vegn)
+      vegn%Tc_pheno = forcingData(1)%Tair
+      vegn%tileID = i
+      land%nTiles = land%nTiles + 1
+      if(i==1)then
+        land%firstVegn => vegn
+        pveg => vegn
+      else
+        pveg%next => vegn
+        vegn%prev => pveg
+        pveg      => vegn
+      endif
+      vegn => NULL()
+    enddo
+    vegn => land%firstVegn
+    pveg => NULL()
 
-  ! ------ Start a new random number series ------
-  call RANDOM_SEED()
+    ! ------ Start a new random number series ------
+    call RANDOM_SEED()
 
-end subroutine BiomeE_initialization
+  end subroutine BiomeE_initialization
 
 !----------------------------------------------------------------------------
-subroutine BiomeE_run()
-  ! Weng 08/08/2022, for model run
-  implicit none
-  type(vegn_tile_type), pointer :: vegn => NULL()
-  type(climate_data_type) :: climateData
-  integer :: i, k, idays, idata, jdata, idoy
-  integer :: n_steps, n_yr, year0, year1
-  integer :: MonthDays(0:12)
-  integer :: iCO2_hist, CO2_start_yr, CO2_end_yr, CO2_yrs, skip_yrs
-  integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
-  real    :: r_d
-  logical :: new_annual_cycle
-  logical :: BaseLineClimate = .True.
+  subroutine BiomeE_run()
+    ! Weng 08/08/2022, for model run
+    implicit none
+    type(vegn_tile_type), pointer :: vegn => NULL()
+    type(climate_data_type) :: climateData
+    integer :: i, k, idays, idata, jdata, idoy
+    integer :: n_steps, n_yr, year0, year1
+    integer :: MonthDays(0:12)
+    integer :: iCO2_hist, CO2_start_yr, CO2_end_yr, CO2_yrs, skip_yrs
+    integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
+    real    :: r_d
+    logical :: new_annual_cycle
+    logical :: BaseLineClimate = .True.
 
 #ifdef FACE_run
-  ! History CO2 concentration, data from 1700 to 2024 (325 years)
-  CO2_start_yr = 1850 ! Minimum 1700
-  CO2_end_yr   = 1997
-  CO2_yrs      = Max(CO2_end_yr - CO2_start_yr + 1, 1)
-  skip_yrs     = Max(CO2_start_yr - 1700, 0)
-  iCO2_hist= skip_yrs + 1
-  !Total years, CO2-history years, and experiment years
-  tot_yrs  = INT(model_run_years/yr_data+1)*yr_data
-  hist_yrs = CO2_yrs
-  spin_yrs = tot_yrs ! in case there is unrecognizable CO2Tag
-  if(CO2Tag == 'Init')then
-    spin_yrs = tot_yrs
-  elseif(CO2Tag == 'Hist')then
-    spin_yrs = tot_yrs - hist_yrs
-  elseif(CO2Tag == 'aCO2' .OR. CO2Tag == 'eCO2')then
-    spin_yrs = INT(750/yr_data)*yr_data - hist_yrs
-  endif
+    ! History CO2 concentration, data from 1700 to 2024 (325 years)
+    CO2_start_yr = 1850 ! Minimum 1700
+    CO2_end_yr   = 1997
+    CO2_yrs      = Max(CO2_end_yr - CO2_start_yr + 1, 1)
+    skip_yrs     = Max(CO2_start_yr - 1700, 0)
+    iCO2_hist= skip_yrs + 1
+    !Total years, CO2-history years, and experiment years
+    tot_yrs  = INT(model_run_years/yr_data+1)*yr_data
+    hist_yrs = CO2_yrs
+    spin_yrs = tot_yrs ! in case there is unrecognizable CO2Tag
+    if(CO2Tag == 'Init')then
+      spin_yrs = tot_yrs
+    elseif(CO2Tag == 'Hist')then
+      spin_yrs = tot_yrs - hist_yrs
+    elseif(CO2Tag == 'aCO2' .OR. CO2Tag == 'eCO2')then
+      spin_yrs = INT(750/yr_data)*yr_data - hist_yrs
+    endif
 #endif
 
-  !----------------------
-  n_yr    = 1
-  idoy    = 0
-  MonthDays = MonthDOY
-  n_steps = StartLine - 1 ! steps skipped acc. the starting line, for UFL only
-  do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*days_data ! days for the model run
-    idoy = idoy + 1
-    ! Leap year or not
-    if(idoy == 1)then
-      jdata = MIN(datalines,MOD(n_steps, datalines) + 59*steps_per_day+1)
-      if(forcingData(jdata)%doy>28)then
-        MonthDays(2:12) = MonthDOY(2:12)+1!leap year
-      else
-        MonthDays = MonthDOY!Non-leap year
+    !----------------------
+    n_yr    = 1
+    idoy    = 0
+    MonthDays = MonthDOY
+    n_steps = StartLine - 1 ! steps skipped acc. the starting line, for UFL only
+    do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*days_data ! days for the model run
+      idoy = idoy + 1
+      ! Leap year or not
+      if(idoy == 1)then
+        jdata = MIN(datalines,MOD(n_steps, datalines) + 59*steps_per_day+1)
+        if(forcingData(jdata)%doy>28)then
+          MonthDays(2:12) = MonthDOY(2:12)+1!leap year
+        else
+          MonthDays = MonthDOY!Non-leap year
+        endif
       endif
-    endif
 
-    land%Tc_daily = 0.0 ! Zero daily mean temperature
-    ! Fast-step update (hourly or half-hourly)
-    do i=1,steps_per_day
-      n_steps = n_steps + 1
-      idata = MOD(n_steps-1, datalines) + 1
-      climateData = forcingData(idata)
-      ! Set up scenarios for rainfall and CO2 concentration
-      climateData%rain = forcingData(idata)%rain * Sc_prcp
-      climateData%Tair = forcingData(idata)%Tair + Sc_dT
-      climateData%CO2  = CO2_c
+      land%Tc_daily = 0.0 ! Zero daily mean temperature
+      ! Fast-step update (hourly or half-hourly)
+      do i=1,steps_per_day
+        n_steps = n_steps + 1
+        idata = MOD(n_steps-1, datalines) + 1
+        climateData = forcingData(idata)
+        ! Set up scenarios for rainfall and CO2 concentration
+        climateData%rain = forcingData(idata)%rain * Sc_prcp
+        climateData%Tair = forcingData(idata)%Tair + Sc_dT
+        climateData%CO2  = CO2_c
 
 #ifdef DroughtPaleo
-      climateData%CO2  = CO2_c ! ppm
+        climateData%CO2  = CO2_c ! ppm
 #endif
 
 #ifdef FACE_run
-      if(n_yr <= spin_yrs)then
-        climateData%CO2  = CO2_c ! ppm
-      elseif(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then ! Treatment CO2 (Hist, aCO2, eCO2)
-        climateData%CO2  = CO2_Hist(iCO2_hist)
-      elseif(n_yr > spin_yrs+hist_yrs)then
-        if(CO2Tag == 'aCO2')then
-          climateData%CO2 = forcingData(idata)%CO2
-        elseif(CO2Tag == 'eCO2')then
-          climateData%CO2 = forcingData(idata)%eCO2
+        if(n_yr <= spin_yrs)then
+          climateData%CO2  = CO2_c ! ppm
+        elseif(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then ! Treatment CO2 (Hist, aCO2, eCO2)
+          climateData%CO2  = CO2_Hist(iCO2_hist)
+        elseif(n_yr > spin_yrs+hist_yrs)then
+          if(CO2Tag == 'aCO2')then
+            climateData%CO2 = forcingData(idata)%CO2
+          elseif(CO2Tag == 'eCO2')then
+            climateData%CO2 = forcingData(idata)%eCO2
+          endif
         endif
-      endif
 #endif
-      land%Tc_daily = land%Tc_daily + climateData%Tair - 273.16
+        land%Tc_daily = land%Tc_daily + climateData%Tair - 273.16
 
+        vegn => land%firstVegn
+        do while(ASSOCIATED(vegn))
+          if(i == INT(steps_per_day/2) .and. idoy == 181)vegn%CO2_c = climateData%CO2 ! * 1.0e6
+          call vegn_CNW_budget_fast(vegn,climateData)
+          call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
+          vegn => vegn%next
+        enddo
+      enddo ! steps_per_day
+      land%Tc_daily = land%Tc_daily/steps_per_day
+
+      ! Daily update
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
-        if(i == INT(steps_per_day/2) .and. idoy == 181)vegn%CO2_c = climateData%CO2 ! * 1.0e6
-        call vegn_CNW_budget_fast(vegn,climateData)
-        call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
+        vegn%Tc_daily = land%Tc_daily
+        vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
+        call vegn_daily_update(vegn,dt_daily_yr)
+        call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
         vegn => vegn%next
       enddo
-    enddo ! steps_per_day
-    land%Tc_daily = land%Tc_daily/steps_per_day
 
-    ! Daily update
-    vegn => land%firstVegn
-    do while(ASSOCIATED(vegn))
-      vegn%Tc_daily = land%Tc_daily
-      vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
-      call vegn_daily_update(vegn,dt_daily_yr)
-      call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
-      vegn => vegn%next
-    enddo
+      ! Annual update
+      ! Southern hemisphere has been shifted up for 182 days with "ShiftSHdata"
+      ! Check if the next step is a new year
+      year0 = forcingData(idata)%year  ! Current step year
+      idata = MOD(n_steps, datalines) + 1 ! Next step idata
+      year1 = forcingData(idata)%year  ! Nex step year
+      new_annual_cycle = ((year0 /= year1) .OR. (MOD(n_steps,datalines)==0))
+      if(new_annual_cycle)then
+        idoy = 0
+        vegn => land%firstVegn
+        do while(ASSOCIATED(vegn))
+          ! Update plant hydraulic states, for the last year
+          call vegn_hydraulic_states(vegn,real(seconds_per_year))
 
-    ! Annual update
-    ! Southern hemisphere has been shifted up for 182 days with "ShiftSHdata"
-    ! Check if the next step is a new year
-    year0 = forcingData(idata)%year  ! Current step year
-    idata = MOD(n_steps, datalines) + 1 ! Next step idata
-    year1 = forcingData(idata)%year  ! Nex step year
-    new_annual_cycle = ((year0 /= year1) .OR. (MOD(n_steps,datalines)==0))
-    if(new_annual_cycle)then
-      idoy = 0
-      vegn => land%firstVegn
-      do while(ASSOCIATED(vegn))
-        ! Update plant hydraulic states, for the last year
-        call vegn_hydraulic_states(vegn,real(seconds_per_year))
+          ! Fire disturbance
+          if(do_fire) call vegn_fire(vegn,real(seconds_per_year))
 
-        ! Fire disturbance
-        if(do_fire) call vegn_fire(vegn,real(seconds_per_year))
-
-        ! Yearly mean temperature
-        vegn%YearlyTmp = vegn%YearlyTmp/365.0
+          ! Yearly mean temperature
+          vegn%YearlyTmp = vegn%YearlyTmp/365.0
 
 #ifdef SingleTreeTest
-        call vegn_SingleCohort_annual_update(vegn)
-        call annual_diagnostics(vegn,n_yr)
+          call vegn_SingleCohort_annual_update(vegn)
+          call annual_diagnostics(vegn,n_yr)
 #else
-        call annual_diagnostics(vegn,n_yr)
-        call vegn_demographics(vegn,real(seconds_per_year))
+          call annual_diagnostics(vegn,n_yr)
+          call vegn_demographics(vegn,real(seconds_per_year))
 #endif
 
-        ! Case studies
-        if(do_RecoverSP .and. MOD(n_yr, FreqY0)==0) &
+          ! Case studies
+          if(do_RecoverSP .and. MOD(n_yr, FreqY0)==0) &
           call vegn_species_recovery(vegn) ! for competition
-        ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
+          ! if(update_annualLAImax) call vegn_annualLAImax_update(vegn)
 
-        ! --------- Cohort management ---------
-        ! calculate the number of cohorts with indivs>mindensity
-        k = 0
-        do i = 1, vegn%n_cohorts
-          if (vegn%cohorts(i)%nindivs > 0.5*min_nindivs) k=k+1
-        enddo
-        if(k==0)then
-           write(*,*)"zero cohorts, reset!"
-           call reset_vegn_initial(vegn)
-        endif
-        call kill_old_grass(vegn)
-        !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
-        call relayer_cohorts(vegn)
-        call vegn_mergecohorts(vegn)
-        call kill_lowdensity_cohorts(vegn)
-        ! Summarize tile and zero annual reporting variables
-        call vegn_sum_tile(vegn)
-        call Zero_diagnostics(vegn)
+          ! --------- Cohort management ---------
+          ! calculate the number of cohorts with indivs>mindensity
+          k = 0
+          do i = 1, vegn%n_cohorts
+            if (vegn%cohorts(i)%nindivs > 0.5*min_nindivs) k=k+1
+          enddo
+          if(k==0)then
+            write(*,*)"zero cohorts, reset!"
+            call reset_vegn_initial(vegn)
+          endif
+          call kill_old_grass(vegn)
+          !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
+          call relayer_cohorts(vegn)
+          call vegn_mergecohorts(vegn)
+          call kill_lowdensity_cohorts(vegn)
+          ! Summarize tile and zero annual reporting variables
+          call vegn_sum_tile(vegn)
+          call Zero_diagnostics(vegn)
 
 #ifdef DBEN_runs
-        !! Reset vegetation to initial conditions, for DBEN
-        CALL RANDOM_NUMBER(r_d)
-        if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
+          !! Reset vegetation to initial conditions, for DBEN
+          CALL RANDOM_NUMBER(r_d)
+          if((n_yr==yr_ResetVeg).or.(n_yr>yr_ResetVeg .and. r_d<envi_fire_prb)) &
           call reset_vegn_initial(vegn)
 #endif
-        vegn => vegn%next
-      enddo
+          vegn => vegn%next
+        enddo
 
-      ! update the years of model run
-      n_yr = n_yr + 1
+        ! update the years of model run
+        n_yr = n_yr + 1
 
 #ifdef FACE_run
-      if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then
-        iCO2_hist = Min(iCO2_hist + 1, CO2_end_yr)
-      endif
+        if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then
+          iCO2_hist = Min(iCO2_hist + 1, CO2_end_yr)
+        endif
 #endif
 
 #ifdef DroughtMIP
-      if(n_yr == yr_Baseline + 1 .and. BaseLineClimate)then
-        call setup_forcingdata(Scefile)
-        n_steps = 0
-        BaseLineClimate = .False.
-      endif
+        if(n_yr == yr_Baseline + 1 .and. BaseLineClimate)then
+          call setup_forcingdata(Scefile)
+          n_steps = 0
+          BaseLineClimate = .False.
+        endif
 #endif
 
-    endif
-  enddo
-end subroutine BiomeE_run
+      endif
+    enddo
+  end subroutine BiomeE_run
 
 !----------------------------------------------------------------------------
-subroutine BiomeE_end
-  type(vegn_tile_type), pointer :: vegn => NULL()
-  type(vegn_tile_type), pointer :: pveg => NULL()
+  subroutine BiomeE_end
+    type(vegn_tile_type), pointer :: vegn => NULL()
+    type(vegn_tile_type), pointer :: pveg => NULL()
 
-  !------------ Close output files and release memory
-  close(fno1); close(fno2); close(fno3)
-  close(fno4); close(fno5); close(fno6)
+    !------------ Close output files and release memory
+    close(fno1); close(fno2); close(fno3)
+    close(fno4); close(fno5); close(fno6)
 
-  vegn => land%firstVegn
-  do while(ASSOCIATED(vegn))
-    pveg => vegn%next
-    deallocate(vegn%cohorts)
-    deallocate(vegn%initialCC)
-    deallocate(vegn)
-    vegn => pveg
-  enddo
-  deallocate(land)
-  deallocate(forcingData)
-end subroutine BiomeE_end
+    vegn => land%firstVegn
+    do while(ASSOCIATED(vegn))
+      pveg => vegn%next
+      deallocate(vegn%cohorts)
+      deallocate(vegn%initialCC)
+      deallocate(vegn)
+      vegn => pveg
+    enddo
+    deallocate(land)
+    deallocate(forcingData)
+  end subroutine BiomeE_end
 
 !----------------------------------------------------------------------------
 end module BiomeE_mod
