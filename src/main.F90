@@ -87,13 +87,7 @@ program BiomeE
 #endif
 
     ! Set up output files for this grid
-    fno1=GridID + 1000000
-    fno2=GridID + 2000000
-    fno3=GridID + 3000000
-    fno4=GridID + 4000000
-    fno5=GridID + 5000000
-    fno6=GridID + 6000000
-    call setup_output_files() ! Setup output files before reading forcing data
+    call setup_output_files(GridID) ! Setup output files before reading forcing data
 
     ! Get this grid's forcingData
 #ifdef Use_InterpolatedData
@@ -129,7 +123,7 @@ program BiomeE
   ! ---------- Single site run with csv/txt forcing data input ----------
   call model_para_init(fnml) ! Read in PFT & soil parameters from namelists
   call setup_forcingdata(climfile)
-  call setup_output_files()
+  call setup_output_files(GridID)
   call BiomeE_main()
 
 #endif

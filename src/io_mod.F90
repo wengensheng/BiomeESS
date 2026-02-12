@@ -1053,27 +1053,40 @@ module io_mod
   end subroutine read_CRUforcing
 
 !=========== Write output file header ====================
-  subroutine setup_output_files()
+  subroutine setup_output_files(GridID)
+
+    integer, intent(in) :: GridID
 
     ! ----------Local vars ------------
-    character(len=150) :: YearlyCohort2, DailyPatch2  ! For DroughtMIP only
+    character(len=150) :: YearlyCohort2, DailyPatch2
     character(len=120) :: filesuffix, fpath
     character(len=6)   :: LonLat
     integer :: istat1, istat2, istat3
 
     ! File path and names
     fpath = trim(filepath_out)
-    filesuffix   = trim(runID) ! tag for simulation experiments
+    filesuffix = trim(runID)
+    LonLat = ''   ! Important for site runs
+
 #ifdef GlobalRun
     write(LonLat, GridIDFMT) GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
+
+    ! Set unit numbers here (used later by *_diagnostics)
+    fno1 = GridID + 1000000
+    fno2 = GridID + 2000000
+    fno3 = GridID + 3000000
+    fno4 = GridID + 4000000
+    fno5 = GridID + 5000000
+    fno6 = GridID + 6000000
 #endif
-    file_out(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
-    file_out(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
-    file_out(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
-    file_out(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
-    file_out(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
-    file_out(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
+
+    file_out(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'
+    file_out(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'
+    file_out(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'
+    file_out(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'
+    file_out(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'
+    file_out(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'
 
 #ifdef DroughtMIP
     ! For DroughtMIP
