@@ -48,38 +48,44 @@ module soil_mod
 
   subroutine Soil_BGC (vegn, tsoil, thetaS)
     type(vegn_tile_type), intent(inout) :: vegn
-    real                , intent(in)    :: tsoil ! soil temperature, deg K
-    real                , intent(in)    :: thetaS
+    real,                intent(in)    :: tsoil   ! soil temperature, deg K
+    real,                intent(in)    :: thetaS
 
-    !---- local var -------------
+    ! ---- local var -------------
     real :: d_C(5), d_N(5), newM(5)
     real :: CUEf0, CUEs0
-    real :: extraN, N_m    ! Mineralized nitrogen
-    real :: N_loss ! Mineral Nitrogen loss, kg N m-2 step-1
-    real :: K_rf, K_dn ! Maximum loss rate, runoff loss rate, and denitrofication rate
-    real :: dN_SOM4, dN_SOM5 ! Dissolved organic N loss, kg N m-2 step-1
-    real :: A  ! decomp rate reduction due to moisture and temperature
-    !real :: McrbMax = 0.2 ! kgC m-2, Maximum microbial biomass (as a function of SON)
+    real :: extraN, N_m          ! Mineralized nitrogen
+    real :: N_loss               ! Mineral nitrogen loss, kg N m-2 step-1
+    real :: K_rf, K_dn           ! Runoff loss rate, and denitrification rate
+    real :: dN_SOM4, dN_SOM5     ! Dissolved organic N loss, kg N m-2 step-1
+    real :: A                    ! Decomp rate reduction due to moisture and temperature
+    !real :: McrbMax = 0.2       ! kgC m-2, Maximum microbial biomass (as a function of SON)
     !real :: fm_dcmp = 1.0
-    !real :: fm_grow = 1.0 ! microbial growth rate, !Test for microbial controls on decomposition
+    !real :: fm_grow = 1.0       ! microbial growth rate, !Test for microbial controls on decomposition
     integer :: i
 
+    ! Initialize arrays (important when some pools are disabled/commented)
+    d_C  = 0.0
+    d_N  = 0.0
+    newM = 0.0
+
     ! Default microbial CUE for fast and slow SOM
-    CUEf0 = CUEmax0       ! 0.4
-    CUEs0 = CUEmax0 * 0.5 ! 0.2
+    CUEf0 = CUEmax0        ! 0.4
+    CUEs0 = CUEmax0 * 0.5  ! 0.2
 
     ! Environmental scalar
-    A = A_function(tsoil,thetaS)
+    A = A_function(tsoil, thetaS)
 
     ! Put litters into soil to start decomposition processes
-    do i=1, 2
+    do i = 1, 2
       d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr
       d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr
+
       vegn%SOC(i)   = vegn%SOC(i)   - d_C(i)
       vegn%SON(i)   = vegn%SON(i)   - d_N(i)
       vegn%SOC(3+i) = vegn%SOC(3+i) + d_C(i)
       vegn%SON(3+i) = vegn%SON(3+i) + d_N(i)
-    enddo
+    end do
 
     !For microbial controlled decomposition (Birch effect) ! Weng, 02/05/2025
     !McrbMax = Max(2.0E-5,(vegn%SON(4)+vegn%SON(5))*CN0SOM(3)/2.0)
@@ -89,40 +95,44 @@ module soil_mod
     !! Turnover of SOM3 (microbial), commented, 01/18/2026
     !d_C(3) = vegn%SOC(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
     !d_N(3) = vegn%SON(3) * K0SOM(3) * fm_dcmp * dt_fast_yr ! * A
+    ! NOTE: d_C(3) and d_N(3) stay at 0.0 when SOM3 turnover is disabled.
+
     ! Turnover rates of SOM4 and SOM5 (included SOM3, 01/18/2026)
-    do i=3, 5 ! 4-->3, 01/18/2026
-      !d_C(i) = vegn%SOC(i)*(1. - exp(-A*K0SOM(i)*dt_fast_yr))
-      d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr * A ! * fm_dcmp
-      d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr * A ! * fm_dcmp
-    enddo
+    do i = 3, 5   ! 4-->3, 01/18/2026
+      !d_C(i) = vegn%SOC(i) * (1.0 - exp(-A*K0SOM(i)*dt_fast_yr))
+      d_C(i) = vegn%SOC(i) * K0SOM(i) * dt_fast_yr * A   ! * fm_dcmp
+      d_N(i) = vegn%SON(i) * K0SOM(i) * dt_fast_yr * A   ! * fm_dcmp
+    end do
 
     ! New microbes grown from SOM decomposition
     ! "d_N(i)/CN0SOM(3)" --> "d_N(i)*CN0SOM(3)", found by Qi Yang (06/16/2025)
-    newM(4) = Min(CUEf0*d_C(4), d_N(4)*CN0SOM(3)) ! * fm_grow
-    newM(5) = Min(CUEs0*d_C(5), d_N(5)*CN0SOM(3)) ! * fm_grow
-    newM(3) = (newM(4)+newM(5)) * (1.-f_M2SOM)
+    newM(4) = min(CUEf0 * d_C(4), d_N(4) * CN0SOM(3))     ! * fm_grow
+    newM(5) = min(CUEs0 * d_C(5), d_N(5) * CN0SOM(3))     ! * fm_grow
+    newM(3) = (newM(4) + newM(5)) * (1.0 - f_M2SOM)
 
-    ! Update C and N pools
+    ! Update C pools
     vegn%SOC(3) = vegn%SOC(3) - d_C(3) + newM(3)
-    vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM !  + d_C(3) ! moved d_C(3) out
+    vegn%SOC(4) = vegn%SOC(4) - d_C(4) + newM(4) * f_M2SOM  ! + d_C(3) ! moved d_C(3) out
     vegn%SOC(5) = vegn%SOC(5) - d_C(5) + newM(5) * f_M2SOM
 
-    vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3)/CN0SOM(3)
-    vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4)/CN0SOM(3) * f_M2SOM !  + d_N(3) ! moved d_N(3) out
-    vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5)/CN0SOM(3) * f_M2SOM
+    ! Update N pools
+    vegn%SON(3) = vegn%SON(3) - d_N(3) + newM(3) / CN0SOM(3)
+    vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4) / CN0SOM(3) * f_M2SOM  ! + d_N(3) ! moved d_N(3) out
+    vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5) / CN0SOM(3) * f_M2SOM
 
-    ! Mineralized nitrogen and Heterotrophic respiration, kg m-2 step-1
-    vegn%rh = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5)) !
+    ! Mineralized nitrogen and heterotrophic respiration, kg m-2 step-1
+    vegn%rh = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5))
     N_m     = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
 
     ! ------- DON and mineralN losses ----------
     K_dn = A * K_DeNitr * dt_fast_yr
     !K_rf = fdsvN * (1.0 - exp(-etaN*vegn%runoff/fdsvN)) ! fdsvN is the max. loss rate when runoff is extremely high
-    K_rf = fdsvN * vegn%runoff/(fdsvN/etaN + vegn%runoff)
+    K_rf = fdsvN * vegn%runoff / (fdsvN/etaN + vegn%runoff)
 
-    ! Organic and mineral nitrogen losses: Assume it is proportional to decomposition rates
+    ! Organic and mineral nitrogen losses: assume it is proportional to decomposition rates
     dN_SOM4 = fDON * d_N(4) * K_rf + vegn%SON(4) * rho_SON * A * dt_fast_yr
     dN_SOM5 = fDON * d_N(5) * K_rf + vegn%SON(5) * rho_SON * A * dt_fast_yr
+
     vegn%SON(4) = vegn%SON(4) - dN_SOM4
     vegn%SON(5) = vegn%SON(5) - dN_SOM5
 
@@ -132,12 +142,12 @@ module soil_mod
 
     ! Update mineral N pool (mineralN)
     vegn%mineralN = vegn%mineralN + N_m - N_loss
-    vegn%Nm_Soil  = vegn%Nm_Soil  + N_m ! - N_loss
+    vegn%Nm_Soil  = vegn%Nm_Soil  + N_m   ! - N_loss
 
     ! Check if soil C/N is lower than CN0
     do i = 4, 5
-      extraN = vegn%SON(i) - vegn%SOC(i)/CN0SOM(i)
-      if (extraN > 0.0)then
+      extraN = vegn%SON(i) - vegn%SOC(i) / CN0SOM(i)
+      if (extraN > 0.0) then
         vegn%SON(i)   = vegn%SON(i)   - extraN
         vegn%mineralN = vegn%mineralN + extraN
         vegn%Nm_Soil  = vegn%Nm_Soil  + extraN
@@ -150,34 +160,30 @@ module soil_mod
 ! =============== soil water subroutines ==================================
 ! =========================================================================
 ! Weng, 2017-10-27
-  subroutine SoilWaterDynamics(forcing,vegn)    !outputs
+subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     ! All of inputs, the unit of water is 'mm',
     ! Soil moisture (soil water content) is a ratio
     implicit none
-    type(vegn_tile_type), intent(inout) :: vegn
-    type(climate_data_type),intent(in):: forcing
+
+    type(vegn_tile_type),  intent(inout) :: vegn
+    type(climate_data_type), intent(in)  :: forcing
 
     !----- local var --------------
-    type(cohort_type),pointer :: cc
-    real,dimension(soil_L) :: WaterBudgetL, W_def, W_add, LeakW
+    real, dimension(soil_L) :: WaterBudgetL, W_def, W_add, LeakW
     real :: W_refill, fw1, rhocp, H2OLv, slope, psyc
-    real :: Karman = 0.41 ! von Kármán constant (~0.41)
-    real :: kappa  = 0.75 ! light extinction coefficient of corwn layers
-    real :: dV     = 0.1  ! a small number
-    real :: Rnet, Rland   ! net radiation, and soil surface radiation, W/m2
-    real :: RH, Uwind     ! relative humidity (0~1); wind speed (m/s)
-    real :: TairK, Tair   ! temperature (K and C)
-    real :: P_air, Dair   ! Air pressure and VPD, (pa)
-    real :: Zvg, Zmh      ! veg. height and measurement height [m]
-    real :: Z0m, Z0h      ! roughness length for momentum (Z0m) and heat-vapour (Z0h), [m]
-    real :: dz            ! zero plane displacement height (zero wind height) [m]
-    real :: rLAI,rSoil,rAero  ! resistance, s m-1
-    real :: Esoil         ! Soil surface evaporation, W/m2
-    integer :: i, j, k
+    real :: kappa  = 0.75  ! light extinction coefficient of corwn layers
+    real :: dV     = 0.1   ! a small number
+    real :: Rnet, Rland    ! net radiation, and soil surface radiation, W/m2
+    real :: RH, Uwind      ! relative humidity (0~1); wind speed (m/s)
+    real :: TairK, Tair    ! temperature (K and C)
+    real :: P_air, Dair    ! Air pressure and VPD, (pa)
+    real :: rLAI, rSoil, rAero  ! resistance, s m-1
+    real :: Esoil          ! Soil surface evaporation, W/m2
+    integer :: i
 
     ! Forcing variables
     Rnet  = forcing%radiation * 0.9 ! assuming 10% reflectance
-    Uwind = forcing%windU + dV      ! in case U is zero.
+    Uwind = max(forcing%windU,dV)   ! forcing%windU+dV ! in case U is zero.
     TairK = forcing%Tair
     Tair  = forcing%Tair - 273.16
     P_air = forcing%P_air
@@ -193,18 +199,19 @@ module soil_mod
 
     ! Resistances (made-up, need an updated scheme, Decker et al. 2017)
     rLAI  = 10. * vegn%LAI**2
-    raero = 30./(Uwind + 0.5) + rLAI
-    fw1   = Max((vegn%wcl(1)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT), .000001)
-    Rsoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
-    !rsoil=360000.0 * exp(-20.0*vegn%wcl(1)/vegn%FLDCAP)  ! s m-1
-    !rsoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
-    !Rsoil=3.0E+10 * (vegn%FLDCAP-vegn%wcl(1))**16 ! Kondo et al. 1990
+    rAero = 30./(Uwind + 0.5) + rLAI
+    fw1   = Max(vegn%wcl(1)-vegn%WILTPT,0.001) / (vegn%FLDCAP-vegn%WILTPT)
+    rSoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
+    !rSoil=360000.0 * exp(-20.0*vegn%wcl(1)/vegn%FLDCAP)  ! s m-1
+    !rSoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
+    !rSoil=3.0E+10 * (vegn%FLDCAP-vegn%wcl(1))**16 ! Kondo et al. 1990
 
-    Esoil=(slope*Rland + rhocp*Dair/raero)/    &
-    (slope + psyc*(1.0+rsoil/raero)) *   &
-    max(vegn%wcl(1),0.0)/vegn%FLDCAP ! (vegn%wcl(1)-ws0)/(vegn%FLDCAP-ws0)
+    Esoil = (slope*Rland + rhocp*Dair/rAero)/    &
+            (slope + psyc*(1.0+rSoil/rAero)) *   &
+            max(vegn%wcl(1),zero_thld)/vegn%FLDCAP ! (vegn%wcl(1)-ws0)/(vegn%FLDCAP-ws0)
+
     vegn%evap = min(Esoil/H2OLv * step_seconds, &
-    0.2*vegn%wcl(1) * thksl(1) *1000.) ! kg H2) m-2 step-1
+            0.2*vegn%wcl(1) * thksl(1) *1000.) ! mm step-1
 
     ! Water budget for each soil layer
     WaterBudgetL = 0.0

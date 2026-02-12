@@ -2537,12 +2537,12 @@ subroutine initialize_soil(vegn)
    vegn%previousN = vegn%mineralN
    !Soil water
    vegn%soiltype = soiltype
-   vegn%FLDCAP   = soilpars(soiltype)%vwc_fc
-   vegn%WILTPT   = soilpars(soiltype)%vwc_wilt
-   vegn%wcl      = soilpars(soiltype)%vwc_sat
+   vegn%WILTPT   = max(soilpars(soiltype)%vwc_wilt, zero_thld)
+   vegn%FLDCAP   = max(soilpars(soiltype)%vwc_fc, vegn%WILTPT + 0.05)
+   vegn%wcl      = vegn%FLDCAP ! vegn%WILTPT + 0.5 * (vegn%FLDCAP-vegn%WILTPT)
    vegn%soilZ    = sum(thksl(:))
    vegn%soilWP0  = vegn%WILTPT * vegn%soilZ * 1000.0 ! Minimum soil water
-   vegn%thetaS   = 1.0
+   vegn%thetaS   = 1.0 ! 0.5
    call SoilWater_psi_K(vegn)
 end subroutine initialize_soil
 
@@ -2788,110 +2788,148 @@ subroutine kill_old_grass(vegn)
 end subroutine kill_old_grass
 
 ! ============================================================================
-! Just merge cohorts c1 into c2, regardless of their sizes and densities
-subroutine merge_cohorts(c1,c2) ! Put c1 into c2
+! Merge cohort c1 into c2, regardless of their sizes and densities
+! Updated by ChatGPT 02/12/2026
+subroutine merge_cohorts(c1, c2) ! Put c1 into c2
   type(cohort_type), intent(inout) :: c1
   type(cohort_type), intent(inout) :: c2
 
-  real :: x1, x2 ! normalized relative weights
-  real :: Ntot, btot, c2H, c2DBH
+  real    :: x1, x2           ! normalized relative weights
+  real    :: Ntot, btot
+  real    :: c2H, c2DBH
+  real    :: dbh_scale, h_scale
   integer :: i
 
-     ! Set up merging weights (x1 and x2)
-     Ntot = c1%nindivs + c2%nindivs
-     x1 = c1%nindivs/Ntot
-     x2 = c2%nindivs/Ntot
-     c2DBH = c2%dbh
-     c2H   = c2%height
+  ! Set up merging weights (x1 and x2)
+  Ntot = c1%nindivs + c2%nindivs
+  if (Ntot <= zero_thld) then
+    ! Nothing meaningful to merge; keep it safe.
+    c1%nindivs = 0.0
+    return
+  endif
 
-     ! Update c2 (merging c1 into c2)
-     c2%ccID = c1%ccID
-     c2%nindivs = Ntot
-     c2%age = x1*c1%age + x2*c2%age
-     c2%topyear = x1*c1%topyear + x2*c2%topyear
+  x1 = c1%nindivs / Ntot
+  x2 = c2%nindivs / Ntot
 
-     !  Carbon
-     c2%bl  = x1*c1%bl  + x2*c2%bl
-     c2%br  = x1*c1%br  + x2*c2%br
-     c2%bsw = x1*c1%bsw + x2*c2%bsw
-     c2%bHW = x1*c1%bHW + x2*c2%bHW
-     c2%seedC = x1*c1%seedC + x2*c2%seedC
-     c2%nsc = x1*c1%nsc + x2*c2%nsc
+  c2DBH = c2%dbh
+  c2H   = c2%height
 
-     !  Nitrogen
-     c2%leafN = x1*c1%leafN + x2*c2%leafN
-     c2%rootN = x1*c1%rootN + x2*c2%rootN
-     c2%swN   = x1*c1%swN   + x2*c2%swN
-     c2%hwN   = x1*c1%hwN   + x2*c2%hwN
-     c2%seedN = x1*c1%seedN + x2*c2%seedN
-     c2%NSN   = x1*c1%NSN   + x2*c2%NSN
+  ! Update c2 (merging c1 into c2)
+  c2%ccID    = c1%ccID
+  c2%nindivs = Ntot
+  c2%age     = x1 * c1%age     + x2 * c2%age
+  c2%topyear = x1 * c1%topyear + x2 * c2%topyear
 
-     ! Water content
-     c2%W_leaf  = x1*c1%W_leaf  + x2*c2%W_leaf
-     c2%W_stem  = x1*c1%W_stem  + x2*c2%W_stem
-     c2%W_dead  = x1*c1%W_dead  + x2*c2%W_dead
+  !  Carbon
+  c2%bl    = x1 * c1%bl    + x2 * c2%bl
+  c2%br    = x1 * c1%br    + x2 * c2%br
+  c2%bsw   = x1 * c1%bsw   + x2 * c2%bsw
+  c2%bHW   = x1 * c1%bHW   + x2 * c2%bHW
+  c2%seedC = x1 * c1%seedC + x2 * c2%seedC
+  c2%nsc   = x1 * c1%nsc   + x2 * c2%nsc
 
-     ! Allometry recalculation
-     btot = c2%bsw + c2%bHW
-     call BM2Architecture(c2,btot)
-     call update_max_LFR_NSN(c2)
-     call Update_plant_hydro_vars(c2)
-     call Plant_water2psi_exp(c2)
+  !  Nitrogen
+  c2%leafN = x1 * c1%leafN + x2 * c2%leafN
+  c2%rootN = x1 * c1%rootN + x2 * c2%rootN
+  c2%swN   = x1 * c1%swN   + x2 * c2%swN
+  c2%hwN   = x1 * c1%hwN   + x2 * c2%hwN
+  c2%seedN = x1 * c1%seedN + x2 * c2%seedN
+  c2%NSN   = x1 * c1%NSN   + x2 * c2%NSN
 
-     ! Reset tree rings' hydraulics
-     c2%Kx    = x1*c1%Kx    + x2*c2%Kx
-     c2%WTC0  = x1*c1%WTC0  + x2*c2%WTC0
-     c2%accH  = x1*c1%accH  + x2*c2%accH
-     c2%farea = x1*c1%farea + x2*c2%farea
+  ! Water content
+  c2%W_leaf = x1 * c1%W_leaf + x2 * c2%W_leaf
+  c2%W_stem = x1 * c1%W_stem + x2 * c2%W_stem
+  c2%W_dead = x1 * c1%W_dead + x2 * c2%W_dead
 
-     ! Recalculate ring variables
-     c2%Rring   = c2%Rring * c2%dbh/c2DBH
-     c2%Lring   = c2%Lring * c2%height/c2H
-     do i=2,MIN(c2%Nrings, Ysw_max)
-       if (c2%Rring(i)>c2%Rring(i-1)) then
-         c2%Aring(i) = PI*(c2%Rring(i)**2 - c2%Rring(i-1)**2)
-       endif
-     enddo
+  ! Allometry recalculation
+  btot = c2%bsw + c2%bHW
+  call BM2Architecture(c2, btot)
+  call update_max_LFR_NSN(c2)
+  call Update_plant_hydro_vars(c2)
+  call Plant_water2psi_exp(c2)
 
-     ! Update tree trunk sapwood area and conductance
-     call calculate_Asap_Ktrunk (c2)
+  ! Reset tree rings' hydraulics
+  c2%Kx    = x1 * c1%Kx    + x2 * c2%Kx
+  c2%WTC0  = x1 * c1%WTC0  + x2 * c2%WTC0
+  c2%accH  = x1 * c1%accH  + x2 * c2%accH
+  c2%farea = x1 * c1%farea + x2 * c2%farea
 
-     ! Zero c1's desnity so that it can be removed by kill_lowdensity_cohorts
-     c1%nindivs = 0.0
+  ! Recalculate ring variables
+  if (c2DBH > zero_thld) then
+    dbh_scale = c2%dbh / c2DBH
+    c2%Rring  = c2%Rring * dbh_scale
+  endif
+
+  if (c2H > zero_thld) then
+    h_scale   = c2%height / c2H
+    c2%Lring  = c2%Lring * h_scale
+  endif
+
+  do i = 2, MIN(c2%Nrings, Ysw_max)
+    if (c2%Rring(i) > c2%Rring(i-1)) then
+      c2%Aring(i) = PI * (c2%Rring(i)**2 - c2%Rring(i-1)**2)
+    else
+      c2%Aring(i) = 0.0
+    endif
+  enddo
+
+  ! Update tree trunk sapwood area and conductance
+  call calculate_Asap_Ktrunk(c2)
+
+  ! Zero c1's desnity so that it can be removed by kill_lowdensity_cohorts
+  c1%nindivs = 0.0
 
 end subroutine merge_cohorts
 
 ! ============================================================================
-function Mergeable_cohorts(c1,c2); logical Mergeable_cohorts
-   type(cohort_type), intent(in) :: c1,c2
-   logical :: sameSpecies,sameLayer,sameSize,sameSizeTree,sameSizeGrass
-   logical :: LowDensity, Not_ZeroDensity
+! Updated by ChatGPT 02/12/2026
+function Mergeable_cohorts(c1, c2) result(is_mergeable)
+  type(cohort_type), intent(in) :: c1, c2
 
-   LowDensity = .False. ! Default
+  logical :: is_mergeable
+  logical :: sameSpecies, sameLayer, sameSize, sameSizeTree, sameSizeGrass
+  logical :: LowDensity, Not_ZeroDensity
+  real    :: ddbh, rel_ddbh
 
-   ! Mergeable criteria:
-   Not_ZeroDensity = c1%nindivs > zero_thld .and. c2%nindivs > zero_thld
-   sameSpecies  = c1%species == c2%species
-   sameLayer    = (c1%layer == c2%layer) .or. &
-                  ((spdata(c1%species)%lifeform ==0) .and. &
-                   (spdata(c2%species)%lifeform ==0) .and. &
-                   (c1%layer>1 .and.c2%layer>1))
-   sameSizeTree = (spdata(c1%species)%lifeform > 0).and.  &
-                  (spdata(c2%species)%lifeform > 0).and.  &
-                 ((abs(c1%DBH - c2%DBH)/c2%DBH < diff_S0 ) .or.  &
-                  (abs(c1%DBH - c2%DBH)        < 0.001))  ! it'll be always true for grasses
-   sameSizeGrass= (spdata(c1%species)%lifeform ==0) .and. &
-                  (spdata(c2%species)%lifeform ==0) .and. &
-                  (c1%DBH == c2%DBH)  ! it'll be always true for grasses
-   sameSize = sameSizeTree .OR. sameSizeGrass
+  LowDensity = .False. ! Default
 
-   if (MergeLowDenCohorts) &
-       LowDensity = c1%nindivs < min_nindivs .OR. c2%nindivs < min_nindivs
+  ! Mergeable criteria:
+  Not_ZeroDensity = (c1%nindivs > zero_thld) .and. (c2%nindivs > zero_thld)
+  sameSpecies     = (c1%species == c2%species)
 
-   Mergeable_cohorts = sameSpecies .and. sameLayer &
-                      .and. Not_ZeroDensity       &
-                      .and. (sameSize .or. LowDensity)
-end function
+  sameLayer = (c1%layer == c2%layer) .or. &
+              ((spdata(c1%species)%lifeform == 0) .and. &
+               (spdata(c2%species)%lifeform == 0) .and. &
+               (c1%layer > 1 .and. c2%layer > 1))
+
+  ddbh = abs(c1%DBH - c2%DBH)
+
+  ! IMPORTANT: Avoid division by zero AND avoid relying on short-circuit .OR.
+  sameSizeTree = .False.
+  if ((spdata(c1%species)%lifeform > 0) .and. (spdata(c2%species)%lifeform > 0)) then
+    if (c2%DBH > zero_thld) then
+      rel_ddbh     = ddbh / c2%DBH
+      sameSizeTree = (rel_ddbh < diff_S0) .or. (ddbh < 0.001)
+    else
+      sameSizeTree = (ddbh < 0.001)
+    endif
+  endif
+
+  sameSizeGrass = (spdata(c1%species)%lifeform == 0) .and. &
+                  (spdata(c2%species)%lifeform == 0) .and. &
+                  (abs(c1%DBH - c2%DBH) < zero_thld)  ! it'll be always true for grasses
+
+  sameSize = sameSizeTree .or. sameSizeGrass
+
+  if (MergeLowDenCohorts) then
+    LowDensity = (c1%nindivs < min_nindivs) .or. (c2%nindivs < min_nindivs)
+  endif
+
+  is_mergeable = sameSpecies .and. sameLayer      &
+                 .and. Not_ZeroDensity            &
+                 .and. (sameSize .or. LowDensity)
+
+end function Mergeable_cohorts
 
 ! ============================================================================
 subroutine check_N_conservation(vegn,totN0,tag)
