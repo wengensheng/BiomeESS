@@ -19,8 +19,10 @@ echo $FSRCS
 
 #Site='RMA'
 #FTs='7, 0'
-Site='SJC'
-PFTs='4, 1'
+#Site='SJC'
+#PFTs='4, 1'
+Site='DCK'
+PFTs='0, 1'
 
 #gfortran $FSRCS -o ess -I/opt/local/include -L/opt/local/lib -lnetcdff
 #gfortran $FSRCS -o ess -I/Users/eweng/MACPORTS/gcc49-python3/include -L/Users/eweng/MACPORTS/gcc49-python3/lib -lnetcdff
