@@ -1,9 +1,6 @@
 module io_mod
 ! Data input and output
   use datatypes
-#ifdef USE_NETCDF
-  use netcdf
-#endif
 
   implicit none
   private

@@ -35,20 +35,37 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    integer, pointer :: GridMask(:,:) => null() ! Nlon, Nlat
    integer :: N_yrs,totL,N_vars
    integer :: istat1,i,j,k,m,iLon,iLat
-   real :: dataarray(Nlon,Nlat,Ntime),timearray(Ntime)
+   integer :: nlon_sub, nlat_sub
+   integer :: start3(3), count3(3)
+   integer :: start2(2), count2(2)
+   real, allocatable :: dataarray(:,:,:), timearray(:)
    real :: PFTdata(144,90,9),VegFraction(144,90) ! Not used, Weng 01/15/2026
-   real :: Vegetated(Nlon,Nlat)
+   real, allocatable :: Vegetated(:,:)
    logical :: Do_HighResVegMap = .True. ! 0.5x0.5
 
    ! Read in a vegetation map
    allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
+
+   ! Sub-domain sizes and hyperslab indices for netCDF reads
+   nlon_sub = UpperLon - LowerLon + 1
+   nlat_sub = UpperLat - LowerLat + 1
+   start3 = [LowerLon, LowerLat, 1]
+   count3 = [nlon_sub, nlat_sub, Ntime]
+   start2 = [LowerLon, LowerLat]
+   count2 = [nlon_sub, nlat_sub]
+
+   ! Allocate (sub-domain) temporary arrays for netCDF reading
+   allocate(dataarray(LowerLon:UpperLon, LowerLat:UpperLat, Ntime))
+   allocate(timearray(Ntime))
+   if(Do_HighResVegMap) allocate(Vegetated(LowerLon:UpperLon, LowerLat:UpperLat))
+
    PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
    Vegstr= 'TOTAL_VEG'
 
    if(Do_HighResVegMap) then ! Read in 0.5x0.5 Vegetation coverage data file
      fveg  = trim(veg_path)//trim(veg_file)
      write(*,*)'Reading ',trim(fveg)
-     call nc_read_2D(fveg,trim(Vegstr),Nlon,Nlat,Vegetated(:,:))
+     call nc_read_2D(fveg, trim(Vegstr), Vegetated, start2, count2)
 
    else                      ! Read in 2x2.5 BiomeE PFT data
      ! Not used anymore. I keep this section here just in case we are
@@ -56,7 +73,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
      fnc   = trim(fpath)//'BiomeE-PFTs.nc'
      write(*,*)'Reading ',trim(fnc)
      do i=1, 9
-       call nc_read_2D(fnc,PFTID(i),144,90,PFTdata(:,:,i))
+       call nc_read_2D(fnc, PFTID(i), PFTdata(:,:,i))
        write(*,*)"Map PFT: ", PFTID(i)
      enddo
      do i =1, 144
@@ -74,7 +91,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     call unzip_gzip_file(trim(fnc)//'.gz')
 #endif
 
-    call nc_read_3D(fnc,trim(fields(1)),Nlon,Nlat,Ntime,dataarray)
+    call nc_read_3D(fnc, trim(fields(1)), dataarray, start3, count3)
 
 #ifdef ZippedNCfiles
     command = 'rm '//trim(fnc) ! Remove unziped file
@@ -154,7 +171,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
 #endif
 
         write(*,*)'Reading: ', trim(fnc)
-        call nc_read_3D(fnc,trim(fields(j)),Nlon,Nlat,Ntime,dataarray)
+        call nc_read_3D(fnc, trim(fields(j)), dataarray, start3, count3)
         m = 0
         do iLon = LowerLon, UpperLon
           do iLat = LowerLat, UpperLat
@@ -168,7 +185,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
 
         ! Read in the time array of the first variable
         if(j == 1)then
-          call nc_read_1D(fnc,'time',Ntime,timearray)
+          call nc_read_1D(fnc, 'time', timearray)
           CRUtime((i-1)*Ntime+1: i*Ntime) = timearray
         endif
 
@@ -178,7 +195,10 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
 #endif
       enddo ! N_yrs
     enddo   ! All variables
-    ! Release allocatable arrays
+    ! Release temporary allocatable arrays
+    if(allocated(dataarray)) deallocate(dataarray)
+    if(allocated(timearray)) deallocate(timearray)
+    if(allocated(Vegetated)) deallocate(Vegetated)
     deallocate(GridMask)
 end subroutine ReadNCfiles
 
@@ -575,57 +595,141 @@ end subroutine read_interpolatedCRU
   end subroutine unzip_gzip_file
 
 !==============================================
-  subroutine nc_read_3D(FILE_NAME,field_idx,NX,NY,Ntime,DA)
-    ! This is the name of the data file we will create.
-    character (len = *), intent(in) :: FILE_NAME,field_idx
-    integer, intent(in) :: NX, NY, Ntime
-    real, intent(inout) :: DA(:,:,:)
+  subroutine nc_read_3D(file_name, var_name, da, start, count)
+    ! Read a 3-D netCDF variable. Optionally read a hyperslab using start/count.
+    character(len=*), intent(in) :: file_name, var_name
+    real, intent(out) :: da(:,:,:)
+    integer, intent(in), optional :: start(3), count(3)
 
-    !----- Local vars ----------------
-    integer :: ncid, varid  ! IDs were created with netCDF files
+    integer :: ncid, varid, ndims, xtype
+    integer :: dimids(3)
+    integer :: dlen(3)
+    integer :: s(3), c(3)
 
-    ! Open the file with NF90_NOWRITE as read-only access
-    call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-    call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
-    call check( nf90_get_var(ncid, varid, DA) )
+    call check( nf90_open(trim(file_name), NF90_NOWRITE, ncid) )
+    call check( nf90_inq_varid(ncid, trim(var_name), varid) )
+    call check( nf90_inquire_variable(ncid, varid, xtype=xtype, ndims=ndims, dimids=dimids) )
+    if (ndims /= 3) then
+      write(*,*) 'ERROR: variable is not 3-D: ', trim(var_name), ' in ', trim(file_name)
+      stop
+    endif
+
+    call check( nf90_inquire_dimension(ncid, dimids(1), len=dlen(1)) )
+    call check( nf90_inquire_dimension(ncid, dimids(2), len=dlen(2)) )
+    call check( nf90_inquire_dimension(ncid, dimids(3), len=dlen(3)) )
+
+    if (present(start) .and. present(count)) then
+      s = start
+      c = count
+      if (size(da,1) /= c(1) .or. size(da,2) /= c(2) .or. size(da,3) /= c(3)) then
+        write(*,*) 'ERROR: hyperslab shape mismatch reading ', trim(var_name)
+        write(*,*) ' start/count=', s, c, ' array=', size(da,1), size(da,2), size(da,3)
+        stop
+      endif
+      if (any(s < 1)) then
+        write(*,*) 'ERROR: invalid start (<1) reading ', trim(var_name), ' start=', s
+        stop
+      endif
+      if (any(s + c - 1 > dlen)) then
+        write(*,*) 'ERROR: hyperslab out of bounds reading ', trim(var_name)
+        write(*,*) ' dims=', dlen, ' start/count=', s, c
+        stop
+      endif
+      call check( nf90_get_var(ncid, varid, da, start=s, count=c) )
+    else
+      if (size(da,1) /= dlen(1) .or. size(da,2) /= dlen(2) .or. size(da,3) /= dlen(3)) then
+        write(*,*) 'ERROR: full-field shape mismatch reading ', trim(var_name)
+        write(*,*) ' dims=', dlen, ' array=', size(da,1), size(da,2), size(da,3)
+        stop
+      endif
+      call check( nf90_get_var(ncid, varid, da) )
+    endif
+
     call check( nf90_close(ncid) )
-    print *, 'Read file: ncid=',ncid, 'varid=',varid
-
   end subroutine nc_read_3D
 
+
   !==============================================
-  subroutine nc_read_2D(FILE_NAME,field_idx,NX,NY,DA)
-    character (len = *), intent(in) :: FILE_NAME,field_idx
-    integer, intent(in) :: NX, NY
-    real, intent(inout) :: DA(:,:)
+  subroutine nc_read_2D(file_name, var_name, da, start, count)
+    ! Read a 2-D netCDF variable. Optionally read a hyperslab using start/count.
+    character(len=*), intent(in) :: file_name, var_name
+    real, intent(out) :: da(:,:)
+    integer, intent(in), optional :: start(2), count(2)
 
-    !----- Local vars ----------------
-    integer :: ncid, varid ! IDs were created with netCDF files
+    integer :: ncid, varid, ndims, xtype
+    integer :: dimids(2)
+    integer :: dlen(2)
+    integer :: s(2), c(2)
 
-    ! Open the file with NF90_NOWRITE as read-only access
-    call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-    call check( nf90_inq_varid(ncid, trim(field_idx), varid) ) ! Get the varid of the data variable
-    call check( nf90_get_var(ncid, varid, DA) )  ! Read the data.
-    call check( nf90_close(ncid) ) ! Close the file, freeing all resources.
-    print *, 'Read file: ncid=',ncid, 'varid=',varid
-  end subroutine nc_read_2D
-  !==============================================
-  subroutine nc_read_1D(FILE_NAME,field_idx,Ntime,DA)
-    ! This is the name of the data file we will read
-    character (len = *), intent(in) :: FILE_NAME,field_idx
-    integer, intent(in) :: Ntime
-    real, intent(inout) :: DA(:)
+    call check( nf90_open(trim(file_name), NF90_NOWRITE, ncid) )
+    call check( nf90_inq_varid(ncid, trim(var_name), varid) )
+    call check( nf90_inquire_variable(ncid, varid, xtype=xtype, ndims=ndims) )
+    if (ndims /= 2) then
+      write(*,*) 'ERROR: variable is not 2-D: ', trim(var_name), ' in ', trim(file_name)
+      stop
+    endif
+    call check( nf90_inquire_variable(ncid, varid, dimids=dimids) )
+    call check( nf90_inquire_dimension(ncid, dimids(1), len=dlen(1)) )
+    call check( nf90_inquire_dimension(ncid, dimids(2), len=dlen(2)) )
 
-    !----- Local vars ----------------
-    integer :: ncid, varid ! IDs were created with netCDF files
+    if (present(start) .and. present(count)) then
+      s = start
+      c = count
+      if (size(da,1) /= c(1) .or. size(da,2) /= c(2)) then
+        write(*,*) 'ERROR: hyperslab shape mismatch reading ', trim(var_name)
+        write(*,*) ' start/count=', s, c, ' array=', size(da,1), size(da,2)
+        stop
+      endif
+      if (any(s < 1)) then
+        write(*,*) 'ERROR: invalid start (<1) reading ', trim(var_name), ' start=', s
+        stop
+      endif
+      if (any(s + c - 1 > dlen)) then
+        write(*,*) 'ERROR: hyperslab out of bounds reading ', trim(var_name)
+        write(*,*) ' dims=', dlen, ' start/count=', s, c
+        stop
+      endif
+      call check( nf90_get_var(ncid, varid, da, start=s, count=c) )
+    else
+      if (size(da,1) /= dlen(1) .or. size(da,2) /= dlen(2)) then
+        write(*,*) 'ERROR: full-field shape mismatch reading ', trim(var_name)
+        write(*,*) ' dims=', dlen, ' array=', size(da,1), size(da,2)
+        stop
+      endif
+      call check( nf90_get_var(ncid, varid, da) )
+    endif
 
-    ! Open the file with NF90_NOWRITE as read-only access
-    call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-    call check( nf90_inq_varid(ncid, trim(field_idx), varid) )
-    call check( nf90_get_var(ncid, varid, DA) )
     call check( nf90_close(ncid) )
-    print *, 'Read file: ncid=',ncid, 'varid=',varid
+  end subroutine nc_read_2D
+
+  !==============================================
+  subroutine nc_read_1D(file_name, var_name, da)
+    ! Read a 1-D netCDF variable.
+    character(len=*), intent(in) :: file_name, var_name
+    real, intent(out) :: da(:)
+
+    integer :: ncid, varid, ndims, xtype
+    integer :: dimids(1)
+    integer :: dlen(1)
+
+    call check( nf90_open(trim(file_name), NF90_NOWRITE, ncid) )
+    call check( nf90_inq_varid(ncid, trim(var_name), varid) )
+    call check( nf90_inquire_variable(ncid, varid, xtype=xtype, ndims=ndims, dimids=dimids) )
+    if (ndims /= 1) then
+      write(*,*) 'ERROR: variable is not 1-D: ', trim(var_name), ' in ', trim(file_name)
+      stop
+    endif
+    call check( nf90_inquire_dimension(ncid, dimids(1), len=dlen(1)) )
+
+    if (size(da,1) /= dlen(1)) then
+      write(*,*) 'ERROR: shape mismatch reading ', trim(var_name), ' dims=', dlen(1), ' array=', size(da,1)
+      stop
+    endif
+
+    call check( nf90_get_var(ncid, varid, da) )
+    call check( nf90_close(ncid) )
   end subroutine nc_read_1D
+
 
 !===================================================
   subroutine nc_write(FILE_NAME,NDIMS,NX,NY)

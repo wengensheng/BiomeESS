@@ -98,9 +98,9 @@ GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4
 WriteForcing =  .True., ! .False., !
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 211, ! 205, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
-UpperLon = 211, ! 206, ! 720, !  209,
+UpperLon = 212, ! 206, ! 720, !  209,
 LowerLat = 260, ! 250, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 260, ! 252, ! 320, ! 247,252
+UpperLat = 261, ! 252, ! 320, ! 247,252
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
 grid_No1 = 1, ! 1,
