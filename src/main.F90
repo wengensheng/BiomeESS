@@ -87,7 +87,7 @@ program BiomeE
 #endif
 
     ! Set up output files for this grid
-    call setup_output_files(GridID) ! Setup output files before reading forcing data
+    call setup_output_files() ! Setup output files before reading forcing data
 
     ! Get this grid's forcingData
 #ifdef Use_InterpolatedData
@@ -123,7 +123,7 @@ program BiomeE
   ! ---------- Single site run with csv/txt forcing data input ----------
   call model_para_init(fnml) ! Read in PFT & soil parameters from namelists
   call setup_forcingdata(climfile)
-  call setup_output_files(GridID)
+  call setup_output_files()
   call BiomeE_main()
 
 #endif

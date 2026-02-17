@@ -1,6 +1,9 @@
 module io_mod
 ! Data input and output
   use datatypes
+#ifdef USE_NETCDF
+  use netcdf
+#endif
 
   implicit none
   private
@@ -137,6 +140,7 @@ module io_mod
     vegn%dailyNPP  = 0.0
     vegn%dailyResp = 0.0
     vegn%dailyRh   = 0.0
+    vegn%dailyCH4  = 0.0
 
     !annual
     vegn%NfixedYr   = 0.0
@@ -148,9 +152,11 @@ module io_mod
     vegn%annualNPP  = 0.0
     vegn%annualResp = 0.0
     vegn%annualRh   = 0.0
+    vegn%annualCH4  = 0.0
     vegn%NorgP2S    = 0.0
     vegn%Nm_Soil    = 0.0
     vegn%Nm_Fire    = 0.0
+    vegn%C_burned   = 0.0
     vegn%N_OutYr    = 0.0
     vegn%NupYr      = 0.0
     vegn%GrassBM    = 0.0
@@ -230,6 +236,7 @@ module io_mod
     vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
     vegn%dailyResp = vegn%dailyResp + vegn%resp
     vegn%dailyRh   = vegn%dailyRh   + vegn%rh
+    vegn%dailyCH4  = vegn%dailyCH4  + vegn%ch4_emit
     vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
     vegn%dailyEvap = vegn%dailyEvap + vegn%evap
     vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
@@ -309,11 +316,11 @@ module io_mod
 #elif DroughtFMT
     if(outputdaily.and. iday>equi_days)then
       !! Tile daily
-      write(fno4,'(2(I5,","),65(E12.6,","))')iyears,idoy,         &
+      write(fno4,'(2(I5,","),70(E12.6,","))')iyears,idoy,         &
       vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
       vegn%dailyEvap,vegn%dailyRoff,                           &
       vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
-      vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh
+      vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh, vegn%dailyCH4
     endif
 
 #else
@@ -334,13 +341,13 @@ module io_mod
         cc%gdd,cc%ALT,cc%AWD
       enddo
       !! Tile daily
-      write(fno4,'(2(I5,","),65(E12.6,","))')iyears,idoy,         &
+      write(fno4,'(2(I5,","),70(E12.6,","))')iyears,idoy,      &
       vegn%Tc_daily, vegn%dailyPrcp,vegn%dailyTrsp,            &
       vegn%dailyEvap,vegn%dailyRoff,                           &
       vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
       vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh,    &
       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),           &
-      vegn%mineralN*1000,vegn%dailyNup*1000 !,vegn%kp(1)
+      vegn%mineralN*1000,vegn%dailyNup*1000, vegn%dailyCH4 !,vegn%kp(1)
     endif
 #endif
 
@@ -369,6 +376,7 @@ module io_mod
     vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
     vegn%annualResp = vegn%annualResp + vegn%dailyresp
     vegn%annualRh   = vegn%annualRh   + vegn%dailyrh
+    vegn%annualCH4  = vegn%annualCH4  + vegn%dailyCH4
     vegn%annualPrcp = vegn%annualPrcp + vegn%dailyPrcp
     vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
     vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
@@ -381,6 +389,7 @@ module io_mod
     vegn%dailyNPP  = 0.0
     vegn%dailyResp = 0.0
     vegn%dailyRh   = 0.0
+    vegn%dailyCH4  = 0.0
     vegn%dailyPrcp = 0.0
     vegn%dailyTrsp = 0.0
     vegn%dailyEvap = 0.0
@@ -512,7 +521,7 @@ module io_mod
       vegn%rootN + vegn%SwN + vegn%HwN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
 #ifdef FACE_run
-      write(fno6,'(1(I5,","),80(E15.6,","))') iyears, &
+      write(fno6,'(1(I5,","),85(E15.6,","))') iyears, &
       vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
       vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
       vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
@@ -521,7 +530,7 @@ module io_mod
       vegn%HwN*1000, vegn%SeedN*1000, vegn%NSN*1000,                      &
       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
       vegn%mineralN*1000, vegn%annualN*1000, vegn%NupYr*1000,             &
-      vegn%Nm_Fire*1000, vegn%N_OutYr*1000, vegn%CO2_c
+      vegn%Nm_Fire*1000, vegn%N_OutYr*1000, vegn%CO2_c,vegn%annualCH4
 #elif DroughtMIP
       if (iyears > yr_Eq) &
       write(fno6,'(2(I5,","),80(E15.6,","))')&
@@ -532,7 +541,7 @@ module io_mod
       vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
       vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
       vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
-      (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
+      (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,vegn%annualCH4,     &
       (vegn%wcl(j),j=1,soil_L)
 
 #else
@@ -548,7 +557,7 @@ module io_mod
       (vegn%wcl(j),j=1,soil_L),vegn%NfixedYr*1000,vegn%NupYr*1000,    &
       vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &
       vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,           &
-      vegn%Frisk,vegn%Pfire
+      vegn%Frisk,vegn%Pfire,vegn%annualCH4
 #endif
 
     endif
@@ -1050,40 +1059,27 @@ module io_mod
   end subroutine read_CRUforcing
 
 !=========== Write output file header ====================
-  subroutine setup_output_files(GridID)
-
-    integer, intent(in) :: GridID
+  subroutine setup_output_files()
 
     ! ----------Local vars ------------
-    character(len=150) :: YearlyCohort2, DailyPatch2
+    character(len=150) :: YearlyCohort2, DailyPatch2  ! For DroughtMIP only
     character(len=120) :: filesuffix, fpath
     character(len=6)   :: LonLat
     integer :: istat1, istat2, istat3
 
     ! File path and names
     fpath = trim(filepath_out)
-    filesuffix = trim(runID)
-    LonLat = ''   ! Important for site runs
-
+    filesuffix   = trim(runID) ! tag for simulation experiments
 #ifdef GlobalRun
     write(LonLat, GridIDFMT) GridID
     filesuffix = trim(filesuffix)//trim(LonLat)
-
-    ! Set unit numbers here (used later by *_diagnostics)
-    fno1 = GridID + 1000000
-    fno2 = GridID + 2000000
-    fno3 = GridID + 3000000
-    fno4 = GridID + 4000000
-    fno5 = GridID + 5000000
-    fno6 = GridID + 6000000
 #endif
-
-    file_out(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'
-    file_out(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'
-    file_out(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'
-    file_out(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'
-    file_out(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'
-    file_out(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'
+    file_out(1) = trim(fpath)//trim(filesuffix)//'_Cohort_hourly.csv'       ! hourly
+    file_out(2) = trim(fpath)//trim(filesuffix)//'_Ecosystem_hourly.csv'    ! hourly
+    file_out(3) = trim(fpath)//trim(filesuffix)//'_Cohort_daily.csv'        ! daily
+    file_out(4) = trim(fpath)//trim(filesuffix)//'_Ecosystem_daily.csv'     ! Daily
+    file_out(5) = trim(fpath)//trim(filesuffix)//'_Cohort_yearly.csv'       ! Yearly
+    file_out(6) = trim(fpath)//trim(filesuffix)//'_Ecosystem_yearly.csv'    ! Yearly
 
 #ifdef DroughtMIP
     ! For DroughtMIP
@@ -1142,7 +1138,7 @@ module io_mod
       'LAI','GPP','Rauto','Rh',                          &
       'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
       'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
-      'mineralN', 'N_uptk' !,'Kappa'
+      'mineralN', 'N_uptk','CH4' !,'Kappa'
     endif
 
     ! Open yearly output files
@@ -1191,7 +1187,7 @@ module io_mod
     'leafC', 'rootC', 'swC', 'hwC', 'SeedC', 'NSC',   &
     'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
     'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
-    'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON'
+    'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','CH4'
 
 #elif FACE_run
     write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
@@ -1210,7 +1206,7 @@ module io_mod
     'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
     'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',  &
-    'CO2'
+    'CO2','CH4'
 
 #else
     write(fno5,'(4(a8,","),80(a7,","))')                &    ! Yearly cohort
@@ -1232,7 +1228,7 @@ module io_mod
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
     'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
     'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                  &
-    'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire'
+    'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire','CH4'
 
 #endif
 

@@ -455,6 +455,11 @@ module datatypes
     real :: resp = 0 ! auto-respiration of plants
     real :: rh   = 0  ! soil carbon lost to the atmosphere
 
+    ! Methane fluxes (soil biogeochemistry)
+    real :: ch4_prod = 0.0  ! CH4 production (as C), kgC m-2 step-1
+    real :: ch4_oxid = 0.0  ! CH4 oxidation (as C),  kgC m-2 step-1
+    real :: ch4_emit = 0.0  ! CH4 emission (as C),   kgC m-2 step-1
+
     !  fire disturbance
     real :: C_burned  = 0.0 ! Carbon released to atmosphere via fire
     real :: TreeCA    = 0.0 ! tree CAI in the top layer, for fire spread
@@ -470,6 +475,7 @@ module datatypes
     real :: dailyNPP
     real :: dailyResp
     real :: dailyRh
+    real :: dailyCH4 = 0.0
     real :: dailyNup
     real :: NfixDaily
     real :: dailyLFLIT = 0.0   !kgC day-1, leaf litter flux
@@ -483,6 +489,7 @@ module datatypes
     real :: annualNPP = 0.0
     real :: annualResp= 0.0
     real :: annualRh  = 0.0
+    real :: annualCH4 = 0.0
     real :: NupYr     = 0.0 ! accumulated N uptake kgN m-2 yr-1
     real :: NfixedYr  = 0.0 ! fixe N in a tile
     ! for annual reporting at tile level
@@ -659,6 +666,12 @@ module datatypes
   real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
   real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
   real :: fdsvN        = 0.30    ! Max fraction of soluble N taken out by runoff (01/17/2026, Weng)
+
+  ! --- Methane (CH4) parameters for soil BGC (MVP) ---
+  real :: CH4_alpha = 0.20   ! fraction of Rh routed to CH4 under fully anaerobic conditions (0-1)
+  real :: CH4_beta_ox = 0.50 ! fraction of produced CH4 oxidized in oxic fraction (0-1)
+  real :: CH4_wfps0 = 0.60   ! wetness threshold for onset of anoxia (WFPS-like, 0-1)
+  real :: CH4_wfps1 = 0.95   ! wetness for fully anaerobic (WFPS-like, 0-1)
 
   ! -------- PFT-specific parameters ----------
   ! Define parameter arrays with the same value. Preset of global PFTs is in Preset_GlobalPFTs
@@ -865,6 +878,7 @@ module datatypes
   logical  :: Do_VariedKx         = .True.  ! trunk new xylem has the same kx or not
   logical  :: Do_VariedWTC0       = .True.  ! WTC0 changes with trunk size
   logical  :: Do_mu0_F_WDen       = .False. ! mu0 as a function of wood density
+  logical  :: Do_CH4              = .False. ! Methane emission modeling
 
   ! For global/regional run, Weng, 2025-07-22
   character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
@@ -948,7 +962,7 @@ module datatypes
   N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
   outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
   update_LAImax, MergeLowDenCohorts, Do_ClosedN_run,          &
-  Do_RecoverSP, FreqY0, Do_Fire, Do_FixedFrisk,               &
+  Do_RecoverSP, FreqY0, Do_Fire, Do_FixedFrisk, Do_CH4,       &
   Do_DroughtMu, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen
 
   ! ---------- Soil hydraulic and heat parameter name list ---------
@@ -985,7 +999,8 @@ module datatypes
   fplc0_WD,A_plc0_WD,f_plc,plc_crit,                            &
   ! Soil BGC
   K0SOM,CUEmax0,fsc_fine,fsc_wood,f_M2SOM,                      &
-  K_DeNitr,rho_SON,fDON,etaN,fdsvN,                             &
+  K_DeNitr, rho_SON, fDON, etaN, fdsvN,                         &
+  CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
   EnvF0,MI0Fire,FSBM0,A_MI,mu0_FireW,mu0_FireG,f_bk,r_BK0,IgniteP
 
@@ -1047,6 +1062,10 @@ contains
     endif
     !write(*,nml=vegn_parameters_nml)
     close (fu)
+
+    ! Ajusting parameters if they are not in the resonable ranges
+    CH4_wfps0 = max(0.0, min(CH4_wfps0, 0.8))
+    CH4_wfps1 = max(CH4_wfps1, CH4_wfps0 + 0.2)
 
   end subroutine read_vegn_namelist
 

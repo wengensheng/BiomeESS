@@ -48,8 +48,8 @@ module soil_mod
 
   subroutine Soil_BGC (vegn, tsoil, thetaS)
     type(vegn_tile_type), intent(inout) :: vegn
-    real,                intent(in)    :: tsoil   ! soil temperature, deg K
-    real,                intent(in)    :: thetaS
+    real, intent(in) :: tsoil   ! soil temperature, deg K
+    real, intent(in) :: thetaS  ! soil moisture, (ws-wltpt)/(fldcap-wltpt)
 
     ! ---- local var -------------
     real :: d_C(5), d_N(5), newM(5)
@@ -59,6 +59,9 @@ module soil_mod
     real :: K_rf, K_dn           ! Runoff loss rate, and denitrification rate
     real :: dN_SOM4, dN_SOM5     ! Dissolved organic N loss, kg N m-2 step-1
     real :: A                    ! Decomp rate reduction due to moisture and temperature
+    ! CH4 locals
+    real :: Rh_total, wfps, f_ana
+    real :: CH4_prodC = 0.0, CH4_oxidC = 0.0
     !real :: McrbMax = 0.2       ! kgC m-2, Maximum microbial biomass (as a function of SON)
     !real :: fm_dcmp = 1.0
     !real :: fm_grow = 1.0       ! microbial growth rate, !Test for microbial controls on decomposition
@@ -120,9 +123,35 @@ module soil_mod
     vegn%SON(4) = vegn%SON(4) - d_N(4) + newM(4) / CN0SOM(3) * f_M2SOM  ! + d_N(3) ! moved d_N(3) out
     vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5) / CN0SOM(3) * f_M2SOM
 
-    ! Mineralized nitrogen and heterotrophic respiration, kg m-2 step-1
-    vegn%rh = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5))
-    N_m     = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
+    ! Mineralized nitrogen and heterotrophic respiration, kg m-2 step-1 (as C and N)
+    Rh_total = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5))
+    N_m      = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
+
+    ! ---------------- CH4 module (MVP) ----------------
+    if(Do_CH4)then
+      ! thetaS assumed 0-1 wetness proxy (WFPS-like)
+      wfps = max(0.0, min(1.0, thetaS))
+
+      ! anaerobic fraction from wetness
+      f_ana = max(0.0, min(1.0, (wfps - CH4_wfps0)/(CH4_wfps1 - CH4_wfps0)))
+
+      ! CH4 production from heterotrophic respiration carbon (anaerobic partition)
+      CH4_prodC = Rh_total * CH4_alpha * f_ana
+
+      ! CH4 oxidation (simple scaling; oxidation returns CO2)
+      CH4_oxidC = CH4_prodC * CH4_beta_ox * (1.0 - f_ana)
+    else
+      CH4_prodC = 0.0
+      CH4_oxidC = 0.0
+    endif
+
+    ! Store diagnostics (as C)
+    vegn%ch4_prod = CH4_prodC
+    vegn%ch4_oxid = CH4_oxidC
+    vegn%ch4_emit = vegn%ch4_prod - vegn%ch4_oxid
+
+    ! Adjust Rh_total to conserve carbon and Keep vegn%rh as CO2 flux
+    vegn%rh = Rh_total - vegn%ch4_emit
 
     ! ------- DON and mineralN losses ----------
     K_dn = A * K_DeNitr * dt_fast_yr

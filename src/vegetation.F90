@@ -47,7 +47,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! Climatic variable
   tair   = forcing%Tair  - 273.16   ! degC
   tsoil  = forcing%tsoil - 273.16  ! degC
-  thetaS = (vegn%wcl(2)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT)
+  thetaS = vegn%thetaS ! (vegn%wcl(2)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT)
   vegn%annualPET = vegn%annualPET + potentialET(forcing) * step_seconds ! Potential ET, kg m-2 step-1
 
   ! Water supply for leaves
