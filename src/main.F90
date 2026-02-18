@@ -77,15 +77,6 @@ program BiomeE
     print '(A, I6, A, I6)', 'Working at grid: ', GridID, '. Grid No. ', m
     print '(A, I6, A, I6)', 'The ', m - grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
-#ifndef Use_InterpolatedData
-    ! Interpolate grid data to hourly
-    call CRU_Interpolation(LandGrid(m),forcingData)
-    if(WriteForcing)then
-      deallocate(forcingData)
-      cycle ! Skip model run. Only output interpolated grid forcing data
-    endif
-#endif
-
     ! Set up output files for this grid
     ! ChatGPT thinks the output file numbers should be assigned here
     fno1 = GridID + 1000000
@@ -96,13 +87,20 @@ program BiomeE
     fno6 = GridID + 6000000
     call setup_output_files() ! Setup output files before reading forcing data
 
-    ! Get this grid's forcingData
+    ! --------- Get the forcingData for this grid -----------
 #ifdef Use_InterpolatedData
     ! Read interpolated data from disk files. Moved here to avoid reading errors
     call read_interpolatedCRU(int_fpath,int_prefix,GridID,yr_start,yr_end,forcingData,file_exists)
     if(.not. file_exists)then
       print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
       cycle
+    endif
+#else
+    ! Interpolate grid data to hourly
+    call CRU_Interpolation(LandGrid(m),forcingData)
+    if(WriteForcing)then
+      deallocate(forcingData)
+      cycle ! Skip model run. Only output interpolated grid forcing data
     endif
 #endif
 

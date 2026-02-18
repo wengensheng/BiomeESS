@@ -1,9 +1,40 @@
+&initial_state_nml
+!! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
+! init_cohort_N   = 2, ! total 5
+! init_cohort_sps = 4,  5,  6,  1
+
+! Soil initial values
+init_fast_SOC = 0.5     ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_SOC = 12.     ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_mineralN = 5.0E-3, ! 402.5E-3, ! kg N m-2
+N_input       = 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+
+! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
+MI0DeSB = 0.25,   ! Prcp/PET, Desert shrub vs trees
+MI0C3C4 = 0.50,   ! Critical moisture for C3 vs. C4 grasses
+TcrTREE = 12.0,   ! degree C, Tropical trees vs Temperate/boreal trees
+TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
+
+! Model run
+filepath_in = './input/',
+filepath_out= './output/',
+runID       = 'ESSPT_', ! Output file name
+climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
+Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
+CO2_c       = 370.0, ! ppm, The year of 2000
+model_run_years = 900,
+outputhourly    = .False. ! .True.
+outputdaily     = .True.  ! .False. !
+do_closedN_run  = .False. ! .True.  !
+do_fire         = .True.  ! .False. !
+do_RecoverSP    = .True.  ! .False. !
+/
+
 &soil_data_nml
 soiltype = 3,
-WaterLeakRate = 0.0, ! fraction per day
-thksl    = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
-GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
-chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+thksl    = 0.05, 0.25, 0.5, 1.0, 1.2,  ! m, soil layer thickness
+GMD      = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+chb      = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
 psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
 k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
 vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
@@ -11,90 +42,68 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 
 &vegn_parameters_nml
 f_iniBSW   = 0.1,
-K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
-K_DeNitr   = 1.2, ! 2.4 ! rate of a year, 2.5
-rho_SON    = 0.0, ! 0.02 ! organic nitrogen release rate
-etaN       = 0.01,! 0.025 ! Nitrogen loss rate with runoff
+K0SOM      = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
+K_DeNitr   = 1.2, ! 1.2 ! 2.4 ! rate of a year, 2.5
+rho_SON    = 0.0, ! organic nitrogen release rate
+etaN       = 0.02, ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
-l_fract    = 0.0,
-retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
-kx0_WD     = 5.0,  ! kx0 at reference WD
-p50_WD     = -1.565, ! stem psi50 at reference WD
-ths0_WD    = 3.0,    ! exponential of the PLC function for (psi/psi50)
-WTC0_WD    = 9.0E+3, ! 1.5E+3, ! 1200.0,  ! Water transport capacity at ref. wood density
-CR0_LF     = 0.5,
-CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
-m0_WTC     = 5.0
-m0_kx      = 5.0
-mu0_FireG  = 0.05, ! mortality rates of grasses due to fire
-FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
-r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
-EnvF0      = 0.0,    ! Climate fire risk
-
-! species   0       1       2       3       4       5
-lifeform  = 0,      1,      1,      1,      1,      1,       ! 0: grass; 1 Woody
-phenotype = 0,      1,      0,      0,      0,      0,       ! 0: Deciduous; 1 Evergreen
-pt        = 1,      0,      0,      0,      0,      0,       ! 0: C3; 1: C4
-s0_plant  = 0.05,   0.05,   0.05,   0.05,   0.05,   0.05,    ! initial size of seedlings
-LMA       = 0.02,   0.05,   0.02,   0.06,   0.02,   0.02,    ! Leaf mass per unit area
-phiRL     = 0.7,    1.5,    1.2,    1.2,    1.2,    1.2,     ! Root/Leaf area ratio
-LNbase    = 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
-mu0_topL  = 0.02,   0.02,   0.02,   0.02,   0.02,   0.02,    ! canopy tree mortality rate, year-1
-D0mu      = 0.0,    1.2,    1.2,    1.2,    1.2,    1.2,     ! m, Mortality curve parameter
-W_mu0     = 2.5,    0.5,    0.7,    0.7,    0.7,    0.7,     ! Jeremy's Drought-mortality sensitivity: 0.5 high, 0.75: medium, 2.5 no effects
-Tc0_OFF   = 12.,    12.,    12.,    12.,    12.,    12.,     ! 283.16 ! OFF ! C for convenience
-Tc0_ON    = 10.,    10.,    10.,    10.,    10.,    10.,     ! 280.16 ! ON  ! C for convenience
-betaON    = 0.2,    0.1,    0.8,    0.8,    0.8,    0.8,     ! Soil moisture for phenology ON
-betaOFF   = 0.2,    0.0,    0.7,    0.6,    0.6,    0.6,
-rho_wood  = 150.,   350.,   350.,   350.,   350.,   350.,
-gamma_SW  = 0.02,   0.02,   0.02,   0.02,   0.02,   0.02,    ! Wood cambium respiration rate (kgC/m2/yr)
-m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,
-LAImax    = 3.5,    3.5,    3.5,    3.5,    3.5,    3.5,     ! maximum crown LAI
-phiCSA    = 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4,  ! ratio of Asap/Acrown
-A_sd      = 4.0,    9.0,    9.0,    9.0,    9.0,    9.0,     ! Seedling mortality parameter
-B_sd      = -60.,   -25.,   -25.,   -25.,   -25.,   -25.,    ! Mortality sensitivity for seedlings
-A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,     ! Max multiplier for DBH-based mortality
-B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,    ! Size-based Mortality sensitivity, m
-IgniteP   = 1.0,    .01,    .01,    .01,    .01,    .01,     ! Intrinsic flammability
-alphaHT   = 30.,    36.,    36.,    36.,    36.,    36.,     ! Height parameter
-alphaCA   = 120.,   150.,   150.,   150.,   150.,   150.,    ! Crown area
-tauNSC    = 2.0,    1.5,    1.5,    1.5,    1.5,    1.5,     ! NSC residence time,years
-gdd_par1  = 50.,    0.0,    0.0,    0.0,    0.0,    0.0,     ! 50.d0   ! These three parameters are used to calculate gdd_crit
-gdd_par2  = 800.,   0.0,    600.,   600.,   600.,   600.,    ! 650.d0  !800.d0  ! 638.d0
-gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,
-R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     ! 0.03 kgN kgRootC-1 yr-1
-AgeRepro  = 0,      5,      5,      5,      5,      5
+MI0Fire    = 0.3333, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
+FSBM0      = 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+! Set PFT 6 (Nfx)  back to evergreen (LMA 0.12, LNbase 0.7E-3), Weng, 10-11-2025
+! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
+pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
+phenotype = 0,      0,      1,      0,      1,      0,      1,      0,      ! 0: Deciduous, 1: evergreen
+lifeform  = 0,      0,      1,      1,      1,      1,      1,      1,      ! life form of PFTs: 0 for grasses, 1 for trees
+s0_plant  = 0.005,  0.005,  0.02,   0.02,   0.02,   0.02,   0.02,   0.01,   ! kgC, initial seedling size
+LAImax    = 3.0,    3.0,    4.8,    4.8,    3.5,    3.5,    3.5,    2.0,    ! maximum LAI for a tree
+LMA       = 0.02,   0.02,   0.07,   0.03,   0.14,   0.02 ,  0.12,   0.035,  ! leaf mass per unit area, kg C/m2
+LNbase    = 1.0E-3, 1.2E-3, 1.0E-3, 1.2E-3, 0.9E-3, 1.2E-3, 0.7E-3, 0.8E-3, ! functional nitrogen per unit leaf area, kg N/m2, 1.1E-3 for Acer, 1.5E-3 for Populus
+alphaHT   = 30.,    30.,    36.,    36.,    36.,    36.,    36.,    20.,    ! Height parameter
+alphaCA   = 120.,   120.,   150.,   150.,   150.,   150.,   150.,   200.,   ! Crown area
+phiRL     = 1.5,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    2.5,    ! ratio of fine root area to leaf area
+tauNSC    = 3.0,    3.0,    1.5,    1.5,    1.5,    1.5,    1.5,    2.0,    ! NSC residence time,years
+m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    9.0,    ! 7.0 !
+rho_wood  = 100.,   100.,   330.,   330.,   350.,   350.,   350.,   400.,   ! kgC m-3
+mu0_topL  = .02,    .02,    .03,    .03,    .02,    .02,    .02,    .01,    ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
+D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.8,    0.8,    ! m, Mortality curve parameter
+A_sd      = 0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0,    ! Max multiplier for seedling mortality
+B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mortality sensitivity for seedlings
+A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    ! Max multiplier for DBH-based mortality
+B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,   .125,   .125,   ! Size-based Mortality sensitivity, m
+W_mu0     = 2.5,    2.5,    0.50,   0.75,   0.75,   0.75,   0.75,   1.5,    ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+IgniteP   = 1.0,    1.0,    .01,    .02,    .03,    .02,    .02,    .03,    ! Intrinsic flammability
+gamma_SW  = .02,    .02,    .02,    .02,    .02,    .02,    .02,    .02,    ! Wood Acambium respiration rate (kgC/m2/yr
+Tc0_OFF   = 12.,    10.,     15.,    15.,   -50.,   12.,    12.0,   12.,    ! 283.16 ! OFF ! C for convenience
+Tc0_ON    = 10.,     5.,     12.,    12.,   -50.,   10.,    10.0,   10.,    ! 280.16 ! ON  ! C for convenience
+betaON    = 0.4,    0.6,    0.0,    0.7,    0.0,    0.3,    0.7,    0.2,    ! Critical soil moisture for phenology ON
+betaOFF   = 0.2,    0.3,    0.0,    0.4,    0.0,    0.2,    0.4,    0.1,    ! Critical soil moisture for phenology OFF
+gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
+gdd_par2  = 800.,   600.,   0.0,    800.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
+gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
+R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0     ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
 /
 
-&initial_state_nml
-!!   plant
-init_cohort_N     = 1, ! total 5
-init_cohort_sps   = 3,    1,    2,    4,    5,
-init_cohort_Indiv = .002, .002, .002, .002, .002,
-init_cohort_bsw   = 0.2,  0.2,  0.2,  0.2,  0.2,
-init_cohort_bHW   = 0.0,  0.0,  0.0,  0.0,  0.0,
-init_cohort_nsc   = 0.5,  0.5,  0.5,  0.5,  0.5,
-
-!  Soil
-init_fast_SOC  = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_SOC  = 40.0   ! kg C m-2  ! C/N = 40
-init_mineralN  = 5.0E-3 ! 402.5E-3, ! kg N m-2
-N_input        = 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
-
-! Model run
-filepath_in = './input/',
-filepath_out= './output/',
-runID       = 'ORNL_test' ! 'LMA_ID_EGDC_LN12_mu02_Wmu30_Beta0806', ! Output file name
-climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv', !
-Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years = 600, ! 1600,
-outputhourly    = .False. ! .True.  !
-outputdaily     = .True.  ! .False. !
-do_closedN_run  = .False. ! .True.  !
-Do_DroughtMu    = .False. ! .True.  !
-do_fire         = .False. ! .True.
-do_RecoverSP    = .False. ! .True.   !
-do_VariedWTC0   = .True. ! .False. !
-do_VariedKx     = .True. ! .False. !
+! Total grids are 56395 when Lat 61~320 and Lon 1~720
+&global_setting_nml
+ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
+!ncfilepath = '/media/eweng/HD2/weng/Data/unzippedNC/'
+ncversion  = 'crujra.v2.4.5d.',
+veg_path   = '/Users/eweng/Documents/Data/Vegetation/'
+!veg_path   = '/media/eweng/HD2/weng/Data/Vegetation/'
+veg_file   = 'pft2011_0.5x0.5.nc'
+int_fpath  = '/media/eweng/HD2/weng/Data/interpolated/',
+int_prefix = 'crujra.v2.4.5d.',
+GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
+WriteForcing =  .False., ! .True., !
+! Total grids are 56395 when Lat 61~320 and Lon 1~720
+LowerLon = 211, ! 205, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
+UpperLon = 212, ! 206, ! 720, !  209,
+LowerLat = 260, ! 250, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 261, ! 252, ! 320, ! 247,252
+yr_start = 2010, ! Data start year of netCDF files
+yr_end   = 2011, ! Data end year
+grid_No1 = 1, ! 1,
+grid_No2 = 10, ! 56395, ! Maximum grids in the vegetated land
+StepLatLon = 1
 /
