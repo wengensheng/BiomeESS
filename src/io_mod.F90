@@ -1083,8 +1083,8 @@ module io_mod
 
 #ifdef DroughtMIP
     ! For DroughtMIP
-    YearlyCohort2 = trim(fpath)//trim(filesuffix)//'2_Cohort_yearly.csv'       ! Yearly
-    DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'    ! Daily
+    YearlyCohort2 = trim(fpath)//trim(filesuffix)//'2_Cohort_yearly.csv'    ! Yearly
+    DailyPatch2   = trim(fpath)//trim(filesuffix)//'2_Ecosystem_daily.csv'  ! Daily
 #endif
 
     ! Open files
@@ -1173,7 +1173,7 @@ module io_mod
     'NLIVE','DBH','HT','TB','AGB','WD','SLA','Acrown'
 
 #elif DBEN_run
-    write(fno5,'(4(a5,","),40(a9,","))')'tile',         &    ! Yearly cohort
+    write(fno5,'(4(a5,","),40(a9,","))')'tile',       &    ! Yearly cohort
     'yr','cNo.','cID','PFT','Woody','Layer',          &
     'Density','f_L','dbh','height','Acrown','Aleaf',  &
     'bl','br','bSW','bHW','seed','nsc',               &
@@ -1190,14 +1190,14 @@ module io_mod
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','CH4'
 
 #elif FACE_run
-    write(fno5,'(4(a5,","),40(a7,","))')                &    ! Yearly cohort
+    write(fno5,'(4(a5,","),40(a7,","))')              &    ! Yearly cohort
     'yr','cNo.','PFT','layer','f_L','N_ha','mu',      &
     'dD','dCA','dbh','ht','Acrown','Aleaf',           &
     'bl','br','bSW','bHW','seed','nsc',               &
     'N_lf','N_fr','N_SW','N_HW','N_sd','NSN','N_up',  &
     'GPP','NPP','NPPl','NPPfr','NPPw','Trsp',         &
     'demandW','Asap','Ktree','treeHU','treeW0'
-    write(fno6,'(1(a5,","),80(a12,","))')'year',           &  ! Yearly tile
+    write(fno6,'(1(a5,","),80(a12,","))')'year',      &  ! Yearly tile
     'CAI', 'LAI', 'GPP', 'Rauto', 'Rh',               &
     'rain','SoilWater','Transp','Evap','Runoff',      &
     'plantC', 'soilC', 'plantN', 'soilN',             &
@@ -1205,11 +1205,11 @@ module io_mod
     'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
     'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
-    'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',  &
+    'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',    &
     'CO2','CH4'
 
 #else
-    write(fno5,'(4(a8,","),80(a7,","))')                &    ! Yearly cohort
+    write(fno5,'(4(a8,","),80(a7,","))')              &    ! Yearly cohort
     'G'//LonLat,'yr','cNo.','cID', 'PFT','layer',     &
     'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
     'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
@@ -1218,7 +1218,7 @@ module io_mod
     'Atrunk','Asap','Ktree','treeHU','treeW0',        &
     'farea1','farea2','farea3','farea4','farea5'
 
-    write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',         &  ! Yearly tile
+    write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',     &  ! Yearly tile
     'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
     'Tmp','rain','SoilWater','Transp','Evap','Runoff',           &
     'plantC', 'soilC', 'plantN', 'soilN',                        &

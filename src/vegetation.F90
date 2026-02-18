@@ -2959,7 +2959,7 @@ end function
 
 !======================= Specific experiments ================================
 
-!----------------------- fire disturbance (Konza) ---------------------------
+!----------------------- Fire ---------------------------
 subroutine vegn_fire (vegn, deltat)
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
@@ -2968,17 +2968,18 @@ subroutine vegn_fire (vegn, deltat)
   type(cohort_type), pointer :: cc => null()
   type(spec_data_type), pointer :: sp
   ! -- fire effects variables --
-  real :: P_ET    ! ratio of P to ET, for fire probability calculation
-  real :: Frisk   ! Environmental fire risk (a function of P_ET)
-  real :: P_Ign, r_Ign  ! Probability of ignition, and a random number for fire occurence
-  real :: Ign_G0, Ign_W0 ! Grass and wood ignition probability
+  real :: P_ET             ! ratio of P to ET, for fire probability calculation
+  real :: Frisk            ! Environmental fire risk (a function of P_ET)
+  real :: P_Ign, r_Ign     ! Probability of ignition, and a random number for fire occurence
+  real :: Ign_G0, Ign_W0   ! Grass and wood ignition probability
   real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
-  real :: flmb_G, flmb_W ! Flamability of grasses and woody plants
-  real :: d_tree ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
-  real :: s_fireG ! Grass fire severity
-  real :: mu_fire ! mortality rate, 1/year
-  real :: deadtrees ! number of trees that died over the time step
-  real :: Cfire, Cfast, Cslow, Nfire, Nfast, Nslow ! C and N fates at fires
+  real :: flmb_G, flmb_W   ! Flamability of grasses and woody plants
+  real :: d_tree           ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
+  real :: s_fireG          ! Grass fire severity
+  real :: mu_fire          ! fire-induced mortality fraction (0–1) over period deltat
+  real :: deadtrees        ! number of trees that died over the time step
+  real :: Cfire, Cfast, Cslow ! C fluxes at fire
+  real :: Nfire, Nfast, Nslow ! N fluxes at fire
   integer :: i, k
 
   !  Parameters (defined in datatypes.F90 and read in from the namelist file):
@@ -2996,7 +2997,7 @@ subroutine vegn_fire (vegn, deltat)
   if(Do_FixedFrisk) then
     Frisk = EnvF0 ! Fixed environment risk
   else
-    P_ET = vegn%annualPrcp / vegn%annualPET
+    P_ET = vegn%annualPrcp / max(1.0e-6, vegn%annualPET)
     Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
   endif
 
@@ -3039,8 +3040,8 @@ subroutine vegn_fire (vegn, deltat)
             ! At high grass biomass, the fire has higher serverity and kills
             ! more shrubs. So, extreme droughts can trigger expansion of shrubs.
             ! s_fireG is grass fire severity, defined as a function of grass biomass
-            s_fireG = max(0.0,min(1.0,(vegn%GrassBM/FSBM0)**2)) ! grass fire severity
-            cc%D_bark = f_bk * cc%dbh    ! bark thickness,
+            s_fireG = max(0.0, min(1.0, (vegn%GrassBM/FSBM0)**2)) ! grass fire severity
+            cc%D_bark = f_bk * cc%dbh    ! bark thickness
             d_tree = exp(r_BK0*cc%D_bark)! Tree's fire sensitivity to grass fire
             !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
             mu_fire = mu0_FireW * d_tree * f_grass * s_fireG
@@ -3048,39 +3049,43 @@ subroutine vegn_fire (vegn, deltat)
       endif
 
       ! Burned vegetation and soils
-      deadtrees = cc%nindivs * MIN(1.0,mu_fire * deltat/seconds_per_year) ! individuals / m2
+      deadtrees = cc%nindivs * MIN(1.0, mu_fire * deltat/seconds_per_year) ! individuals / m2
 
       ! Carbon and Nitrogen release by burning
       Cfire = Cfire + (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
       Cfast = Cfast + (0.8*cc%NSC + 0.3*cc%bl    + 0.0*(cc%bsw+cc%bHW) + 1.0*cc%br    + 1.0*cc%seedC) * deadtrees
-      Cslow = Cfast + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
+      Cslow = Cslow + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
       Nfire = Nfire + (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
       Nfast = Nfast + (0.8*cc%NSN + 0.3*cc%leafN + 0.0*(cc%swN+cc%hwN) + 1.0*cc%rootN + 1.0*cc%seedN) * deadtrees
       Nslow = Nslow + (0.0*cc%NSN + 0.0*cc%leafN + 0.8*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
 
-      ! Update plant density
-      cc%nindivs = cc%nindivs - deadtrees
+      ! Update plant density (guard against tiny negatives)
+      cc%nindivs = max(0.0, cc%nindivs - deadtrees)
       end associate
     enddo
+
     ! C and N fluxes due to fire
     vegn%C_burned = Cfire + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2) ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
-    vegn%mineralN = Nfire + 0.7*vegn%SON(1)+0.2*vegn%SON(2) + vegn%mineralN
-    vegn%Nm_Fire  = Nfire + 0.7*vegn%SON(1)+0.2*vegn%SON(2) + vegn%Nm_Fire
+    vegn%Nm_Fire  = Nfire + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
 
-    ! Update Litter C and N pools
+    ! Update mineralN and Litter C & N pools
+    vegn%mineralN = vegn%mineralN + vegn%Nm_Fire
     vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1) + Cfast
     vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2) + Cslow
     vegn%SON(1) = (1.0-0.7)*vegn%SON(1) + Nfast
     vegn%SON(2) = (1.0-0.2)*vegn%SON(2) + Nslow
 
     ! Annual N from plants to soil
-    vegn%NorgP2S = vegn%NorgP2S + Cfast + Cslow
+    vegn%NorgP2S = vegn%NorgP2S + Nfast + Nslow
+  else ! No fire
+    vegn%C_burned = 0.0
+    vegn%Nm_Fire  = 0.0
+  endif
 
 #ifdef ScreenOutput
     write(*,*)"fire, TreeCA, GrassCA", &
         r_Ign < P_Ign, vegn%TreeCA, vegn%GrassCA
 #endif
-  endif
 
   ! Record Frisk and Pfire for output
   vegn%Frisk = Frisk

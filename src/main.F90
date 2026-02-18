@@ -87,6 +87,13 @@ program BiomeE
 #endif
 
     ! Set up output files for this grid
+    ! ChatGPT thinks the output file numbers should be assigned here
+    fno1 = GridID + 1000000
+    fno2 = GridID + 2000000
+    fno3 = GridID + 3000000
+    fno4 = GridID + 4000000
+    fno5 = GridID + 5000000
+    fno6 = GridID + 6000000
     call setup_output_files() ! Setup output files before reading forcing data
 
     ! Get this grid's forcingData
@@ -101,6 +108,7 @@ program BiomeE
 
     ! ------- Run model -----------
     call BiomeE_main()
+
 #ifdef Zip_outputs
     call zip_output_files()
 #endif
