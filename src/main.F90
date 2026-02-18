@@ -1,6 +1,6 @@
 ! ------------ Model driver -------------
 ! ------------- 08/30/2022 --------------
-! BiomeE global version 0.1, Ensheng Weng, 07/18/2025, almost done, 01/15/2025
+! BiomeE global version 0.1, Ensheng Weng, 07/18/2025, almost done, 01/15/2026
 
 program BiomeE
   !use omp_lib
@@ -77,16 +77,6 @@ program BiomeE
     print '(A, I6, A, I6)', 'Working at grid: ', GridID, '. Grid No. ', m
     print '(A, I6, A, I6)', 'The ', m - grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
-    ! Set up output files for this grid
-    ! ChatGPT thinks the output file numbers should be assigned here
-    fno1 = GridID + 1000000
-    fno2 = GridID + 2000000
-    fno3 = GridID + 3000000
-    fno4 = GridID + 4000000
-    fno5 = GridID + 5000000
-    fno6 = GridID + 6000000
-    call setup_output_files() ! Setup output files before reading forcing data
-
     ! --------- Get the forcingData for this grid -----------
 #ifdef Use_InterpolatedData
     ! Read interpolated data from disk files. Moved here to avoid reading errors
@@ -103,6 +93,12 @@ program BiomeE
       cycle ! Skip model run. Only output interpolated grid forcing data
     endif
 #endif
+
+    ! ------ Set up output files for this grid ----------------
+    fno1 = GridID + 1000000; fno2 = GridID + 2000000
+    fno3 = GridID + 3000000; fno4 = GridID + 4000000
+    fno5 = GridID + 5000000; fno6 = GridID + 6000000
+    call setup_output_files() ! Setup output files before reading forcing data (?)
 
     ! ------- Run model -----------
     call BiomeE_main()
@@ -139,7 +135,7 @@ program BiomeE
   elapsed_time = end_time - start_time
   write(*,'(A,3(f7.2,","))')'Total CPU time (minutes): ', elapsed_time/60.
 
-    ! Get the ending time
+  ! Get the ending time
   CALL SYSTEM_CLOCK(COUNT=end_count)
   ! Calculate wall time
   IF (end_count < start_count) THEN
