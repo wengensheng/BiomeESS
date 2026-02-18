@@ -21,6 +21,18 @@ program BiomeE
   REAL(kind=8)    :: wall_time
   logical :: file_exists
 
+  ! If a namelist file is provided on the command line, use it; otherwise use default.
+  if (command_argument_count() >= 1) then
+    call get_command_argument(1, fnml)
+    fnml = adjustl(fnml)
+  endif
+  inquire(file=trim(fnml), exist=file_exists)
+  if (.not. file_exists) then
+    write(*,*) 'Namelist file does not exist: ', trim(fnml)
+    stop
+  endif
+
+
   ! ---------- Time stamp -------------
   call cpu_time(start_time)
   call itime(timeArray)     ! Get current time

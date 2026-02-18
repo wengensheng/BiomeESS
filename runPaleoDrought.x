@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# --------------------------------------------------
-# Source files
-# --------------------------------------------------
 FSRCS="src/datatypes.F90 \
        src/io_mod.F90 \
        src/soil.F90 \
@@ -15,79 +12,107 @@ CPPFLAGS=''
 CPPFLAGS+=' -DDroughtFMT'
 CPPFLAGS+=' -DDroughtPaleo'
 
-# --------------------------------------------------
-# Compile ONCE
-# --------------------------------------------------
 echo "Compiling BiomeE..."
 gfortran $FSRCS $CPPFLAGS -o BiomeE
+EXE="$(readlink -f ./BiomeE)"   # absolute path to executable
 
-# --------------------------------------------------
-# Site / PFT mapping
-# --------------------------------------------------
 Sites=("RMA" "SJC" "DCK")
 PFT_list=("7, 0" "4, 1" "0, 1")
 
 Run_years='1699'
 fp_template='./para_files/parameters_DroughtPaleo.nml'
-
 BaseDir='/media/eweng/HD2/weng/PaleoTests'
 
-# --------------------------------------------------
-# Loop over sites
-# --------------------------------------------------
-for idx in "${!Sites[@]}"; do
+# -----------------------------
+# User-controlled draw range
+# -----------------------------
+DRAW_FIRST=1
+DRAW_LAST=100
 
+# -----------------------------
+# Batch / concurrency settings
+# -----------------------------
+BATCH_SIZE=20   # "20 draws a time"
+MAX_JOBS=20     # max concurrent runs (<= 32 cores is fine)
+
+# --- sanity checks ---
+if [ "$DRAW_FIRST" -lt 1 ]; then
+  echo "ERROR: DRAW_FIRST must be >= 1"
+  exit 1
+fi
+if [ "$DRAW_LAST" -lt "$DRAW_FIRST" ]; then
+  echo "ERROR: DRAW_LAST must be >= DRAW_FIRST"
+  exit 1
+fi
+
+wait_for_slot () {
+  while [ "$(jobs -rp | wc -l)" -ge "$MAX_JOBS" ]; do
+    sleep 1
+  done
+}
+
+for idx in "${!Sites[@]}"; do
   Site=${Sites[$idx]}
   PFTs="${PFT_list[$idx]}"
+
   SiteDir="${BaseDir}/Paleo${Site}"
 
   echo "===================================="
-  echo "Running Site: $Site"
-  echo "PFTs: $PFTs"
+  echo "Running Site: $Site | PFTs: $PFTs"
+  echo "Draws: $DRAW_FIRST to $DRAW_LAST"
   echo "Output directory: $SiteDir"
   echo "===================================="
 
-  # ------------------------------------------------
-  # Check if directory exists
-  # ------------------------------------------------
+  # ---- keep your directory exists check ----
   if [ ! -d "$SiteDir" ]; then
       echo "Directory $SiteDir does not exist. Creating it..."
       mkdir -p "$SiteDir"
       if [ $? -ne 0 ]; then
-          echo "ERROR: Failed to create directory $SiteDir"
+          echo "Failed to create directory $SiteDir."
           exit 1
       fi
   else
       echo "Directory $SiteDir already exists."
   fi
 
-  # ------------------------------------------------
-  # Loop over stochastic draws
-  # ------------------------------------------------
-  for iDraw in {1..5}; do
+  # ---- batches of 20 within [DRAW_FIRST, DRAW_LAST] ----
+  for ((batch_start=DRAW_FIRST; batch_start<=DRAW_LAST; batch_start+=BATCH_SIZE)); do
+    batch_end=$((batch_start + BATCH_SIZE - 1))
+    if [ "$batch_end" -gt "$DRAW_LAST" ]; then
+      batch_end=$DRAW_LAST
+    fi
 
-    runID="Paleo_${Site}_${iDraw}"
-    paramFile="${SiteDir}/parameters_${runID}.nml"
+    echo "------------------------------------"
+    echo "Launching draws $batch_start to $batch_end (up to $MAX_JOBS concurrent)"
+    echo "------------------------------------"
 
-    echo "Running: $runID"
+    # launch this batch
+    for ((iDraw=batch_start; iDraw<=batch_end; iDraw++)); do
+      runID="Paleo_${Site}_${iDraw}"
+      paramFile="${SiteDir}/parameters_${runID}.nml"
+      logFile="${SiteDir}/log_${runID}.txt"
 
-    sed -e "s/Draw_No/${iDraw}/g" \
-        -e "s/PaleoRunID/${runID}/g" \
-        -e "s/SiteID/${Site}/g" \
-        -e "s/SiteSP/${PFTs}/g" \
-        -e "s/RunYears/${Run_years}/g" \
-        -e "s#TargetDir#${SiteDir}#g" \
-        "$fp_template" > "$paramFile"
+      sed -e "s/Draw_No/${iDraw}/g" \
+          -e "s/PaleoRunID/${runID}/g" \
+          -e "s/SiteID/${Site}/g" \
+          -e "s/SiteSP/${PFTs}/g" \
+          -e "s/RunYears/${Run_years}/g" \
+          -e "s#TargetDir#${SiteDir}#g" \
+          "$fp_template" > "$paramFile"
 
-    cp "$paramFile" ./para_files/input.nml
-    ./BiomeE
-    rm -f ./para_files/input.nml
+      (
+        "$EXE" "$paramFile" > "$logFile" 2>&1
+      ) &
 
+      wait_for_slot
+    done
+
+    # wait for all runs in this batch to finish
+    wait
+    echo "Batch $batch_start-$batch_end finished."
+    echo ""
   done
 done
 
-# --------------------------------------------------
-# Cleanup
-# --------------------------------------------------
 rm -f *.mod
-echo "All site simulations completed successfully."
+echo "All simulations completed."
