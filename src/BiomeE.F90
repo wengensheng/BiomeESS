@@ -310,25 +310,49 @@ module BiomeE_mod
   end subroutine BiomeE_run
 
 !----------------------------------------------------------------------------
-  subroutine BiomeE_end
-    type(vegn_tile_type), pointer :: vegn => NULL()
-    type(vegn_tile_type), pointer :: pveg => NULL()
+subroutine BiomeE_end
+  type(vegn_tile_type), pointer :: vegn => null()
+  type(vegn_tile_type), pointer :: pveg => null()
+  logical :: is_open
 
-    !------------ Close output files and release memory
-    close(fno1); close(fno2); close(fno3)
-    close(fno4); close(fno5); close(fno6)
+  !------------ Close output files (only if opened)
+  inquire(unit=fno1, opened=is_open); if (is_open) close(fno1)
+  inquire(unit=fno2, opened=is_open); if (is_open) close(fno2)
+  inquire(unit=fno3, opened=is_open); if (is_open) close(fno3)
+  inquire(unit=fno4, opened=is_open); if (is_open) close(fno4)
+  inquire(unit=fno5, opened=is_open); if (is_open) close(fno5)
+  inquire(unit=fno6, opened=is_open); if (is_open) close(fno6)
 
+  !------------ Release vegetation tiles/cohorts
+  if (associated(land)) then
     vegn => land%firstVegn
-    do while(ASSOCIATED(vegn))
+    do while (associated(vegn))
       pveg => vegn%next
-      deallocate(vegn%cohorts)
-      deallocate(vegn%initialCC)
+
+      if (associated(vegn%cohorts)) then
+        deallocate(vegn%cohorts)
+        nullify(vegn%cohorts)
+      endif
+
+      if (associated(vegn%initialCC)) then
+        deallocate(vegn%initialCC)
+        nullify(vegn%initialCC)
+      endif
+
       deallocate(vegn)
       vegn => pveg
     enddo
     deallocate(land)
+    nullify(land)
+    nullify(vegn)
+  endif
+
+  !------------ Release forcing data
+  if (associated(forcingData)) then
     deallocate(forcingData)
-  end subroutine BiomeE_end
+    nullify(forcingData)
+  endif
+end subroutine BiomeE_end
 
 !----------------------------------------------------------------------------
 end module BiomeE_mod

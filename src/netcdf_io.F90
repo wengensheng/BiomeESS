@@ -491,19 +491,39 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
 
   real,allocatable :: timecols(:,:), input_data(:,:)
   real    :: temp(niterms)
-  integer :: istat1,istat2
+  integer :: istat2
   integer :: m,n,i,iyr,iday,ihour
+  integer :: u, exitstat
+  logical :: csv_exists, unzip_ok
 
-  ! Findout the data file
+  ! Find out the data file
   write(GridStr,GridIDFMT) GridID
-  fname = trim(fprefix)//trim(GridStr)//'_forcing.csv'
-  climfile=trim(fpath)//trim(fname)
-  INQUIRE (file=trim(climfile)//'.gz', EXIST=file_exists)
-  if (file_exists) then
-    call unzip_gzip_file(trim(climfile)//'.gz')
-  else
-    forcingData => NULL()
-    write (*, '("read_interpolatedCRU: ", a, " does not exist")') trim(climfile)
+  fname    = trim(fprefix)//trim(GridStr)//'_forcing.csv'
+  climfile = trim(fpath)//trim(fname)
+
+  ! Check gz exists
+  inquire(file=trim(climfile)//'.gz', exist=file_exists)
+  if (.not. file_exists) then
+    forcingData => null()
+    write (*, '("read_interpolatedCRU: ", a, " does not exist")') trim(climfile)//'.gz'
+    return
+  endif
+
+  ! Unzip (keep original .gz) with explicit status
+  call unzip_gzip_file(trim(climfile)//'.gz', ok=unzip_ok, quiet=.true.)
+  if (.not. unzip_ok) then
+    file_exists = .false.
+    forcingData => null()
+    write (*, '("read_interpolatedCRU: unzip failed for ", a)') trim(climfile)//'.gz'
+    return
+  endif
+
+  ! Confirm unzipped CSV exists
+  inquire(file=trim(climfile), exist=csv_exists)
+  if (.not. csv_exists) then
+    file_exists = .false.
+    forcingData => null()
+    write (*, '("read_interpolatedCRU: missing unzipped file ", a)') trim(climfile)
     return
   endif
 
@@ -517,35 +537,58 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   allocate(input_data(niterms,datalines))
   allocate(timecols(3,datalines))
 
-  ! Read in forcing data
-  open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
-  read(11,'(a160)',IOSTAT=istat2) commts ! One line comments
-  m = 0
-  do while (m < datalines .and. istat2 == 0) ! Only read in maximum of datalines
-    read(11,*,IOSTAT=istat2)(temp(n), n = 1,niterms)
-    m = m + 1
-    input_data(:,m) = temp(:)
-  enddo ! end of reading the forcing file
+  ! Read in forcing data (use newunit to avoid unit collisions)
+  open(newunit=u, file=climfile, status='old', action='read', iostat=istat2)
+  if (istat2 /= 0) then
+    file_exists = .false.
+    forcingData => null()
+    write (*, '("read_interpolatedCRU: cannot open ", a, ", iostat=", I0)') trim(climfile), istat2
+    deallocate(input_data, timecols)
+    return
+  endif
 
-  ! Close the file and delete it
-  close(11)    ! close forcing file
-  command = 'rm '//trim(climfile) ! Remove unziped file
-  call execute_command_line(command)
+  ! Header line
+  read(u,'(a160)', iostat=istat2) commts
+  if (istat2 /= 0) then
+    file_exists = .false.
+    forcingData => null()
+    write (*, '("read_interpolatedCRU: failed reading header from ", a, ", iostat=", I0)') trim(climfile), istat2
+    close(u)
+    deallocate(input_data, timecols)
+    return
+  endif
+
+  m = 0
+  do while (m < datalines .and. istat2 == 0)
+    read(u,*, iostat=istat2) (temp(n), n = 1,niterms)
+    if (istat2 == 0) then
+      m = m + 1
+      input_data(:,m) = temp(:)
+    endif
+  enddo
+
+  close(u)
+
+  ! Remove unzipped CSV (best effort; keep .gz)
+  command = 'rm ' // trim(climfile)
+  call execute_command_line(command, exitstat=exitstat)
+  ! Not fatal if rm fails
 
   ! Check the consistency between the file data lines and required
-  if(m /= datalines) then
-    write (*, '("In read_interpolatedCRU, File ",a," is shorter than needed: lines: ",I12)') trim(fname),m
-    file_exists = .False.
-    deallocate(input_data,timecols)
+  if (m /= datalines) then
+    write (*, '("In read_interpolatedCRU, File ",a," is shorter than needed: lines: ",I12)') trim(fname), m
+    file_exists = .false.
+    deallocate(input_data, timecols)
+    forcingData => null()
     return
   endif
 
   ! Setup the time table
-  m=0
+  m = 0
   do iyr = year0, year1
-    do iday=1, 365
-      do ihour = 1, steps_per_day ! 24
-        m =  m + 1
+    do iday = 1, 365
+      do ihour = 1, steps_per_day
+        m = m + 1
         timecols(1,m) = iyr
         timecols(2,m) = iday
         timecols(3,m) = 24.0 * (ihour - 1)/steps_per_day
@@ -555,43 +598,94 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
 
   ! Put the data into forcing
   allocate(climateData(datalines))
-  do i=1,datalines
-     climateData(i)%year      = int(timecols(1,i))         ! Year
-     climateData(i)%doy       = int(timecols(2,i))         ! day of the year
-     climateData(i)%PAR       = input_data(1,i)*2.0        ! umol/m2/s
-     climateData(i)%radiation = input_data(1,i)            ! W/m2
-     climateData(i)%Tair      = input_data(2,i)  ! air temperature, K
-     climateData(i)%Tsoil     = input_data(2,i)*0.8 + 273.16*0.2  ! soil temperature, K
-     climateData(i)%RH        = Max(0.01, min(0.99, input_data(3,i) ))       ! relative humidity (0.xx)
-     climateData(i)%rain      = input_data(4,i)        ! kgH2O m-2 s-1
-     climateData(i)%windU     = input_data(5,i)        ! wind velocity (m s-1)
-     climateData(i)%P_air     = input_data(6,i)        ! pa
-     climateData(i)%CO2       = CO2_Hist(Min(CO2Yrs,Max(1,climateData(i)%year-1700+1))) ! CO2_c        !ppm
-     climateData(i)%eCO2      = climateData(i)%CO2 + 200. !ppm
-     climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+  do i = 1, datalines
+     climateData(i)%year      = int(timecols(1,i))
+     climateData(i)%doy       = int(timecols(2,i))
+     climateData(i)%PAR       = input_data(1,i)*2.0
+     climateData(i)%radiation = input_data(1,i)
+     climateData(i)%Tair      = input_data(2,i)
+     climateData(i)%Tsoil     = input_data(2,i)*0.8 + 273.16*0.2
+     climateData(i)%RH        = max(0.01, min(0.99, input_data(3,i) ))
+     climateData(i)%rain      = input_data(4,i)
+     climateData(i)%windU     = input_data(5,i)
+     climateData(i)%P_air     = input_data(6,i)
+     climateData(i)%CO2       = CO2_Hist(min(CO2Yrs, max(1, climateData(i)%year-1700+1)))
+     climateData(i)%eCO2      = climateData(i)%CO2 + 200.
+     climateData(i)%soilwater = 0.8
   enddo
+
   forcingData => climateData
   write(*,*)"forcing from interpolated: hours,days,years", datalines,days_data,yr_data
 
-  !Close opened file and release memory
-  deallocate(input_data,timecols)
+  ! Release memory
+  deallocate(input_data, timecols)
 end subroutine read_interpolatedCRU
 
 !==============================================================
-  subroutine unzip_gzip_file(filename_gz)
-    character (len = *), intent(in) :: filename_gz
-    !----------local vars
-    character(len=256) :: command
-    integer :: iostat
+    subroutine unzip_gzip_file(filename_gz, ok, exitstat, out_file, quiet)
+    character(len=*), intent(in)            :: filename_gz
+    logical,          intent(out), optional :: ok
+    integer,          intent(out), optional :: exitstat
+    character(len=*), intent(out), optional :: out_file
+    logical,          intent(in),  optional :: quiet
 
-    ! Construct the gunzip command. The -k option keeps the original .gz file.
-    command = 'gunzip -k ' // trim(filename_gz)
-    call execute_command_line(command, exitstat=iostat)
-    if (iostat == 0) then
-      print *, 'Successfully unzipped ', trim(filename_gz)
-    else
-      print *, 'Error unzipping ', trim(filename_gz), ' (Exit status: ', iostat, ')'
-    end if
+    character(len=600) :: command
+    character(len=600) :: filename_out
+    integer :: est
+    logical :: q, gz_exists, out_exists
+    integer :: L
+
+    q = .false.
+    if (present(quiet)) q = quiet
+
+    if (present(ok)) ok = .false.
+    if (present(exitstat)) exitstat = -999
+
+    ! Check input exists
+    inquire(file=trim(filename_gz), exist=gz_exists)
+    if (.not. gz_exists) then
+      if (.not. q) write(*,'("unzip_gzip_file: missing ",a)') trim(filename_gz)
+      est = 2
+      if (present(exitstat)) exitstat = est
+      return
+    endif
+
+    ! Derive output filename by stripping trailing ".gz" if present
+    filename_out = trim(filename_gz)
+    L = len_trim(filename_out)
+    if (L >= 3) then
+      if (filename_out(L-2:L) == '.gz') filename_out = filename_out(1:L-3)
+    endif
+    if (present(out_file)) out_file = trim(filename_out)
+
+    ! If output already exists, treat as success (idempotent)
+    inquire(file=trim(filename_out), exist=out_exists)
+    if (out_exists) then
+      est = 0
+      if (present(exitstat)) exitstat = est
+      if (present(ok)) ok = .true.
+      return
+    endif
+
+    ! Unzip: keep .gz (-k), force overwrite (-f)
+    command = 'gunzip -kf ' // trim(filename_gz)
+    call execute_command_line(command, exitstat=est)
+
+    ! Verify output exists
+    inquire(file=trim(filename_out), exist=out_exists)
+
+    if (est /= 0 .or. .not. out_exists) then
+      if (.not. q) then
+        write(*,'("unzip_gzip_file: failed for ",a," exitstat=",I0)') trim(filename_gz), est
+        if (.not. out_exists) write(*,'("unzip_gzip_file: expected output missing: ",a)') trim(filename_out)
+      endif
+      if (present(exitstat)) exitstat = est
+      if (present(ok)) ok = .false.
+      return
+    endif
+
+    if (present(exitstat)) exitstat = est
+    if (present(ok)) ok = .true.
   end subroutine unzip_gzip_file
 
 !==============================================

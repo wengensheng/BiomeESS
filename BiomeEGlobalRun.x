@@ -12,7 +12,7 @@ CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DZip_outputs'
 CPPFLAGS+=' -DZippedNCfiles'
-#CPPFLAGS+=' -DUse_InterpolatedData'
+CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
 #CPPFLAGS+=' -DScreenOutput'
@@ -34,16 +34,11 @@ fparameter='./para_files/parameters_Global_test.nml'
 echo $fparameter
 
 # Write to the file that will be read by the model
-cat $fparameter > ./para_files/input.nml
+#cat $fparameter > ./para_files/input.nml
 
 # Run model
-./ess_global
+./ess_global $fparameter
 
-rm ./para_files/input.nml
+#rm ./para_files/input.nml
 rm ess_global
-rm esdvm.mod
-rm datatypes.mod
-rm io_mod.mod
-rm soil_mod.mod
-rm biomee_mod.mod
-rm netcdf_io.mod
+rm *.mod
