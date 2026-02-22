@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # -----------------------------------------------------------------------------
 # --------- Compile the model --------------------
 FSRCS="src/datatypes.F90 \
@@ -22,7 +23,13 @@ echo $FSRCS
 echo $CPPFLAGS
 
 gfortran $FSRCS $CPPFLAGS -o ess_global -I/usr/local/include -L/usr/local/lib -lnetcdff
-rm *.mod
+
+# Ensure executable built
+if [ ! -x "./ess_global" ]; then
+  echo "ERROR: ess_global was not created or is not executable." >&2
+  exit 1
+fi
+rm -f *.mod
 
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
@@ -52,20 +59,35 @@ fi
 #Grid1=(1   801  1601 2401 3201 4001 4801 5601 6401 7201 8001 8801 9601  10401 11201 12001 12801 13601)
 #Grid2=(800 1600 2400 3200 4000 4800 5600 6400 7200 8000 8800 9600 10400 11200 12000 12800 13600 14400)
 
+# --- user settings ---
 START_VAL=1
-if [[ "$GridRS" == "1" ]]; then
-    # For 0.5x0.5 grid (when GridRS='1')
-    END_VAL=55001
-    INCREMENT=2200 # 2500 # Optional step value
-else
-    # For 1x1 grid (when GridRS='2')
-    END_VAL=14001
-    INCREMENT=500 # 800 # Optional step value
-fi
-Grid1=($(seq $START_VAL $INCREMENT $END_VAL))
-for (( i=0; i<${#Grid1[@]}; i++ )); do
-    Grid2[$i]=$(( Grid1[$i] + INCREMENT - 1 ))
+MAXGRID=56395
+MAXJOBS=20          # number of blocks AND max concurrent jobs (here they match)
+
+# --- derived settings ---
+N=$(( MAXGRID - START_VAL + 1 ))
+INCREMENT=$(( (N + MAXJOBS - 1) / MAXJOBS ))   # ceil(N/MAXJOBS)
+
+echo "Total grids: $N  MAXJOBS: $MAXJOBS  INCREMENT: $INCREMENT"
+
+# --- build exactly MAXJOBS blocks (or fewer if N < MAXJOBS) ---
+Grid1=()
+Grid2=()
+
+for ((b=0; b<MAXJOBS; b++)); do
+  g1=$(( START_VAL + b*INCREMENT ))
+  if (( g1 > MAXGRID )); then
+    break
+  fi
+  g2=$(( g1 + INCREMENT - 1 ))
+  if (( g2 > MAXGRID )); then
+    g2=$MAXGRID
+  fi
+  Grid1+=("$g1")
+  Grid2+=("$g2")
 done
+echo "Blocks created: ${#Grid1[@]}"
+
 echo "Grid1: ${Grid1[@]}"
 echo "Grid2: ${Grid2[@]}"
 
@@ -74,24 +96,19 @@ echo "Grid2: ${Grid2[@]}"
 
 # -----------------------------------------------------------------------------
 # ----------- Generate runscript and parameter files for each block ----
-fr1='./BiomeEBlockRun.x'
+
 fp1='./para_files/parameters_GlobalBlock.nml'
-echo "Runscript: " $fr1
 echo "nml file: " $fp1
 
+pids=()
 for iB in "${!Grid2[@]}"; do
   runID='Block'$iB
   nmlID='Block'${Grid2[$iB]}
-  fr2='./run'$runID'.x'
   fp2=$DIRECTORY'/parameters_'$nmlID'.nml'
 
   echo "Block ${Grid1[$iB]}-${Grid2[$iB]}"
 
-  if [ "${Grid1[$iB]}" -lt "${Grid2[$iB]}" ]; then
-    # Setup the runscript file
-    echo "Runscript: " $fr2
-    sed -e "s/Grid2/${Grid2[$iB]}/g" \
-           $fr1 > $fr2
+  if [ "${Grid1[$iB]}" -le "${Grid2[$iB]}" ]; then
 
     # namelist file (Parameter and model setting file)
     echo "nml file ID: " $nmlID
@@ -103,16 +120,29 @@ for iB in "${!Grid2[@]}"; do
 
     # Run the model with newly generated runscript and parameter file
     echo "Run block ${Grid1[$iB]}-${Grid2[$iB]}"
-    # BiomeE is hardwired to read "input.nml" from "./para_files/"
-    cat $fp2 > ./para_files/input.nml
-    chmod u+x $fr2
-    #nohup ./$fr2 > $runTag'_'$runID'.out' 2>&1 &
 
-    # wait 10 seconds before removing "input.nml" and starting
-    # the next model run so that the model has time to get started
-    sleep 10
-    rm $fr2
-    rm ./para_files/input.nml
+    # run ess_global
+    # nohup ./ess_global $fp2 > $runTag'_'$runID'.out' 2>&1 &
+    PROCNAME="${runTag}_${Grid1[$iB]}_${Grid2[$iB]}"
+    nohup bash -c "exec -a '${PROCNAME}' ./ess_global '${fp2}'" \
+      > "${DIRECTORY}/${runTag}_${runID}.out" 2>&1 &
+    
+    pids+=($!)
+
+    # Throttle to MAXJOBS concurrent runs
+    while (( ${#pids[@]} > MAXJOBS )); do
+      wait -n
+      alive=()
+      for pid in "${pids[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then alive+=("$pid"); fi
+      done
+      pids=("${alive[@]}")
+    done
+
+    sleep 5
   fi
 
 done
+
+wait
+echo "All blocks finished (MAXJOBS=${MAXJOBS})."
