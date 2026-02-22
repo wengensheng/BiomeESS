@@ -62,6 +62,7 @@ program BiomeE
   ! Read in netCDF global data files
   call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
 #endif
+
   ! ---------- Time stamp -------------
   call cpu_time(end_time)
   elapsed_time = end_time - start_time
@@ -78,7 +79,6 @@ program BiomeE
     wall_time = REAL(end_count - start_count, kind=8) / count_rate / 60.0
   END IF
   PRINT *, "Data reading wall time:", wall_time, " minutes"
-
 
   !------------ Forcing data interpolation and model run ---------------------------
   !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)

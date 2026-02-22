@@ -18,6 +18,7 @@ CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
 #CPPFLAGS+=' -DScreenOutput'
+CPPFLAGS+=' -DZip_outputs'
 
 echo $FSRCS
 echo $CPPFLAGS
@@ -34,7 +35,7 @@ rm -f *.mod
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
 GridRS='1' # Grid resolution, 1 for grid by grid (1x1), 2 for skipping one for each lon and lat (2x2)
-runTag='WIEMIP' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+runTag='Test0' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory exists. If not, create it.
@@ -62,7 +63,7 @@ fi
 # --- user settings ---
 START_VAL=1
 MAXGRID=56395
-MAXJOBS=20          # number of blocks AND max concurrent jobs (here they match)
+MAXJOBS=25          # number of blocks AND max concurrent jobs (here they match)
 
 # --- derived settings ---
 N=$(( MAXGRID - START_VAL + 1 ))
@@ -124,25 +125,14 @@ for iB in "${!Grid2[@]}"; do
     # run ess_global
     # nohup ./ess_global $fp2 > $runTag'_'$runID'.out' 2>&1 &
     PROCNAME="${runTag}_${Grid1[$iB]}_${Grid2[$iB]}"
+    echo $PROCNAME
     nohup bash -c "exec -a '${PROCNAME}' ./ess_global '${fp2}'" \
       > "${DIRECTORY}/${runTag}_${runID}.out" 2>&1 &
     
-    pids+=($!)
 
-    # Throttle to MAXJOBS concurrent runs
-    while (( ${#pids[@]} > MAXJOBS )); do
-      wait -n
-      alive=()
-      for pid in "${pids[@]}"; do
-        if kill -0 "$pid" 2>/dev/null; then alive+=("$pid"); fi
-      done
-      pids=("${alive[@]}")
-    done
-
-    sleep 5
+    sleep 2
   fi
 
 done
 
-wait
-echo "All blocks finished (MAXJOBS=${MAXJOBS})."
+echo "All blocks submitted (MAXJOBS=${MAXJOBS})."
