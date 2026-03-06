@@ -2975,7 +2975,10 @@ subroutine vegn_fire (vegn, deltat)
   real :: f_grass, f_wood  ! grasses and canopy tree spread probabilities
   real :: flmb_G, flmb_W   ! Flamability of grasses and woody plants
   real :: d_tree           ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
-  real :: s_fireG          ! Grass fire severity
+  real :: s_fireG          ! grass fire burning severity to woody PFTs
+  real :: b0 = 0.2         ! Minimum woody canopy fire severity (b0 * sp%mu0fire)
+  real :: rFR, s0_cnp      ! Stochastic canopy fire severity (s0_cnp)
+  real :: p_fire           ! PFT-specific actual fire impacts on mortality
   real :: mu_fire          ! fire-induced mortality fraction (0–1) over period deltat
   real :: deadtrees        ! number of trees that died over the time step
   real :: Cfire, Cfast, Cslow ! C fluxes at fire
@@ -2989,7 +2992,7 @@ subroutine vegn_fire (vegn, deltat)
   !  Vegetation flammability parameters, Ign_G0, Ign_W0:
   !  Ignition probability for grasses and woody plants once environmental conditions meet Frisk
   !  For grasses: Ign_G0 = 1.0; For woody plants: Ign_W0 = 0.025
-  !  mu0_FireW, mu0_FireG: mortality rates of trees and grasses due to fire
+  !  mu0fire: Fire induced PFT-specific mortality rates
   !  r_BK0: shape parameter, for bark resistance, exponential equation,
   !                                  120 --> 0.006 m of bark 0.5 survival
 
@@ -3030,11 +3033,16 @@ subroutine vegn_fire (vegn, deltat)
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
-      if(sp%lifeform==0) then  ! grasses
-         mu_fire = mu0_FireG
-      else                     ! trees
+      p_fire = 1.0  ! Grass fire sensitivity as default
+      if(sp%lifeform > 0) then  ! Woody plants
          if(r_Ign < flmb_W * Frisk) then   ! tree canopy fire
-            mu_fire = 0.99 * min(1.0, 1.25 * f_wood)
+            if(Fixed_FireCNP) then
+              s0_cnp = 1.0
+            else
+              CALL RANDOM_NUMBER(rFR)
+              s0_cnp = b0 + (1.0- b0) * rFR  ! Stochastic fir severity
+            endif
+            p_fire = min(1.0, 1.25 * f_wood) * s0_cnp
          else                                     ! grass fire
             ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass.
             ! At high grass biomass, the fire has higher serverity and kills
@@ -3044,9 +3052,10 @@ subroutine vegn_fire (vegn, deltat)
             cc%D_bark = f_bk * cc%dbh    ! bark thickness
             d_tree = exp(r_BK0*cc%D_bark)! Tree's fire sensitivity to grass fire
             !d_tree = 1. - cc%D_bark/(cc%D_bark+D_BK0) !Alternative formulation
-            mu_fire = mu0_FireW * d_tree * f_grass * s_fireG
+            p_fire = d_tree * f_grass * s_fireG
          endif
       endif
+      mu_fire = sp%mu0fire * p_fire
 
       ! Burned vegetation and soils
       deadtrees = cc%nindivs * MIN(1.0, mu_fire * deltat/seconds_per_year) ! individuals / m2

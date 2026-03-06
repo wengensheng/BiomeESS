@@ -9,7 +9,6 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=''
 #CPPFLAGS+='-DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
-CPPFLAGS+=' -DFixedFireRisk'
 CPPFLAGS+=' -DScreenOutput'
 
 echo $FSRCS
@@ -32,7 +31,7 @@ echo $fparameter
 cat $fparameter > ./para_files/input.nml
 
 # Run model
-./ess
+#./ess
 
 rm ./para_files/input.nml
 rm ess

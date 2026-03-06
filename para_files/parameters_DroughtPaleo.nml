@@ -20,7 +20,6 @@ l_fract    = 0.0,
 retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 MI0Fire    = 0.33, ! 0.20, ! 0.33, ! 0.5, ! 0.3, ! when it is P/ET, Frisk = 0.5; High for high fire probability at given P
-mu0_FireG  = 0.02, ! mortality rates of grasses due to fire
 FSBM0      = 0.12, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
@@ -48,6 +47,7 @@ A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    ! Ma
 B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,   .125,   .125,   ! Size-based Mortality sensitivity, m
 W_mu0     = 2.5,    2.5,    0.50,   0.75,   0.75,   0.75,   0.75,   1.5,    ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 IgniteP   = 1.0,    1.0,    .01,    .02,    .01,    .01,    .01,    .02,    ! Intrinsic flammability
+mu0fire   = .02,    .02,    .60,    .80,    .80,    .80,    .80,    .60,    ! Intrinsic flammability
 gamma_SW  = .02,    .02,    .02,    .02,    .02,    .02,    .02,    .02,    ! Wood Acambium respiration rate (kgC/m2/yr)
 Tc0_OFF   = 12.,    10.,     15.,    15.,   -50.,   12.,    12.,    12.,    ! Celsius for convenience
 Tc0_ON    = 10.,     5.,     12.,    12.,   -50.,   10.,    10.,    10.,    ! Celsius for convenience
@@ -91,6 +91,7 @@ Do_ClosedN_run  = .False. ! .True.  !
 Do_DroughtMu    = .False. ! .True.  !
 Do_Fire         = .True.  ! .False. !
 Do_FixedFrisk   = .False. !
+Fixed_FireCNP   = .False. ! .True.  !
 do_RecoverSP    = .True.  ! .False. !
 /
 

@@ -16,8 +16,8 @@ echo "Compiling BiomeE..."
 gfortran $FSRCS $CPPFLAGS -o BiomeE
 EXE="$(readlink -f ./BiomeE)"   # absolute path to executable
 
-Sites=("RMA" "SJC" "DCK")
-PFT_list=("7, 0" "4, 1" "0, 1")
+Sites=("SJC" "RMA" "DCK")
+PFT_list=("4, 1" "7, 0" "0, 1")
 
 Run_years='1699'
 fp_template='./para_files/parameters_DroughtPaleo.nml'
@@ -27,7 +27,7 @@ BaseDir='/media/eweng/HD2/weng/PaleoTests'
 # User-controlled draw range
 # -----------------------------
 DRAW_FIRST=1
-DRAW_LAST=100
+DRAW_LAST=200
 
 # -----------------------------
 # Batch / concurrency settings

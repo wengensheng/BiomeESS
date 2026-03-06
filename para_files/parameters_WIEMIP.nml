@@ -53,7 +53,6 @@ diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
 MI0Fire    = 0.25, ! 0.20, ! 0.33, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.06, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
-mu0_FireG  = 0.05, ! mortality rates of grasses due to fire
 
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4

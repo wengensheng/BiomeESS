@@ -175,6 +175,7 @@ module datatypes
 
     ! Fire related
     real :: IgniteP ! Probability of ignition when climatic conditions are met (i.e., flammability).
+    real :: mu0fire ! PFT-specific fire sensitivity
 
     ! Plant hydraulics
     real :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
@@ -651,8 +652,6 @@ module datatypes
   real :: MI0Fire      = 0.5   ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
   real :: A_MI         = 20.0  ! shape parameter of Fire risk vs. P/PET curve
   real :: FSBM0        = 0.2   ! kgC m-2, grass fire severity parameter, as a function of grass BM
-  real :: mu0_FireG    = 0.2   ! mortality rates of grasses due to fire
-  real :: mu0_FireW    = 0.99  ! mortality rates of trees due to fire
   real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012.
   ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
   real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
@@ -715,6 +714,7 @@ module datatypes
   real :: rho_wood(0:MSPECIES) = 300.0 ! kgC m-3
   real :: f_taper(0:MSPECIES)  = 0.75 ! taper factor, from a cylinder to a tree
   real :: IgniteP(0:MSPECIES)  = 0.02 ! Ignition probability at fire-friendly climates
+  real :: mu0fire(0:MSPECIES)  = 0.99 ! Mortality rate at fire (sensitivity to fire)
 
   ! root parameters
   real :: alpha_FR(0:MSPECIES)  = 1.2 ! Fine root turnover rate yr-1
@@ -874,6 +874,7 @@ module datatypes
   logical  :: Do_RecoverSP        = .False. ! Species recovery from initial conditions
   logical  :: Do_Fire             = .False. ! Allow fire disturbances
   logical  :: Do_FixedFrisk       = .False. ! Fixed fire risk (regardless of climatic condtions)
+  logical  :: Fixed_FireCNP       = .True. ! Fixed fire severity for woody plants in canopy fires
   logical  :: Do_ClosedN_run      = .True.  ! Nitrogen input and output are zero
   logical  :: Do_VariedKx         = .True.  ! trunk new xylem has the same kx or not
   logical  :: Do_VariedWTC0       = .True.  ! WTC0 changes with trunk size
@@ -961,8 +962,9 @@ module datatypes
   PaleoPfile, PaleoTfile, iDraw,                              &
   N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
   outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
-  update_LAImax, MergeLowDenCohorts, Do_ClosedN_run,          &
-  Do_RecoverSP, FreqY0, Do_Fire, Do_FixedFrisk, Do_CH4,       &
+  update_LAImax, MergeLowDenCohorts, Do_ClosedN_run, Do_CH4,  &
+  Do_RecoverSP, FreqY0,                                       &
+  Do_Fire, Do_FixedFrisk, Fixed_FireCNP,                        &
   Do_DroughtMu, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen
 
   ! ---------- Soil hydraulic and heat parameter name list ---------
@@ -1002,7 +1004,7 @@ module datatypes
   K_DeNitr, rho_SON, fDON, etaN, fdsvN,                         &
   CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
-  EnvF0,MI0Fire,FSBM0,A_MI,mu0_FireW,mu0_FireG,f_bk,r_BK0,IgniteP
+  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire
 
   !---------------------------------
 contains
@@ -1141,6 +1143,7 @@ contains
     B_DBH(0:N_EST)     = [.125,   .125,   .125,   .125,   .125,   .125,   .125,   .125  ] ! Size-based Mortality sensitivity, m
     W_mu0(0:N_EST)     = [2.5,    2.5,    0.65,   0.85,   0.85,   0.85,   0.75,   1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
     IgniteP(0:N_EST)   = [1.0,    1.0,    .01,    .02,    .02,    .02,    .02,    .02   ] ! Intrinsic flammability
+    mu0fire(0:N_EST)   = [0.2,    0.2,    .80,    .99,    .99,    .80,    .90,    .60   ] ! Intrinsic flammability
     gamma_SW(0:N_EST)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
     Tc0_OFF(0:N_EST)   = [12.,    8.,     15.,    15.,    -50.,   12.,    15.0,   12.   ] ! 283.16 ! OFF ! C for convenience
     Tc0_ON(0:N_EST)    = [10.,    5.,     10.,    10.,    -50.,   8.,     10.,     8.   ] ! 280.16 ! ON  ! C for convenience
@@ -1302,6 +1305,7 @@ contains
 
     ! Plant flammability
     spdata%IgniteP = IgniteP
+    spdata%mu0fire = mu0fire
 
     !write(*,*)'  kx0,    WTC0,    CR_Wood,    psi50_WD,    psi0_WD,    Kexp_WD,    f_supply,    mu0_topL'
     do i = 0, MSPECIES

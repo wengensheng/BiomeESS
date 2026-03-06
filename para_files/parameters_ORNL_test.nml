@@ -27,7 +27,6 @@ CR0_LF     = 0.5,
 CR0_WD     = 0.3,   ! 0.35 ! Compression ratio of wood tissues at reference WD
 m0_WTC     = 5.0
 m0_kx      = 5.0
-mu0_FireG  = 0.05, ! mortality rates of grasses due to fire
 FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
