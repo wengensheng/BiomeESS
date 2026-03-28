@@ -19,7 +19,7 @@ EXE="$(readlink -f ./BiomeE)"   # absolute path to executable
 Sites=("SJC" "RMA" "DCK")
 PFT_list=("4, 1" "7, 0" "0, 1")
 
-Run_years='1699'
+Run_years='2699'
 fp_template='./para_files/parameters_DroughtPaleo.nml'
 BaseDir='/media/eweng/HD2/weng/PaleoTests'
 

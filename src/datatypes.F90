@@ -650,6 +650,7 @@ module datatypes
   ! Fire regimes
   real :: EnvF0        = 0.0   ! Fixed environmental fire risk, 11/25/2025
   real :: MI0Fire      = 0.5   ! Frisk = 1.0/(1.0 + exp(A_MI*(P/PET - MI0Fire)))
+  real :: s0_max       = 1.0   ! maximum fire severity for canopy fires (0.0~1.0)
   real :: A_MI         = 20.0  ! shape parameter of Fire risk vs. P/PET curve
   real :: FSBM0        = 0.2   ! kgC m-2, grass fire severity parameter, as a function of grass BM
   real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012.
@@ -870,11 +871,10 @@ module datatypes
   ! Model mechanisms setting
   logical  :: Do_DroughtMu        = .True.  ! Drought-induced mortality, Lichstein (2024)
   logical  :: MergeLowDenCohorts  = .True.  ! Merge low density cohorts to their closest ones
-  logical  :: update_LAImax       = .False. ! Update LAImax annually according to N availability
   logical  :: Do_RecoverSP        = .False. ! Species recovery from initial conditions
   logical  :: Do_Fire             = .False. ! Allow fire disturbances
   logical  :: Do_FixedFrisk       = .False. ! Fixed fire risk (regardless of climatic condtions)
-  logical  :: Fixed_FireCNP       = .True. ! Fixed fire severity for woody plants in canopy fires
+  logical  :: Do_FixedFireS       = .True.  ! Fixed fire severity for woody plants in canopy fires
   logical  :: Do_ClosedN_run      = .True.  ! Nitrogen input and output are zero
   logical  :: Do_VariedKx         = .True.  ! trunk new xylem has the same kx or not
   logical  :: Do_VariedWTC0       = .True.  ! WTC0 changes with trunk size
@@ -959,13 +959,14 @@ module datatypes
   Pr_thld, MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                &
   ! Model run controls
   filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
-  PaleoPfile, PaleoTfile, iDraw,                              &
   N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
   outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
-  update_LAImax, MergeLowDenCohorts, Do_ClosedN_run, Do_CH4,  &
-  Do_RecoverSP, FreqY0,                                       &
-  Do_Fire, Do_FixedFrisk, Fixed_FireCNP,                        &
-  Do_DroughtMu, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen
+  ! Model components
+  MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,     &
+  Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,  &
+  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4,              &
+  ! Specific test
+  PaleoPfile, PaleoTfile, iDraw
 
   ! ---------- Soil hydraulic and heat parameter name list ---------
   namelist /soil_data_nml/ soiltype, WaterLeakRate, thksl, GMD,   &
@@ -1004,7 +1005,7 @@ module datatypes
   K_DeNitr, rho_SON, fDON, etaN, fdsvN,                         &
   CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
-  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire
+  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max
 
   !---------------------------------
 contains

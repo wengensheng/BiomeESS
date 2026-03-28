@@ -2976,7 +2976,6 @@ subroutine vegn_fire (vegn, deltat)
   real :: flmb_G, flmb_W   ! Flamability of grasses and woody plants
   real :: d_tree           ! Tree's sensitivity to ground surface fire: max 1.0, min 0.0
   real :: s_fireG          ! grass fire burning severity to woody PFTs
-  real :: b0 = 0.2         ! Minimum woody canopy fire severity (b0 * sp%mu0fire)
   real :: rFR, s0_cnp      ! Stochastic canopy fire severity (s0_cnp)
   real :: p_fire           ! PFT-specific actual fire impacts on mortality
   real :: mu_fire          ! fire-induced mortality fraction (0–1) over period deltat
@@ -3036,11 +3035,11 @@ subroutine vegn_fire (vegn, deltat)
       p_fire = 1.0  ! Grass fire sensitivity as default
       if(sp%lifeform > 0) then  ! Woody plants
          if(r_Ign < flmb_W * Frisk) then   ! tree canopy fire
-            if(Fixed_FireCNP) then
+            if(Do_FixedFireS) then
               s0_cnp = 1.0
             else
               CALL RANDOM_NUMBER(rFR)
-              s0_cnp = b0 + (1.0- b0) * rFR  ! Stochastic fir severity
+              s0_cnp = s0_max * rFR  ! Stochastic fir severity
             endif
             p_fire = min(1.0, 1.25 * f_wood) * s0_cnp
          else                                     ! grass fire
@@ -3276,7 +3275,7 @@ subroutine vegn_annualLAImax_update(vegn)
   ! used for updating LAImax according to mineral N in soil
   ! Potential problems:
   !   1. All species LAImax are updated
-  !   2. For evergreen, LAImax can be less than current LAI.
+  !   2. For evergreen, LAImax can be lower than current LAI.
   !  Weng, 2017-08-02
   type(vegn_tile_type), intent(inout) :: vegn
 

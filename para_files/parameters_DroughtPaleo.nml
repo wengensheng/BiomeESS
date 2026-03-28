@@ -21,6 +21,7 @@ retransN   = 0.0,
 diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 MI0Fire    = 0.33, ! 0.20, ! 0.33, ! 0.5, ! 0.3, ! when it is P/ET, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.12, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+s0_max     = 0.8,  ! Maximum canopy fire severity (taking values between 0.0~1.0)
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
 
@@ -91,7 +92,7 @@ Do_ClosedN_run  = .False. ! .True.  !
 Do_DroughtMu    = .False. ! .True.  !
 Do_Fire         = .True.  ! .False. !
 Do_FixedFrisk   = .False. !
-Fixed_FireCNP   = .False. ! .True.  !
+Do_FixedFireS   = .False. ! .True.  !
 do_RecoverSP    = .True.  ! .False. !
 /
 
