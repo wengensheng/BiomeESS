@@ -141,6 +141,9 @@ module io_mod
     vegn%dailyResp = 0.0
     vegn%dailyRh   = 0.0
     vegn%dailyCH4  = 0.0
+    vegn%dNorg_daily = 0.0
+    vegn%dNgas_daily = 0.0
+    vegn%dNmin_daily = 0.0
 
     !annual
     vegn%NfixedYr   = 0.0
@@ -157,8 +160,10 @@ module io_mod
     vegn%Nm_Soil    = 0.0
     vegn%Nm_Fire    = 0.0
     vegn%C_burned   = 0.0
-    vegn%N_OutYr    = 0.0
     vegn%NupYr      = 0.0
+    vegn%dNorg_Yr   = 0.0
+    vegn%dNgas_Yr   = 0.0
+    vegn%dNmin_Yr   = 0.0
     vegn%GrassBM    = 0.0
     vegn%annualPET  = 0.0
     vegn%YearlyTmp  = 0.0
@@ -347,7 +352,8 @@ module io_mod
       vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
       vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh,    &
       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),           &
-      vegn%mineralN*1000,vegn%dailyNup*1000, vegn%dailyCH4 !,vegn%kp(1)
+      vegn%mineralN*1000,vegn%dailyNup*1000, vegn%dailyCH4,    &
+      vegn%dNorg_Daily*1000, vegn%dNgas_Daily*1000, vegn%dNmin_Daily*1000 !,vegn%kp(1)
     endif
 #endif
 
@@ -382,6 +388,9 @@ module io_mod
     vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
     vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
     vegn%NfixedYr   = vegn%NfixedYr   + vegn%NfixDaily
+    vegn%dNorg_Yr = vegn%dNorg_Yr     + vegn%dNorg_daily
+    vegn%dNgas_Yr = vegn%dNgas_Yr     + vegn%dNgas_daily
+    vegn%dNmin_Yr = vegn%dNmin_Yr     + vegn%dNmin_daily
 
     ! zero:
     vegn%dailyNup  = 0.0
@@ -396,6 +405,9 @@ module io_mod
     vegn%dailyRoff = 0.0
     vegn%NfixDaily = 0.0
     vegn%dailyLFLIT  = 0.0
+    vegn%dNorg_daily = 0.0
+    vegn%dNgas_daily = 0.0
+    vegn%dNmin_daily = 0.0
 
     ! Daily vegn state
     call vegn_sum_tile(vegn)
@@ -410,7 +422,7 @@ module io_mod
     ! --------local var --------
     type(cohort_type), pointer :: cc
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
-    real :: plantC, plantN, soilC, soilN,BMtot
+    real :: plantC, plantN, soilC, soilN,BMtot,N_loss_yr
     integer :: f_cht,i,j,iyr_out,yr_Eq,yr_Sc
 
     ! Max LAI
@@ -515,11 +527,12 @@ module io_mod
     if(iyr_out > 0) then
       call vegn_sum_tile(vegn)
       plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
-      vegn%SwC + vegn%HwC
+               vegn%SwC + vegn%HwC
       soilC  = sum(vegn%SOC(:))
       plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
       vegn%rootN + vegn%SwN + vegn%HwN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
+      N_loss_yr = (vegn%dNorg_Yr + vegn%dNgas_Yr + vegn%dNmin_Yr)*1000.
 #ifdef FACE_run
       write(fno6,'(1(I5,","),85(E15.6,","))') iyears, &
       vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
@@ -530,7 +543,7 @@ module io_mod
       vegn%HwN*1000, vegn%SeedN*1000, vegn%NSN*1000,                      &
       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
       vegn%mineralN*1000, vegn%annualN*1000, vegn%NupYr*1000,             &
-      vegn%Nm_Fire*1000, vegn%N_OutYr*1000, vegn%CO2_c,vegn%annualCH4
+      vegn%Nm_Fire*1000, N_loss_yr, vegn%CO2_c,vegn%annualCH4
 #elif DroughtMIP
       if (iyears > yr_Eq) &
       write(fno6,'(2(I5,","),80(E15.6,","))')&
@@ -555,7 +568,8 @@ module io_mod
       vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
       (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
       (vegn%wcl(j),j=1,soil_L),vegn%NfixedYr*1000,vegn%NupYr*1000,    &
-      vegn%Nm_Soil*1000,vegn%Nm_Fire*1000, vegn%N_OutYr*1000,         &
+      vegn%Nm_Soil*1000,vegn%Nm_Fire*1000,                            &
+      vegn%dNorg_Yr*1000, vegn%dNgas_Yr*1000, vegn%dNmin_Yr*1000,     &
       vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,           &
       vegn%Frisk,vegn%Pfire,vegn%annualCH4
 #endif
@@ -1138,7 +1152,7 @@ module io_mod
       'LAI','GPP','Rauto','Rh',                          &
       'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',  &
       'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON',  &
-      'mineralN', 'N_uptk','CH4' !,'Kappa'
+      'mineralN', 'N_uptk','CH4', 'dNorg','dNgas','dNmin' !,'Kappa'
     endif
 
     ! Open yearly output files
@@ -1227,7 +1241,7 @@ module io_mod
     'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',            &
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
     'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
-    'N_fxed','N_uptk','Nm_SL','Nm_FR','N_loss',                  &
+    'N_fxed','N_uptk','Nm_SL','Nm_FR','dNorg','dNgas','dNmin',   &
     'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire','CH4'
 
 #endif

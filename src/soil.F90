@@ -55,9 +55,9 @@ module soil_mod
     real :: d_C(5), d_N(5), newM(5)
     real :: CUEf0, CUEs0
     real :: extraN, N_m          ! Mineralized nitrogen
-    real :: N_loss               ! Mineral nitrogen loss, kg N m-2 step-1
     real :: K_rf, K_dn           ! Runoff loss rate, and denitrification rate
     real :: dN_SOM4, dN_SOM5     ! Dissolved organic N loss, kg N m-2 step-1
+    real :: d_Norg,d_Ngas,d_Nmin ! N losses with different format, kg N m-2 step-1
     real :: A                    ! Decomp rate reduction due to moisture and temperature
     ! CH4 locals
     real :: Rh_total, wfps, f_ana
@@ -165,13 +165,19 @@ module soil_mod
     vegn%SON(4) = vegn%SON(4) - dN_SOM4
     vegn%SON(5) = vegn%SON(5) - dN_SOM5
 
-    ! Mineral nitrogen loss
-    N_loss = vegn%mineralN * (K_dn + K_rf - K_dn * K_rf)
-    vegn%N_OutYr = vegn%N_OutYr + N_loss + dN_SOM4 + dN_SOM5
+    ! Nitrogen losses
+    d_Norg = dN_SOM4 + dN_SOM5
+    d_Ngas = vegn%mineralN * K_dn
+    d_Nmin = vegn%mineralN * (K_rf - K_dn * K_rf)
+
+    ! Daily nitrogen losses
+    vegn%dNorg_daily = vegn%dNorg_daily + d_Norg
+    vegn%dNgas_daily = vegn%dNgas_daily + d_Ngas
+    vegn%dNmin_daily = vegn%dNmin_daily + d_Nmin
 
     ! Update mineral N pool (mineralN)
-    vegn%mineralN = vegn%mineralN + N_m - N_loss
-    vegn%Nm_Soil  = vegn%Nm_Soil  + N_m   ! - N_loss
+    vegn%mineralN = vegn%mineralN + N_m - (d_Ngas + d_Nmin)
+    vegn%Nm_Soil  = vegn%Nm_Soil  + N_m
 
     ! Check if soil C/N is lower than CN0
     do i = 4, 5

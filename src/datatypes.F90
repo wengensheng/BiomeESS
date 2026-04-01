@@ -419,7 +419,6 @@ module datatypes
     real :: fixedN  = 0.0  ! kg N/step
     real :: Nm_Soil = 0.0  ! annual available N in a year
     real :: Nm_Fire = 0.0  ! Mineralized N due to burning
-    real :: N_OutYr = 0.0  ! annual N loss
     real :: NorgP2S = 0.0  ! annual N from plants to soil
     real :: previousN      ! an weighted annual available N
     real :: initialN0
@@ -485,6 +484,8 @@ module datatypes
     real :: CO2_c ! ppm, annual atmospheric CO2 concentration
     real :: dailyPrcp = 0.0, annualPrcp = 0.0 ! mm m-2 yr-1
     real :: dailyTrsp = 0.0, dailyEvap  = 0.0, dailyRoff = 0.0 ! mm m-2 yr-1
+    real :: dNorg_daily = 0.0, dNgas_daily = 0.0, dNmin_daily = 0.0
+    real :: dNorg_Yr    = 0.0, dNgas_Yr    = 0.0, dNmin_Yr    = 0.0
     real :: annualTrsp= 0.0, annualEvap = 0.0, annualRoff= 0.0 ! mm m-2 yr-1
     real :: annualGPP = 0.0 ! kgC m-2 ground yr-1
     real :: annualNPP = 0.0
