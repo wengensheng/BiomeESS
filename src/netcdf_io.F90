@@ -59,7 +59,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    allocate(dataarray(LowerLon:UpperLon, LowerLat:UpperLat, Ntime))
    allocate(timearray(Ntime))
    allocate(Vegetated(LowerLon:UpperLon, LowerLat:UpperLat))
-   allocate(VegCover(LowerLon:UpperLon, LowerLat:UpperLat, 10))
+   allocate(VegCover(LowerLon:UpperLon, LowerLat:UpperLat, N_Vegs))
 
    PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
    Vegstr= 'TOTAL_VEG'
@@ -132,6 +132,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     allocate(ClimData(totL, N_vars, N_VegGrids))
     allocate(LandGrid(N_VegGrids))
     allocate(GridLonLat(N_VegGrids))
+    allocate(GridVegCov(N_Vegs,N_VegGrids))
 
     ! Set GridLonLat array and Sort grid lon-lat and climate data
     m = 0
@@ -140,9 +141,10 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
         if(GridMask(ilon,ilat) > 0) then
           m = m + 1
           GridLonLat(m) = iLon * 1000 + iLat
+          GridVegCov(:,m) = VegCover(iLon,iLat,:)
           LandGrid(m)%iLon = iLon
           LandGrid(m)%iLat = iLat
-          LandGrid(m)%VegCover = VegCover(iLon,iLat,:)
+          LandGrid(m)%VegCover => GridVegCov(:,m) ! VegCover(iLon,iLat,:)
           LandGrid(m)%climate => ClimData(:,:,m)
         endif
       enddo
@@ -398,6 +400,7 @@ subroutine CRU_end()
   close(Grids_UN1)
   close(Grids_UN2)
   deallocate(GridLonLat)
+  deallocate(GridVegCov)
 #ifndef Use_InterpolatedData
   !deallocate(CRUData)
   deallocate(CRUtime)
@@ -414,7 +417,9 @@ subroutine read_GridLonLat(fname,file_exists)
   logical, intent(inout) :: file_exists
 
   ! ------- Local vars ---------------
-  integer :: GridNo(Nlon*Nlat),tmpNo(Nlon*Nlat) ! maximum grids, 720*360
+  integer, parameter :: maxGrids = Nlon*Nlat/3
+  real    :: GridVt(N_Vegs, maxGrids),tmpVt(N_Vegs, maxGrids) ! Veg cover for all grids
+  integer :: GridNo(maxGrids),tmpNo(maxGrids) ! maximum grids, 720*360
   integer :: i,j,k,m,n,istat1
   integer :: TotalFiles ! Each file represents a grid
   character(len=300) :: listfile
@@ -430,10 +435,11 @@ subroutine read_GridLonLat(fname,file_exists)
   open(11,file=listfile,status='old',ACTION='read',IOSTAT=istat1)
   m = 0
   do
-    read(11,*,IOSTAT=istat1) GridNo(m+1)
+    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVt(i,m+1),i=1,10)
     if(istat1 < 0)exit
     m = m + 1
   enddo
+  write(*,*)'Total grids in the list fie:',m
 
   ! Update GridNo and m with StepLatLon
   if(StepLatLon > 1 .or. UpperLon < 720)then ! Regional or partial run
@@ -454,22 +460,26 @@ subroutine read_GridLonLat(fname,file_exists)
         if (k == tmpNo(n))then
             m = m + 1
             GridNo(m) = tmpNo(n)
+            GridVt(:,m) = tmpVt(:,n)
             n = n + 1
         endif
-        if(n >= TotalFiles)exit ! Exit LowerLat-UpperLat loop
+        if(n > TotalFiles)exit ! Exit LowerLat-UpperLat loop
       enddo
-      if(n >= TotalFiles)exit   ! Exit LowerLon-UpperLon loop
+      if(n > TotalFiles)exit   ! Exit LowerLon-UpperLon loop
     enddo
   endif
 
   ! Update N_VegGrids and GridLonLat
   N_VegGrids = m
   allocate(GridLonLat(N_VegGrids))
+  allocate(GridVegCov(N_Vegs,N_VegGrids))
   GridLonLat(:) = GridNo(1:N_VegGrids)
+  GridVegCov(:,:) = GridVt(:,1:N_VegGrids)
   grid_No1 = min(grid_No1,N_VegGrids)
   grid_No2 = min(grid_No2,N_VegGrids)
 
   write(*,*)"StepLatLon:", StepLatLon
+  write(*,*)'Selected grids:',N_VegGrids
   write(*,*)"LowerLon, UpperLon, LowerLat, UpperLat:", LowerLon, UpperLon, LowerLat, UpperLat
   write(*,*)"In read_GridLonLat, N_VegGrids, grid_No1, grid_No2:", N_VegGrids, grid_No1, grid_No2
 end subroutine read_GridLonLat

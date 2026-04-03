@@ -847,6 +847,7 @@ module datatypes
   ! For global/regional forcing data, soil conditions, and initial conditions
   ! CRU NetCDF file dimensions
   integer, parameter :: N_PFTs  = 9 ! Global PFTs from Ent Vegetation Map
+  integer, parameter :: N_Vegs  = 10 ! pft_2011 vegetation types
   integer, parameter :: NDIMS = 3, Nlon = 720, Nlat = 360, Ntime = 1460 ! NC file dimensions
   integer, parameter :: Hours_NCstep = hours_per_year/Ntime ! 6
   real,    parameter :: Lon0 = -180.0, Lat0 = -90.0 ! The first grid's coordinates
@@ -861,12 +862,12 @@ module datatypes
     integer :: iLon ! grid number along Longitude (from -180 to 180)
     integer :: iLat ! grid number along Latitude (from -90 to 90)
     real    :: fPFT(N_PFTs) = 0.0 ! Fraction of each PFT's coverage
-    real    :: VegCover(10) = 0.0 ! for pft2011_0.5x0.5.nc only
     real    :: SOM(5) ! Soil organic matter (kgC m-2)
     real    :: SON(5) ! Soil organic nitrogen
     real    :: mineralN ! Soil mineral N
     real    :: soiltexture(3)
     real    :: WLTPT, FLDCP ! soil wilting point and field capacity (0.xx)
+    real, pointer :: VegCover(:)        ! for pft2011_0.5x0.5.nc only
     real, pointer :: climate(:,:)       ! Ntimes, N_vars
   end type grid_initial_type
 
@@ -905,6 +906,7 @@ module datatypes
   integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
   integer :: GridID     = 999999 ! 216264                ! = iLon*1000 + iLat
   integer :: HemiSP     = 1 ! 1: North hemisphere; 0: South hemisphere
+  real    :: GridVC(N_Vegs) = 0.0 ! For WIE-MIP, vegetation cover percentage
 
   type(grid_initial_type), pointer :: LandGrid(:) => null()
   integer, pointer :: GridLonLat(:)    => null() ! LonLat
@@ -1433,7 +1435,7 @@ contains
     real :: tmpL(mw*2+1)
     real :: totPrcp, totPET, meanTmin, meanPrcp, Mst_IDX
 
-    integer :: i,j,k,m,n,L,w
+    integer :: i,j,k,m,n,L,w,idx
     integer :: N_Yrs, N_days
 
     ! ------ Calculate days and years of the data ------
@@ -1524,6 +1526,19 @@ contains
     endif
     ! Replace C3 with C4 grasses in dry and warm climates
     if(Mst_IDX < MI0C3C4 .and. meanTmin > TcrC3C4) PFTID(1) = 0
+
+#ifdef WIEMIP_Land
+    ! For WIE-MIP, set grass PFTs for land cover changes
+    idx = maxloc(GridVC, dim=1)
+    write(*,*)'Max vegetation id', idx
+    if(idx >=9 )then ! Grasses
+      if(meanTmin > TcrC3C4)then ! C3 vs C4 grasses
+        !PFTID = [0,3,5,7]
+      else
+        !PFTID = [1,2,3,7]
+      endif
+    endif
+#endif
 
     ! Screen output
     write(*,'(a15, 2(f8.2,","))')'Prcp, PET: ', totPrcp/N_yrs,totPET/N_yrs
