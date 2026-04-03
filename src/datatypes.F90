@@ -861,6 +861,7 @@ module datatypes
     integer :: iLon ! grid number along Longitude (from -180 to 180)
     integer :: iLat ! grid number along Latitude (from -90 to 90)
     real    :: fPFT(N_PFTs) = 0.0 ! Fraction of each PFT's coverage
+    real    :: VegCover(10) = 0.0 ! for pft2011_0.5x0.5.nc only
     real    :: SOM(5) ! Soil organic matter (kgC m-2)
     real    :: SON(5) ! Soil organic nitrogen
     real    :: mineralN ! Soil mineral N
@@ -907,13 +908,15 @@ module datatypes
 
   type(grid_initial_type), pointer :: LandGrid(:) => null()
   integer, pointer :: GridLonLat(:)    => null() ! LonLat
+  real,    pointer :: GridVegCov(:,:)  => null() ! Grid vegetation composition
   real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
   real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
   real,    pointer :: CRUtime(:)       => null() ! Days since 1901-01-01 in CRU data
 
   ! Output interpolated grid climate data files
   logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
-  integer :: Grids_Unit   = 99    ! Vegetation grids list file
+  integer :: Grids_UN1   = 99       ! Vegetated grids list file
+  integer :: Grids_UN2   = 98       ! Grid vegetation cover file
 
   ! Model run control
   character(len=256) :: file_out(6) ! Output file names
@@ -1465,7 +1468,7 @@ contains
     Mst_IDX  = totPrcp / totPET ! Moisture Index
     meanPrcp = totPrcp / N_yrs
 
-    ! Calculate running mean temperature (meanTc) with a windlow of L
+    ! Calculate running mean temperature (meanTc) with a window of L
     L = mw * 2 + 1
     do i = 1, N_days
       m = i - mw

@@ -32,6 +32,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    character(len=4)   :: yr_str
    character(len=6)   :: GridStr
    character(len=3)   :: PFTID(9)
+   character(len=9)   :: VegID(10) ! pft2011_0.5x0.5.nc
    integer, pointer :: GridMask(:,:) => null() ! Nlon, Nlat
    integer :: N_yrs,totL,N_vars
    integer :: istat1,i,j,k,m,iLon,iLat
@@ -40,8 +41,8 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    integer :: start2(2), count2(2)
    real, allocatable :: dataarray(:,:,:), timearray(:)
    real :: PFTdata(144,90,9),VegFraction(144,90) ! Not used, Weng 01/15/2026
-   real, allocatable :: Vegetated(:,:)
-   logical :: Do_HighResVegMap = .True. ! 0.5x0.5
+   real, allocatable :: Vegetated(:,:),VegCover(:,:,:)
+   logical :: Do_BiomeE_PFT_MAP = .False. ! BiomeE PFT maps for GISS ModelE
 
    ! Read in a vegetation map
    allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
@@ -57,19 +58,26 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    ! Allocate (sub-domain) temporary arrays for netCDF reading
    allocate(dataarray(LowerLon:UpperLon, LowerLat:UpperLat, Ntime))
    allocate(timearray(Ntime))
-   if(Do_HighResVegMap) allocate(Vegetated(LowerLon:UpperLon, LowerLat:UpperLat))
+   allocate(Vegetated(LowerLon:UpperLon, LowerLat:UpperLat))
+   allocate(VegCover(LowerLon:UpperLon, LowerLat:UpperLat, 10))
 
    PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
    Vegstr= 'TOTAL_VEG'
+   VegID = [character(len=9) :: 'SHRUBS_BD','SHRUBS_BE','SHRUBS_ND','SHRUBS_NE', &
+                                'TREES_BD ','TREES_BE ','TREES_ND ','TREES_NE ', &
+                                'GRASS_MAN','GRASS_NAT']
 
-   if(Do_HighResVegMap) then ! Read in 0.5x0.5 Vegetation coverage data file
-     fveg  = trim(veg_path)//trim(veg_file)
-     write(*,*)'Reading ',trim(fveg)
-     call nc_read_2D(fveg, trim(Vegstr), Vegetated, start2, count2)
+   fveg  = trim(veg_path)//trim(veg_file)
+   write(*,*)'Reading ',trim(fveg)
+   call nc_read_2D(fveg, trim(Vegstr), Vegetated, start2, count2)
+   do i=1, 10
+     call nc_read_2D(fveg, trim(VegID(i)), VegCover(:,:,i), start2, count2)
+   enddo
 
-   else                      ! Read in 2x2.5 BiomeE PFT data
-     ! Not used anymore. I keep this section here just in case we are
-     ! going to define grid PFTs with a vegetation map. 01/15/2026
+   ! Read in 2x2.5 BiomeE PFT data
+   ! Not used anymore. Keep it here just in case it needs
+   ! to define grid PFTs with a vegetation map. 01/15/2026
+   if(Do_BiomeE_PFT_MAP) then
      fnc   = trim(fpath)//'BiomeE-PFTs.nc'
      write(*,*)'Reading ',trim(fnc)
      do i=1, 9
@@ -103,18 +111,9 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     m = 0
     do iLon = LowerLon, UpperLon, StepLatLon
       do iLat = LowerLat, UpperLat, StepLatLon
-        if(Do_HighResVegMap) then
-          if(dataarray(ilon,ilat,1) < 9999.0 .and. Vegetated(ilon,ilat)> 5.)then
-            GridMask(ilon,ilat) = 1  ! Select the grids for model run
-            m = m + 1
-          endif
-        else
-          i = iLon/5 + 1
-          j = iLat/4 + 1
-          if(dataarray(ilon,ilat,1) < 9999.0 .and. VegFraction(i,j)>0.1)then
-            GridMask(ilon,ilat) = 1  ! Select the grids for model run
-            m = m + 1
-          endif
+        if(dataarray(ilon,ilat,1) < 9999.0 .and. Vegetated(ilon,ilat)> 5.)then
+          GridMask(ilon,ilat) = 1  ! Select the grids for model run
+          m = m + 1
         endif
       enddo
     enddo
@@ -143,13 +142,8 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
           GridLonLat(m) = iLon * 1000 + iLat
           LandGrid(m)%iLon = iLon
           LandGrid(m)%iLat = iLat
+          LandGrid(m)%VegCover = VegCover(iLon,iLat,:)
           LandGrid(m)%climate => ClimData(:,:,m)
-          !! Assign PFT coverage for each grid
-          !i = (iLon-1)/5 + 1
-          !j = (iLat-1)/4 + 1
-          !do k = 1, 9
-          !  LandGrid(m)%fPFT(k) = Min(1.0, Max(0.0, PFTdata(i,j,k)))
-          !enddo
         endif
       enddo
     enddo
@@ -157,7 +151,9 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
       fname = trim(filepath_out)//trim(GridListFile) ! List file name
-      open(NEWUNIT=Grids_Unit,file=trim(fname),ACTION='write', IOSTAT=istat1)
+      open(NEWUNIT=Grids_UN1,file=trim(fname),ACTION='write', IOSTAT=istat1)
+      fname = trim(filepath_out)//'Veg_'//trim(GridListFile) ! List file name
+      open(NEWUNIT=Grids_UN2,file=trim(fname),ACTION='write', IOSTAT=istat1)
     endif
 
     ! ----------------- Read in all data ----------------------!
@@ -377,7 +373,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   if(WriteForcing)then
     write(GridStr, GridIDFMT) GridID
     fname = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
-    write(Grids_Unit, '(a6,"," a35)')trim(GridStr),trim(fname)
+    write(Grids_UN1, '(a6,"," a35)')trim(GridStr),trim(fname)
+    write(Grids_UN2, '(a6,"," 10(f6.2,","))')trim(GridStr),LandGrid%VegCover
     fname = trim(filepath_out)//trim(fname)
     open(NEWUNIT=forcing_unit,file=trim(fname))
     !write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
@@ -398,7 +395,8 @@ end subroutine CRU_Interpolation
 
 !==============================================
 subroutine CRU_end()
-  close(Grids_Unit)
+  close(Grids_UN1)
+  close(Grids_UN2)
   deallocate(GridLonLat)
 #ifndef Use_InterpolatedData
   !deallocate(CRUData)
