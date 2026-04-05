@@ -145,9 +145,9 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
 
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
-      fout = trim(filepath_out)//trim(GridListFile) ! List file name
+      fout = trim(filepath_out)//trim(GridListFile) ! Grid ID, VegCover, and N_input
       open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
-      fout = trim(filepath_out)//'Veg_'//trim(GridListFile) ! List file name
+      fout = trim(filepath_out)//'Grid_filenames.csv' ! Data file name
       open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat1)
     endif
 
@@ -372,10 +372,16 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   ! Write out a sample file
   if(WriteForcing)then
     write(GridStr, GridIDFMT) GridID
-    fout = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
-    write(Grids_UN1, '(a6,"," a35)')trim(GridStr),trim(fout)
-    write(Grids_UN2, '(a6,10(",",f6.2),",",E12.4)') &
+
+    ! Write GridID, VegCover, and N_input for each grid
+    write(Grids_UN1, '(a6,10(",",f6.2),",",E12.4)') &
              trim(GridStr),LandGrid%VegCover,LandGrid%N_input
+
+    ! Write the interpolated data file names for each grid
+    fout = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
+    write(Grids_UN2, '(a6,"," a35)')trim(GridStr),trim(fout)
+
+    ! Write interpolated data
     fout = trim(filepath_out)//trim(fout)
     open(NEWUNIT=forcing_unit,file=trim(fout))
     write(forcing_unit,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE,Ndpst'
@@ -494,7 +500,11 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   type(climate_data_type), pointer :: climateData(:)
   character(len=250) :: command, climfile, fname
   character(len=6)  :: commts, GridStr
+#ifdef Read_Ndps_files
   integer, parameter :: niterms = 7 !6 ! 7 columns (including N_input)
+#else
+  integer, parameter :: niterms = 6 ! No column of N deposition
+#endif
 
   real,allocatable :: timecols(:,:), input_data(:,:)
   real    :: temp(niterms)
@@ -616,14 +626,14 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
      climateData(i)%rain      = input_data(4,i)
      climateData(i)%windU     = input_data(5,i)
      climateData(i)%P_air     = input_data(6,i)
-#ifdef Read_Ndps_file
+     climateData(i)%CO2       = CO2_Hist(min(CO2Yrs, max(1, climateData(i)%year-1700+1)))
+     climateData(i)%eCO2      = climateData(i)%CO2 + 200.
+     climateData(i)%soilwater = 0.8
+#ifdef Read_Ndps_files
      climateData(i)%N_input   = input_data(7,i) ! for WIEMIP N deposition, kgN m-2 yr-1
 #else
      climateData(i)%N_input   = N_input
 #endif
-     climateData(i)%CO2       = CO2_Hist(min(CO2Yrs, max(1, climateData(i)%year-1700+1)))
-     climateData(i)%eCO2      = climateData(i)%CO2 + 200.
-     climateData(i)%soilwater = 0.8
   enddo
 
   forcingData => climateData
