@@ -414,7 +414,6 @@ module datatypes
     !!  Nitrogen pools, Weng 2014-08-08
     real :: mineralN= 0.  ! Mineral nitrogen pool, (kg N/m2)
     real :: totN    = 0.
-    real :: N_input = 0.   ! annual N input (kgN m-2 yr-1)
     real :: N_uptake= 0.0  ! kg N m-2 hour-1
     real :: fixedN  = 0.0  ! kg N/step
     real :: Nm_Soil = 0.0  ! annual available N in a year
@@ -568,6 +567,7 @@ module datatypes
     real :: CO2           ! mol/mol
     real :: eCO2          ! mol/mol
     real :: soilwater     ! soil moisture, vol/vol
+    real :: N_input       ! N deposition (kgN/m2/yr)
   end type climate_data_type
 
   !-------------Vars for the model -------------
@@ -846,7 +846,7 @@ module datatypes
 
   ! For global/regional forcing data, soil conditions, and initial conditions
   ! CRU NetCDF file dimensions
-  integer, parameter :: N_PFTs  = 9 ! Global PFTs from Ent Vegetation Map
+  integer, parameter :: N_PFTs  = 8  ! For ESS Biome
   integer, parameter :: N_Vegs  = 10 ! pft_2011 vegetation types
   integer, parameter :: NDIMS = 3, Nlon = 720, Nlat = 360, Ntime = 1460 ! NC file dimensions
   integer, parameter :: Hours_NCstep = hours_per_year/Ntime ! 6
@@ -861,12 +861,12 @@ module datatypes
   type :: grid_initial_type
     integer :: iLon ! grid number along Longitude (from -180 to 180)
     integer :: iLat ! grid number along Latitude (from -90 to 90)
-    real    :: fPFT(N_PFTs) = 0.0 ! Fraction of each PFT's coverage
     real    :: SOM(5) ! Soil organic matter (kgC m-2)
     real    :: SON(5) ! Soil organic nitrogen
     real    :: mineralN ! Soil mineral N
     real    :: soiltexture(3)
     real    :: WLTPT, FLDCP ! soil wilting point and field capacity (0.xx)
+    real    :: N_input      ! kgN m-2 yr-1
     real, pointer :: VegCover(:)        ! for pft2011_0.5x0.5.nc only
     real, pointer :: climate(:,:)       ! Ntimes, N_vars
   end type grid_initial_type
@@ -885,15 +885,24 @@ module datatypes
   logical  :: Do_CH4              = .False. ! Methane emission modeling
 
   ! For global/regional run, Weng, 2025-07-22
-  character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
-  character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
   character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
+  character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
+  character (len = 256) :: Ndp_path     = '/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/'
   character (len = 20)  :: ncversion    = 'crujra.v2.4.5d.'
+  character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
+
   character (len = 256) :: int_fpath    = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
   character (len = 80)  :: int_prefix   = 'crujra.v2.4.5d.'
   character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv' ! in int_fpath
   character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
   character (len = 6)   :: GridIDFMT    = '(I6.6)' ! For the file name string (GridID)
+  character(len=30)     :: Vegstr       = 'TOTAL_VEG'
+  character(len=9)      :: VegID(N_Vegs)= [character(len=9) :: &
+                           'SHRUBS_BD','SHRUBS_BE','SHRUBS_ND','SHRUBS_NE', &
+                           'TREES_BD ','TREES_BE ','TREES_ND ','TREES_NE ', &
+                           'GRASS_MAN','GRASS_NAT'] ! pft2011_0.5x0.5.nc
+  character(len=6)   :: NdpID(4) = [character(len=6) :: &
+                           'wetnoy','wetnhx','drynoy','drynhx']
   integer :: LowerLon   = 1
   integer :: UpperLon   = 720 ! Grid number from -179.75 (latitude)
   integer :: LowerLat   = 61
@@ -950,9 +959,9 @@ module datatypes
   type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! Soil hydraulics parameters
 
   ! ------------- Global run model setting name list ------------
-  namelist /global_setting_nml/ ncfilepath, ncversion,            &
-  veg_path, veg_file, int_fpath, int_prefix, GridListFile,    &
-  grid_No1, grid_No2, yr_start, yr_end, LowerLon, UpperLon,   &
+  namelist /global_setting_nml/ ncfilepath, Ndp_path, veg_path, &
+  int_fpath, ncversion, int_prefix, veg_file, GridListFile,     &
+  grid_No1, grid_No2, yr_start, yr_end, LowerLon, UpperLon,     &
   LowerLat, UpperLat, StepLatLon, WriteForcing
 
   ! ------------- Model initialization name list ------------
@@ -1023,6 +1032,15 @@ contains
     character(len=*),intent(in) :: fnml
     call initialize_soilpars(fnml)
     call initialize_PFT_pars(fnml)
+
+    ! Hack for closedN setting
+    if(do_closedN_run) then
+      K_DeNitr  = 0.0 ! rate of a year, 2.5
+      rho_SON   = 0.0 ! organic nitrogen release rate
+      fdsvN     = 0.0 ! Maximum nitrogen loss rate with runoff
+      N_input   = 0.0 ! N input, kg N m-2 yr-1
+    endif
+
   end subroutine model_para_init
 
   !============================ Subroutines =================================
@@ -1391,8 +1409,8 @@ contains
   end subroutine init_derived_species_data
 
   !=============================================================================
-  subroutine Set_PFTs_from_map(LandGrid)
-    type(grid_initial_type), intent(in) :: LandGrid
+  subroutine Set_PFTs_from_map(fPFT)
+    real, intent(in) :: fPFT(:)
 
     !--------- local vars ------------
     integer :: GridPFTs(N_PFTs)
@@ -1400,12 +1418,12 @@ contains
     real :: f_min = 0.01 ! coverage fraction threshold
 
     ! Sorting PFT numbers according to fPFT
-    call rank_descending(LandGrid%fPFT,GridPFTs)
+    call rank_descending(fPFT,GridPFTs)
     !PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
     GridPFTs = GridPFTs - 1 ! PFT No. starts from 0.
 
     ! Find out PFTs in this grid
-    init_cohort_N = min(M_initialCH,Max(1, COUNT(LandGrid%fPFT > f_min)))
+    init_cohort_N = min(M_initialCH,Max(1, COUNT(fPFT > f_min)))
     do i=1, init_cohort_N
       init_cohort_sps(i)   = GridPFTs(i)
       init_cohort_Indiv(i) = 0.2  ! initial individual density, individual/m2
@@ -1527,7 +1545,7 @@ contains
     ! Replace C3 with C4 grasses in dry and warm climates
     if(Mst_IDX < MI0C3C4 .and. meanTmin > TcrC3C4) PFTID(1) = 0
 
-#ifdef WIEMIP_Land
+#ifdef WIEMIP_PFT_setting
     ! For WIE-MIP, set grass PFTs for land cover changes
     idx = maxloc(GridVC, dim=1)
     write(*,*)'Max vegetation id', idx

@@ -81,6 +81,9 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   !! Nitrogen uptake
   call vegn_N_uptake(vegn, forcing%tsoil)
 
+  ! Nitrogen deposition
+  call Vegn_N_deposition(vegn,forcing,dt_fast_yr) ! Hourly N deposition
+
 end subroutine vegn_CNW_budget_fast
 
 !==========================================================================
@@ -97,7 +100,6 @@ subroutine vegn_daily_update(vegn, deltat)
   call grass_thinning(vegn) ! Added 12/03/2025
   !call vegn_daily_starvation(vegn)
   call vegn_cohort_update(vegn)
-  call Vegn_N_deposition(vegn,deltat) ! Daily N deposition
   call vegn_sum_tile(vegn)  ! Update tile variables
 end subroutine vegn_daily_update
 
@@ -1528,13 +1530,14 @@ subroutine vegn_age (vegn,t_yr) ! daily
 end subroutine vegn_age
 
 ! =========================================================================
-subroutine vegn_N_deposition(vegn, dt_daily)
+subroutine vegn_N_deposition(vegn, forcing, dt)
   ! Weng, 05/15/2023: Nitrogen deposition, daily
   type(vegn_tile_type), intent(inout) :: vegn
-  real                , intent(in)    :: dt_daily
+  type(climate_data_type),intent(in):: forcing
+  real                , intent(in)    :: dt
 
   ! Update mineral N pool (mineralN)
-  vegn%mineralN = vegn%mineralN + vegn%N_input * dt_daily
+  vegn%mineralN = vegn%mineralN + forcing%N_input * dt ! N_input is yearly
 end subroutine vegn_N_deposition
 
 !==========================================================================
@@ -2532,7 +2535,6 @@ subroutine initialize_soil(vegn)
    vegn%SOC(5)    = init_slow_SOC ! slow soil carbon pool, (kg C/m2)
    vegn%SON(4)    = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)
    vegn%SON(5)    = vegn%SOC(5)/CN0SOM(5)  ! slow soil nitrogen pool, (kg N/m2)
-   vegn%N_input   = N_input  ! kgN m-2 yr-1, N input to soil
    vegn%mineralN  = init_mineralN  ! Mineral nitrogen pool, (kg N/m2)
    vegn%previousN = vegn%mineralN
    !Soil water

@@ -827,6 +827,7 @@ module io_mod
       climateData(i)%CO2       = input_data(21,i) !ppm
       climateData(i)%eCO2      = input_data(22,i) !ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+      climateData(i)%N_input   = N_input ! kgN m-2 yr-1
 #else
       climateData(i)%year      = year_data(i)          ! Year
       climateData(i)%doy       = doy_data(i)           ! day of the year
@@ -840,6 +841,7 @@ module io_mod
       climateData(i)%P_air     = input_data(8,i)        ! pa
       climateData(i)%CO2       = input_data(9,i)        !ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+      climateData(i)%N_input   = N_input ! kgN m-2 yr-1
 #endif
 
     enddo
@@ -934,6 +936,7 @@ module io_mod
       climateData(i)%P_air/esat(climateData(i)%Tair-273.16)
       climateData(i)%CO2       = input_data(15,i) ! ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+      climateData(i)%N_input   = N_input ! kgN m-2 yr-1
     enddo
     forcingData => climateData
     write(*,*)"runID:  ", runID
@@ -1046,6 +1049,7 @@ module io_mod
       climateData(i)%P_air/esat(climateData(i)%Tair-273.16)
       climateData(i)%CO2       = CO2_c ! ppm
       climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+      climateData(i)%N_input   = N_input ! kgN m-2 yr-1
     enddo
     forcingData => climateData
     datalines = totlines

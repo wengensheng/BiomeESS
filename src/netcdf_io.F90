@@ -20,29 +20,27 @@ module netcdf_io
 contains
 
 !===================================================
-subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
+subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
+  ! Read in all netcdf files for global run, including;
+  ! climate, vegetation, and nitrogen deposition data
+  ! Updated 04/04/2026
    implicit none
-   character(len=*), intent(in) :: fpath
-   character(len=*), intent(in) :: fields(:)
-   integer, intent(in) :: yr_start, yr_end
+   character(len=*),intent(in) :: cru_path,veg_path,ndp_path
 
    !-------- local vars -----------------
-   character(len=256) :: command,fname,fnc,fveg
-   character(len=30)  :: Vegstr
+   character(len=256) :: fcru, fveg, fndp
+   character(len=256) :: fout, command
    character(len=4)   :: yr_str
    character(len=6)   :: GridStr
-   character(len=3)   :: PFTID(9)
-   character(len=9)   :: VegID(10) ! pft2011_0.5x0.5.nc
-   integer, pointer :: GridMask(:,:) => null() ! Nlon, Nlat
    integer :: N_yrs,totL,N_vars
    integer :: istat1,i,j,k,m,iLon,iLat
    integer :: nlon_sub, nlat_sub
-   integer :: start3(3), count3(3)
+   integer :: start3(3), count3(3),ndpct3(3) ! for climate and Ndpst
    integer :: start2(2), count2(2)
+   real, allocatable :: GridMask(:,:)  ! Nlon, Nlat
    real, allocatable :: dataarray(:,:,:), timearray(:)
-   real :: PFTdata(144,90,9),VegFraction(144,90) ! Not used, Weng 01/15/2026
-   real, allocatable :: Vegetated(:,:),VegCover(:,:,:)
-   logical :: Do_BiomeE_PFT_MAP = .False. ! BiomeE PFT maps for GISS ModelE
+   real, allocatable :: VegCover(:,:,:),  Vegetated(:,:)
+   real, allocatable :: NdpData(:,:,:),   TotalNdp(:,:) ! N deposition
 
    ! Read in a vegetation map
    allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
@@ -50,59 +48,53 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
    ! Sub-domain sizes and hyperslab indices for netCDF reads
    nlon_sub = UpperLon - LowerLon + 1
    nlat_sub = UpperLat - LowerLat + 1
-   start3 = [LowerLon, LowerLat, 1]
-   count3 = [nlon_sub, nlat_sub, Ntime]
    start2 = [LowerLon, LowerLat]
    count2 = [nlon_sub, nlat_sub]
+   start3 = [LowerLon, LowerLat, 1]
+   count3 = [nlon_sub, nlat_sub, Ntime] ! CRUJRE climate data
+   ndpct3 = [nlon_sub, nlat_sub, 12]    ! 12 months of N deposition (kgN m-2 s-1)
 
    ! Allocate (sub-domain) temporary arrays for netCDF reading
    allocate(dataarray(LowerLon:UpperLon, LowerLat:UpperLat, Ntime))
    allocate(timearray(Ntime))
    allocate(Vegetated(LowerLon:UpperLon, LowerLat:UpperLat))
    allocate(VegCover(LowerLon:UpperLon, LowerLat:UpperLat, N_Vegs))
+   allocate(NdpData(LowerLon:UpperLon, LowerLat:UpperLat, 12)) ! kgN m-2 s-1
+   allocate(TotalNdp(LowerLon:UpperLon, LowerLat:UpperLat))    ! kgN m-2 yr-1
 
-   PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
-   Vegstr= 'TOTAL_VEG'
-   VegID = [character(len=9) :: 'SHRUBS_BD','SHRUBS_BE','SHRUBS_ND','SHRUBS_NE', &
-                                'TREES_BD ','TREES_BE ','TREES_ND ','TREES_NE ', &
-                                'GRASS_MAN','GRASS_NAT']
-
+   ! Read in vegetation data (vegtated grids and vegetation components)
    fveg  = trim(veg_path)//trim(veg_file)
-   write(*,*)'Reading ',trim(fveg)
    call nc_read_2D(fveg, trim(Vegstr), Vegetated, start2, count2)
-   do i=1, 10
+   do i=1, N_Vegs
      call nc_read_2D(fveg, trim(VegID(i)), VegCover(:,:,i), start2, count2)
    enddo
+   write(*,*)'Successfully Read ',trim(fveg)
 
-   ! Read in 2x2.5 BiomeE PFT data
-   ! Not used anymore. Keep it here just in case it needs
-   ! to define grid PFTs with a vegetation map. 01/15/2026
-   if(Do_BiomeE_PFT_MAP) then
-     fnc   = trim(fpath)//'BiomeE-PFTs.nc'
-     write(*,*)'Reading ',trim(fnc)
-     do i=1, 9
-       call nc_read_2D(fnc, PFTID(i), PFTdata(:,:,i))
-       write(*,*)"Map PFT: ", PFTID(i)
-     enddo
-     do i =1, 144
-       do j=1, 90
-         VegFraction(i,j) = max(0.0,min(1.0, sum(PFTdata(i,j,:))))
-       enddo
-     enddo
-   endif
-
+   ! Read in N deposition and calculate yearly N deposition rate (kgN/m2/yr)
+   TotalNdp = 0.0
+#ifdef Read_Ndps_files
+   do i=1, 4 ! Files for 4 types of N deposition
+     fndp = trim(Ndp_path)//trim(NdpID(i))//'_185001-185012.nc'
+     call nc_read_3D(fndp, trim(NdpID(i)), NdpData, start3, ndpct3)
+     TotalNdp = TotalNdp + SUM(NdpData, DIM=3)
+     write(*,*)'Successfully Read ',trim(fndp)
+   enddo
+   TotalNdp = TotalNdp * (3600.*24.*365.) /12.
+#else
+   TotalNdp = N_input ! from an assumed N input for all grids in all years
+#endif
     ! -------------- Select land grids for model run ------------------!
     write(yr_str, '(I4)') yr_start
-    fnc = trim(fpath)//trim(fields(1))//'/'//trim(ncversion)//trim(fields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
+    fcru = trim(cru_path)//trim(ncfields(1))//'/'//trim(ncversion)//trim(ncfields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
 
 #ifdef ZippedNCfiles
-    call unzip_gzip_file(trim(fnc)//'.gz')
+    call unzip_gzip_file(trim(fcru)//'.gz')
 #endif
 
-    call nc_read_3D(fnc, trim(fields(1)), dataarray, start3, count3)
+    call nc_read_3D(fcru, trim(ncfields(1)), dataarray, start3, count3)
 
 #ifdef ZippedNCfiles
-    command = 'rm '//trim(fnc) ! Remove unziped file
+    command = 'rm '//trim(fcru) ! Remove unziped file
     call execute_command_line(command)
 #endif
 
@@ -118,7 +110,7 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
       enddo
     enddo
     N_VegGrids = m
-    N_vars   = size(fields)
+    N_vars   = size(ncfields)
     N_yrs    = yr_end - yr_start + 1
     totL     = N_yrs * Ntime
     grid_No1 = 1
@@ -144,32 +136,33 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
           GridVegCov(:,m) = VegCover(iLon,iLat,:)
           LandGrid(m)%iLon = iLon
           LandGrid(m)%iLat = iLat
+          LandGrid(m)%N_input = TotalNdp(iLon,iLat)
           LandGrid(m)%VegCover => GridVegCov(:,m) ! VegCover(iLon,iLat,:)
-          LandGrid(m)%climate => ClimData(:,:,m)
+          LandGrid(m)%climate  => ClimData(:,:,m)
         endif
       enddo
     enddo
 
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
-      fname = trim(filepath_out)//trim(GridListFile) ! List file name
-      open(NEWUNIT=Grids_UN1,file=trim(fname),ACTION='write', IOSTAT=istat1)
-      fname = trim(filepath_out)//'Veg_'//trim(GridListFile) ! List file name
-      open(NEWUNIT=Grids_UN2,file=trim(fname),ACTION='write', IOSTAT=istat1)
+      fout = trim(filepath_out)//trim(GridListFile) ! List file name
+      open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
+      fout = trim(filepath_out)//'Veg_'//trim(GridListFile) ! List file name
+      open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat1)
     endif
 
-    ! ----------------- Read in all data ----------------------!
+    ! ----------------- Read in all climate data ----------------------!
     do j= 1, N_vars ! 7 ('tmp','pre','dswrf','spfh','pres','ugrd','vgrd')
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
-        fnc = trim(fpath)//trim(fields(j))//'/'//trim(ncversion)//trim(fields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
+        fcru = trim(cru_path)//trim(ncfields(j))//'/'//trim(ncversion)//trim(ncfields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
 
 #ifdef ZippedNCfiles
-        call unzip_gzip_file(trim(fnc)//'.gz') ! Unzip the nc data file
+        call unzip_gzip_file(trim(fcru)//'.gz') ! Unzip the nc data file
 #endif
 
-        write(*,*)'Reading: ', trim(fnc)
-        call nc_read_3D(fnc, trim(fields(j)), dataarray, start3, count3)
+        write(*,*)'Reading: ', trim(fcru)
+        call nc_read_3D(fcru, trim(ncfields(j)), dataarray, start3, count3)
         m = 0
         do iLon = LowerLon, UpperLon
           do iLat = LowerLat, UpperLat
@@ -183,21 +176,25 @@ subroutine ReadNCfiles (fpath,fields,yr_start, yr_end)
 
         ! Read in the time array of the first variable
         if(j == 1)then
-          call nc_read_1D(fnc, 'time', timearray)
+          call nc_read_1D(fcru, 'time', timearray)
           CRUtime((i-1)*Ntime+1: i*Ntime) = timearray
         endif
 
 #ifdef ZippedNCfiles
-        command = 'rm '//trim(fnc) ! Remove unziped nc data file
+        command = 'rm '//trim(fcru) ! Remove unziped nc data file
         call execute_command_line(command)
 #endif
       enddo ! N_yrs
     enddo   ! All variables
-    ! Release temporary allocatable arrays
+
+    ! ---- Release temporary allocatable arrays ----
+    if(allocated(GridMask))  deallocate(GridMask)
     if(allocated(dataarray)) deallocate(dataarray)
     if(allocated(timearray)) deallocate(timearray)
     if(allocated(Vegetated)) deallocate(Vegetated)
-    deallocate(GridMask)
+    if(allocated(VegCover))  deallocate(VegCover)
+    if(allocated(NdpData))   deallocate(NdpData)
+    if(allocated(TotalNdp))  deallocate(TotalNdp)
 end subroutine ReadNCfiles
 
 !=============================================================================
@@ -208,7 +205,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
   !---------- local variables ------------------
   type(climate_data_type), pointer :: climateData(:) ! will be pointed by forcingData
-  character(len=256):: command, fname   ! For testing output
+  character(len=256):: command, fout   ! For testing output
   character(len=6)  :: GridStr  ! Used in output file name
   real, pointer     :: GridData(:,:)
   real, allocatable :: fdSW(:)
@@ -362,6 +359,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
      climateData(i)%CO2   = CO2_Hist(Min(CO2Yrs,Max(1,climateData(i)%year-1700+1))) ! CO2_c   ! ppm
      climateData(i)%eCO2  = climateData(i)%CO2 + 200.       ! ppm
      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
+     climateData(i)%N_input = LandGrid%N_input
   enddo
   forcingData => climateData
   datalines = totalL
@@ -374,20 +372,21 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   ! Write out a sample file
   if(WriteForcing)then
     write(GridStr, GridIDFMT) GridID
-    fname = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
-    write(Grids_UN1, '(a6,"," a35)')trim(GridStr),trim(fname)
-    write(Grids_UN2, '(a6,"," 10(f6.2,","))')trim(GridStr),LandGrid%VegCover
-    fname = trim(filepath_out)//trim(fname)
-    open(NEWUNIT=forcing_unit,file=trim(fname))
-    !write(15,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
-    write(forcing_unit,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE'
+    fout = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
+    write(Grids_UN1, '(a6,"," a35)')trim(GridStr),trim(fout)
+    write(Grids_UN2, '(a6,10(",",f6.2),",",E12.4)') &
+             trim(GridStr),LandGrid%VegCover,LandGrid%N_input
+    fout = trim(filepath_out)//trim(fout)
+    open(NEWUNIT=forcing_unit,file=trim(fout))
+    write(forcing_unit,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE,Ndpst'
     do i=1,totalL
-        write(forcing_unit,'(6(E15.8,","))') &
+        write(forcing_unit,'(7(E15.8,","))') &
           climateData(i)%radiation,climateData(i)%Tair,climateData(i)%RH,  &
-          climateData(i)%rain,climateData(i)%windU,climateData(i)%P_air
+          climateData(i)%rain,climateData(i)%windU,climateData(i)%P_air,   &
+          climateData(i)%N_input
     enddo
     close(forcing_unit)
-    command = 'gzip -f ' // trim(fname)
+    command = 'gzip -f ' // trim(fout)
     call execute_command_line(command, exitstat=iostat)
   endif
 
@@ -418,7 +417,7 @@ subroutine read_GridLonLat(fname,file_exists)
 
   ! ------- Local vars ---------------
   integer, parameter :: maxGrids = Nlon*Nlat/3
-  real    :: GridVt(N_Vegs, maxGrids),tmpVt(N_Vegs, maxGrids) ! Veg cover for all grids
+  real    :: VridVC(N_Vegs, maxGrids),tmpVC(N_Vegs, maxGrids) ! Veg cover for all grids
   integer :: GridNo(maxGrids),tmpNo(maxGrids) ! maximum grids, 720*360
   integer :: i,j,k,m,n,istat1
   integer :: TotalFiles ! Each file represents a grid
@@ -435,7 +434,7 @@ subroutine read_GridLonLat(fname,file_exists)
   open(11,file=listfile,status='old',ACTION='read',IOSTAT=istat1)
   m = 0
   do
-    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVt(i,m+1),i=1,10)
+    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVC(i,m+1),i=1,10)
     if(istat1 < 0)exit
     m = m + 1
   enddo
@@ -460,7 +459,7 @@ subroutine read_GridLonLat(fname,file_exists)
         if (k == tmpNo(n))then
             m = m + 1
             GridNo(m) = tmpNo(n)
-            GridVt(:,m) = tmpVt(:,n)
+            VridVC(:,m) = tmpVC(:,n)
             n = n + 1
         endif
         if(n > TotalFiles)exit ! Exit LowerLat-UpperLat loop
@@ -474,7 +473,7 @@ subroutine read_GridLonLat(fname,file_exists)
   allocate(GridLonLat(N_VegGrids))
   allocate(GridVegCov(N_Vegs,N_VegGrids))
   GridLonLat(:) = GridNo(1:N_VegGrids)
-  GridVegCov(:,:) = GridVt(:,1:N_VegGrids)
+  GridVegCov(:,:) = VridVC(:,1:N_VegGrids)
   grid_No1 = min(grid_No1,N_VegGrids)
   grid_No2 = min(grid_No2,N_VegGrids)
 
@@ -495,7 +494,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   type(climate_data_type), pointer :: climateData(:)
   character(len=250) :: command, climfile, fname
   character(len=6)  :: commts, GridStr
-  integer, parameter :: niterms = 6 ! 6 columns in the interpolated files
+  integer, parameter :: niterms = 7 !6 ! 7 columns (including N_input)
 
   real,allocatable :: timecols(:,:), input_data(:,:)
   real    :: temp(niterms)
@@ -617,6 +616,11 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
      climateData(i)%rain      = input_data(4,i)
      climateData(i)%windU     = input_data(5,i)
      climateData(i)%P_air     = input_data(6,i)
+#ifdef Read_Ndps_file
+     climateData(i)%N_input   = input_data(7,i) ! for WIEMIP N deposition, kgN m-2 yr-1
+#else
+     climateData(i)%N_input   = N_input
+#endif
      climateData(i)%CO2       = CO2_Hist(min(CO2Yrs, max(1, climateData(i)%year-1700+1)))
      climateData(i)%eCO2      = climateData(i)%CO2 + 200.
      climateData(i)%soilwater = 0.8

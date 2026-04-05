@@ -74,14 +74,6 @@ module BiomeE_mod
     type(vegn_tile_type), pointer :: pveg => NULL()
     integer :: i
 
-    ! Hack for closedN setting
-    if(do_closedN_run) then
-      K_DeNitr  = 0.0 ! rate of a year, 2.5
-      rho_SON   = 0.0 ! organic nitrogen release rate
-      fdsvN     = 0.0 ! Maximum nitrogen loss rate with runoff
-      N_input   = 0.0 ! N input, kg N m-2 yr-1
-    endif
-
 #ifdef DO_Climate_VEG
     ! Update init_cohort_* arrays, 09/09/2025
     call Vegn_PFTs_from_Climate(forcingData,steps_per_day)

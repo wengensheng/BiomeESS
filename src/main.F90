@@ -60,7 +60,7 @@ program BiomeE
   endif
 #else
   ! Read in netCDF global data files
-  call ReadNCfiles(ncfilepath, ncfields, yr_start, yr_end)
+  call ReadNCfiles(ncfilepath, veg_path, ndp_path)
 #endif
 
   ! ---------- Time stamp -------------
