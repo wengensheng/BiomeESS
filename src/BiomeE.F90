@@ -76,7 +76,8 @@ module BiomeE_mod
 
 #ifdef DO_Climate_VEG
     ! Update init_cohort_* arrays, 09/09/2025
-    call Vegn_PFTs_from_Climate(forcingData,steps_per_day)
+    call Climate_envelope_vars(forcingData,steps_per_day)
+    call Set_PFTs_from_Data()
 #endif
 
     if(init_cohort_Indiv(1)<0.0) &

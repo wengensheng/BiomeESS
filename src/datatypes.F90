@@ -290,6 +290,7 @@ module datatypes
     real :: resp = 0.0 ! plant respiration
     real :: resl = 0.0 ! leaf respiration
     real :: resr = 0.0 ! root respiration
+    real :: resn = 0.0 ! N fixation respiration
     real :: resg = 0.0 ! growth respiration
     real :: NPPleaf = 0.0 ! C allocated to leaf, root, and wood
     real :: NPProot = 0.0 !
@@ -827,6 +828,7 @@ module datatypes
   real :: MI0C3C4 = 0.50   ! Moisture threshold for C4 vs. C3 grasses
   real :: TcrTREE = 12.0   ! Tropical trees vs Temperate/boreal trees
   real :: TcrC3C4 = 0.0    ! Temperature threshold for C4 vs C3 grasses
+  real :: meanPrcp, meanPET, meanTmin, Mst_IDX ! Climate statistics for PFT envelopes
 
   ! Input files
   character(len=80)  :: filepath_in = './input/'
@@ -1178,7 +1180,7 @@ contains
     gdd_par2(0:N_EST)  = [800.,   600.,   0.0,    600.,   0.0,    600.,   600.,   600.  ] ! 650.d0  !800.d0  ! 638.d0
     gdd_par3(0:N_EST)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
     R0_Nfix(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
-    S_facuN(0:N_EST)    = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.2,    0.0   ] ! Intensity of faculative N fixation
+    S_facuN(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.2,    0.0   ] ! Intensity of faculative N fixation
     ! Not used in current model setting (Global ESS PFTs)
     gdd_crit(0:N_EST)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
     s_hu(0:N_EST)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
@@ -1439,28 +1441,24 @@ contains
   end subroutine Set_PFTs_from_map
 
   !=============================================================================
-  ! for testing tree-grass-desert shrub and evergreen-deciduous forests only
-  ! Weng, 09/06/2025
-  subroutine Vegn_PFTs_from_Climate (forcingData,steps_per_day)
+  ! Calculate vars of climate envelopes
+  subroutine Climate_envelope_vars (forcingData,steps_per_day)
     implicit none
     type(climate_data_type), intent(in) :: forcingData(:)
     integer, intent(in) :: steps_per_day
 
     !--------- local vars ------------
-    integer, parameter :: N_PFTID = 4, mw = 15
-    integer :: PFTID(N_PFTID) ! 0:C4, 1:C3, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:N-fixer, 7:Desert shrub
+    integer, parameter :: mw = 15
     real, allocatable :: dailyET(:),dailyTc(:),dailyPr(:),meanTc(:),TminYr(:)
     real :: tmpL(mw*2+1)
-    real :: totPrcp, totPET, meanTmin, meanPrcp, Mst_IDX
-
-    integer :: i,j,k,m,n,L,w,idx
-    integer :: N_Yrs, N_days
+    real :: totPrcp, totPET
+    integer ::  N_Yrs, N_days,i,j,k,m,n,L,w
 
     ! ------ Calculate days and years of the data ------
     N_days = size(forcingData)/steps_per_day
     N_yrs = N_days/365
     if (N_yrs < 1) then
-      error stop "Vegn_PFTs_from_Climate: need at least one year's data."
+      error stop "Set_PFTs_from_Climate: need at least one year's data."
     endif
 
     ! Allocate variables
@@ -1487,6 +1485,7 @@ contains
     enddo
     Mst_IDX  = totPrcp / totPET ! Moisture Index
     meanPrcp = totPrcp / N_yrs
+    meanPET  = totPET / N_yrs
 
     ! Calculate running mean temperature (meanTc) with a window of L
     L = mw * 2 + 1
@@ -1526,6 +1525,52 @@ contains
     !   enddo
     !enddo
 
+    ! Screen output
+    write(*,'(4(a6,f8.2,";"))') 'Prcp: ', meanPrcp, 'PET: ', meanPET, &
+                                'P/ET: ', Mst_IDX,  'Tmin: ', meanTmin
+
+    ! Release allocatable variables
+    deallocate(dailyET,dailyTc,dailyPr,meanTc,TminYr)
+  end subroutine Climate_envelope_vars
+
+  !=============================================================================
+  ! An interface for setting PFTs from climate or land cover data, Weng, 04/08/2026
+  subroutine Set_PFTs_from_Data()
+    implicit none
+
+    !--------- local vars ------------
+    !PFTs: 0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
+    integer,allocatable :: PFTID(:)
+    integer :: N_PFTID
+    integer :: idx
+
+#ifdef WIEMIP_PFT_setting
+    call Set_PFTs_from_LandCover (N_PFTID,PFTID)
+#else
+    call Set_PFTs_from_Climate (N_PFTID,PFTID)
+#endif
+
+    ! Assign standard initial cohorts by updating init_cohort_*
+    call Assign_Std_Cohorts (PFTID,N_PFTID)
+
+    deallocate(PFTID)
+  end subroutine Set_PFTs_from_Data
+
+  !=============================================================================
+  ! for testing tree-grass-desert shrub and evergreen-deciduous forests only
+  ! Weng, 09/06/2025
+  subroutine Set_PFTs_from_Climate (N_PFTID,PFTID)
+    implicit none
+    integer, intent(out) :: N_PFTID
+    integer, allocatable, intent(out) :: PFTID(:)
+
+    !--------- local vars ------------
+    integer :: idx
+
+    ! Assign allocatable PFTID
+    N_PFTID = 4
+    allocate(PFTID(N_PFTID))
+
     ! Assign PFT groups according to climate data at each grid
     !if(meanPrcp > Pr_thld)then
     if(Mst_IDX > MI0DeSB) then
@@ -1545,30 +1590,54 @@ contains
     ! Replace C3 with C4 grasses in dry and warm climates
     if(Mst_IDX < MI0C3C4 .and. meanTmin > TcrC3C4) PFTID(1) = 0
 
-#ifdef WIEMIP_PFT_setting
+    ! Screen output
+    write(*,'(a12, 4(I6,","))')'Grid PFTs: ', PFTID
+  end subroutine Set_PFTs_from_Climate
+
+  !=============================================================================
+  ! for WIEMIP project, Weng, 04/08/2026
+  subroutine Set_PFTs_from_LandCover(N_PFTID,PFTID)
+    implicit none
+    integer, intent(out) :: N_PFTID
+    integer, allocatable, intent(out) :: PFTID(:)
+
+    !--------- local vars ------------
+    integer :: idx
+
+    ! Assign PFT groups according to climate and land cover data at each grid
     ! For WIE-MIP, set grass PFTs for land cover changes
     idx = maxloc(GridVC, dim=1)
     write(*,*)'Max vegetation id', idx
     if(idx >=9 )then ! Grasses
+      N_PFTID = 1
+      allocate(PFTID(N_PFTID))
       if(meanTmin > TcrC3C4)then ! C3 vs C4 grasses
-        !PFTID = [0,3,5,7]
+        PFTID = [0]
       else
-        !PFTID = [1,2,3,7]
+        PFTID = [1]
       endif
+    else  ! Assign PFTs according to climate data
+      N_PFTID = 2
+      allocate(PFTID(N_PFTID))
+      if(Mst_IDX > MI0DeSB) then
+        if(meanTmin > TcrTREE)then ! Tropical vs. Temperate trees
+          PFTID = [2,3]
+        else
+          PFTID = [4,5]
+        endif
+      else  ! Mst_IDX <= MI0DeSB
+        ! Replace evergreen with desert shrubs
+        if(meanTmin > TcrTREE)then ! Tropical vs. Temperate trees
+          PFTID = [0,7]
+        else
+          PFTID = [1,7]
+        endif
+      endif
+      ! Replace C3 with C4 grasses in dry and warm climates
+      if(Mst_IDX < MI0C3C4 .and. meanTmin > TcrC3C4) PFTID(1) = 0
     endif
-#endif
-
-    ! Screen output
-    write(*,'(a15, 2(f8.2,","))')'Prcp, PET: ', totPrcp/N_yrs,totPET/N_yrs
-    write(*,'(2(a6,f8.2,";"), a12, 4(I6,","))')   &
-    'P/ET: ', Mst_IDX, 'Tmin: ', meanTmin, 'Grid PFTs: ', PFTID
-
-    ! Assign standard initial cohorts by updating init_cohort_*
-    call Assign_Std_Cohorts (PFTID,N_PFTID)
-
-    ! Release allocatable variables
-    deallocate(dailyET,dailyTc,dailyPr,meanTc,TminYr)
-  end subroutine Vegn_PFTs_from_Climate
+    write(*,'(a12, 4(I6,","))')'Grid PFTs: ', PFTID
+  end subroutine Set_PFTs_from_LandCover
 
   !=============================================================================
   ! Assign a standard cohort for each PFT
@@ -1585,6 +1654,7 @@ contains
     init_cohort_nsc(1:totPFT)   = std_nsc(PFTID(1:totPFT))
 
   end subroutine Assign_Std_Cohorts
+
   ! ============================================================
   subroutine qscomp(T, p, qsat)
     real, intent(in) :: T    ! temperature, degK

@@ -75,6 +75,9 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! Plant Respiration
   call vegn_respiration(forcing,vegn)
 
+  ! Nitrogen fixation
+  call vegn_N_fixation(forcing,vegn)
+
   ! Soil organic matter decomposition
   call Soil_BGC(vegn, forcing%tsoil, thetaS)
 
@@ -764,6 +767,7 @@ end subroutine twostream
 
 !============================================================================
 subroutine vegn_respiration(forcing,vegn)
+  implicit none
   type(climate_data_type),intent(in)  :: forcing
   type(vegn_tile_type), intent(inout) :: vegn
 
@@ -774,20 +778,18 @@ subroutine vegn_respiration(forcing,vegn)
   real :: r_leaf, r_stem, r_root
   real :: Acambium  ! cambium area, m2/tree
   real :: fnsc,NSCtarget ! used to regulation respiration rate
-  real :: r_Nfix    ! respiration cost for N fixation
-  real :: facuC     ! Carbon available for faculative N fixation
   integer :: i
 
   !-----------------------
+  ! Climatic scalars
+  TairK = forcing%tair
+  tf  = exp(9000.0*(1.0/298.16-1.0/tairK)) ! temperature response function
+  !  tfs = thermal_inhibition(tsoil)  ! original
+  tfs = tf ! Rm_T_response_function(tsoil) ! Weng 2014-01-14
+
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     TairK = forcing%tair
      associate ( sp => spdata(cc%species) )
-       ! temperature response function
-       tf  = exp(9000.0*(1.0/298.16-1.0/tairK))
-
-       !  tfs = thermal_inhibition(tsoil)  ! original
-       tfs = tf ! Rm_T_response_function(tsoil) ! Weng 2014-01-14
        ! With nitrogen model, leaf respiration is a function of leaf nitrogen
        NSCtarget = 3. * (cc%bl_max + cc%br_max)
        fnsc = min(max(0.0,cc%nsc/NSCtarget-0.05),1.0)
@@ -798,35 +800,73 @@ subroutine vegn_respiration(forcing,vegn)
        r_stem   = fnsc*sp%gamma_SW * Acambium * tf * dt_fast_yr ! kgC tree-1 step-1
        r_root   = fnsc*sp%gamma_FR * cc%rootN * tf * dt_fast_yr ! root respiration ~ root N
 
-       if(sp%R0_Nfix > zero_thld)then ! Nitrogen fixer
-          ! Baseline nitrogen fixation (Obligate)
-          cc%fixedN = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
-          r_Nfix    = sp%C0_Nfix * cc%fixedN ! KgC tree-1 step-1
-
-          ! Extra C for N fixation (Facultative)
-          facuC = sp%S_facuN * cc%extraC / steps_per_day ! Carbon used for faculative N fixation
-          cc%fixedN = cc%fixedN + facuC / sp%C0_Nfix !
-          r_Nfix    = r_Nfix    + facuC
-          cc%nsc    = cc%nsc    - facuC
-       else
-          cc%fixedN = 0.0
-          r_Nfix    = 0.0
-       endif
-
        ! Total Respiration and NPP
        cc%resl = r_leaf + r_stem ! tree-1 step-1
-       cc%resr = r_root + r_Nfix ! tree-1 step-1
+       cc%resr = r_root          ! tree-1 step-1
        cc%resp = cc%resl + cc%resr + cc%resg/steps_per_day   !kgC tree-1 step-1
        cc%resp = min(cc%resp,max(0.0,cc%nsc+cc%gpp-cc%resp)) ! Hack, Weng 09/24/2023
        cc%npp  = cc%gpp  - cc%resp ! kgC tree-1 step-1
 
-       ! Update NSC and NSN
+       ! Update NSC
        cc%nsc = cc%nsc + cc%npp
-       cc%NSN = cc%NSN + cc%fixedN
      end associate
   enddo ! all cohorts
 
 end subroutine vegn_respiration
+
+!===========================================================================
+! Weng, 04/08/2026, Nitrogen fixation, Must be called after vegn_respiration
+subroutine vegn_N_fixation(forcing,vegn)
+  implicit none
+  type(climate_data_type),intent(in)  :: forcing
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  !---------local var ---------
+  type(cohort_type), pointer :: cc
+  real :: TairK, tf     ! air temperature (K) and thermal inhibition factor
+  real :: NSCtarget, fnsc ! used to regulation metabolic rate
+  real :: Nfix_max, Cfix_max  ! Maximum N fixation rate and N fixation carbon cost
+  real :: Nobl, Nfac ! Obligate and Faculative N fixation rates
+  real :: r_Nfix    ! respiration cost for N fixation
+  integer :: i
+
+  !-----------------------
+  TairK = forcing%tair ! K
+  tf  = exp(9000.0*(1.0/298.16-1.0/tairK)) ! temperature response function
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+     NSCtarget = 3. * (cc%bl_max + cc%br_max)
+     fnsc      = min(max(0.0,cc%nsc/NSCtarget-0.05),1.0)
+     associate ( sp => spdata(cc%species) )
+       ! ----- Nitrogen fixation (Obligate and Faculative) ------
+       cc%fixedN = 0.0 ! Assign a default value
+       cc%resn   = 0.0
+       if(sp%R0_Nfix > zero_thld) then ! Nitrogen fixer
+          ! Max N fixation rate and carbon availability
+          Nfix_max = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
+          Cfix_max = Max(0.2 * (cc%nsc - sp%S_facuN * cc%extraC), 0.0)
+
+          ! Baseline nitrogen fixation (Obligate)
+          Nobl = Min(Nfix_max * Max(0.02,(1.0 - sp%S_facuN)), & ! Minimum is 20% for faculative N fixation
+                     Cfix_max / max(1.0, C0_Nfix))
+          ! Facultative N fixation
+          ! cc%extrac just indicates the amount of C that can be taken from NSC)
+          Nfac = Min(sp%S_facuN * cc%extraC/steps_per_day/max(1.0, C0_Nfix), Nfix_max) ! Carbon used for faculative N fixation
+
+          ! N fixation rate and carbon cost
+          cc%fixedN = Nobl + Nfac
+          r_Nfix    = cc%fixedN * C0_Nfix
+
+          ! Update Respiration, NPP, NSC, and NSN
+          cc%resn = r_Nfix ! Nitrogen fixation resp, tree-1 step-1
+          cc%resp = cc%resp + r_Nfix  !Plant total resp, kgC tree-1 step-1
+          cc%npp  = cc%npp  - r_Nfix ! kgC tree-1 step-1
+          cc%nsc  = cc%nsc  - r_Nfix ! included respiration and cost of N fixation
+          cc%NSN  = cc%NSN  + cc%fixedN
+       endif
+     end associate
+  enddo ! all cohorts
+end subroutine vegn_N_fixation
 
 !=====================================================
 ! Weng, 2016-11-28
