@@ -922,21 +922,22 @@ module datatypes
   integer :: StepLatLon = 1 ! Skip grids. 1: all; 2: one per 2x2 grids
   integer :: GridID     = 999999 ! 216264                ! = iLon*1000 + iLat
   integer :: HemiSP     = 1 ! 1: North hemisphere; 0: South hemisphere
+  integer :: LC_year0   = 1176 ! initialization with the last year's cropland cover (WIEMIP setting)
   real    :: GridVC(N_Vegs) = 0.0 ! For WIE-MIP, vegetation cover percentage
   real    :: GridFR(FM_Yrs) = 0.0 ! Farm land ratio, 1176 years
 
   type(grid_initial_type), pointer :: LandGrid(:) => null()
-  integer, pointer :: GridLonLat(:)    => null() ! LonLat
-  real,    pointer :: GridVegCov(:,:)  => null() ! Grid vegetation composition
-  real,    pointer :: GridFarm(:,:)    => null()
-  real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
-  real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
-  real,    pointer :: CRUtime(:)       => null() ! Days since 1901-01-01 in CRU data
+  integer,allocatable     :: GridLonLat(:)     ! LonLat
+  real,allocatable,target :: GridVegCov(:,:)   ! Grid vegetation composition
+  real,allocatable,target :: GridFarm(:,:)     ! (FM_Yrs,N_VegGrids)
+  real,allocatable,target :: ClimData(:,:,:)   ! N_yr*Ntime, N_vars, N_VegGrids
+  real,allocatable        :: CRUtime(:)        ! Days since 1901-01-01 in CRU data
+  !real,    allocatable,target :: CRUData(:,:,:,:)  ! N_yr*Ntime, N_vars, Nlon, Nlat
 
   ! Output interpolated grid climate data files
   logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
   integer :: Grids_UN1   = 99       ! Vegetated grids list file
-  integer :: Grids_UN2   = 98       ! Grid vegetation cover file
+  integer :: Grids_UN2   = 98       ! Grid cropland cover file
 
   ! Model run control
   character(len=256) :: file_out(6) ! Output file names
@@ -971,7 +972,7 @@ module datatypes
   namelist /global_setting_nml/ ncfilepath, Ndp_path, veg_path, &
   int_fpath, ncversion, int_prefix, veg_file, GridListFile,     &
   grid_No1, grid_No2, yr_start, yr_end, LowerLon, UpperLon,     &
-  LowerLat, UpperLat, StepLatLon, WriteForcing
+  LowerLat, UpperLat, StepLatLon, LC_year0, WriteForcing
 
   ! ------------- Model initialization name list ------------
   namelist /initial_state_nml/ &
@@ -1551,7 +1552,7 @@ contains
     integer :: N_PFTID
     integer :: idx
 
-#ifdef WIEMIP_PFT_setting
+#ifdef WIEMIP_setting
     call Set_PFTs_from_LandCover (N_PFTID,PFTID)
 #else
     call Set_PFTs_from_Climate (N_PFTID,PFTID)
@@ -1604,22 +1605,28 @@ contains
   !=============================================================================
   ! for WIEMIP project, Weng, 04/08/2026
   subroutine Set_PFTs_from_LandCover(N_PFTID,PFTID)
+    ! Two options: 1 ESACCI PFT map (2011), 2 Hurtt Land cover
     implicit none
     integer, intent(out) :: N_PFTID
     integer, allocatable, intent(out) :: PFTID(:)
 
     !--------- local vars ------------
     integer :: idx
+    logical :: is_crop = .False.
+    logical :: use_Hurtt_data = .True.
 
     ! Assign PFT groups according to climate and land cover data at each grid
-    ! For WIE-MIP, set grass PFTs for land cover changes
-    ! Igor & Paul: "GridVC" (from TRENDY land cover file) is used here.
-    ! If you want you may change it "GridFR", which is from the data of Hurtt's
-    ! cropland file (states4.nc), such as:
-    ! if (GridFR(target_year) > 0.5) then ! Cropland
     idx = maxloc(GridVC, dim=1)
     write(*,*)'Max vegetation id', idx
-    if(idx >=9 )then ! Cropland, use C3 or C4 grasses, depending on climate envelopes
+
+    ! Igor & Paul: "GridFR" is from Hurtt's cropland file (states4.nc).
+    if(use_Hurtt_data)then
+      is_crop = GridFR(LC_year0) > 0.5
+    else
+      is_crop = idx >=9 ! C3 or C4 grasses
+    endif
+    ! Assign PFTs
+    if (is_crop) then ! Use land cover data for crops
       N_PFTID = 1
       allocate(PFTID(N_PFTID))
       if(meanTmin > TcrC3C4)then ! C3 vs C4 grasses

@@ -53,6 +53,7 @@ diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
 MI0Fire    = 0.25, ! 0.20, ! 0.33, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.06, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+C0_Nfix    = 12.0, ! Carbon cost for N fixation, 12 gC/gN
 
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
@@ -84,21 +85,26 @@ betaOFF   = 0.2,    0.2,    0.0,    0.4,    0.0,    0.2,    0.4,    0.1,    ! Cr
 gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50.d0   ! These three parameters are used to calculate gdd_crit
 gdd_par2  = 800.,   300.,   0.0,    600.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
-R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0    ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
+R0_Nfix   = 0.15,   0.15,   0.15,   0.15,   0.15,   0.15,   0.03,   0.15,   ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
+S_facuN   = 1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    0.0,    1.0
 /
 
 &global_setting_nml
 ! For netCDF files
-ncfilepath   = '/media/eweng/HD2/weng/Data/unzippedNC/',
-ncversion    = 'crujra.v2.4.5d.',
-veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/'
-veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
-WriteForcing = .False., ! .True., ! Write interpolated grid forcing data
+ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
+!ncfilepath = '/media/eweng/HD2/weng/Data/unzippedNC/',
+ncversion  = 'crujra.v2.4.5d.',
+veg_path   = '/Users/eweng/Documents/Data/Vegetation/',
+!veg_path  = '/media/eweng/HD2/weng/Data/Vegetation/',
+Ndp_path   = '/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/',
+veg_file   = 'pft2011_0.5x0.5.nc'
+!int_fpath  = '/media/eweng/HD2/weng/Data/interpolated/',
+!int_fpath  = '/Users/eweng/Documents/Data/CRU/zipped/interpolated/',
+int_fpath  = '/Users/eweng/Documents/BiomeESS/forcingData/interpolated/',
 
-! For the interpolated grid data files
-int_fpath  = '/media/eweng/HD2/weng/Data/interp30yrs/',
 int_prefix = 'crujra.v2.4.5d.',
-GridListFile = 'GlobalVegGridList.csv',
+GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
+WriteForcing = .True., !  .False., !
 
 ! Total vegetated grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
@@ -107,6 +113,7 @@ LowerLat = 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-8
 UpperLat = 320, ! 247,252
 yr_start = 1990, ! 2010, ! Data start year of netCDF files
 yr_end   = 2019, ! 2011, ! Data end year
+LC_year0 = 1176, ! the last year's farmland distribution (Started from year 850)
 grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = ResGrid

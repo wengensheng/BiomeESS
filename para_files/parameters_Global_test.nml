@@ -51,7 +51,7 @@ diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 MI0Fire    = 0.3333, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 C0_Nfix    = 12.0, ! Carbon cost for N fixation, 12 gC/gN
-! Set PFT 6 (Nfx)  back to evergreen (LMA 0.12, LNbase 0.7E-3), Weng, 10-11-2025
+
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
 phenotype = 0,      0,      1,      0,      1,      0,      1,      0,      ! 0: Deciduous, 1: evergreen
@@ -83,7 +83,7 @@ gdd_par1  = 50.,    20.,    0.0,    0.0,    0.0,    50.,    50.,    50.,    ! 50
 gdd_par2  = 800.,   600.,   0.0,    800.,   0.0,    600.,   600.,   600.,   ! 650.d0  !800.d0  ! 638.d0
 gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  ! -0.01d0
 R0_Nfix   = 0.15,   0.15,   0.15,   0.15,   0.15,   0.15,   0.03,   0.15,   ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1; Cost: 12gC/gN
-S_facuN   = 1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0
+S_facuN   = 1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    0.0,    1.0
 /
 
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
@@ -109,7 +109,8 @@ LowerLat = 240, ! 250, ! 260, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No.
 UpperLat = 265, ! 252, ! 261, ! 320, ! 247,252
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
+LC_year0 = 1176, ! the last year's farmland distribution (Started from year 850)
 grid_No1 = 1, ! 1,
-grid_No2 = 10, ! 56395, ! Maximum grids in the vegetated land
+grid_No2 = 2, ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = 1
 /
