@@ -849,7 +849,9 @@ module datatypes
   ! For global/regional forcing data, soil conditions, and initial conditions
   ! CRU NetCDF file dimensions
   integer, parameter :: N_PFTs  = 8  ! For ESS Biome
+  integer, parameter :: N_Crop  = 6
   integer, parameter :: N_Vegs  = 10 ! pft_2011 vegetation types
+  integer, parameter :: FM_Yrs  = 1176 ! Total years of Hurtt's crop data
   integer, parameter :: NDIMS = 3, Nlon = 720, Nlat = 360, Ntime = 1460 ! NC file dimensions
   integer, parameter :: Hours_NCstep = hours_per_year/Ntime ! 6
   real,    parameter :: Lon0 = -180.0, Lat0 = -90.0 ! The first grid's coordinates
@@ -869,6 +871,7 @@ module datatypes
     real    :: soiltexture(3)
     real    :: WLTPT, FLDCP ! soil wilting point and field capacity (0.xx)
     real    :: N_input      ! kgN m-2 yr-1
+    real, pointer :: Farm(:)
     real, pointer :: VegCover(:)        ! for pft2011_0.5x0.5.nc only
     real, pointer :: climate(:,:)       ! Ntimes, N_vars
   end type grid_initial_type
@@ -903,6 +906,8 @@ module datatypes
                            'SHRUBS_BD','SHRUBS_BE','SHRUBS_ND','SHRUBS_NE', &
                            'TREES_BD ','TREES_BE ','TREES_ND ','TREES_NE ', &
                            'GRASS_MAN','GRASS_NAT'] ! pft2011_0.5x0.5.nc
+  character(len=5)   :: CropID(N_Crop) = [character(len=5) :: &
+                           'c3ann', 'c3per', 'c3nfx',  'c4ann', 'c4per', 'pastr']
   character(len=6)   :: NdpID(4) = [character(len=6) :: &
                            'wetnoy','wetnhx','drynoy','drynhx']
   integer :: LowerLon   = 1
@@ -918,10 +923,12 @@ module datatypes
   integer :: GridID     = 999999 ! 216264                ! = iLon*1000 + iLat
   integer :: HemiSP     = 1 ! 1: North hemisphere; 0: South hemisphere
   real    :: GridVC(N_Vegs) = 0.0 ! For WIE-MIP, vegetation cover percentage
+  real    :: GridFR(FM_Yrs) = 0.0 ! Farm land ratio, 1176 years
 
   type(grid_initial_type), pointer :: LandGrid(:) => null()
   integer, pointer :: GridLonLat(:)    => null() ! LonLat
   real,    pointer :: GridVegCov(:,:)  => null() ! Grid vegetation composition
+  real,    pointer :: GridFarm(:,:)    => null()
   real,    pointer :: CRUData(:,:,:,:) => null() ! N_yr*Ntime, N_vars, Nlon, Nlat
   real,    pointer :: ClimData(:,:,:)  => null() ! N_yr*Ntime, N_vars, N_VegGrids
   real,    pointer :: CRUtime(:)       => null() ! Days since 1901-01-01 in CRU data
@@ -1606,9 +1613,13 @@ contains
 
     ! Assign PFT groups according to climate and land cover data at each grid
     ! For WIE-MIP, set grass PFTs for land cover changes
+    ! Igor & Paul: "GridVC" (from TRENDY land cover file) is used here.
+    ! If you want you may change it "GridFR", which is from the data of Hurtt's
+    ! cropland file (states4.nc), such as:
+    ! if (GridFR(target_year) > 0.5) then ! Cropland
     idx = maxloc(GridVC, dim=1)
     write(*,*)'Max vegetation id', idx
-    if(idx >=9 )then ! Grasses
+    if(idx >=9 )then ! Cropland, use C3 or C4 grasses, depending on climate envelopes
       N_PFTID = 1
       allocate(PFTID(N_PFTID))
       if(meanTmin > TcrC3C4)then ! C3 vs C4 grasses

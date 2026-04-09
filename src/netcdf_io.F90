@@ -24,6 +24,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
   ! Read in all netcdf files for global run, including;
   ! climate, vegetation, and nitrogen deposition data
   ! Updated 04/04/2026
+   use, intrinsic :: ieee_arithmetic
    implicit none
    character(len=*),intent(in) :: cru_path,veg_path,ndp_path
 
@@ -33,7 +34,8 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
    character(len=4)   :: yr_str
    character(len=6)   :: GridStr
    integer :: N_yrs,totL,N_vars
-   integer :: istat1,i,j,k,m,iLon,iLat
+   integer :: istat1,istat2
+   integer :: i,j,k,m,iLon,iLat
    integer :: nlon_sub, nlat_sub
    integer :: start3(3), count3(3),ndpct3(3) ! for climate and Ndpst
    integer :: start2(2), count2(2)
@@ -41,6 +43,10 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
    real, allocatable :: dataarray(:,:,:), timearray(:)
    real, allocatable :: VegCover(:,:,:),  Vegetated(:,:)
    real, allocatable :: NdpData(:,:,:),   TotalNdp(:,:) ! N deposition
+
+   ! For Hurtt's cropland data
+   integer :: crpct3(3)
+   real, allocatable :: CropData(:,:,:),  TotCrops(:,:,:)
 
    ! Read in a vegetation map
    allocate(GridMask(LowerLon:UpperLon, LowerLat:UpperLat))
@@ -62,12 +68,32 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
    allocate(NdpData(LowerLon:UpperLon, LowerLat:UpperLat, 12)) ! kgN m-2 s-1
    allocate(TotalNdp(LowerLon:UpperLon, LowerLat:UpperLat))    ! kgN m-2 yr-1
 
+   ! For Hurtt's cropland data
+   crpct3 = [nlon_sub, nlat_sub, FM_Yrs]
+   allocate(CropData(LowerLon:UpperLon, LowerLat:UpperLat, FM_Yrs))
+   allocate(TotCrops(LowerLon:UpperLon, LowerLat:UpperLat, FM_Yrs))
+
    ! Read in vegetation data (vegtated grids and vegetation components)
    fveg  = trim(veg_path)//trim(veg_file)
    call nc_read_2D(fveg, trim(Vegstr), Vegetated, start2, count2)
    do i=1, N_Vegs
      call nc_read_2D(fveg, trim(VegID(i)), VegCover(:,:,i), start2, count2)
    enddo
+   write(*,*)'Successfully Read ',trim(fveg)
+
+   ! Read in cropland fractions
+   fveg  = trim(veg_path)//'CropLand_states4_05deg.nc'
+   TotCrops = 0.0
+   do i = 1, N_crop
+     call nc_read_3D(fveg, trim(CropID(i)), CropData, start3, crpct3)
+     !write(*,*) 'file = ', trim(fveg)
+     !write(*,*) 'var  = ', trim(CropID(i))
+     !write(*,*) 'valid count = ', count(.not. ieee_is_nan(CropData))
+     where (ieee_is_nan(CropData)) CropData = 0.0
+     TotCrops = TotCrops + CropData
+   enddo
+   !write(*,*)TotCrops(:,:,1170)
+   write(*,*) 'Grids with cropland>0.01 = ', count(TotCrops(:,:,1170)>0.01)
    write(*,*)'Successfully Read ',trim(fveg)
 
    ! Read in N deposition and calculate yearly N deposition rate (kgN/m2/yr)
@@ -125,6 +151,8 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
     allocate(LandGrid(N_VegGrids))
     allocate(GridLonLat(N_VegGrids))
     allocate(GridVegCov(N_Vegs,N_VegGrids))
+    allocate(GridFarm(FM_Yrs,N_VegGrids))
+    write(*,*)'Grid arrays allocated.'
 
     ! Set GridLonLat array and Sort grid lon-lat and climate data
     m = 0
@@ -134,9 +162,11 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
           m = m + 1
           GridLonLat(m) = iLon * 1000 + iLat
           GridVegCov(:,m) = VegCover(iLon,iLat,:)
+          GridFarm(:,m)   = TotCrops(iLon,iLat,:)
           LandGrid(m)%iLon = iLon
           LandGrid(m)%iLat = iLat
           LandGrid(m)%N_input = TotalNdp(iLon,iLat)
+          LandGrid(m)%Farm     => GridFarm(:,m)
           LandGrid(m)%VegCover => GridVegCov(:,m) ! VegCover(iLon,iLat,:)
           LandGrid(m)%climate  => ClimData(:,:,m)
         endif
@@ -147,8 +177,14 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
     if(WriteForcing)then
       fout = trim(filepath_out)//trim(GridListFile) ! Grid ID, VegCover, and N_input
       open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
-      fout = trim(filepath_out)//'Grid_filenames.csv' ! Data file name
-      open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat1)
+      fout = trim(filepath_out)//'GridFarmRatio.csv' ! Data file name
+      open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat2)
+      ! Write GridID, VegCover, and N_input for each grid
+      do m=1, N_VegGrids
+        write(Grids_UN1, '(I8,10(",",f6.2),",",E12.4)') &
+                 GridLonLat(m),LandGrid(m)%VegCover,LandGrid(m)%N_input
+        write(Grids_UN2, '(I8, 1176(",",f12.4))')GridLonLat(m),(LandGrid(m)%Farm(i),i=1,FM_Yrs)
+      enddo
     endif
 
     ! ----------------- Read in all climate data ----------------------!
@@ -195,6 +231,9 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
     if(allocated(VegCover))  deallocate(VegCover)
     if(allocated(NdpData))   deallocate(NdpData)
     if(allocated(TotalNdp))  deallocate(TotalNdp)
+    if(allocated(CropData))  deallocate(CropData)
+    if(allocated(TotCrops))  deallocate(TotCrops)
+
 end subroutine ReadNCfiles
 
 !=============================================================================
@@ -373,16 +412,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   if(WriteForcing)then
     write(GridStr, GridIDFMT) GridID
 
-    ! Write GridID, VegCover, and N_input for each grid
-    write(Grids_UN1, '(a6,10(",",f6.2),",",E12.4)') &
-             trim(GridStr),LandGrid%VegCover,LandGrid%N_input
-
-    ! Write the interpolated data file names for each grid
-    fout = trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
-    write(Grids_UN2, '(a6,"," a35)')trim(GridStr),trim(fout)
-
     ! Write interpolated data
-    fout = trim(filepath_out)//trim(fout)
+    fout = trim(filepath_out)//trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
     open(NEWUNIT=forcing_unit,file=trim(fout))
     write(forcing_unit,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE,Ndpst'
     do i=1,totalL
@@ -406,6 +437,7 @@ subroutine CRU_end()
   close(Grids_UN2)
   deallocate(GridLonLat)
   deallocate(GridVegCov)
+  deallocate(GridFarm)
 #ifndef Use_InterpolatedData
   !deallocate(CRUData)
   deallocate(CRUtime)
@@ -423,25 +455,37 @@ subroutine read_GridLonLat(fname,file_exists)
 
   ! ------- Local vars ---------------
   integer, parameter :: maxGrids = Nlon*Nlat/3
-  real    :: VridVC(N_Vegs, maxGrids),tmpVC(N_Vegs, maxGrids) ! Veg cover for all grids
+  real    :: GridVF(N_Vegs, maxGrids),tmpVF(N_Vegs, maxGrids) ! Veg cover for all grids
+  real    :: GridFM(FM_Yrs, maxGrids),tmpFM(FM_Yrs, maxGrids)
   integer :: GridNo(maxGrids),tmpNo(maxGrids) ! maximum grids, 720*360
-  integer :: i,j,k,m,n,istat1
+  integer :: GridCode, istat1, istat2
+  integer :: i,j,k,m,n
   integer :: TotalFiles ! Each file represents a grid
-  character(len=300) :: listfile
+  character(len=300) :: listfile,FarmFile
 
   listfile=trim(int_fpath)//trim(fname)
+  FarmFile=trim(int_fpath)//'GridFarmRatio.csv'
   INQUIRE (file=trim(listfile), EXIST=file_exists)
   if (.not. file_exists) then
     write (*, '("read_GridLonLat: ", a, " does not exist")') trim(listfile)
     return
   endif
 
+  INQUIRE (file=trim(FarmFile), EXIST=file_exists)
+  if (.not. file_exists) then
+    write (*, '("read_GridLonLat: ", a, " does not exist")') trim(Farmfile)
+    return
+  endif
+
   ! Read the file
   open(11,file=listfile,status='old',ACTION='read',IOSTAT=istat1)
+  open(12,file=Farmfile,status='old',ACTION='read',IOSTAT=istat2)
   m = 0
   do
-    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVC(i,m+1),i=1,10)
-    if(istat1 < 0)exit
+    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVF(i,m+1),i=1,10)
+    read(12,*,IOSTAT=istat2) GridCode, (tmpFM(i,m+1),i=1,FM_Yrs)
+    if(istat1<0 .or. istat1<0 .or. GridNo(m+1)/=GridCode) exit
+    ! Next grid
     m = m + 1
   enddo
   write(*,*)'Total grids in the list fie:',m
@@ -465,7 +509,8 @@ subroutine read_GridLonLat(fname,file_exists)
         if (k == tmpNo(n))then
             m = m + 1
             GridNo(m) = tmpNo(n)
-            VridVC(:,m) = tmpVC(:,n)
+            GridVF(:,m) = tmpVF(:,n)
+            GridFM(:,m) = tmpFM(:,n)
             n = n + 1
         endif
         if(n > TotalFiles)exit ! Exit LowerLat-UpperLat loop
@@ -478,8 +523,10 @@ subroutine read_GridLonLat(fname,file_exists)
   N_VegGrids = m
   allocate(GridLonLat(N_VegGrids))
   allocate(GridVegCov(N_Vegs,N_VegGrids))
-  GridLonLat(:) = GridNo(1:N_VegGrids)
-  GridVegCov(:,:) = VridVC(:,1:N_VegGrids)
+  allocate(GridFarm(FM_Yrs,N_VegGrids))
+  GridLonLat(:)   = GridNo(1:N_VegGrids)
+  GridVegCov(:,:) = GridVF(:,1:N_VegGrids)
+  GridFarm(:,:)   = GridFM(:,1:N_VegGrids)
   grid_No1 = min(grid_No1,N_VegGrids)
   grid_No2 = min(grid_No2,N_VegGrids)
 
