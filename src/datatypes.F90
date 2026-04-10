@@ -1550,7 +1550,6 @@ contains
     !PFTs: 0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
     integer,allocatable :: PFTID(:)
     integer :: N_PFTID
-    integer :: idx
 
 #ifdef WIEMIP_setting
     call Set_PFTs_from_LandCover (N_PFTID,PFTID)
@@ -1573,7 +1572,6 @@ contains
     integer, allocatable, intent(out) :: PFTID(:)
 
     !--------- local vars ------------
-    integer :: idx
 
     ! Assign allocatable PFTID
     N_PFTID = 4

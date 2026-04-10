@@ -188,13 +188,13 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
       fout = trim(filepath_out)//trim(GridListFile) ! Grid ID, VegCover, and N_input
       open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
       !do m=1, N_VegGrids
-      !  write(Grids_UN1, '(I8,11(",",E9.4))')GridLonLat(m),LandGrid(m)%VegCover,LandGrid(m)%N_input
+      !  write(Grids_UN1, '(I8,11(",",E9.4))')GridLonLat(m),(GridVegCov(i,m),i=1,N_vegs),LandGrid(m)%N_input
       !enddo
 #ifdef WIEMIP_setting
       fout = trim(filepath_out)//'GridFarmRatio.csv' ! Data file name
       open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat2)
       !do m=1, N_VegGrids
-      !  write(Grids_UN2, '(I8, 1176(",",f12.4))')GridLonLat(m),(LandGrid(m)%Farm(i),i=1,FM_Yrs)
+      !  write(Grids_UN2, '(I8, 1176(",",f12.4))')GridLonLat(m),(GridFarm(i,m),i=1,FM_Yrs)
       !enddo
 #endif
     endif
@@ -440,7 +440,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
     ! ------- Write Grid list files -------
     ! Write GridID, VegCover, and N_input for each grid
-    write(Grids_UN1,'(I8,11(",",E9.4))')GridID,LandGrid%VegCover(:),LandGrid%N_input
+    write(Grids_UN1,'(I8,11(",",E9.4))') &
+          GridID,(LandGrid%VegCover(i),i=1,N_vegs),LandGrid%N_input
 #ifdef WIEMIP_setting
     write(Grids_UN2,'(I8,1176(",",E9.4))')GridID,(LandGrid%Farm(i),i=1,FM_Yrs)
 #endif
