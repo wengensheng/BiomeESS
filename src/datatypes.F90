@@ -87,7 +87,7 @@ module datatypes
                         LU_CROP    = 2, & ! crops
                         LU_NTRL    = 3, & ! natural vegetation
                         LU_SCND    = 4    ! secondary vegetation
-  integer, parameter :: CO2Yrs = 325
+  integer, parameter :: CO2Yrs = 325      ! 325 = the years from 1701 to 2025
   real, parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2024, ppm
   ! 1,     2,     3,     4,     5,     6,     7,     8,     9,     10
   (/276.59,276.62,276.65,276.67,276.70,276.72,276.75,276.78,276.80,276.83,  &
@@ -960,6 +960,7 @@ module datatypes
 
   ! Scenarios
   character(len=4)  :: CO2Tag = 'aCO2' ! only takes 'aCO2' or 'eCO2', for FACE-MDS-3
+  logical  :: Sc_CO2  = .True. ! Use CO2_C if true
   real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
   real     :: Sc_dT   = 0.0 ! Scenario of temperature changes
   real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
@@ -975,22 +976,23 @@ module datatypes
   LowerLat, UpperLat, StepLatLon, LC_year0, WriteForcing
 
   ! ------------- Model initialization name list ------------
-  namelist /initial_state_nml/ &
-  ! initial vegetation states
-  init_cohort_N, init_cohort_sps, init_cohort_Indiv,          &
-  init_cohort_bl, init_cohort_br, init_cohort_bsw,            &
-  init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,        &
-  init_fast_SOC, init_slow_SOC, init_mineralN, N_input,       &
-  Pr_thld, MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                &
+  namelist /initial_state_nml/ N_VegTile,                      &
+  ! initial vegetation and soil states
+  init_cohort_N, init_cohort_sps, init_cohort_Indiv,           &
+  init_cohort_bl, init_cohort_br, init_cohort_bsw,             &
+  init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,         &
+  init_fast_SOC, init_slow_SOC, init_mineralN, N_input,        &
+  ! Climate envelopes for initializing PFTs
+  Pr_thld, MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                 &
   ! Model run controls
-  filepath_in,filepath_out,runID,climfile,Scefile,StartLine,  &
-  N_VegTile,siteLAT,model_run_years,yr_ResetVeg,yr_Baseline,  &
-  outputhourly,outputdaily,Sc_prcp,Sc_dT,CO2_c,CO2Tag,        &
+  filepath_in,filepath_out,climfile,model_run_years,runID,     &
+  outputhourly,outputdaily,Sc_prcp,Sc_dT,Sc_CO2,CO2_c, &
   ! Model components
-  MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,     &
-  Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,  &
-  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4,              &
+  MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
+  Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &
+  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4,               &
   ! Specific test
+  siteLAT,Scefile,StartLine,yr_ResetVeg,yr_Baseline,CO2Tag,    &
   PaleoPfile, PaleoTfile, iDraw
 
   ! ---------- Soil hydraulic and heat parameter name list ---------

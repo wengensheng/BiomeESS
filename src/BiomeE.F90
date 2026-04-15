@@ -179,11 +179,7 @@ module BiomeE_mod
         ! Set up scenarios for rainfall and CO2 concentration
         climateData%rain = forcingData(idata)%rain * Sc_prcp
         climateData%Tair = forcingData(idata)%Tair + Sc_dT
-        climateData%CO2  = CO2_c
-
-#ifdef DroughtPaleo
-        climateData%CO2  = CO2_c ! ppm
-#endif
+        if(Sc_CO2) climateData%CO2  = CO2_c ! ppm
 
 #ifdef FACE_run
         if(n_yr <= spin_yrs)then
