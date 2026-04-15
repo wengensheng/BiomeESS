@@ -2,6 +2,7 @@
 set -euo pipefail
 
 FSRCS="src/datatypes.F90 \
+       src/model_utils.F90 \
        src/io_mod.F90 \
        src/soil.F90 \
        src/vegetation.F90 \

@@ -46,6 +46,7 @@
 !---------------
 module BiomeE_mod
   use datatypes
+  use model_utils
   use io_mod
   use esdvm
 

@@ -1,5 +1,6 @@
 #!/bin/sh
 FSRCS="src/datatypes.F90 \
+       src/model_utils.F90 \
        src/io_mod.F90 \
        src/soil.F90 \
        src/vegetation.F90 \
@@ -37,6 +38,7 @@ rm ./para_files/input.nml
 rm ess
 rm esdvm.mod
 rm datatypes.mod
+rm model_utils.mod
 rm io_mod.mod
 rm soil_mod.mod
 rm biomee_mod.mod

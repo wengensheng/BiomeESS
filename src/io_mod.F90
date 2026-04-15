@@ -1,6 +1,7 @@
 module io_mod
 ! Data input and output
   use datatypes
+  use model_utils
 #ifdef USE_NETCDF
   use netcdf
 #endif
@@ -10,95 +11,13 @@ module io_mod
 
 ! ------ public subroutines ---------
   public :: setup_forcingdata, setup_output_files
-  public :: vegn_sum_tile, Zero_diagnostics, zip_output_files
+  public :: zip_output_files
   public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
 
 !---------------------------------
   contains
 
 !============================= Subroutines ====================================
-!========================== Summarize tile variables =====================
-! Weng, 2021-06-02
-  subroutine vegn_sum_tile(vegn)
-    implicit none
-    type(vegn_tile_type), intent(inout) :: vegn
-
-    !----- local var --------------
-    type(cohort_type),pointer :: cc
-    real :: BMG ! Grass BM, temporary var
-    integer :: i
-
-    vegn%NSC     = 0.0
-    vegn%SeedC   = 0.0
-    vegn%leafC   = 0.0
-    vegn%rootC   = 0.0
-    vegn%SwC     = 0.0
-    vegn%HwC     = 0.0
-
-    vegn%NSN     = 0.0
-    vegn%SeedN   = 0.0
-    vegn%leafN   = 0.0
-    vegn%rootN   = 0.0
-    vegn%SwN     = 0.0
-    vegn%HwN     = 0.0
-
-    vegn%W_stem = 0.0
-    vegn%W_dead = 0.0
-    vegn%W_leaf = 0.0
-
-    vegn%LAI    = 0.0
-    vegn%CAI    = 0.0
-    vegn%ArootL = 0.0
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      associate ( sp => spdata(cc%species))
-        ! Vegn C, N, and water pools
-        vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
-        vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
-        vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
-        vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
-        vegn%SwC     = vegn%SwC     + cc%bsw    * cc%nindivs
-        vegn%HwC      = vegn%HwC    + cc%bHW    * cc%nindivs
-        vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
-        vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
-        vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
-
-        vegn%NSN     = vegn%NSN     + cc%NSN   * cc%nindivs
-        vegn%SeedN   = vegn%SeedN   + cc%seedN * cc%nindivs
-        vegn%leafN   = vegn%leafN   + cc%leafN * cc%nindivs
-        vegn%rootN   = vegn%rootN   + cc%rootN * cc%nindivs
-        vegn%SwN     = vegn%SwN     + cc%swN * cc%nindivs
-        vegn%HwN     = vegn%HwN     + cc%hwN * cc%nindivs
-
-        vegn%W_stem = vegn%W_stem   + cc%W_stem * cc%nindivs
-        vegn%W_dead = vegn%W_dead   + cc%W_dead * cc%nindivs
-        vegn%W_leaf = vegn%W_leaf   + cc%W_leaf * cc%nindivs
-      end associate
-    enddo
-
-    ! Update grass vs. tree coverage when all cohorts are LEAF_ON
-    if(all(vegn%cohorts(:)%status == LEAF_ON))then ! All cohorts are "LEAF_ON"
-      vegn%TreeCA  = 0.0
-      vegn%GrassCA = 0.0
-      BMG          = 0.0
-      do i = 1, vegn%n_cohorts
-        cc => vegn%cohorts(i)
-        associate ( sp => spdata(cc%species))
-          if(sp%lifeform==0)BMG = BMG + (cc%bl+cc%br+cc%bsw)*cc%nindivs
-          if(cc%layer == 1)then
-            if(sp%lifeform==0) then
-              vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
-            else
-              vegn%TreeCA  = vegn%TreeCA  + cc%Acrown*cc%nindivs
-            endif
-          endif
-        end associate
-      enddo
-      vegn%GrassBM = max(vegn%GrassBM, BMG)
-    endif
-
-  end subroutine vegn_sum_tile
-
 !====================== Read Forcing Data ===============================
 ! --------- Setup forcing data and step lenght ----------------------
   subroutine setup_forcingdata(climfile)
@@ -800,10 +719,9 @@ module io_mod
 !================================================
   subroutine zip_output_files()
     character(len=256) :: command
-    integer :: N_files, I0, i, iostat
+    integer :: N_files, i, iostat
     integer :: idx(6) = [6,5,4,3,2,1]
 
-    ! Zip files
     if (          outputhourly .and. outputdaily )then
       N_files = 6
     elseif((.not. outputhourly).and. outputdaily )then
@@ -1194,89 +1112,6 @@ module io_mod
 #endif
     endif
   end subroutine annual_diagnostics
-
-!==================================================================================================
-! Weng, 2016-11-28
-  subroutine Zero_diagnostics(vegn)
-    ! for annual update
-    type(vegn_tile_type), intent(inout) :: vegn
-    !-------local var
-    type(cohort_type),pointer :: cc
-    integer :: i
-    !daily
-    vegn%NfixDaily = 0.0
-    vegn%dailyPrcp = 0.0
-    vegn%dailyTrsp = 0.0
-    vegn%dailyEvap = 0.0
-    vegn%dailyRoff = 0.0
-    vegn%dailyNup  = 0.0
-    vegn%dailyGPP  = 0.0
-    vegn%dailyNPP  = 0.0
-    vegn%dailyResp = 0.0
-    vegn%dailyRh   = 0.0
-    vegn%dailyCH4  = 0.0
-    vegn%dNorg_daily = 0.0
-    vegn%dNgas_daily = 0.0
-    vegn%dNmin_daily = 0.0
-
-    !annual
-    vegn%NfixedYr   = 0.0
-    vegn%annualPrcp = 0.0
-    vegn%annualTrsp = 0.0
-    vegn%annualEvap = 0.0
-    vegn%annualRoff = 0.0
-    vegn%annualGPP  = 0.0
-    vegn%annualNPP  = 0.0
-    vegn%annualResp = 0.0
-    vegn%annualRh   = 0.0
-    vegn%annualCH4  = 0.0
-    vegn%NorgP2S    = 0.0
-    vegn%Nm_Soil    = 0.0
-    vegn%Nm_Fire    = 0.0
-    vegn%C_burned   = 0.0
-    vegn%NupYr      = 0.0
-    vegn%dNorg_Yr   = 0.0
-    vegn%dNgas_Yr   = 0.0
-    vegn%dNmin_Yr   = 0.0
-    vegn%GrassBM    = 0.0
-    vegn%annualPET  = 0.0
-    vegn%YearlyTmp  = 0.0
-
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      cc%gpp      = 0.0
-      cc%npp      = 0.0
-      cc%resp     = 0.0
-      cc%resl     = 0.0
-      cc%resr     = 0.0
-      cc%resg     = 0.0
-      cc%transp   = 0.0
-      !daily
-      cc%dailyWdmd= 0.0
-      cc%dailyTrsp= 0.0
-      cc%dailyGPP = 0.0
-      cc%dailyNPP = 0.0
-      cc%dailyResp= 0.0
-      cc%dailyNup = 0.0
-      cc%NfixDaily= 0.0
-      ! annual
-      cc%annualTrsp= 0.0
-      cc%annualGPP = 0.0
-      cc%annualNPP = 0.0
-      cc%annualResp= 0.0
-      cc%NupYr     = 0.0
-      cc%NfixedYr  = 0.0
-
-      ! For UFL test
-      cc%totDemand = 0.0
-      ! Yearly variables
-      cc%NPPleaf   = 0.0
-      cc%NPProot   = 0.0
-      cc%NPPwood   = 0.0
-      cc%DBH_ys    = cc%DBH
-      cc%Aleafmax  = 0.0
-    enddo
-  end subroutine Zero_diagnostics
 
 !================================================
 end module io_mod

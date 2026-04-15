@@ -5,10 +5,11 @@
 program BiomeE
   !use omp_lib
   use datatypes
+  use model_utils
 #ifdef GlobalRun
   use netcdf_io
 #endif
-  use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
+use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   use BiomeE_mod, only: BiomeE_main
 
   implicit none

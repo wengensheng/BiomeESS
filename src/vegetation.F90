@@ -1,6 +1,7 @@
 !---------------
 module esdvm
  use datatypes
+ use model_utils
  use io_mod
  use soil_mod
  implicit none
@@ -1024,12 +1025,12 @@ subroutine vegn_growth(vegn)
       cc%rootN = cc%rootN + dBR   / sp%CNroot0
       cc%seedN = cc%seedN + dSeed / sp%CNseed0
 
-      cc%swN = cc%swN + f_N_add * cc%NSN + &
+      cc%swN = cc%swN + sp%f_N_add * cc%NSN + &
                (Nsupply - dBL / sp%CNleaf0 - dBR / sp%CNroot0 - dSeed / sp%CNseed0)
 
       extraN  = max(0.0, cc%swN - cc%bsw / sp%CNwood0)
       cc%swN  = cc%swN - extraN
-      cc%NSN  = cc%NSN + extraN - f_N_add * cc%NSN - Nsupply
+      cc%NSN  = cc%NSN + extraN - sp%f_N_add * cc%NSN - Nsupply
 
       ! Accumulated C allocated to leaf, root, and wood
       cc%NPPleaf = cc%NPPleaf + dBL

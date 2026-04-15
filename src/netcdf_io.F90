@@ -9,6 +9,7 @@
 module netcdf_io
   use netcdf
   use datatypes
+  use model_utils
   implicit none
 
   private

@@ -80,6 +80,7 @@ fi
 # -------------------------------------------------------
 SRCS=(
   "${SRC_DIR}/datatypes.F90"
+  "${SRC_DIR}/model_utils.F90"
   "${SRC_DIR}/io_mod.F90"
   "${SRC_DIR}/soil.F90"
   "${SRC_DIR}/vegetation.F90"

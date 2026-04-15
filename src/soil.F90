@@ -5,6 +5,7 @@
 
 module soil_mod
   use datatypes
+  use model_utils
   implicit none
   private
 
