@@ -116,7 +116,7 @@ subroutine vegn_demographics(vegn, deltat)
 
   !! Total N balance checking
   !call vegn_sum_tile(vegn)
-  !totN0 = TotalN(vegn)
+  !totN0 = PatchTotalN(vegn)
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
@@ -157,8 +157,8 @@ subroutine vegn_reprod_samesized(vegn)
   do i=1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      !Carbon content of a current individual of this cohort
-     plantC = cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc
-     plantN = cc%leafN+cc%rootN+cc%swN+cc%hwN+cc%NSN
+     plantC = TreeTotalC(cc)
+     plantN = TreeTotalN(cc)
      n_newC  = cc%seedC * cc%nindivs / plantC
      n_newN  = cc%seedN * cc%nindivs / plantN
      n_new = min(n_newC, n_newN)
@@ -1215,7 +1215,7 @@ subroutine vegn_phenology(vegn)  ! daily step
   type(cohort_type), pointer :: cc
   integer :: i
   real    :: gdd_ON, Tc_OFF
-  real    :: totC, totN, ccNSC, ccNSN
+  real    :: totC, totN, ccNSC, ccNSN, nindivs
   logical :: PhenoON, PhenoOFF
 
   ! -------------- update vegn GDD and tc_pheno ---------------------------
@@ -1288,20 +1288,19 @@ subroutine vegn_phenology(vegn)  ! daily step
 
         ! Reset deciduous grasses at the first day of a growing season
         if (sp%lifeform == 0 .and. (cc%firstday .and. cc%age > 0.5)) then
-          ccNSC = (cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC) * cc%nindivs
-          ccNSN = (cc%NSN + cc%leafN + cc%swN + cc%hwN + cc%rootN + cc%seedN) * cc%nindivs
-
-          cc%nindivs = min(ccNSC / sp%s0_plant, ccNSN / (sp%s0_plant / sp%CNroot0))
-
-          totC = ccNSC / cc%nindivs
-          totN = ccNSN / cc%nindivs
-
-          call setup_seedling(cc, totC, totN)
+          ccNSC = TreeTotalC(cc) * cc%nindivs
+          ccNSN = TreeTotalN(cc) * cc%nindivs
+          nindivs = min(ccNSC / sp%s0_plant, ccNSN / (sp%s0_plant / sp%CNroot0))
+          if (nindivs > zero_thld) then
+            cc%nindivs = nindivs 
+            totC = ccNSC / cc%nindivs
+            totN = ccNSN / cc%nindivs
+            call setup_seedling(cc, totC, totN)
+          endif
         end if
-
       else
         cc%status = LEAF_ON  ! evergreen species
-      end if
+      endif
 
     end associate
   end do
@@ -2471,7 +2470,7 @@ subroutine initialize_vegn_tile(vegn)
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc => null()
    type(cohort_type),pointer :: cp
-   real    :: btotal
+   real    :: BMwood
    integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
    integer :: i, istat
 
@@ -2490,7 +2489,7 @@ subroutine initialize_vegn_tile(vegn)
 
    ! tile summary
    call vegn_sum_tile(vegn)
-   vegn%initialN0 = totalN(vegn)
+   vegn%initialN0 = PatchTotalN(vegn)
    vegn%totN      = vegn%initialN0
 
    ! Make a copy of the initial cohorts
@@ -2538,7 +2537,7 @@ subroutine initialize_cohorts(vegn)
    !--------local vars -------
    type(cohort_type),dimension(:), pointer :: cc
    type(cohort_type),pointer :: cp
-   real    :: btotal
+   real    :: BMwood
    integer :: nCohorts = 1 ! Randomly generate n Cohorts if not defined
    integer :: i, istat
 
@@ -2562,8 +2561,8 @@ subroutine initialize_cohorts(vegn)
       cp%nsc     = init_cohort_nsc(i)
       cp%bsw     = init_cohort_bsw(i)
       cp%bHW     = init_cohort_bHW(i)
-      btotal     = cp%bsw + cp%bHW  ! kgC /tree
-      call initialize_cohort_from_biomass(cp,btotal,maxval(vegn%psi_soil(:)))
+      BMwood     = cp%bsw + cp%bHW  ! kgC /tree
+      call initialize_cohort_from_biomass(cp,BMwood,maxval(vegn%psi_soil(:)))
    enddo
 end subroutine initialize_cohorts
 
@@ -2684,7 +2683,7 @@ subroutine relayer_cohorts (vegn)
   do
      new(i)         = cc(idx(k))
      new(i)%nindivs = min(nindivs,(layer_vegn_cover-frac)/cc(idx(k))%Acrown)
-     new(i)%layer   = L
+     new(i)%layer   = min(L, CLmax)
      frac = frac+new(i)%nindivs*new(i)%Acrown
      nindivs = nindivs - new(i)%nindivs
 
@@ -2762,7 +2761,9 @@ subroutine kill_lowdensity_cohorts(vegn)
   enddo
 
   ! exclude cohorts that have low individuals
-  if (k>0 .and. k<vegn%n_cohorts)then
+  if (k == 0) then
+   ! Do nothing and keep all cohorts: the model does not allow zero cohorts.
+  elseif (k < vegn%n_cohorts) then
      allocate(cc(k))
      j=0
      do i = 1,vegn%n_cohorts
@@ -2771,9 +2772,8 @@ subroutine kill_lowdensity_cohorts(vegn)
            j=j+1
            cc(j) = cp
         else
-           ! Carbon and Nitrogen from plants to soil pools
-           call plant2soil(vegn,cp,cp%nindivs)
-        endif
+           call plant2soil(vegn,cp,cp%nindivs) ! Put plant mass to soil pools
+        end if
      enddo
      deallocate (vegn%cohorts)
      vegn%cohorts=>cc
@@ -2982,7 +2982,7 @@ subroutine check_N_conservation(vegn,totN0,tag)
   !-------local var --------
   real :: totN1
   ! Total N balance checking
-  totN1 = TotalN(vegn)
+  totN1 = PatchTotalN(vegn)
   if(abs(totN0 - totN1) > 1.0E-6)then ! Precision: 1.19209290E-07
     write(*,*)"Imbalance of nitrogen in: ", tag
     write(*,*)'N0, N1, N0-N1', totN0, totN1, totN0 - totN1
@@ -2990,15 +2990,6 @@ subroutine check_N_conservation(vegn,totN0,tag)
   endif
   write(*,*)tag, ': N0, N1, N0-N1', totN0, totN1, totN0 - totN1
 end subroutine check_N_conservation
-
-! ============================================================================
-function TotalN(vegn)
-  real :: TotalN ! returned value
-  type(vegn_tile_type), intent(in) :: vegn
-
-  TotalN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
-           vegn%SwN + vegn%HwN + vegn%mineralN + sum(vegn%SON(:))
-end function
 
 !======================= Specific experiments ================================
 

@@ -12,11 +12,10 @@ module model_utils
   public :: Set_PFTs_from_Data, Set_PFTs_from_Climate, Set_PFTs_from_LandCover
   public :: Assign_Std_Cohorts
   public :: vegn_sum_tile, Zero_diagnostics
-  public :: qscomp, BM2Architecture
-  public :: DBH2HT, DBH2CA, DBH2BM, BM2DBH
+  public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
   public :: ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
-  public :: A_function, calc_solarzen, PotentialET, c3c4
-  public :: esat
+  public :: TreeTotalC, TreeTotalN, PatchTotalC, PatchTotalN
+  public :: PotentialET, A_function, calc_solarzen, qscomp, esat
   public :: rank_descending, merge, mergerank
 
 contains
@@ -835,6 +834,40 @@ contains
     REAL, INTENT(IN) :: T ! degC
     esat=610.78*exp(17.27*T/(T+237.3))
   END FUNCTION esat
+
+  !-------------------------------------------
+  function TreeTotalC(cc) result (totC)
+    real :: totC ! returned value
+    type(cohort_type), intent(in) :: cc    ! cohort to update
+
+    totC = cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC
+  end function
+
+  !-------------------------------------------
+  function TreeTotalN(cc) result (totN)
+    real :: totN ! returned value
+    type(cohort_type), intent(in) :: cc    ! cohort to update
+
+    totN = cc%NSN + cc%leafN + cc%swN + cc%hwN + cc%rootN + cc%seedN
+  end function
+
+  !-------------------------------------------
+  function PatchTotalC(vegn) result(totC)
+    real :: totC
+    type(vegn_tile_type), intent(in) :: vegn
+
+    totC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
+           vegn%SwC + vegn%HwC + sum(vegn%SOC(:))
+  end function PatchTotalC
+
+  !-------------------------------------------
+  function PatchTotalN(vegn) result(totN)
+    real :: totN
+    type(vegn_tile_type), intent(in) :: vegn
+
+    totN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
+           vegn%SwN + vegn%HwN + vegn%mineralN + sum(vegn%SON(:))
+  end function PatchTotalN
 
   ! ============================================================================
   subroutine BM2Architecture(cc,BM)

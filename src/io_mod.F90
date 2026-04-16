@@ -1000,7 +1000,7 @@ module io_mod
             iyr_out = iyears - yr_Sc
           endif
 
-          BMtot = cc%bl+cc%br+cc%bsw+cc%bHW+cc%seedC+cc%nsc
+          BMtot = TreeTotalC(cc) ! cc%bl+cc%br+cc%bsw+cc%bHW+cc%seedC+cc%nsc
           write(f_cht,'(3(I8,","),300(E15.4,","))')        &
           iyr_out,cc%species,i,                          &
           cc%nindivs*10000*(1.0-cc%mu),cc%dbh*100.,cc%height, &
@@ -1067,7 +1067,7 @@ module io_mod
                vegn%SwC + vegn%HwC
       soilC  = sum(vegn%SOC(:))
       plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
-      vegn%rootN + vegn%SwN + vegn%HwN
+               vegn%rootN + vegn%SwN + vegn%HwN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
       N_loss_yr = (vegn%dNorg_Yr + vegn%dNgas_Yr + vegn%dNmin_Yr)*1000.
 #ifdef FACE_run
