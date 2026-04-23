@@ -1571,7 +1571,7 @@ end subroutine vegn_age
 
 ! =========================================================================
 subroutine vegn_N_deposition(vegn, forcing, dt)
-  ! Weng, 05/15/2023: Nitrogen deposition, daily
+  ! Weng, 05/15/2023, 04/23/2026: Nitrogen deposition, fast time (hourly)
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
   real                , intent(in)    :: dt

@@ -32,7 +32,7 @@ echo $fparameter
 cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess
+./ess $fparameter
 
 rm ./para_files/input.nml
 rm ess

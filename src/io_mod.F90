@@ -13,9 +13,91 @@ module io_mod
   public :: setup_forcingdata, setup_output_files
   public :: zip_output_files
   public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
+  public :: flush_annual_diagnostics_buffers
+
+  integer, parameter :: annual_buf_max = 2048
+  integer, parameter :: annual_line_len = 8192
+  character(len=annual_line_len), allocatable :: annual_cohort_buf(:)
+  character(len=annual_line_len), allocatable :: annual_cohort2_buf(:)
+  character(len=annual_line_len), allocatable :: annual_patch_buf(:)
+  integer :: n_annual_cohort_buf  = 0
+  integer :: n_annual_cohort2_buf = 0
+  integer :: n_annual_patch_buf   = 0
 
 !---------------------------------
   contains
+
+!====================== Buffered annual output ==========================
+  subroutine init_annual_diagnostics_buffers()
+    if (.not. allocated(annual_cohort_buf))  allocate(annual_cohort_buf(annual_buf_max))
+    if (.not. allocated(annual_cohort2_buf)) allocate(annual_cohort2_buf(annual_buf_max))
+    if (.not. allocated(annual_patch_buf))   allocate(annual_patch_buf(annual_buf_max))
+
+    n_annual_cohort_buf  = 0
+    n_annual_cohort2_buf = 0
+    n_annual_patch_buf   = 0
+  end subroutine init_annual_diagnostics_buffers
+
+  subroutine append_annual_line(unit_no, line)
+    integer, intent(in) :: unit_no
+    character(len=*), intent(in) :: line
+
+    if (unit_no == fno5) then
+      call push_annual_line(annual_cohort_buf, n_annual_cohort_buf, fno5, line)
+    elseif (unit_no == fno6) then
+      call push_annual_line(annual_patch_buf, n_annual_patch_buf, fno6, line)
+#ifdef DroughtMIP
+    elseif (unit_no == fno5+10) then
+      call push_annual_line(annual_cohort2_buf, n_annual_cohort2_buf, fno5+10, line)
+#endif
+    else
+      write(unit_no,'(A)') trim(line)
+    endif
+  end subroutine append_annual_line
+
+  subroutine push_annual_line(buffer, nbuf, unit_no, line)
+    character(len=annual_line_len), intent(inout) :: buffer(:)
+    integer, intent(inout) :: nbuf
+    integer, intent(in) :: unit_no
+    character(len=*), intent(in) :: line
+
+    if (nbuf >= size(buffer)) call flush_one_annual_buffer(buffer, nbuf, unit_no)
+    nbuf = nbuf + 1
+    buffer(nbuf) = line
+  end subroutine push_annual_line
+
+  subroutine flush_one_annual_buffer(buffer, nbuf, unit_no)
+    character(len=annual_line_len), intent(inout) :: buffer(:)
+    integer, intent(inout) :: nbuf
+    integer, intent(in) :: unit_no
+    integer :: i
+
+    do i = 1, nbuf
+      write(unit_no,'(A)') trim(buffer(i))
+    enddo
+    nbuf = 0
+  end subroutine flush_one_annual_buffer
+
+  subroutine flush_annual_diagnostics_buffers()
+    logical :: is_open
+
+    if (allocated(annual_cohort_buf)) then
+      inquire(unit=fno5, opened=is_open)
+      if (is_open) call flush_one_annual_buffer(annual_cohort_buf, n_annual_cohort_buf, fno5)
+    endif
+
+    if (allocated(annual_patch_buf)) then
+      inquire(unit=fno6, opened=is_open)
+      if (is_open) call flush_one_annual_buffer(annual_patch_buf, n_annual_patch_buf, fno6)
+    endif
+
+#ifdef DroughtMIP
+    if (allocated(annual_cohort2_buf)) then
+      inquire(unit=fno5+10, opened=is_open)
+      if (is_open) call flush_one_annual_buffer(annual_cohort2_buf, n_annual_cohort2_buf, fno5+10)
+    endif
+#endif
+  end subroutine flush_annual_diagnostics_buffers
 
 !============================= Subroutines ====================================
 !====================== Read Forcing Data ===============================
@@ -549,6 +631,8 @@ module io_mod
     character(len=6)   :: LonLat
     integer :: istat1, istat2, istat3
 
+    call init_annual_diagnostics_buffers()
+
     ! File path and names
     fpath = trim(filepath_out)
     filesuffix   = trim(runID) ! tag for simulation experiments
@@ -961,6 +1045,7 @@ module io_mod
     real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
     real :: plantC, plantN, soilC, soilN,BMtot,N_loss_yr
     integer :: f_cht,i,j,iyr_out,yr_Eq,yr_Sc
+    character(len=annual_line_len) :: line
 
     ! Max LAI
     vegn%LAImax = 0.0
@@ -1001,25 +1086,27 @@ module io_mod
           endif
 
           BMtot = TreeTotalC(cc) ! cc%bl+cc%br+cc%bsw+cc%bHW+cc%seedC+cc%nsc
-          write(f_cht,'(3(I8,","),300(E15.4,","))')        &
-          iyr_out,cc%species,i,                          &
-          cc%nindivs*10000*(1.0-cc%mu),cc%dbh*100.,cc%height, &
-          BMtot,BMtot*0.7,2.0*sp%rho_wood,1.0/(2.0*sp%LMA),   &
-          cc%Acrown
+          write(line,'(3(I8,","),300(E15.4,","))')               &
+          iyr_out,cc%species,i, cc%nindivs*10000*(1.0-cc%mu),    &
+          cc%dbh*100.,cc%height,BMtot,BMtot*0.7,2.0*sp%rho_wood, &
+          1.0/(2.0*sp%LMA), cc%Acrown
+          call append_annual_line(f_cht, line)
 
         endif
 
 #elif DBEN_run
-        if(iyr_out > 0) &
-        write(fno5,'(7(I8,","),300(E15.4,","))')vegn%tileID, &
-        iyr_out,i,cc%ccID,cc%species,sp%lifeform,    &
-        cc%layer,cc%nindivs*10000,cc%layerfrac,      &
-        cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
-        cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,   &
-        cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
-        treeG,fseed,fleaf,froot,fwood,cc%mu
+        if(iyr_out > 0) then
+          write(line,'(7(I8,","),300(E15.4,","))')vegn%tileID, &
+          iyr_out,i,cc%ccID,cc%species,sp%lifeform,    &
+          cc%layer,cc%nindivs*10000,cc%layerfrac,      &
+          cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
+          cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,   &
+          cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
+          treeG,fseed,fleaf,froot,fwood,cc%mu
+          call append_annual_line(fno5, line)
+        endif
 #elif FACE_run
-        write(fno5,'(4(I8,","),300(E15.6,","))')iyears,i,   &
+        write(line,'(4(I8,","),300(E15.6,","))')iyears,i,   &
         cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
         cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
         cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
@@ -1028,9 +1115,10 @@ module io_mod
         cc%NupYr*1000,cc%annualGPP,cc%annualNPP,          &
         cc%NPPleaf,cc%NPProot,cc%NPPwood,cc%annualTrsp,   &
         cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
+        call append_annual_line(fno5, line)
 
 #else
-        write(fno5,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
+        write(line,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
         iyears,i,cc%ccID,cc%species,cc%layer,            &
         cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,      &
         cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,    &
@@ -1044,6 +1132,7 @@ module io_mod
 #else
         cc%treeW0
 #endif
+        call append_annual_line(fno5, line)
 
 #endif
 
@@ -1063,15 +1152,17 @@ module io_mod
 
     if(iyr_out > 0) then
       call vegn_sum_tile(vegn)
-      plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
+      plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +  &
                vegn%SwC + vegn%HwC
+      plantN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN +  &
+               vegn%SwN + vegn%HwN
+      
       soilC  = sum(vegn%SOC(:))
-      plantN = vegn%NSN + vegn%SeedN + vegn%leafN +                &
-               vegn%rootN + vegn%SwN + vegn%HwN
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
+
       N_loss_yr = (vegn%dNorg_Yr + vegn%dNgas_Yr + vegn%dNmin_Yr)*1000.
 #ifdef FACE_run
-      write(fno6,'(1(I5,","),85(E15.6,","))') iyears, &
+      write(line,'(1(I5,","),85(E15.6,","))') iyears, &
       vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
       vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
       vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
@@ -1081,21 +1172,24 @@ module io_mod
       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
       vegn%mineralN*1000, vegn%annualN*1000, vegn%NupYr*1000,             &
       vegn%Nm_Fire*1000, N_loss_yr, vegn%CO2_c,vegn%annualCH4
+      call append_annual_line(fno6, line)
 #elif DroughtMIP
-      if (iyears > yr_Eq) &
-      write(fno6,'(2(I5,","),80(E15.6,","))')&
-      vegn%tileID,iyears - yr_Sc,vegn%CAI,vegn%LAI,                   &
-      vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
-      vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
-      vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
-      vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
-      vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
-      vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
-      (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,vegn%annualCH4,     &
-      (vegn%wcl(j),j=1,soil_L)
+      if (iyears > yr_Eq) then
+        write(line,'(2(I5,","),80(E15.6,","))')&
+        vegn%tileID,iyears - yr_Sc,vegn%CAI,vegn%LAI,                   &
+        vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
+        vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
+        vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
+        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
+        vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
+        vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
+        (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,vegn%annualCH4,     &
+        (vegn%wcl(j),j=1,soil_L)
+        call append_annual_line(fno6, line)
+      endif
 
 #else
-      write(fno6,'(2(I5,","),120(E15.6,","))')  &
+      write(line,'(2(I5,","),120(E15.6,","))')  &
       vegn%tileID,iyears,vegn%CAI,vegn%LAI,vegn%annualGPP,            &
       vegn%annualResp,vegn%annualRh,vegn%C_burned,vegn%YearlyTmp,     &
       vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
@@ -1109,6 +1203,7 @@ module io_mod
       vegn%dNorg_Yr*1000, vegn%dNgas_Yr*1000, vegn%dNmin_Yr*1000,     &
       vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,           &
       vegn%Frisk,vegn%Pfire,vegn%annualCH4
+      call append_annual_line(fno6, line)
 #endif
     endif
   end subroutine annual_diagnostics

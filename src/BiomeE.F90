@@ -305,6 +305,8 @@ subroutine BiomeE_end
   type(vegn_tile_type), pointer :: pveg => null()
   logical :: is_open
 
+  call flush_annual_diagnostics_buffers()
+
   !------------ Close output files (only if opened)
   inquire(unit=fno1, opened=is_open); if (is_open) close(fno1)
   inquire(unit=fno2, opened=is_open); if (is_open) close(fno2)
