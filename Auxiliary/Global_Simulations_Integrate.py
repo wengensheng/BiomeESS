@@ -329,7 +329,7 @@ for ifile in range(N_files):
             muC[iYr,iPFT] = muC[iYr,iPFT] + CCYr[i,6]*CCYr[i,29]*np.sum(CCYr[i,15:21])/10000
             CA[iYr,iPFT]  = CA[iYr,iPFT]  + CCYr[i,6]*CCYr[i,13]/10000
         # Density weighted
-        if (iYr < int(CCYr[i+1,1])-1 or i+1 == totCCL):
+        if (iYr < int(CCYr[i+1,1])-1 or i == totCCL-2):
             for j in range(8):
                 if den[iYr,j] > 1e-4:
                     mu[iYr,j] = mu[iYr,j]/den[iYr,j]
@@ -360,6 +360,8 @@ for ifile in range(N_files):
                 totMu = totMu + den[j, k] * mu[j, k]
                 totDn = totDn + den[j, k]
             meanPFTmu [k, n, m] = totMu/totDn
+    print('Mortality rate:')
+    print(meanPFTmu [:, n, m])
 
     # --------------- Write out Grid temporal files ---------------
     # Write temporal CA of the PFTs
@@ -390,7 +392,6 @@ fden.close()
 
 
 # Output files
-ftmp  = open(fpout + "Tmp_Tmp.txt", 'w')
 fca   = open(fpout + "Eco_CA_PFTs.txt", 'w')
 fgrid = open(fpout + "GridIDs.txt", "w")
 
@@ -423,17 +424,9 @@ for ifile in range(N_files):
           meanPFTCA[:, n, m], meanPFTmu [:,n,m], meanPFTden[:,n,m]))
     formatted_row = [f"{x:.4f}" for x in row]
     fca.write(",".join(formatted_row) + "\n")
-    
-    '''
-    # Write temporal test data (all zeros or ones)
-    for i in range(N_pfts):
-        formatted_row = [f"{num:.2e}" for num in tmp[:,i]]
-        ftmp.write(",".join(formatted_row) + "\n")
-    '''
 
 fca.close()
 fgrid.close()
-ftmp.close()
 
 #%% Write to netCDF files
 LonLatStep = 0.5 * Resolution
