@@ -62,6 +62,7 @@ module datatypes
   ! Soil water layers
   integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
   integer, parameter :: num_l  = soil_L ! Soil layers,
+  integer, parameter :: topSL  = 3 ! Top soil layers for thetaS calculation
   real, parameter :: psi_wilt  = -150.0  ! matric head at wilting
   real, parameter :: K_rel_min = 1.e-12
   real, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d threshold drainage rate at Field Capacity
@@ -435,9 +436,8 @@ module datatypes
     real :: freewater(soil_L) ! Available water in each layer
     real :: psi_soil(soil_L)  ! MPa
     real :: K_soil(soil_L)    ! Kg H2O/(m2 s MPa)
-    real :: soilZ             ! Soil depth
     real :: soilWater         ! kg m-2 in root zone
-    real :: soilWP0           ! kg m-2, minimum soil water (at WILTPT)
+    real :: W0topSL           ! kg m-2, maximal free soil water in topSL layers)
 
     ! Vegetation water content
     real :: W_leaf  ! Leaves
@@ -661,7 +661,7 @@ module datatypes
 
   ! Soil organic matter decomposition
   real :: K0SOM(5)     = [0.8, 0.25, 3.0, 1.5, 0.05] ! (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
-  real :: CUEmax0      = 0.1 ! Maximum carbon use efficiency of microbes
+  real :: CUEmax0      = 0.1     ! Maximum carbon use efficiency of microbes
   real :: K_DeNitr     = 8.0     ! mineral Nitrogen turnover rate
   real :: fDON         = 0.02    ! fraction of DON production in decomposition
   real :: rho_SON      = 0.05    ! SON release rate per year
@@ -670,10 +670,10 @@ module datatypes
   real :: fdsvN        = 0.30    ! Max fraction of soluble N taken out by runoff (01/17/2026, Weng)
 
   ! --- Methane (CH4) parameters for soil BGC (MVP) ---
-  real :: CH4_alpha = 0.20   ! fraction of Rh routed to CH4 under fully anaerobic conditions (0-1)
+  real :: CH4_alpha   = 0.20   ! fraction of Rh routed to CH4 under fully anaerobic conditions (0-1)
   real :: CH4_beta_ox = 0.50 ! fraction of produced CH4 oxidized in oxic fraction (0-1)
-  real :: CH4_wfps0 = 0.60   ! wetness threshold for onset of anoxia (WFPS-like, 0-1)
-  real :: CH4_wfps1 = 0.95   ! wetness for fully anaerobic (WFPS-like, 0-1)
+  real :: CH4_wfps0   = 0.60   ! wetness threshold for onset of anoxia (WFPS-like, 0-1)
+  real :: CH4_wfps1   = 0.95   ! wetness for fully anaerobic (WFPS-like, 0-1)
 
   ! -------- PFT-specific parameters ----------
   ! Define parameter arrays with the same value. Preset of global PFTs is in Preset_GlobalPFTs

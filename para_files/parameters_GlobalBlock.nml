@@ -122,6 +122,14 @@
 ! TrE, TrD, TmE, TmD: W_mu0: 0.65, 0.85x3 --> 0.50,   0.75,   0.75,   0.75
 ! DeS IgniteP 0.05 --> 0.10; rho_wood 450 --> 500
 
+! Update 04/23/2025
+! Test the model to see how the changes made recently affect global ESS PFT run
+! K_DeNitr: 1.0 -> 0.5
+! etaN       0.02 -> 0.01, ! Nitrogen loss rate with runoff (mm/step)
+! diff_S0    0.1 -> 0.16,
+! N_input 3 -> 2
+! model_run_years 890 ->  1790
+
 &initial_state_nml
 !! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
 ! Must be commented out if 'DO_Climate_VEG' is defined in the runscript
@@ -132,7 +140,7 @@
 init_fast_SOC    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
 init_slow_SOC    = 12.,    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
 init_mineralN    = 5.0E-3, ! 402.5E-3, ! kg N m-2
-N_input          = 3.0E-3, ! 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+N_input          = 2.0E-3, ! 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
 MI0DeSB = 0.20,   ! Prcp/PET, Desert shrub vs trees
@@ -148,7 +156,7 @@ climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
-model_run_years =  890, ! 1590, !
+model_run_years = 1190, !  1790,   ! 890, 
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True.,  !
 do_closedN_run  = .False., ! .True.  !
@@ -169,11 +177,12 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 &vegn_parameters_nml
 f_iniBSW   = 0.1,
 K0SOM      = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
-K_DeNitr   = 1.0,  ! 1.2 ! 2.4 ! rate of a year, 2.5
+CUEmax0    = 0.1,  ! Microbial max CUE
+K_DeNitr   = 0.5,  ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0,  ! organic nitrogen release rate
-etaN       = 0.02, ! Nitrogen loss rate with runoff (mm/step)
+etaN       = 0.01, ! Nitrogen loss rate with runoff (mm/step)
 f_M2SOM    = 0.8,  ! fraction of microbes to litter
-diff_S0    = 0.1,  ! critical difference for merging of two cohorts
+diff_S0    = 0.16, ! critical difference for merging of two cohorts
 c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
 MI0Fire    = 0.25, ! 0.20, ! 0.33, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 FSBM0      = 0.06, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity

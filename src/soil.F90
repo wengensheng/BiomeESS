@@ -61,8 +61,9 @@ module soil_mod
     real :: d_Ngas, d_Nmin       ! N losses with different format, kg N m-2 step-1
     real :: A                    ! Decomp rate reduction due to moisture and temperature
     ! CH4 locals
-    real :: Rh_total, wfps, f_ana
-    real :: CH4_prodC = 0.0, CH4_oxidC = 0.0
+    real :: wfps, f_ana
+    real :: CH4_prodC = 0.0
+    real :: CH4_oxidC = 0.0
     !real :: McrbMax = 0.2       ! kgC m-2, Maximum microbial biomass (as a function of SON)
     !real :: fm_dcmp = 1.0
     !real :: fm_grow = 1.0       ! microbial growth rate, !Test for microbial controls on decomposition
@@ -125,8 +126,8 @@ module soil_mod
     vegn%SON(5) = vegn%SON(5) - d_N(5) + newM(5) / CN0SOM(3) * f_M2SOM
 
     ! Mineralized nitrogen and heterotrophic respiration, kg m-2 step-1 (as C and N)
-    Rh_total = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5))
-    N_m      = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
+    N_m     = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
+    vegn%rh = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5))
 
     ! ---------------- CH4 module (MVP) ----------------
     if(Do_CH4)then
@@ -137,22 +138,19 @@ module soil_mod
       f_ana = max(0.0, min(1.0, (wfps - CH4_wfps0)/(CH4_wfps1 - CH4_wfps0)))
 
       ! CH4 production from heterotrophic respiration carbon (anaerobic partition)
-      CH4_prodC = Rh_total * CH4_alpha * f_ana
+      CH4_prodC = vegn%rh * CH4_alpha * f_ana
 
       ! CH4 oxidation (simple scaling; oxidation returns CO2)
       CH4_oxidC = CH4_prodC * CH4_beta_ox * (1.0 - f_ana)
-    else
-      CH4_prodC = 0.0
-      CH4_oxidC = 0.0
+
+      ! Store diagnostics (as C)
+      vegn%ch4_prod = CH4_prodC
+      vegn%ch4_oxid = CH4_oxidC
+      vegn%ch4_emit = vegn%ch4_prod - vegn%ch4_oxid
+
+      ! Adjust vegn%rh to conserve carbon and Keep it as CO2 flux
+      vegn%rh = vegn%rh - vegn%ch4_emit
     endif
-
-    ! Store diagnostics (as C)
-    vegn%ch4_prod = CH4_prodC
-    vegn%ch4_oxid = CH4_oxidC
-    vegn%ch4_emit = vegn%ch4_prod - vegn%ch4_oxid
-
-    ! Adjust Rh_total to conserve carbon and Keep vegn%rh as CO2 flux
-    vegn%rh = Rh_total - vegn%ch4_emit
 
     ! ------- DON and mineralN losses ----------
     K_dn = A * K_DeNitr * dt_fast_yr
@@ -276,7 +274,9 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     vegn%wcl(:)       = vegn%wcl(:) +  WaterBudgetL(:)/(thksl(:)*1000.0)
     vegn%freewater(:) = max(0.0,((vegn%wcl(:)-vegn%WILTPT)*thksl(:)*1000.0)) ! kg/m2, or mm
     vegn%soilwater    = sum(vegn%freewater(:))
-    vegn%thetaS       = sum(vegn%freewater(1:3))/(sum(thksl(1:3))*1000.0*(vegn%FLDCAP - vegn%WILTPT))
+
+    ! Calculate thetaS of topSL layers
+    vegn%thetaS = sum(vegn%freewater(1:topSL)) / vegn%W0topSL ! free water of topSL layers
   end subroutine SoilWaterDynamics
 
 !======================================================================

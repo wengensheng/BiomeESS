@@ -31,6 +31,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! hourly carbon, nitrogen, and water dynamics, Weng 2016-11-25
   ! include Nitrogen uptake and carbon budget
   ! C_growth is calculated here to drive plant growth and reproduciton
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
 
@@ -92,6 +93,7 @@ end subroutine vegn_CNW_budget_fast
 
 !==========================================================================
 subroutine vegn_daily_update(vegn, deltat)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! dt_daily_yr, 1.0/365.0
 
@@ -109,6 +111,7 @@ end subroutine vegn_daily_update
 
 !==========================================================================
 subroutine vegn_demographics(vegn, deltat)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds of a year
   !-------- local vars ----------
@@ -127,6 +130,7 @@ end subroutine vegn_demographics
 
 !========================================================================
 subroutine vegn_SingleCohort_annual_update(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   call vegn_reprod_samesized(vegn)
@@ -182,6 +186,7 @@ end subroutine vegn_reprod_samesized
 !========================================================================
 subroutine vegn_Wood_turnover(vegn)
   ! Mortality for the single cohort test, 02/21/2024
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !-------local var----------
@@ -2568,6 +2573,7 @@ end subroutine initialize_cohorts
 
 !============================================================
 subroutine initialize_soil(vegn)
+   implicit none
    type(vegn_tile_type),intent(inout) :: vegn
 
    ! Initial Soil pools and environmental conditions
@@ -2582,8 +2588,7 @@ subroutine initialize_soil(vegn)
    vegn%WILTPT   = max(soilpars(soiltype)%vwc_wilt, zero_thld)
    vegn%FLDCAP   = max(soilpars(soiltype)%vwc_fc, vegn%WILTPT + 0.05)
    vegn%wcl      = vegn%FLDCAP ! vegn%WILTPT + 0.5 * (vegn%FLDCAP-vegn%WILTPT)
-   vegn%soilZ    = sum(thksl(:))
-   vegn%soilWP0  = vegn%WILTPT * vegn%soilZ * 1000.0 ! Minimum soil water
+   vegn%W0topSL  = (vegn%FLDCAP-vegn%WILTPT) * sum(thksl(1:topSL)) * 1000. ! maximal free soil water of topSL layers
    vegn%thetaS   = 1.0 ! 0.5
    call SoilWater_psi_K(vegn)
 end subroutine initialize_soil

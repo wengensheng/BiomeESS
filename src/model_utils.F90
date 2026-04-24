@@ -1105,6 +1105,7 @@ contains
 
   ! ============================================================================
   function c3c4(temp, precip) result (pt)
+    implicit none
     integer :: pt
     real,              intent(in) :: temp   ! temperatire, degK
     real,              intent(in) :: precip ! precipitation, ???
@@ -1127,6 +1128,7 @@ contains
     ! of elements of array x in descending order of x values. These codes
     ! are from Sergey Malyshev (LM3PPA, Weng et al. 2015 Biogeosciences)
 
+    implicit none
     real,    intent(in)  :: x(:)
     integer, intent(out) :: idx(:)
     integer :: i,n
