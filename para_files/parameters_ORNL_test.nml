@@ -2,11 +2,11 @@
 soiltype = 3,
 WaterLeakRate = 0.0, ! fraction per day
 thksl    = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
-GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
-chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
-psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
-k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
-vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
+!GMD = 0.7, 0.4, 0.3, 0.1, 0.1, 0.07, 0.007,
+!chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+!psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
+!k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
+!vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &vegn_parameters_nml
@@ -87,9 +87,9 @@ filepath_out= './output/',
 runID       = 'ORNL_test' ! 'LMA_ID_EGDC_LN12_mu02_Wmu30_Beta0806', ! Output file name
 climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv', !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years = 1600, ! 1600,
+model_run_years = 100, ! 1600,
 outputhourly    = .False. ! .True.  !
-outputdaily     = .False. ! .True.  !
+outputdaily     = .True.  ! .False. !
 Do_CH4          = .True.  ! .False. !
 do_closedN_run  = .False. ! .True.  !
 Do_DroughtMu    = .False. ! .True.  !

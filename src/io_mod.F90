@@ -202,7 +202,7 @@ module io_mod
       if(yr /= year_data(m))nyear = nyear + 1
       !Remove -9999
       do n=1,niterms
-        if(input_data(n,m)<-900.0)then
+        if(input_data(n,m)<-900.0 .and. m > 1)then
           input_data(n,m) = input_data(n,m-1) ! remove -9999
         endif
       enddo
@@ -661,7 +661,7 @@ module io_mod
       'density','dbh','height','Acrown',      &
       'bl','LAI','GPP', 'NPP', 'Transp',      &
 #ifdef Hydro_test
-      'Psi_L','Psi_W','W_leaf','W_stem'
+      'Psi_L','Psi_W','W_leaf','W_sw'
 #else
       'W_supply','W_scale'
 #endif
@@ -672,7 +672,7 @@ module io_mod
       'Tair','Prcp', 'GPP', 'Resp',         &
       'Transp','Evap','Runoff','Soilwater', &
       'wcl', 'psi_soil','k_soil',           &
-      'bl','Psi_L','Psi_W','W_leaf','W_stem','Transp'
+      'bl','Psi_L','Psi_W','W_leaf','W_sw','Transp'
     endif
 
     if(outputdaily)then
@@ -880,7 +880,7 @@ module io_mod
         cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,      &
         cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,             &
 #ifdef Hydro_test
-        cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_stem
+        cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_sw
 #else
         cc%W_supply,cc%W_scale
 #endif
@@ -894,7 +894,7 @@ module io_mod
         vegn%evap,vegn%runoff,vegn%soilwater,                &
         vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2),         &
         cc1%bl,cc1%psi_leaf,cc1%psi_stem,cc1%W_leaf,         &
-        cc1%W_stem,cc1%transp
+        cc1%W_sw,cc1%transp
       end associate
     endif
 
@@ -964,7 +964,7 @@ module io_mod
         !cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
         !cc%NSN*1000,cc%seedN*1000, cc%leafN*1000,        &
         !cc%rootN*1000,cc%swN*1000,cc%hwN*1000,       &
-        !cc%W_leaf,cc%W_stem,cc%W_dead,                   &
+        !cc%W_leaf,cc%W_sw,cc%W_hw,                   &
         cc%gdd,cc%ALT,cc%AWD
       enddo
       !! Tile daily

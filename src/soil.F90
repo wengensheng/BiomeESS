@@ -388,7 +388,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
 
       ! Just fill water for plant water pool (for non-hydro only)
       cc%W_leaf = cc%Wmax_L
-      cc%W_stem = cc%Wmax_s
+      cc%W_sw   = cc%Wmax_s
 
       !------- Error check -----------------
       if(isnan(cc%W_supply))then
@@ -528,7 +528,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     u(:), &      ! layer-by-layer distribution of uptake, kg/(m2 s)
     du(:)        ! derivative of u w.r.t. root water potential, kg/(m3 s)
     ! ---- local vars
-    integer :: k
+    integer :: i,k
     real :: psi_x     ! water potential inside roots (psi_x0+z), m
     real :: psi_soil  ! water potential of soil, m
     real :: psi_sat   ! saturation soil water potential, m
@@ -540,9 +540,14 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     ! soil layer depth
     real     :: dz(soil_L)  ! thicknesses of layers
     real     :: zfull(soil_L)
-    real     :: zhalf(soil_L+1)
 
     dz(:) = thksl(:)   ! thicknesses of layers
+    ! Weng, made up, 04/24/2026
+    zfull(1) = 0.0
+    do i =2 , soil_l
+      zfull(i) = zfull(i-1) + dz(i)
+    enddo
+
     ! calculate some hydraulic properties common for all soil layers
     psi_sat = soil%pars%psi_sat_ref/soil%pars%alpha
     K_sat   = soil%pars%k_sat_ref*soil%pars%alpha**2

@@ -44,8 +44,8 @@ contains
     vegn%SwN     = 0.0
     vegn%HwN     = 0.0
 
-    vegn%W_stem = 0.0
-    vegn%W_dead = 0.0
+    vegn%W_sw = 0.0
+    vegn%W_hw = 0.0
     vegn%W_leaf = 0.0
 
     vegn%LAI    = 0.0
@@ -71,8 +71,8 @@ contains
         vegn%SwN     = vegn%SwN     + cc%swN    * cc%nindivs
         vegn%HwN     = vegn%HwN     + cc%hwN    * cc%nindivs
 
-        vegn%W_stem  = vegn%W_stem  + cc%W_stem * cc%nindivs
-        vegn%W_dead  = vegn%W_dead  + cc%W_dead * cc%nindivs
+        vegn%W_sw  = vegn%W_sw  + cc%W_sw * cc%nindivs
+        vegn%W_hw  = vegn%W_hw  + cc%W_hw * cc%nindivs
         vegn%W_leaf  = vegn%W_leaf  + cc%W_leaf * cc%nindivs
       end associate
     enddo
@@ -338,27 +338,39 @@ contains
 
   !========================Parameter initialization =========================
   subroutine initialize_soilpars(fnml)
+    implicit none
     character(len=*),intent(in) :: fnml
+
+    ! ----- local vars -------
+    real :: psi_wilt_Pa ! Pa
+    real :: k_sat_eff(n_dim_soil_types)   ! kg/(m2 s) effective drainage
 
     ! Read in parameters in soil_data_nml
     call read_soil_namelist(fnml)
     ! initialize soil parameters
-    soilpars%GMD         = GMD ! geometric mean partice diameter, mm
-    soilpars%GSD         = GSD ! geometric standard deviation of particle size
+    soilpars%GMD         = GMD         ! geometric mean partice diameter, mm
+    soilpars%GSD         = GSD         ! geometric standard deviation of particle size
     soilpars%vwc_sat     = vwc_sat
-    soilpars%k_sat_ref   = k_sat_ref ! hydraulic conductivity of saturated soil, kg/(m2 s)
+    soilpars%k_sat_ref   = k_sat_ref   ! hydraulic conductivity of saturated soil, kg/(m2 s)
     soilpars%psi_sat_ref = psi_sat_ref ! saturation soil water potential, m
-    soilpars%chb         = chb       ! Soil texture parameter
-    soilpars%alpha       = alphaSoil       ! *** REPLACE LATER BY alpha(layer)
+    soilpars%chb         = chb         ! Soil texture parameter
+    soilpars%alpha       = alphaSoil! *** REPLACE LATER BY alpha(layer)
     soilpars%heat_capacity_dry = heat_capacity_dry
 
     ! ---- derived constant soil parameters
     ! w_fc (field capacity) set to w at which hydraulic conductivity equals
     ! a nominal drainage rate "rate_fc". w_wilt set to w at which psi is psi_wilt
-    soilpars%vwc_fc = soilpars%vwc_sat !&
-    !*(rate_fc/(soilpars%k_sat_ref*soilpars%alpha**2))**(1/(3+2*soilpars%chb))
-    soilpars%vwc_wilt = soilpars%vwc_sat *0.12 !&
-    !*(soilpars%psi_sat_ref/(psi_wilt*soilpars%alpha))**(1/soilpars%chb)
+    psi_wilt_Pa = psi_wilt * 9800.0 ! from m to Pa
+    k_sat_eff   = (18./1000.) * soilpars%k_sat_ref * (9800./1.0e6) ! kg/(m2 s)
+    ! Wilting point
+    soilpars%vwc_wilt = soilpars%vwc_sat * (soilpars%psi_sat_ref/psi_wilt_Pa)**(1./soilpars%chb)
+    ! Field capacity
+    soilpars%vwc_fc   = soilpars%vwc_sat * (rate_fc/k_sat_eff)**(1./(3. + 2. * soilpars%chb))
+    ! Hack for unreasonable wilt and fc !!
+    soilpars%vwc_wilt = min(soilpars%vwc_wilt, soilpars%vwc_sat * 0.2)
+    soilpars%vwc_fc   = max(soilpars%vwc_fc,   soilpars%vwc_sat * 0.8)
+
+    ! Minimal soil water
     soilpars%vlc_min = soilpars%vwc_sat*K_rel_min**(1/(3+2*soilpars%chb))
 
     ! Original LM3PPA codes
@@ -369,6 +381,14 @@ contains
     !  soil%pars%vwc_wilt = soil%w_wilt(1)
     !  soil%pars%vwc_fc   = soil%w_fc  (1)
     !  soil%pars%vlc_min = soil%pars%vwc_sat*K_rel_min**(1/(3+2*soil%pars%chb))
+
+    ! Fixation (Claude Code)
+    !# Fix 1: convert psi_wilt from m-head to Pa to match psi_sat_ref
+    ! psi_wilt_Pa = psi_wilt * 9800.0
+    ! ratio_wilt_fixed = psi_sat_ref / (psi_wilt_Pa * alpha)
+    !# Fix 2: k_sat_ref is mol/(s MPa m); calc_soil_K uses: k = 18/1000 * k_sat_ref * (theta/thetasat)^(2b+3)  [kg/(m2 MPa s)]
+    !# To get drainage flux in kg/(m2 s), multiply by gravity gradient: rho*g = 9800 Pa/m = 0.0098 MPa/m
+    !k_sat_eff = (18./1000.) * k_sat_ref * (9800./1e6) * alpha**2   # kg/(m2 s) effective drainage
 
   end subroutine initialize_soilpars
 

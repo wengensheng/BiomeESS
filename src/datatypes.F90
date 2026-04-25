@@ -63,11 +63,11 @@ module datatypes
   integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
   integer, parameter :: num_l  = soil_L ! Soil layers,
   integer, parameter :: topSL  = 3 ! Top soil layers for thetaS calculation
-  real, parameter :: psi_wilt  = -150.0  ! matric head at wilting
-  real, parameter :: K_rel_min = 1.e-12
-  real, parameter :: rate_fc   = 0.1/86400 ! 0.1 mm/d threshold drainage rate at Field Capacity
-  real, parameter :: ws0 = 0.02 ! hygroscopic point
-  !real, parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
+  real,    parameter :: psi_wilt  = -150.0  ! matric head at wilting, MPa
+  real,    parameter :: K_rel_min = 1.e-12
+  real,    parameter :: rate_fc   = 5./86400 ! 0.1/86400 ! 0.1 mm/d threshold drainage rate at Field Capacity
+  real,    parameter :: ws0 = 0.02 ! hygroscopic point
+  !real,   parameter :: Edepth = 0.05 !m, the depth of soil for surface evaporation
   integer, parameter :: & ! soil types
                      Sand        = 1,  LoamySand   = 2, &
                      SandyLoam   = 3,  SiltLoam    = 4, &
@@ -338,8 +338,8 @@ module datatypes
     real :: H_leaf ! Leaf capacitance, kgH2O MPa-1 (per tree)
     real :: H_stem ! Stem capacitance, kgH2O MPa-1 (per tree)
     real :: W_leaf ! Leaf water content, kgH2O (per tree)
-    real :: W_stem ! Stem water content, kgH2O (per tree)
-    real :: W_dead ! water storage in heartwood, just for balance counting.
+    real :: W_sw   ! Stem water content, kgH2O (per tree)
+    real :: W_hw   ! water storage in heartwood, just for balance counting.
     real :: Wmax_l ! Leaf max water content, kgH2O (per tree)
     real :: Wmax_s ! Stem max water content, kgH2O (per tree)
     real :: Wmin_l ! Leaf min water content, kgH2O (per tree)
@@ -441,8 +441,8 @@ module datatypes
 
     ! Vegetation water content
     real :: W_leaf  ! Leaves
-    real :: W_stem  !
-    real :: W_dead  ! Heartwood ?
+    real :: W_sw  !
+    real :: W_hw  ! Heartwood ?
 
     ! water uptake-related variables
     real :: RAI                ! root area index
@@ -521,8 +521,8 @@ module datatypes
     real :: vwc_fc
     real :: vwc_sat
     real :: vlc_min
-    real :: k_sat_ref ! hydraulic conductivity of saturated soil, kg/(m2 s)
-    real :: psi_sat_ref ! saturation soil water potential, m
+    real :: k_sat_ref   ! hydraulic conductivity of saturated soil, kg/(m2 s)
+    real :: psi_sat_ref ! saturation soil water potential, Pa
     real :: chb         ! Soil texture parameter
     real :: alpha       ! vertical changes of soil property, 1: no change
     real :: heat_capacity_dry ! J m-3 k-1
@@ -590,7 +590,6 @@ module datatypes
   (/5.0, 5.3, 7.4, 6.1, 6.1, 14.0, 15.0, 7.4, 7.4 /)
   real :: vwc_sat(n_dim_soil_types)= &
   (/ 0.380, 0.445, 0.448, 0.412, 0.414, 0.446, 0.424, 0.445, 0.445   /)
-  !real :: vlc_min(n_dim_soil_types)
   real :: k_sat_ref(n_dim_soil_types)= & ! mol/(s MPa m) , hydraulic conductivity of saturated soil,
   (/ 70.8, 75.1, 28.2, 12.1, 11.1, 12.7, 1.69, 28.2, 28.2 /)
   !(/ 130.8, 75.1, 53.2, 12.1, 11.1, 12.7, 1.69, 53.2, 53.2 /)
@@ -996,9 +995,9 @@ module datatypes
   PaleoPfile, PaleoTfile, iDraw
 
   ! ---------- Soil hydraulic and heat parameter name list ---------
-  namelist /soil_data_nml/ soiltype, WaterLeakRate, thksl, GMD,   &
-  GSD, vwc_sat, k_sat_ref, psi_sat_ref, chb,alphaSoil,       &
-  heat_capacity_dry
+  namelist /soil_data_nml/ soiltype, thksl, GMD,GSD,           &
+      vwc_sat, k_sat_ref, psi_sat_ref, chb, alphaSoil,         &
+      heat_capacity_dry, WaterLeakRate
 
   ! --------- Vegetation parameter name list ---------
   namelist /vegn_parameters_nml/  diff_S0,                      &

@@ -316,14 +316,14 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
     ! Calculate daily max SW (SWmax)
     SWmax = 0.0
-    do j=1,96 ! 15 minutes
-      td = timecols(m,2) + (j-1)/96.0
+    do j=1,96 ! a day with 15 minutes interval
+      td = timecols(i,2) + (j-1)/96.0
       call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
       SWmax = SWmax + cosz * solarC * seconds_per_day/96.0
     enddo
 
     ! Fraction of solar radiation
-    fdSW((i-1)*Nsteps+1 : i*Nsteps) = Max(0.0,Min(1.0,SWdaily/(SWmax+0.0001))) *0.8 ! too high!
+    fdSW((i-1)*Nsteps+1 : i*Nsteps) = Max(0.0,Min(1.0,SWdaily/(SWmax+0.0001))) ! *0.8 ! too high!
   enddo
 
   ! ------------- Data interpolation ------------------
@@ -704,7 +704,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
      climateData(i)%PAR       = input_data(1,i)*2.0
      climateData(i)%radiation = input_data(1,i)
      climateData(i)%Tair      = input_data(2,i)
-     climateData(i)%Tsoil     = input_data(2,i)*0.8 + 273.16*0.2
+     climateData(i)%Tsoil     = (input_data(2,i)-273.16)*0.8 + 273.16
      climateData(i)%RH        = max(0.01, min(0.99, input_data(3,i) ))
      climateData(i)%rain      = input_data(4,i)
      climateData(i)%windU     = input_data(5,i)
