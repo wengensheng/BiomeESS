@@ -1,0 +1,50 @@
+&initial_state_nml
+! Model run
+filepath_in = './input/',
+!filepath_out= '/media/eweng/HD2/weng/Data/interp30yrs/', ! './output/',
+filepath_out= '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/DataInterpolation/',
+runID       = 'ESSPT_', ! Output file name
+climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
+/
+
+! Total grids are 56395 when Lat 61~320 and Lon 1~720
+&global_setting_nml
+!ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
+ncfilepath = '/media/eweng/HD2/weng/Data/unzippedNC/',
+ncversion  = 'crujra.v2.4.5d.',
+!veg_path   = '/Users/eweng/Documents/Data/Vegetation/',
+veg_path   = '/media/eweng/HD2/weng/Data/Vegetation/',
+veg_file   = 'pft2011_0.5x0.5.nc',
+int_fpath  = '/media/eweng/HD2/weng/Data/interpolated/',
+int_prefix = 'crujra.v2.4.5d.',
+GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
+WriteForcing = .True., ! .False.
+! Total grids are 56395 when Lat 61~320 and Lon 1~720
+LowerLon = LonStart, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
+UpperLon = LonEnd, ! 720, !  209,
+LowerLat = 61,  ! 247, 250, !  ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 320, ! 247, 252
+yr_start = 1990, ! 2010, ! Data start year of netCDF files
+yr_end   = 2019, ! 2011, ! Data end year
+grid_No1 = 1,     ! 1,
+grid_No2 = 90000, ! 56395, ! Maximum grids in the vegetated land
+StepLatLon = 1
+/
+
+
+&soil_data_nml
+soiltype = 3,
+thksl    = 0.05, 0.25, 0.5, 1.0, 1.2,  ! m, soil layer thickness
+
+/
+
+&vegn_parameters_nml
+f_iniBSW   = 0.1,
+K0SOM      = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
+K_DeNitr   = 1.2, ! 1.2 ! 2.4 ! rate of a year, 2.5
+rho_SON    = 0.0, ! organic nitrogen release rate
+etaN       = 0.02, ! Nitrogen loss rate with runoff
+f_M2SOM    = 0.8, ! fraction of microbes to litter
+diff_S0    = 0.1,  ! critical difference for merging of two cohorts
+MI0Fire    = 0.3333, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
+/
