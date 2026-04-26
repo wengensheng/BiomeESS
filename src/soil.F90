@@ -48,6 +48,7 @@ module soil_mod
 ! https://www.sciencedirect.com/science/article/pii/S0038071710002282
 
   subroutine Soil_BGC (vegn, tsoil, thetaS)
+    implicit none
     type(vegn_tile_type), intent(inout) :: vegn
     real, intent(in) :: tsoil   ! soil temperature, deg K
     real, intent(in) :: thetaS  ! soil moisture, (ws-wltpt)/(fldcap-wltpt)
@@ -60,10 +61,6 @@ module soil_mod
     real :: dN_SOM4, dN_SOM5     ! Dissolved organic N loss, kg N m-2 step-1
     real :: d_Ngas, d_Nmin       ! N losses with different format, kg N m-2 step-1
     real :: A                    ! Decomp rate reduction due to moisture and temperature
-    ! CH4 locals
-    real :: wfps, f_ana
-    real :: CH4_prodC = 0.0
-    real :: CH4_oxidC = 0.0
     !real :: McrbMax = 0.2       ! kgC m-2, Maximum microbial biomass (as a function of SON)
     !real :: fm_dcmp = 1.0
     !real :: fm_grow = 1.0       ! microbial growth rate, !Test for microbial controls on decomposition
@@ -129,29 +126,6 @@ module soil_mod
     N_m     = d_N(3) + d_N(4) + d_N(5) - (newM(4) + newM(5)) / CN0SOM(3)
     vegn%rh = d_C(3) + d_C(4) + d_C(5) - (newM(4) + newM(5))
 
-    ! ---------------- CH4 module (MVP) ----------------
-    if(Do_CH4)then
-      ! thetaS assumed 0-1 wetness proxy (WFPS-like)
-      wfps = max(0.0, min(1.0, thetaS))
-
-      ! anaerobic fraction from wetness
-      f_ana = max(0.0, min(1.0, (wfps - CH4_wfps0)/(CH4_wfps1 - CH4_wfps0)))
-
-      ! CH4 production from heterotrophic respiration carbon (anaerobic partition)
-      CH4_prodC = vegn%rh * CH4_alpha * f_ana
-
-      ! CH4 oxidation (simple scaling; oxidation returns CO2)
-      CH4_oxidC = CH4_prodC * CH4_beta_ox * (1.0 - f_ana)
-
-      ! Store diagnostics (as C)
-      vegn%ch4_prod = CH4_prodC
-      vegn%ch4_oxid = CH4_oxidC
-      vegn%ch4_emit = vegn%ch4_prod - vegn%ch4_oxid
-
-      ! Adjust vegn%rh to conserve carbon and Keep it as CO2 flux
-      vegn%rh = vegn%rh - vegn%ch4_emit
-    endif
-
     ! ------- DON and mineralN losses ----------
     K_dn = A * K_DeNitr * dt_fast_yr
     !K_rf = fdsvN * (1.0 - exp(-etaN*vegn%runoff/fdsvN)) ! fdsvN is the max. loss rate when runoff is extremely high
@@ -184,7 +158,45 @@ module soil_mod
       endif
     enddo
 
+    ! ---------------- CH4 module (MVP) ----------------
+    if(Do_CH4)then
+      call Soil_CH4 (vegn, thetaS)
+    endif
+
   end subroutine Soil_BGC
+
+! =========================================================================
+  subroutine Soil_CH4 (vegn, thetaS)
+    implicit none
+    type(vegn_tile_type), intent(inout) :: vegn
+    real, intent(in) :: thetaS  ! soil moisture, (ws-wltpt)/(fldcap-wltpt)
+
+    ! ---- local var -------------
+    real :: wfps, f_ana
+    real :: CH4_prodC
+    real :: CH4_oxidC
+
+    ! ---------------- CH4 module (MVP) ----------------
+    ! thetaS assumed 0-1 wetness proxy (WFPS-like)
+      wfps = max(0.0, min(1.0, thetaS))
+
+      ! anaerobic fraction from wetness
+      f_ana = max(0.0, min(1.0, (wfps - CH4_wfps0)/(CH4_wfps1 - CH4_wfps0)))
+
+      ! CH4 production from heterotrophic respiration carbon (anaerobic partition)
+      CH4_prodC = vegn%rh * CH4_alpha * f_ana
+
+      ! CH4 oxidation (simple scaling; oxidation returns CO2)
+      CH4_oxidC = CH4_prodC * CH4_beta_ox * (1.0 - f_ana)
+
+      ! Store diagnostics (as C)
+      vegn%ch4_prod = CH4_prodC
+      vegn%ch4_oxid = CH4_oxidC
+      vegn%ch4_emit = vegn%ch4_prod - vegn%ch4_oxid
+
+      ! Adjust vegn%rh to conserve carbon and Keep it as CO2 flux
+      vegn%rh = vegn%rh - vegn%ch4_emit
+  end subroutine Soil_CH4
 
 ! =========================================================================
 ! =============== soil water subroutines ==================================
