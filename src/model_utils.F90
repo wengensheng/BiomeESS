@@ -771,9 +771,9 @@ contains
 
     !--------- local vars ------------
     integer :: idx
-    logical :: is_crop = .False.
-    logical :: use_Hurtt_data = .True.
+    logical :: use_Hurtt_data, is_crop
 
+    use_Hurtt_data = .True.
     ! Assign PFT groups according to climate and land cover data at each grid
     idx = maxloc(GridVC, dim=1)
     write(*,*)'Max vegetation id', idx
@@ -781,8 +781,8 @@ contains
     ! Igor & Paul: "GridFR" is from Hurtt's cropland file (states4.nc).
     if(use_Hurtt_data)then
       is_crop = GridFR(LC_year0) > 0.5
-    else
-      is_crop = idx >=9 ! C3 or C4 grasses
+    else           ! TRENDY PFT data file
+      is_crop = idx >= 9 ! C3 or C4 grasses
     endif
     ! Assign PFTs
     if (is_crop) then ! Use land cover data for crops

@@ -140,7 +140,7 @@ module BiomeE_mod
     CO2_end_yr   = 1997
     CO2_yrs      = Max(CO2_end_yr - CO2_start_yr + 1, 1)
     skip_yrs     = Max(CO2_start_yr - 1700, 0)
-    iCO2_hist= skip_yrs + 1
+    iCO2_hist    = skip_yrs + 1
     !Total years, CO2-history years, and experiment years
     tot_yrs  = INT(model_run_years/yr_data+1)*yr_data
     hist_yrs = CO2_yrs
@@ -283,7 +283,7 @@ module BiomeE_mod
 
 #ifdef FACE_run
         if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs)then
-          iCO2_hist = Min(iCO2_hist + 1, CO2_end_yr)
+          iCO2_hist = Min(iCO2_hist + 1, CO2_yrs)
         endif
 #endif
 

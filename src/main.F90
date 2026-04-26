@@ -82,7 +82,6 @@ use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   PRINT *, "Data reading wall time:", wall_time, " minutes"
 
   !------------ Forcing data interpolation and model run ---------------------------
-  !$omp parallel do private(GridID,forcingData,fno1,fno2,fno3,fno4,fno5,fno6) shared(GridLonLat, LandGrid)
   do m = grid_No1, grid_No2  ! Grids in GridLonLat
     ! Get this grid's ID
     GridID = GridLonLat(m) ! for file names

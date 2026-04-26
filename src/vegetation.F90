@@ -276,9 +276,10 @@ subroutine vegn_selfthinning(vegn)
   !-----local--------
   type(cohort_type), pointer :: cc ! parent and child cohort pointers
   real  :: totalCA, CAcrown, dn
-  integer :: L = 1
+  integer :: i, L
 
-  totalCA  = 0.d0
+  L = 1
+  totalCA = 0.0
   do i=1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate (sp => spdata(cc%species) )
@@ -1386,7 +1387,7 @@ subroutine vegn_tissue_turnover(vegn)
      if(cc%bl>0.0001)then
        cc%leafage = (1.0 - dBL/cc%bl)*cc%leafage
      else
-       cc%leafage = 0.d0
+       cc%leafage = 0.0
      endif
      !    update plant pools
      cc%bl    = cc%bl    - dBL
@@ -3517,8 +3518,8 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
   real :: psi_stem
   real :: k_stem ! conductance of tree trunk (with modifications of current states)
   real :: ap, bp, exp_term
-  real :: weighted_gw_rate  = 0.d0 ! soil water flux rate from this plant's view
-  real :: weighted_gw_cond  = 0.d0 ! soil cond from this plant's view
+  real :: weighted_gw_rate  = 0.0 ! soil water flux rate from this plant's view
+  real :: weighted_gw_cond  = 0.0 ! soil cond from this plant's view
   real :: wflux_wl  ! Water flux from wood to leaves, kg H2O/tree/step
   real :: wflux_gw  ! Water flux from soil to stems, kg H2O/tree/step
   real :: dpsi
@@ -3653,8 +3654,8 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     cc%psi_stem = psi_stem
 
     !------------------ Plant water update from soil layers ------------------
-    if (sum(layer_water_supply) == 0.d0) then
-       cc%Q_soil = 0.d0
+    if (sum(layer_water_supply) == 0.0) then
+       cc%Q_soil = 0.0
     else
        cc%Q_soil = layer_water_supply/sum(layer_water_supply)*Max(cc%Q_stem,0.0)
     end if
