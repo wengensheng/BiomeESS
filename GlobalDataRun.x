@@ -28,16 +28,38 @@ echo $CPPFLAGS
 
 gfortran $FSRCS $CPPFLAGS -o ess_global -I/usr/local/include -L/usr/local/lib -lnetcdff
 
-Lon1=(1   121 181 241 361 421 481 541 601)
-Lon2=(120 180 240 360 420 480 540 600 720)
+# -----------------------------------------------------------------------------
+# -------------------Setup data blocks----------------------------------------
+#! Total grids are 56395 when Lat 61~320 and Lon 1~720 at 0.5x0.5 grid
+Lon1=(1   181 251 381 451 541 621)
+Lon2=(180 250 380 450 540 620 720)
 # namelist file (Parameter and model setting file)
 fp1='./para_files/parameters_GlobalData.nml'
 echo $fp1
 
+# ----------------- Setup output directory path ------------
+runTag='InterpolatedData' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/"$runTag
+echo $DIRECTORY
+# Check if the directory exists. If not, create it.
+if [ ! -d "$DIRECTORY" ]; then
+    echo "Directory $DIRECTORY does not exist. Creating it now..."
+    mkdir -p "$DIRECTORY"
+    if [ $? -eq 0 ]; then
+        echo "Directory $DIRECTORY created successfully."
+    else
+        echo "Failed to create directory $DIRECTORY."
+        exit 1 # Exit with an error code if creation fails
+    fi
+else
+    echo "Directory $DIRECTORY already exists."
+fi
+
+# ------------------- Model Run ---------------------------------
 for iB in "${!Lon2[@]}"; do
   if [ "${Lon1[$iB]}" -lt "${Lon2[$iB]}" ]; then
     runID='Lon_'${Lon2[$iB]}
-    fp2='./para_files/parameters_'$runID'.nml'
+    fp2=$DIRECTORY'/parameters_'$runID'.nml'
 
     echo "Block ${Lon1[$iB]}-${Lon2[$iB]}"
     echo $fp2
@@ -48,12 +70,10 @@ for iB in "${!Lon2[@]}"; do
         $fp1 > $fp2
 
     echo "Run Longitude ${Lon1[$iB]}-${Lon2[$iB]}"
-    cat $fp2 > ./para_files/input.nml
 
     # Run model
-    ./ess_global
+    ./ess_global $fp2
 
-    rm ./para_files/input.nml
   fi
 done
 

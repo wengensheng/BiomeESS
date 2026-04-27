@@ -1,7 +1,7 @@
 &initial_state_nml
 ! Model run
 filepath_in = './input/',
-!filepath_out= '/media/eweng/HD2/weng/Data/interp30yrs/', ! './output/',
+!filepath_out= '/media/eweng/HD2/weng/Data/interp30yrs/',
 filepath_out= '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/DataInterpolation/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
@@ -9,7 +9,7 @@ climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 &global_setting_nml
-!ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
+WriteForcing = .True., ! .False.
 ncfilepath = '/media/eweng/HD2/weng/Data/unzippedNC/',
 ncversion  = 'crujra.v2.4.5d.',
 !veg_path   = '/Users/eweng/Documents/Data/Vegetation/',
@@ -18,7 +18,6 @@ veg_file   = 'pft2011_0.5x0.5.nc',
 int_fpath  = '/media/eweng/HD2/weng/Data/interpolated/',
 int_prefix = 'crujra.v2.4.5d.',
 GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
-WriteForcing = .True., ! .False.
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = LonStart, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = LonEnd, ! 720, !  209,
