@@ -84,7 +84,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
    allocate(TotCrops(LowerLon:UpperLon, LowerLat:UpperLat, FM_Yrs))
 
    ! Read in farmland fractions from Hurtt's data
-   fveg  = trim(veg_path)//'CropLand_states4_05deg.nc'
+   fveg  = trim(veg_path)//trim(LUC_file)
    TotCrops = 0.0
    do i = 1, N_crop
      call nc_read_3D(fveg, trim(CropID(i)), CropData, start3, crpct3)
@@ -94,7 +94,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
      where (ieee_is_nan(CropData)) CropData = 0.0
      TotCrops = TotCrops + CropData
    enddo
-   write(*,*) 'Grids with farmland>0.01 = ', count(TotCrops(:,:,1170)>0.01)
+   write(*,*) 'Grids with farmland > 0.01 = ', count(TotCrops(:,:,LC_year0) > 0.01)
    write(*,*)'Successfully Read ',trim(fveg)
 
    ! Read in N deposition and calculate yearly N deposition rate (kgN/m2/yr)

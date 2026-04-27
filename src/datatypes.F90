@@ -894,6 +894,7 @@ module datatypes
   character (len = 256) :: Ndp_path     = '/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/'
   character (len = 20)  :: ncversion    = 'crujra.v2.4.5d.'
   character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
+  character (len = 20)  :: LUC_file     = 'CropLand_states4_05deg.nc' ! Land use/cover file, George Hurtt
 
   character (len = 256) :: int_fpath    = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
   character (len = 80)  :: int_prefix   = 'crujra.v2.4.5d.'
@@ -970,9 +971,10 @@ module datatypes
 
   ! ------------- Global run model setting name list ------------
   namelist /global_setting_nml/ ncfilepath, Ndp_path, veg_path, &
-  int_fpath, ncversion, int_prefix, veg_file, GridListFile,     &
-  grid_No1, grid_No2, yr_start, yr_end, LowerLon, UpperLon,     &
-  LowerLat, UpperLat, StepLatLon, LC_year0, WriteForcing
+  int_fpath, ncversion, int_prefix, veg_file, LUC_file,         &
+  GridListFile, grid_No1, grid_No2, yr_start, yr_end, LC_year0, &
+  LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon,           &
+  WriteForcing
 
   ! ------------- Model initialization name list ------------
   namelist /initial_state_nml/ N_VegTile,                      &
