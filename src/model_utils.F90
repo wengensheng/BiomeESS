@@ -342,7 +342,7 @@ contains
     character(len=*),intent(in) :: fnml
 
     ! ----- local vars -------
-    real :: psi_wilt_Pa ! Pa
+    real :: psi_wp_Pa ! Pa
     real :: k_sat_eff(n_dim_soil_types)   ! kg/(m2 s) effective drainage
 
     ! Read in parameters in soil_data_nml
@@ -359,33 +359,33 @@ contains
 
     ! ---- derived constant soil parameters
     ! w_fc (field capacity) set to w at which hydraulic conductivity equals
-    ! a nominal drainage rate "rate_fc". w_wilt set to w at which psi is psi_wilt
-    psi_wilt_Pa = psi_wilt * 9800.0 ! from m to Pa
+    ! a nominal drainage rate "rate_fc". w_wp set to w at which psi is psi_wp
+    psi_wp_Pa = psi_wp * 9800.0 ! from m to Pa
     k_sat_eff   = (18./1000.) * soilpars%k_sat_ref * (9800./1.0e6) ! kg/(m2 s)
     ! Wilting point
-    soilpars%vwc_wilt = soilpars%vwc_sat * (soilpars%psi_sat_ref/psi_wilt_Pa)**(1./soilpars%chb)
+    soilpars%vwc_wp = soilpars%vwc_sat * (soilpars%psi_sat_ref/psi_wp_Pa)**(1./soilpars%chb)
     ! Field capacity
-    soilpars%vwc_fc   = soilpars%vwc_sat * (rate_fc/k_sat_eff)**(1./(3. + 2. * soilpars%chb))
+    soilpars%vwc_fc = soilpars%vwc_sat * (rate_fc/k_sat_eff)**(1./(3. + 2. * soilpars%chb))
     ! Hack for unreasonable wilt and fc !!
-    soilpars%vwc_wilt = min(soilpars%vwc_wilt, soilpars%vwc_sat * 0.2)
-    soilpars%vwc_fc   = max(soilpars%vwc_fc,   soilpars%vwc_sat * 0.8)
+    soilpars%vwc_wp = min(soilpars%vwc_wp, soilpars%vwc_sat * 0.2)
+    soilpars%vwc_fc = max(soilpars%vwc_fc,   soilpars%vwc_sat * 0.8)
 
     ! Minimal soil water
     soilpars%vlc_min = soilpars%vwc_sat*K_rel_min**(1/(3+2*soilpars%chb))
 
     ! Original LM3PPA codes
-    !  soil%w_wilt(:) = soil%pars%vwc_sat &
-    !       *(soil%pars%psi_sat_ref/(psi_wilt*soil%pars%alpha))**(1/soil%pars%chb)
+    !  soil%w_wp(:) = soil%pars%vwc_sat &
+    !       *(soil%pars%psi_sat_ref/(psi_wp*soil%pars%alpha))**(1/soil%pars%chb)
     !  soil%w_fc  (:) = soil%pars%vwc_sat &
     !       *(rate_fc/(soil%pars%k_sat_ref*soil%pars%alpha**2))**(1/(3+2*soil%pars%chb))
-    !  soil%pars%vwc_wilt = soil%w_wilt(1)
+    !  soil%pars%vwc_wp = soil%w_wp(1)
     !  soil%pars%vwc_fc   = soil%w_fc  (1)
     !  soil%pars%vlc_min = soil%pars%vwc_sat*K_rel_min**(1/(3+2*soil%pars%chb))
 
     ! Fixation (Claude Code)
-    !# Fix 1: convert psi_wilt from m-head to Pa to match psi_sat_ref
-    ! psi_wilt_Pa = psi_wilt * 9800.0
-    ! ratio_wilt_fixed = psi_sat_ref / (psi_wilt_Pa * alpha)
+    !# Fix 1: convert psi_wp from m-head to Pa to match psi_sat_ref
+    ! psi_wp_Pa = psi_wp * 9800.0
+    ! ratio_wp_fixed = psi_sat_ref / (psi_wp_Pa * alpha)
     !# Fix 2: k_sat_ref is mol/(s MPa m); calc_soil_K uses: k = 18/1000 * k_sat_ref * (theta/thetasat)^(2b+3)  [kg/(m2 MPa s)]
     !# To get drainage flux in kg/(m2 s), multiply by gravity gradient: rho*g = 9800 Pa/m = 0.0098 MPa/m
     !k_sat_eff = (18./1000.) * k_sat_ref * (9800./1e6) * alpha**2   # kg/(m2 s) effective drainage

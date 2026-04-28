@@ -63,7 +63,7 @@ module datatypes
   integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
   integer, parameter :: num_l  = soil_L ! Soil layers,
   integer, parameter :: topSL  = 3 ! Top soil layers for thetaS calculation
-  real,    parameter :: psi_wilt  = -150.0  ! matric head at wilting, MPa
+  real,    parameter :: psi_wp    = -150.0  ! matric head at wilting, MPa
   real,    parameter :: K_rel_min = 1.e-12
   real,    parameter :: rate_fc   = 5./86400 ! 0.1/86400 ! 0.1 mm/d threshold drainage rate at Field Capacity
   real,    parameter :: ws0 = 0.02 ! hygroscopic point
@@ -517,7 +517,7 @@ module datatypes
   type :: soil_pars_type
     real :: GMD ! geometric mean partice diameter, mm
     real :: GSD ! geometric standard deviation of particle size
-    real :: vwc_wilt
+    real :: vwc_wp
     real :: vwc_fc
     real :: vwc_sat
     real :: vlc_min
@@ -541,7 +541,7 @@ module datatypes
     type(soil_pars_type) :: pars
     type(soil_prog_type), pointer :: prog(:)
     real,                 pointer :: w_fc(:)
-    real,                 pointer :: w_wilt(:)
+    real,                 pointer :: w_wp(:)
     !real :: Eg_part_ref
     !real :: z0_scalar
     ! data that were local to soil.f90

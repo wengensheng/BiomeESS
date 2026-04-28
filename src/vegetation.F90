@@ -2587,7 +2587,7 @@ subroutine initialize_soil(vegn)
    vegn%previousN = vegn%mineralN
    !Soil water
    vegn%soiltype = soiltype
-   vegn%WILTPT   = max(soilpars(soiltype)%vwc_wilt, zero_thld)
+   vegn%WILTPT   = max(soilpars(soiltype)%vwc_wp, zero_thld)
    vegn%FLDCAP   = max(soilpars(soiltype)%vwc_fc, vegn%WILTPT + 0.05)
    vegn%wcl      = vegn%FLDCAP ! vegn%WILTPT + 0.5 * (vegn%FLDCAP-vegn%WILTPT)
    vegn%W0topSL  = (vegn%FLDCAP-vegn%WILTPT) * sum(thksl(1:topSL)) * 1000. ! maximal free soil water of topSL layers

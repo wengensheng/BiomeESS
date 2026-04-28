@@ -243,7 +243,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     rLAI  = 10. * vegn%LAI**2
     rAero = 30./(Uwind + 0.5) + rLAI
     fw1   = Max(vegn%wcl(1)-vegn%WILTPT,0.001) / (vegn%FLDCAP-vegn%WILTPT)
-    rSoil = 60. * exp(1.0/fw1) ! 15. * exp(0.12/fw1)
+    rSoil = 60. * exp(min(1.0/fw1, 80.)) ! 15. * exp(0.12/fw1)
     !rSoil=360000.0 * exp(-20.0*vegn%wcl(1)/vegn%FLDCAP)  ! s m-1
     !rSoil = exp(8.206-4.255*vegn%fldcap) ! s m-1, Liu Yanlan et al. 2017, PNAS
     !rSoil=3.0E+10 * (vegn%FLDCAP-vegn%wcl(1))**16 ! Kondo et al. 1990
@@ -319,10 +319,10 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
   !Calculate soil water potential (psi, MPa)
   real,intent(in):: psi_sat_ref
   real,intent(in):: chb          ! Parameter for scaling
-  real,intent(in):: V_sat        ! Field capacity
+  real,intent(in):: V_sat        ! Saturated soil water (Vol/Vol)
   real,intent(in):: Vwc          ! Soil water content
   !---------------------
-  psi = psi_sat_ref*1.0e-6 * ((V_sat/Vwc)**chb)    ! MPa
+  psi = psi_sat_ref*1.0e-6 * ((V_sat/max(Vwc,1.0e-6))**chb)    ! MPa
   end function calc_soil_psi
 
 !==========================================
@@ -331,10 +331,10 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
   !Calculate soil water conductivity (K, kg H2O/(m2 MPa s))
   real,intent(in):: k_sat_ref
   real,intent(in):: chb          ! Parameter for scaling
-  real,intent(in):: V_sat        ! Field capacity
+  real,intent(in):: V_sat        ! Saturated volumetric water content (vwc_sat)
   real,intent(in):: Vwc          ! Soil water content
   !---------------------
-  k = 18./1000. * k_sat_ref * (Vwc/V_sat)**(2*chb+3)! kg H2O/(m2 MPa s)
+  k = 18./1000. * k_sat_ref * (Vwc/V_sat)**(2.*chb+3.)! kg H2O/(m2 MPa s)
 
   end function calc_soil_K
 
@@ -448,6 +448,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
 ! ==============From LM3, but not used in BiomeE =============================
 ! =============== just for reference =========================================
 ! ============================================================================
+#ifdef USE_LM3_Legacy
 ! compute uptake-related properties
   subroutine soil_data_beta(soil, vegn, soil_beta, soil_water_supply, &
     soil_uptake_T )
@@ -471,7 +472,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     VRL, & ! volumetric root length
     u, du ! uptake and its derivative (the latter is not used)
     real :: z  !  soil depth
-    !real :: psi_wilt ! added by Weng, 2017-10-29
+    real :: psi_wp,psi_sat_ref,chb,V_sat ! added by Weng, 2017-10-29
     logical :: uptake_oneway = .TRUE. ! added by Weng
     logical :: uptake_from_sat = .true.
     type (cohort_type), pointer :: cc
@@ -504,8 +505,8 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
 
       do l = 1, num_l
         cc%uptake_frac(l) = uptake_frac_max(l) &
-        * max(0.0, min(1.0,(vlc(l)-soil%w_wilt(l))/&
-        (0.75*(soil%w_fc(l)-soil%w_wilt(l)))))
+                          * max(0.0, min(1.0,(vlc(l)-soil%w_wp(l)) / &
+                           (0.75*(soil%w_fc(l)-soil%w_wp(l)))))
       enddo
       soil_beta(k) = sum(cc%uptake_frac(:))
       if (soil_beta(k) /= 0) then
@@ -515,7 +516,11 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
       endif
 
       ! calculate total water supply
-      call darcy2d_uptake_lin ( soil, psi_wilt, vegn%root_distance, cc%root_length, &
+      psi_sat_ref = soilpars(vegn%soiltype)%psi_sat_ref
+      v_sat       = soilpars(vegn%soiltype)%vwc_sat
+      chb         = soilpars(vegn%soiltype)%chb
+      psi_wp      = calc_soil_psi(psi_sat_ref,chb,V_sat,vegn%FILDCAP)
+      call darcy2d_uptake_lin ( soil, psi_wp, vegn%root_distance, cc%root_length, &
       cc%K_r, cc%r_r, uptake_oneway, uptake_from_sat, u, du)
       soil_water_supply(k) = max(0.0,sum(u))
       soil_uptake_T(k) = soil%uptake_T
@@ -556,8 +561,8 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     dz(:) = thksl(:)   ! thicknesses of layers
     ! Weng, made up, 04/24/2026
     zfull(1) = 0.0
-    do i =2 , soil_l
-      zfull(i) = zfull(i-1) + dz(i)
+    do i = 2, soil_l
+      zfull(i) = zfull(i-1) + dz(i-1)
     enddo
 
     ! calculate some hydraulic properties common for all soil layers
@@ -624,7 +629,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     u_soil0 = C_r*K_sat*&
     (psi_sat/n* &
     (  (min(psi_soil ,psi_sat)/psi_sat)**n   &
-    -(min(psi_root0,psi_sat)/psi_sat)**n ) &
+    -(min(psi_root0,psi_sat)/psi_sat)**n )   &
     + max(0.0, psi_soil  - psi_sat)          &
     - max(0.0, psi_root0 - psi_sat)          )
     ! and its derivative w.r.t. psi_root at psi_root0
@@ -715,6 +720,7 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     endif
 
   end subroutine
+#endif
 ! ================================================
 
 end module soil_mod
