@@ -739,7 +739,6 @@ contains
     allocate(PFTID(N_PFTID))
 
     ! Assign PFT groups according to climate data at each grid
-    !if(meanPrcp > Pr_thld)then
     if(Mst_IDX > MI0DeSB) then
       if(meanTmin > TcrTREE)then ! Tropical vs. Temperate trees
         PFTID = [1,2,3,6]

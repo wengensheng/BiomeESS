@@ -226,9 +226,9 @@ module io_mod
     ! Put the data into forcing
     allocate(climateData(totlines))
     do i=1,totlines
-#ifdef FACE_run
       climateData(i)%year      = year_data(i)          ! Year
       climateData(i)%doy       = doy_data(i)           ! day of the year
+#ifdef FACE_run
       climateData(i)%PAR       = input_data(15,i)      ! umol/m2/s
       climateData(i)%radiation = input_data(15,i)/2.   ! W/m2, input_data(13,i), factor
       climateData(i)%Tair      = input_data(3,i)       ! air temperature, K
@@ -239,11 +239,7 @@ module io_mod
       climateData(i)%P_air     = input_data(19,i)      ! pa
       climateData(i)%CO2       = input_data(21,i) !ppm
       climateData(i)%eCO2      = input_data(22,i) !ppm
-      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
-      climateData(i)%N_input   = N_input ! kgN m-2 yr-1
 #else
-      climateData(i)%year      = year_data(i)          ! Year
-      climateData(i)%doy       = doy_data(i)           ! day of the year
       climateData(i)%PAR       = input_data(1,i)       ! umol/m2/s
       climateData(i)%radiation = input_data(2,i)       ! W/m2
       climateData(i)%Tair      = input_data(3,i) + 273.16  ! air temperature, K
@@ -253,9 +249,9 @@ module io_mod
       climateData(i)%windU     = input_data(7,i)        ! wind velocity (m s-1)
       climateData(i)%P_air     = input_data(8,i)        ! pa
       climateData(i)%CO2       = input_data(9,i)        !ppm
-      climateData(i)%soilwater = 0.8    ! soil moisture, vol/vol
-      climateData(i)%N_input   = N_input ! kgN m-2 yr-1
 #endif
+      climateData(i)%soilwater = 0.8                    ! soil moisture, vol/vol
+      climateData(i)%N_input   = N_input                ! kgN m-2 yr-1
 
     enddo
     forcingData => climateData

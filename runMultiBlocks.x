@@ -36,7 +36,7 @@ rm -f *.mod
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
 GridRS='1' # Grid resolution, 1 for grid by grid (1x1), 2 for skipping one for each lon and lat (2x2)
-runTag='test0' # 'N2gLowNout' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+runTag='N2gLowNout' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory exists. If not, create it.
@@ -64,7 +64,7 @@ fi
 # --- user settings ---
 START_VAL=1
 #MAXGRID=56395
-MAXGRID=54077
+MAXGRID=57134
 MAXJOBS=25          # number of blocks AND max concurrent jobs (here they match)
 
 # --- derived settings ---
@@ -126,11 +126,12 @@ for iB in "${!Grid2[@]}"; do
 
     # run ess_global
     # nohup ./ess_global $fp2 > $runTag'_'$runID'.out' 2>&1 &
-    PROCNAME="${runTag}_${Grid1[$iB]}_${Grid2[$iB]}"
+    PROCNAME="b${iB}_${Grid1[$iB]}"   # keep under 15 chars
     echo $PROCNAME
     nohup bash -c "exec -a '${PROCNAME}' ./ess_global '${fp2}'" \
       > "${DIRECTORY}/${runTag}_${runID}.out" 2>&1 &
-    
+    pids+=($!)
+    echo "Launched PID $! for block $iB"
 
     sleep 2
   fi

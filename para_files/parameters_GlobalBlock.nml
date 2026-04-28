@@ -130,40 +130,6 @@
 ! N_input 3 -> 2
 ! model_run_years 890 ->  1790
 
-&initial_state_nml
-!! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
-! Must be commented out if 'DO_Climate_VEG' is defined in the runscript
-! init_cohort_N   = 2, ! total 5
-! init_cohort_sps = 4,  5,  6,  1
-
-! Soil initial values
-init_fast_SOC    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_SOC    = 12.,    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
-init_mineralN    = 5.0E-3, ! 402.5E-3, ! kg N m-2
-N_input          = 2.0E-3, ! 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
-
-! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
-MI0DeSB = 0.20,   ! Prcp/PET, Desert shrub vs trees
-MI0C3C4 = 0.50,   ! Critical moisture for C3 vs. C4 grasses
-TcrTREE = 10.0,   ! degree C, Tropical trees vs Temperate/boreal trees
-TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
-
-! Model run
-filepath_in = './input/',   ! For site run forcing data only
-filepath_out= 'TargetDir/', ! './output/',
-runID       = 'ESSPT_', ! Output file name
-climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv' !
-Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-Sc_dT       = 0.0, ! degree C
-CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
-model_run_years = 1190, !  1790,   ! 890, 
-outputhourly    = .False., ! .True.
-outputdaily     = .False., ! .True.,  !
-do_closedN_run  = .False., ! .True.  !
-do_fire         = .True.,  ! .False. !
-do_RecoverSP    = .True.   ! .False. !
-/
-
 &soil_data_nml
 soiltype = 3,
 thksl    = 0.05, 0.25, 0.5, 1.0, 1.2,  ! m, soil layer thickness
@@ -244,4 +210,38 @@ yr_end   = 2019, ! 2011, ! Data end year
 grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = ResGrid
+/
+
+&initial_state_nml
+!! PFTs: 0: C4G, 1: C3G, 2: TrE, 3: TrD, 4: TmE, 5: TmD
+! Must be commented out if 'DO_Climate_VEG' is defined in the runscript
+! init_cohort_N   = 2, ! total 5
+! init_cohort_sps = 4,  5,  6,  1
+
+! Soil initial values
+init_fast_SOC    = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_SOC    = 12.,    ! .1 ! 40.0 ! kg C m-2  ! C/N = 40
+init_mineralN    = 5.0E-3, ! 402.5E-3, ! kg N m-2
+N_input          = 2.0E-3, ! 2.0E-3, ! 2.4E-3, ! 0.8E-3, ! 1.2E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+
+! Climate-vegetation distribution (Vegn_PFTs_from_Climate)
+MI0DeSB = 0.20,   ! Prcp/PET, Desert shrub vs trees
+MI0C3C4 = 0.50,   ! Critical moisture for C3 vs. C4 grasses
+TcrTREE = 10.0,   ! degree C, Tropical trees vs Temperate/boreal trees
+TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
+
+! Model run
+filepath_in = './input/',   ! For site run forcing data only
+filepath_out= 'TargetDir/', ! './output/',
+runID       = 'ESSPT_', ! Output file name
+climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv' !
+Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
+Sc_dT       = 0.0, ! degree C
+CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
+model_run_years = 1190, !  1790,   ! 890, 
+outputhourly    = .False., ! .True.
+outputdaily     = .False., ! .True.,  !
+do_closedN_run  = .False., ! .True.  !
+do_fire         = .True.,  ! .False. !
+do_RecoverSP    = .True.   ! .False. !
 /

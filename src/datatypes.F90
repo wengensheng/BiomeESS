@@ -822,12 +822,11 @@ module datatypes
   real :: N_input        = 0.002 ! annual N input to soil N pool, kgN m-2 yr-1
 
   ! Climate-vegetation initialization, 09/20/2025
-  real :: Pr_thld = 300.0  ! Desert shrub vs trees, not used!
+  real :: meanPrcp, meanPET, meanTmin, Mst_IDX ! Climate statistics for PFT envelopes
   real :: MI0DeSB = 0.25   ! Desert shrub vs trees, P/PET
   real :: MI0C3C4 = 0.50   ! Moisture threshold for C4 vs. C3 grasses
   real :: TcrTREE = 12.0   ! Tropical trees vs Temperate/boreal trees
   real :: TcrC3C4 = 0.0    ! Temperature threshold for C4 vs C3 grasses
-  real :: meanPrcp, meanPET, meanTmin, Mst_IDX ! Climate statistics for PFT envelopes
 
   ! Input files
   character(len=80)  :: filepath_in = './input/'
@@ -984,7 +983,7 @@ module datatypes
   init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,         &
   init_fast_SOC, init_slow_SOC, init_mineralN, N_input,        &
   ! Climate envelopes for initializing PFTs
-  Pr_thld, MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                 &
+  MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
   filepath_in,filepath_out,climfile,model_run_years,runID,     &
   outputhourly,outputdaily,Sc_prcp,Sc_dT,Sc_CO2,CO2_c, &
