@@ -102,7 +102,7 @@ subfolder = ['Ecosystem','Cohort']
 #%% Check the files
 # 'eCO2' # 'N2g1123' #  'N3g1121' # 'N3gLowNfx' # 'N3gTr10' # 'Ndps3g'
 # 'N4g1128' #  'Warming2C' # '0.5LonLat_N2g1125'
-expID = 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
+expID = 'test0' # 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
 #Resolution = 1 #Grids selected
 
 #fpath = '/home/eweng/weng/GlobalESSPFTs/NArun/output/Test8/Yearly/zipped/'

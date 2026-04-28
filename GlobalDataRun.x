@@ -67,6 +67,7 @@ for iB in "${!Lon2[@]}"; do
     sed -e "s/LonStart/${Lon1[$iB]}/g" \
         -e "s/LonEnd/${Lon2[$iB]}/g" \
         -e "s/GlobalVegGridList/VegList$runID/g" \
+        -e "s|TargetDir|$DIRECTORY|g" \
         $fp1 > $fp2
 
     echo "Run Longitude ${Lon1[$iB]}-${Lon2[$iB]}"
@@ -79,4 +80,4 @@ done
 
 
 #rm ess_global
-rm *.mod
+#rm *.mod

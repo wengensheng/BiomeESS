@@ -2,7 +2,7 @@
 ! Model run
 filepath_in = './input/',
 !filepath_out= '/media/eweng/HD2/weng/Data/interp30yrs/',
-filepath_out= '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/DataInterpolation/',
+filepath_out= 'TargetDir/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 /
@@ -22,7 +22,7 @@ GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4
 LowerLon = LonStart, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = LonEnd, ! 720, !  209,
 LowerLat = 61,  ! 247, 250, !  ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 320, ! 247, 252
+UpperLat = 349, ! 247, 252
 yr_start = 1990, ! 2010, ! Data start year of netCDF files
 yr_end   = 2019, ! 2011, ! Data end year
 grid_No1 = 1,     ! 1,

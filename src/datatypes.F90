@@ -970,11 +970,11 @@ module datatypes
   type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! Soil hydraulics parameters
 
   ! ------------- Global run model setting name list ------------
-  namelist /global_setting_nml/ ncfilepath, Ndp_path, veg_path, &
-  int_fpath, ncversion, int_prefix, veg_file, LUC_file,         &
-  GridListFile, grid_No1, grid_No2, yr_start, yr_end, LC_year0, &
+  namelist /global_setting_nml/ WriteForcing, yr_start, yr_end, &
+  ncfilepath, ncversion, veg_path, veg_file, LUC_file,LC_year0, &
+  int_fpath, int_prefix, GridListFile, grid_No1, grid_No2,      &
   LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon,           &
-  WriteForcing
+  Ndp_path
 
   ! ------------- Model initialization name list ------------
   namelist /initial_state_nml/ N_VegTile,                      &

@@ -36,7 +36,7 @@ rm -f *.mod
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
 GridRS='1' # Grid resolution, 1 for grid by grid (1x1), 2 for skipping one for each lon and lat (2x2)
-runTag='N2gLowNout' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+runTag='test0' # 'N2gLowNout' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
 
 # Check if the directory exists. If not, create it.
@@ -63,7 +63,8 @@ fi
 
 # --- user settings ---
 START_VAL=1
-MAXGRID=56395
+#MAXGRID=56395
+MAXGRID=54077
 MAXJOBS=25          # number of blocks AND max concurrent jobs (here they match)
 
 # --- derived settings ---
