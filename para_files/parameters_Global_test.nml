@@ -106,11 +106,11 @@ WriteForcing = .True., !  .False., !
 LowerLon = 205, ! 211, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 206, ! 212, ! 720, !  209,
 LowerLat = 240, ! 250, ! 260, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 265, ! 252, ! 261, ! 320, ! 247,252
+UpperLat = 250, ! 252, ! 261, ! 320, ! 247,252
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
 LC_year0 = 1176, ! the last year's farmland distribution (Started from year 850)
 grid_No1 = 1, ! 1,
-grid_No2 = 2, ! 56395, ! Maximum grids in the vegetated land
+grid_No2 = 20, ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = 1
 /

@@ -12,7 +12,6 @@ CPPFLAGS=''
 CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DZip_outputs'
-CPPFLAGS+=' -DZippedNCfiles'
 CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DWIEMIP_setting'
 #CPPFLAGS+=' -DHydro_test'
@@ -39,7 +38,7 @@ echo $fparameter
 #cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess_global $fparameter
+./ess_global $fparameter
 
 #rm ./para_files/input.nml
 rm ess_global
