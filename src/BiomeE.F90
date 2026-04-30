@@ -132,7 +132,7 @@ module BiomeE_mod
     integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
     real    :: r_d
     logical :: new_annual_cycle
-    logical :: BaseLineClimate = .True.
+    logical :: BaseLineClimate
 
 #ifdef FACE_run
     ! History CO2 concentration, data from 1700 to 2024 (325 years)
@@ -155,19 +155,21 @@ module BiomeE_mod
 #endif
 
     !----------------------
+    BaseLineClimate = .True.
     n_yr    = 1
     idoy    = 0
     MonthDays = MonthDOY
     n_steps = StartLine - 1 ! steps skipped acc. the starting line, for UFL only
     do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*days_data ! days for the model run
       idoy = idoy + 1
-      ! Leap year or not
+      ! Leap year or not (CRU data has 365 days/yr; use year number for calendar check)
       if(idoy == 1)then
-        jdata = MIN(datalines,MOD(n_steps, datalines) + 59*steps_per_day+1)
-        if(forcingData(jdata)%doy>28)then
-          MonthDays(2:12) = MonthDOY(2:12)+1!leap year
+        jdata = MOD(n_steps, datalines) + 1
+        year0 = forcingData(jdata)%year
+        if(MOD(year0,4)==0 .and. (MOD(year0,100)/=0 .or. MOD(year0,400)==0)) then
+          MonthDays(2:12) = MonthDOY(2:12)+1 ! leap year
         else
-          MonthDays = MonthDOY!Non-leap year
+          MonthDays = MonthDOY ! non-leap year
         endif
       endif
 

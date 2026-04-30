@@ -61,7 +61,11 @@ use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   endif
 #else
   ! Read in netCDF global data files
-  call ReadNCfiles(ncfilepath, veg_path, ndp_path)
+  call ReadNCfiles(ncfilepath, veg_path, ndp_path,file_exists)
+  if(.not. file_exists)then
+    write(*,*)'NetCDF file missing. Stopped'
+    stop !
+  endif
 #endif
 
   ! ---------- Time stamp -------------
@@ -131,7 +135,6 @@ use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
 
     last_time = end_time
   enddo
-  !$omp end parallel do
 
   ! Release netcdf-related allocatable data arrays and close files
   call CRU_end()

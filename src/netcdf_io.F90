@@ -21,20 +21,21 @@ module netcdf_io
 contains
 
 !===================================================
-subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
+subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
   ! Read in all netcdf files for global run, including;
   ! climate, vegetation, and nitrogen deposition data
   ! Updated 04/04/2026
    use, intrinsic :: ieee_arithmetic
    implicit none
    character(len=*),intent(in) :: cru_path,veg_path,ndp_path
+   logical, intent(out) :: file_exists
 
    !-------- local vars -----------------
    character(len=256) :: fcru, fveg, fndp, fgz
    character(len=256) :: fout, command
    character(len=4)   :: yr_str
    character(len=6)   :: GridStr
-   logical :: file_exists, gz_exists, unzip_ok ! for zipped netcdf files
+   logical :: gz_exists, unzip_ok ! for zipped netcdf files
    integer :: N_yrs,totL,N_vars
    integer :: istat1,istat2
    integer :: i,j,k,m,iLon,iLat
@@ -72,6 +73,11 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
 
    ! Read in vegetation data (vegtated grids and vegetation components)
    fveg  = trim(veg_path)//trim(veg_file)
+   inquire(file=trim(fveg), exist=file_exists)
+   if(.not. file_exists)then
+      write(*,*)trim(fveg), ' file does not exist.'
+      return
+   endif
    call nc_read_2D(fveg, trim(Vegstr), Vegetated, start2, count2)
    do i=1, N_Vegs
      call nc_read_2D(fveg, trim(VegID(i)), VegCover(:,:,i), start2, count2)
@@ -86,6 +92,11 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
 
    ! Read in farmland fractions from Hurtt's data
    fveg  = trim(veg_path)//trim(LUC_file)
+   inquire(file=trim(fveg), exist=file_exists)
+   if(.not. file_exists)then
+      write(*,*)trim(fveg), ' file does not exist.'
+      return
+   endif
    TotCrops = 0.0
    do i = 1, N_crop
      call nc_read_3D(fveg, trim(CropID(i)), CropData, start3, crpct3)
@@ -102,6 +113,11 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
    TotalNdp = 0.0
    do i=1, 4 ! Files for 4 types of N deposition
      fndp = trim(Ndp_path)//trim(NdpID(i))//'_185001-185012.nc'
+     inquire(file=trim(fndp), exist=file_exists)
+     if(.not. file_exists)then
+        write(*,*)trim(fndp), ' file does not exist.'
+        return
+     endif
      call nc_read_3D(fndp, trim(NdpID(i)), NdpData, start3, ndpct3)
      TotalNdp = TotalNdp + SUM(NdpData, DIM=3)
      write(*,*)'Successfully Read ',trim(fndp)
@@ -116,17 +132,17 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
     fgz  = trim(fcru)//'.gz'
 
     ! If fcru exists, use fcru. Otherwise unzip fgz
-    call unzip_gzip_file(trim(fgz), ok=unzip_ok, quiet=.true.)
+    call unzip_gzip_file(trim(fgz), ok=unzip_ok)
     if (.not. unzip_ok) then
       file_exists = .false.
       forcingData => null()
-      write (*, '("read_interpolatedCRU: unzip failed for ", a)') trim(fcru)//'.gz'
+      write (*, '("ReadNCfiles: unzip failed for ", a)') trim(fcru)//'.gz'
       return
     endif
 
     call nc_read_3D(fcru, trim(ncfields(1)), dataarray, start3, count3)
 
-    ! Remove unzipped file if fgz exists
+    ! Remove fcru if fgz exists
     inquire(file=trim(fgz), exist=gz_exists)
     if(gz_exists)then
        command = 'rm '//trim(fcru) ! Remove unziped file
@@ -182,6 +198,15 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
         endif
       enddo
     enddo
+  
+    ! Write GridLonLat and forcing file names to a file
+    if(WriteForcing)then
+      fout = trim(filepath_out)//trim(GridListFile) ! Grid ID, VegCover, and N_input
+      open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
+      !do m=1, N_VegGrids
+      !  write(Grids_UN1, '(I8,11(",",E9.4))')GridLonLat(m),(GridVegCov(i,m),i=1,N_vegs),LandGrid(m)%N_input
+      !enddo
+    endif
 
 #ifdef WIEMIP_setting
     allocate(GridFarm(FM_Yrs,N_VegGrids))
@@ -195,23 +220,18 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
         endif
       enddo
     enddo
-#endif
-
-    ! Write GridLonLat and forcing file names to a file
+    ! Write farmland ratios of each grid
     if(WriteForcing)then
-      fout = trim(filepath_out)//trim(GridListFile) ! Grid ID, VegCover, and N_input
-      open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
-      !do m=1, N_VegGrids
-      !  write(Grids_UN1, '(I8,11(",",E9.4))')GridLonLat(m),(GridVegCov(i,m),i=1,N_vegs),LandGrid(m)%N_input
-      !enddo
-#ifdef WIEMIP_setting
       fout = trim(filepath_out)//'GridFarmRatio.csv' ! Data file name
       open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat2)
       !do m=1, N_VegGrids
       !  write(Grids_UN2, '(I8, 1176(",",f12.4))')GridLonLat(m),(GridFarm(i,m),i=1,FM_Yrs)
       !enddo
-#endif
     endif
+    ! Release memory of CropData and TotCrops
+    deallocate(CropData)
+    deallocate(TotCrops)
+#endif
 
     ! ----------------- Read in all climate data ----------------------!
     do j= 1, N_vars ! 7 ('tmp','pre','dswrf','spfh','pres','ugrd','vgrd')
@@ -222,7 +242,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
 
         ! If the climate file is gzipped, unzip it and returen unzip_ok. 
         ! Otherwise, return unzip_ok (file exists)
-        call unzip_gzip_file(trim(fgz), ok=unzip_ok, quiet=.true.)
+        call unzip_gzip_file(trim(fgz), ok=unzip_ok)
         if (.not. unzip_ok) then
           file_exists = .false.
           forcingData => null()
@@ -266,8 +286,6 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path)
     if(allocated(VegCover))  deallocate(VegCover)
     if(allocated(NdpData))   deallocate(NdpData)
     if(allocated(TotalNdp))  deallocate(TotalNdp)
-    if(allocated(CropData))  deallocate(CropData)
-    if(allocated(TotCrops))  deallocate(TotCrops)
 
 end subroutine ReadNCfiles
 
@@ -289,7 +307,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
   real    :: WindS1, WindS2, SWdaily, SWmax
-  real    :: tmp1(12,10), tmp2(SHshift,10)  ! Shift hourly data
+  real    :: tmp1(23,10), tmp2(SHshift,10)  ! Shift hourly data
   integer :: forcing_unit ! for interpolated grid forcing file writting
   integer :: iLon, iLat   ! Column and Lines (started from -179.75 and -89.75)
   integer :: year0, year1 ! Start and end year
@@ -476,8 +494,10 @@ end subroutine CRU_Interpolation
 
 !==============================================
 subroutine CRU_end()
-  close(Grids_UN1)
-  close(Grids_UN2)
+  if(WriteForcing) close(Grids_UN1)
+#ifdef WIEMIP_setting
+  if(WriteForcing) close(Grids_UN2)
+#endif
   if(allocated(GridLonLat)) deallocate(GridLonLat)
   if(allocated(GridVegCov)) deallocate(GridVegCov)
   if(allocated(GridFarm))   deallocate(GridFarm)
@@ -528,7 +548,7 @@ subroutine read_GridLonLat(fname,file_exists)
 
   m = 0
   do
-    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVF(i,m+1),i=1,10)
+    read(11,*,IOSTAT=istat1) GridNo(m+1), (tmpVF(i,m+1),i=1,N_Vegs)
     if(istat1<0 ) exit
 #ifdef WIEMIP_setting
     read(12,*,IOSTAT=istat2) GridCode, (tmpFM(i,m+1),i=1,FM_Yrs)
@@ -632,7 +652,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   endif
 
   ! Unzip (keep original .gz) with explicit status
-  call unzip_gzip_file(trim(climfile)//'.gz', ok=unzip_ok, quiet=.true.)
+  call unzip_gzip_file(trim(climfile)//'.gz', ok=unzip_ok)
   if (.not. unzip_ok) then
     file_exists = .false.
     forcingData => null()
@@ -740,29 +760,25 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
 end subroutine read_interpolatedCRU
 
 !==============================================================
-    subroutine unzip_gzip_file(filename_gz, ok, exitstat, out_file, quiet)
+subroutine unzip_gzip_file(filename_gz, ok, exitstat, out_file)
     character(len=*), intent(in)            :: filename_gz
     logical,          intent(out), optional :: ok
     integer,          intent(out), optional :: exitstat
     character(len=*), intent(out), optional :: out_file
-    logical,          intent(in),  optional :: quiet
 
     character(len=600) :: command
     character(len=600) :: filename_out
-    logical :: q, gz_exists, out_exists
+    logical :: gz_exists, out_exists
     integer :: est, Lfn
 
-    q = .false.
-    if (present(quiet)) q = quiet
     if (present(ok)) ok = .false.
     if (present(exitstat)) exitstat = -999
 
     ! --------- Derive output filename by stripping trailing ".gz" if present
     filename_out = trim(filename_gz)
     Lfn = len_trim(filename_out)
-    if (Lfn >= 3) then
-      if (filename_out(Lfn-2: Lfn) == '.gz') filename_out = filename_out(1: Lfn-3)
-    endif
+    if (Lfn <= 3) stop 'Specify file types, .gz, .csv, or .txt'
+    if (filename_out(Lfn-2: Lfn) == '.gz') filename_out = filename_out(1: Lfn-3)
     if (present(out_file)) out_file = trim(filename_out)
 
     ! If output already exists, treat as success (idempotent)
@@ -778,7 +794,7 @@ end subroutine read_interpolatedCRU
     ! Check the netcdf file so that to skip unzipping if the file exists
     inquire(file=trim(filename_gz), exist=gz_exists)
     if (.not. gz_exists) then
-      if (.not. q) write(*,'("unzip_gzip_file: missing ",a)') trim(filename_gz)
+      write(*,'("unzip_gzip_file: missing ",a)') trim(filename_gz)
       est = 2
       if (present(exitstat)) exitstat = est
       return
@@ -787,21 +803,18 @@ end subroutine read_interpolatedCRU
     ! Unzip: keep .gz (-k), force overwrite (-f)
     command = 'gunzip -kf ' // trim(filename_gz)
     call execute_command_line(command, exitstat=est)
+    if (present(exitstat)) exitstat = est
 
     ! --------- Verify output exists
     inquire(file=trim(filename_out), exist=out_exists)
-    if (est /= 0 .or. .not. out_exists) then
-      if (.not. q) then
-        write(*,'("unzip_gzip_file: failed for ",a," exitstat=",I0)') trim(filename_gz), est
-        if (.not. out_exists) write(*,'("unzip_gzip_file: expected output missing: ",a)') trim(filename_out)
-      endif
-      if (present(exitstat)) exitstat = est
+    if (out_exists .and. est == 0) then
+      if (present(ok)) ok = .true.
+    else
+      write(*,'("unzip_gzip_file: expected output missing: ",a)') trim(filename_out)
       if (present(ok)) ok = .false.
       return
     endif
-    if (present(exitstat)) exitstat = est
-    if (present(ok)) ok = .true.
-  end subroutine unzip_gzip_file
+end subroutine unzip_gzip_file
 
 !==============================================
   subroutine nc_read_3D(file_name, var_name, da, start, count)
