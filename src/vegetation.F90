@@ -47,7 +47,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   integer :: layer
 
   ! Climatic variable
-  tair   = forcing%Tair  - 273.16   ! degC
+  tair   = forcing%Tair  - 273.16  ! degC
   tsoil  = forcing%tsoil - 273.16  ! degC
   thetaS = vegn%thetaS ! (vegn%wcl(2)-vegn%WILTPT)/(vegn%FLDCAP-vegn%WILTPT)
   vegn%annualPET = vegn%annualPET + potentialET(forcing) * step_seconds ! Potential ET, kg m-2 step-1
@@ -381,7 +381,7 @@ subroutine vegn_photosynthesis(forcing, vegn)
                         cana_co2, cc%extinct, fc, cc%layer,      &
                         psyn, resp, wd, transp)
 
-        ! Store outputs (check sign conventions: here resp is returned positive).
+        ! Store outputs. acl (resp) is returned negative (-Rd/lai); gpp = psyn - resp = Ag/lai.
         cc%An_op  = psyn
         cc%An_cl  = -resp
         cc%gpp    = (psyn - resp) * mol_C * cc%Aleaf * step_seconds
@@ -673,6 +673,7 @@ subroutine twostream(mu,mu_bar,LAI,albedo_g,phi1,phi2,rl,tl, &
                      transm_dir, scatter_dir, albedo_dir,    &
                      transm_dif, albedo_dif )
 
+  implicit none
   real, intent(in)  :: mu         ! cosine of direct light zenith angle
   real, intent(in)  :: mu_bar     ! average inverse diffuse optical depth per unit leaf area
   real, intent(in)  :: LAI        ! leaf area index
@@ -878,6 +879,7 @@ end subroutine vegn_N_fixation
 !=====================================================
 ! Weng, 2016-11-28
 subroutine vegn_N_uptake(vegn, tsoil)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: tsoil ! average temperature of soil, degK
 
@@ -937,6 +939,7 @@ end subroutine vegn_N_uptake
 subroutine vegn_growth(vegn)
   ! updates cohort biomass pools, LAI, and height using accumulated
   ! C_growth and bHW_gain
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -1063,6 +1066,7 @@ end subroutine vegn_growth
 subroutine vegn_cohort_update(vegn)
   ! Update derived variables of cohorts at daily time step
   ! after daily growth and tissue turnover, 12/04/2025
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !-------local var----------
@@ -1213,8 +1217,8 @@ end subroutine update_max_LFR_NSN
 
 !============================================================================
 ! Updated by Weng, 06-04-2021
-! Updated by Weng, 06-04-2021
 subroutine vegn_phenology(vegn)  ! daily step
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -1345,10 +1349,9 @@ subroutine vegn_phenology(vegn)  ! daily step
 
 end subroutine vegn_phenology
 
-
-
 ! ============================================================================
 subroutine vegn_tissue_turnover(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !-------local var
@@ -1431,6 +1434,7 @@ end subroutine vegn_tissue_turnover
 !========================================================================
 ! Starvation due to low NSC or NSN, daily
 subroutine vegn_daily_starvation (vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars --------
@@ -1536,14 +1540,10 @@ subroutine Seasonal_fall(cc,vegn)
      lossN_fine   = (1.-retransN)* cc%nindivs * (dNR        + dAleaf * sp%LNbase)
 
      vegn%dailyLFLIT = vegn%dailyLFLIT + (1.-l_fract) * cc%nindivs * dBL
-     vegn%SOC(1) = vegn%SOC(1) +  &
-                      fsc_fine * loss_fine + fsc_wood * loss_coarse
-     vegn%SOC(2) = vegn%SOC(2) +   &
-                      (1.-fsc_fine)*loss_fine + (1.-fsc_wood)*loss_coarse
-     vegn%SON(1)  = vegn%SON(1) +    &
-                       fsc_fine * lossN_fine + fsc_wood * lossN_coarse
-     vegn%SON(2) = vegn%SON(2) +   &
-                       (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
+     vegn%SOC(1) = vegn%SOC(1) + fsc_fine * loss_fine  + fsc_wood * loss_coarse
+     vegn%SON(1) = vegn%SON(1) + fsc_fine * lossN_fine + fsc_wood * lossN_coarse
+     vegn%SOC(2) = vegn%SOC(2) + (1.-fsc_fine) * loss_fine  + (1.-fsc_wood) * loss_coarse
+     vegn%SON(2) = vegn%SON(2) + (1.-fsc_fine) * lossN_fine + (1.-fsc_wood) * lossN_coarse
 
      !annual N from plants to soil
      vegn%NorgP2S = vegn%NorgP2S + lossN_fine + lossN_coarse
@@ -1556,6 +1556,7 @@ end subroutine Seasonal_fall
 ! Weng, 08/23/2022: time counter, update cohort ages and the time of them
 !                   staying in the first layer
 subroutine vegn_age (vegn,t_yr) ! daily
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: t_yr ! step length (year), 1.0/365.0
 
@@ -1578,6 +1579,7 @@ end subroutine vegn_age
 ! =========================================================================
 subroutine vegn_N_deposition(vegn, forcing, dt)
   ! Weng, 05/15/2023, 04/23/2026: Nitrogen deposition, fast time (hourly)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   type(climate_data_type),intent(in):: forcing
   real                , intent(in)    :: dt
@@ -1594,6 +1596,7 @@ end subroutine vegn_N_deposition
 ! calculate the new cohorts added in this step and states:
 ! tree density, DBH, woddy and fine biomass
 subroutine vegn_reproduction (vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -1706,6 +1709,7 @@ end subroutine vegn_reproduction
 
 !============================================
 subroutine setup_seedling(cc,totC,totN)
+  implicit none
   type(cohort_type), intent(inout) :: cc
   real,              intent(in)    :: totC
   real,              intent(in)    :: totN
@@ -1779,6 +1783,7 @@ end subroutine setup_seedling
 
 ! ============================================================================
 function cohort_can_reproduce(cc); logical cohort_can_reproduce
+  implicit none
   type(cohort_type), intent(in) :: cc
 
   associate (sp => spdata(cc%species) )! F2003
@@ -1795,6 +1800,7 @@ end function
 !------------------------Mortality------------------------------------
 subroutine vegn_nat_mortality (vegn, deltat)
   ! TODO: update background mortality rate as a function of wood density (Weng, Jan. 07 2017)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
@@ -1822,6 +1828,7 @@ end subroutine vegn_nat_mortality
 !========================================================================
 ! Starvation due to low NSC and annual NPP
 subroutine vegn_annual_starvation (vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars --------
@@ -1856,6 +1863,7 @@ end subroutine vegn_annual_starvation
 
 ! ===============================
 subroutine plant2soil(vegn,cc,deadtrees)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   type(cohort_type),    intent(inout) :: cc
   real,                 intent(in)    :: deadtrees ! dead trees/m2
@@ -1947,6 +1955,7 @@ end function mortality_rate
 subroutine vegn_hydraulic_states(vegn, deltat)
   ! Update plant hydraulic states, yearly time step
   ! Author: Ensheng Weng, 2021-03-15, updated 2023-10-8
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
@@ -2046,6 +2055,7 @@ end subroutine vegn_hydraulic_states
 ! Weng 2022-03-29 ! Updated 01/13/2023
 subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
   !type(climate_data_type),intent(in):: forcing
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !----- local var --------------
@@ -2152,6 +2162,7 @@ end subroutine Plant_water_dynamics_linear
 subroutine vegn_SW2HW_hydro(vegn)
   ! Coverstion of sapwood to heartwood, yearly time step
   ! Author: Ensheng Weng, 2023-10-08
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -2194,6 +2205,7 @@ end subroutine vegn_SW2HW_hydro
 subroutine vegn_SW2HW_fixedHv(vegn)
   ! Coverstion of sapwood to heartwood by fixed Hv, yearly time step
   ! from LM3-PPA, Weng, 08-19-2022
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -2302,6 +2314,7 @@ end function PlantWaterSupply
 subroutine calculate_Asap_Ktrunk (cc)
   !@sum: Sapwood cross-sectional area and
   ! Total trunk conductance, Weng, 08/13/2022
+  implicit none
   type(cohort_type),intent(inout) :: cc
 
   !----- Local vars ---------------
@@ -2325,6 +2338,7 @@ end subroutine calculate_Asap_Ktrunk
 !=================================================
 ! Weng: update soil root area layers, hydraulic variables, 03/29/2022
 subroutine Update_plant_hydro_vars(cc)
+  implicit none
   type(cohort_type), intent(inout) :: cc
   !----------local var ----------
   integer :: j
@@ -2472,6 +2486,7 @@ end function NewWoodKx
 !==============================================================
 !============= Vegetation initializations =====================
 subroutine initialize_vegn_tile(vegn)
+   implicit none
    type(vegn_tile_type),intent(inout) :: vegn
 
    !--------local vars -------
@@ -2511,6 +2526,7 @@ end subroutine initialize_vegn_tile
 !============================================================================
 !Weng, 12/20/2022, Reset to Initial Vegetation States
 subroutine reset_vegn_initial(vegn)
+   implicit none
    type(vegn_tile_type),intent(inout) :: vegn
 
    !--------local vars -------
@@ -2539,6 +2555,7 @@ end subroutine reset_vegn_initial
 
 !================================================================
 subroutine initialize_cohorts(vegn)
+   implicit none
    type(vegn_tile_type),intent(inout) :: vegn
 
    !--------local vars -------
@@ -2598,6 +2615,7 @@ end subroutine initialize_soil
 ! ============================================================================
 ! Initialize a cohort by initial biomass and soil water conditions
 subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
+  implicit none
   type(cohort_type), intent(inout) :: cc
   real,intent(in)    :: btot ! total biomass per individual, kg C
   real,intent(in)    :: psi_s0 ! Initial stem water potential
@@ -2654,6 +2672,7 @@ end subroutine initialize_cohort_from_biomass
 !=======================================================================
 subroutine relayer_cohorts (vegn)
   ! Arrange crowns into canopy layers according to PPA
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn ! input cohorts
 
   ! ---- local constants
@@ -2727,6 +2746,7 @@ end subroutine relayer_cohorts
 ! Merge similar cohorts in a tile
 ! Only merge cohorts within current cohort array, Weng, 06/21/2025
 subroutine vegn_mergecohorts(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -2755,6 +2775,7 @@ end subroutine vegn_mergecohorts
 ! same PFT in a layer. Weng, 06/25/2025
 
 subroutine kill_lowdensity_cohorts(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -2792,6 +2813,7 @@ end subroutine kill_lowdensity_cohorts
 ! kill old grass cohorts
 ! Weng, 01/22/2023
 subroutine kill_old_grass(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -2841,6 +2863,7 @@ end subroutine kill_old_grass
 ! Merge cohort c1 into c2, regardless of their sizes and densities
 ! Updated by ChatGPT 02/12/2026
 subroutine merge_cohorts(c1, c2) ! Put c1 into c2
+  implicit none
   type(cohort_type), intent(inout) :: c1
   type(cohort_type), intent(inout) :: c2
 
@@ -2934,6 +2957,7 @@ end subroutine merge_cohorts
 ! ============================================================================
 ! Updated by ChatGPT 02/12/2026
 function Mergeable_cohorts(c1, c2) result(is_mergeable)
+  implicit none
   type(cohort_type), intent(in) :: c1, c2
 
   logical :: is_mergeable
@@ -2983,6 +3007,7 @@ end function Mergeable_cohorts
 
 ! ============================================================================
 subroutine check_N_conservation(vegn,totN0,tag)
+  implicit none
   type(vegn_tile_type),intent(in) :: vegn
   real,                intent(in) :: totN0
   character(len = *),  intent(in) :: tag
@@ -3002,6 +3027,7 @@ end subroutine check_N_conservation
 
 !----------------------- Fire ---------------------------
 subroutine vegn_fire (vegn, deltat)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds since last mortality calculations, s
 
@@ -3146,6 +3172,7 @@ end subroutine vegn_fire
 ! switch the species of the first cohort to another species
 ! bugs !!!!!!
  subroutine vegn_species_switch(vegn,N_SP,iyears,FREQ)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   integer, intent(in):: N_SP  ! total species in model run settings
   integer, intent(in):: iyears
@@ -3189,6 +3216,7 @@ end subroutine vegn_fire
 ! Put missing PFTs back from the initial cohorts (initialCC)
 ! 10/17/2018, Weng
 subroutine vegn_species_recovery (vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -3318,6 +3346,7 @@ subroutine vegn_annualLAImax_update(vegn)
   !   1. All species LAImax are updated
   !   2. For evergreen, LAImax can be lower than current LAI.
   !  Weng, 2017-08-02
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
@@ -3382,6 +3411,7 @@ end subroutine vegn_annualLAImax_update
 !==============================================================
 !Weng, 06-13-2021, Crown gap with biodiversity
 subroutine vegn_gap_fraction_update(vegn)
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !----- local var --------------
@@ -3416,6 +3446,7 @@ end subroutine vegn_gap_fraction_update
 ! Weng 2022-02-16 ! Compute water flux via tree trunk (i.e., soil-trunk-leaves)
 subroutine Plant_water_dynamics_equi(vegn) ! forcing,
   !type(climate_data_type),intent(in):: forcing
+  implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   !----- local var --------------
