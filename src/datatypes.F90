@@ -837,12 +837,12 @@ module datatypes
   character(len=160) :: PaleoPfile = 'RMA_P.csv' ! for DroughtPaleo
   character(len=160) :: PaleoTfile = 'RMA_T.csv'
   integer  :: iDraw = 1 ! Sample number
-  integer  :: N_VegTile = 1 ! Initial vegn tiles
-  integer  :: datalines ! the total lines in forcing data file
-  integer  :: StartLine = 1 ! the first step model run start with, for UFL only
-  integer  :: yr_data   ! Years of the forcing data
-  integer  :: days_data ! days of the forcing data
   real     :: siteLAT = 36.01 !site latitude, ORNL
+  integer  :: N_VegTile = 1 ! Initial vegn tiles
+  integer  :: StartLine = 1 ! the first step model run start with, for UFL only
+  integer  :: datalines ! the total lines in forcing data file
+  integer  :: data_yrs  ! Years of the forcing data
+  integer  :: data_days ! days of the forcing data
 
   ! For global/regional forcing data, soil conditions, and initial conditions
   ! CRU NetCDF file dimensions
@@ -946,7 +946,8 @@ module datatypes
   integer  :: yr_ResetVeg    = 0 ! reseting vegetation to the initial, clearcut
   integer  :: yr_Baseline    = 1000 ! for DroughtMIP baseline model run years
   integer  :: FreqY0         = 5 ! Interval (yrs) of recovering initial species
-  integer  :: equi_days      = 0 ! 100 * 365
+  integer  :: skipped_days   = 0 ! for daily output
+  integer  :: output_days    = 0 ! days of the model run to be written (0 means a full forcing data cycle)
   integer  :: steps_per_hour = 1
   real     :: step_hour      = 1.0  ! hour, Time step of forcing data, usually hourly (1.0)
   real     :: step_seconds   = 3600.0
@@ -985,8 +986,8 @@ module datatypes
   ! Climate envelopes for initializing PFTs
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
-  filepath_in,filepath_out,climfile,model_run_years,runID,     &
-  outputhourly,outputdaily,Sc_prcp,Sc_dT,Sc_CO2,CO2_c, &
+  filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
+  runID,model_run_years,output_days,Sc_prcp,Sc_dT,Sc_CO2,CO2_c,&
   ! Model components
   MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &

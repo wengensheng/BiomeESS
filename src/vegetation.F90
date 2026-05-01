@@ -41,7 +41,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   real :: tair, tsoil ! temperature of soil, degC
   real :: thetaS ! soil wetness, unitless
   real :: NSC_supply,LR_demand,LR_deficit
-  real :: LeafGrowthMin, RootGrowthMin,NSCtarget,v
+  real :: LeafGrowthMin, RootGrowthMin,NSCtarget
   real :: LR_growth,WS_growth
   real :: R_days,fNSC,fLFR,fStem
   integer :: layer
@@ -1777,23 +1777,18 @@ subroutine setup_seedling(cc,totC,totN)
      cc%W_sw   = cc%Wmax_s
      cc%W_hw   = 0.0
      call Plant_water2psi_exp(cc)
-
   end associate
 end subroutine setup_seedling
 
 ! ============================================================================
-function cohort_can_reproduce(cc); logical cohort_can_reproduce
-  implicit none
+logical function cohort_can_reproduce(cc)
   type(cohort_type), intent(in) :: cc
 
-  associate (sp => spdata(cc%species) )! F2003
-  cohort_can_reproduce = (cc%layer == 1 .and. &
-                          cc%nindivs > zero_thld .and. &
-                          cc%age   > sp%AgeRepro.and. &
-                          cc%seedC > sp%s0_plant .and. &
-                          cc%seedN > sp%s0_plant/sp%CNseed0)
+  associate (sp => spdata(cc%species) )
+    cohort_can_reproduce = (cc%layer == 1 .and.               &
+      cc%nindivs > zero_thld .and. cc%age > sp%AgeRepro.and.  &
+      cc%seedC > sp%s0_plant .and. cc%seedN > sp%s0_plant/sp%CNseed0)
   end associate
-
 end function
 
 ! ============================================================================

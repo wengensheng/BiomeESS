@@ -4,13 +4,9 @@ module model_utils
   implicit none
   private
 
-  public :: model_para_init
   public :: read_init_namelist, read_vegn_namelist, read_soil_namelist
-  public :: read_global_setting, Preset_GlobalPFTs
-  public :: initialize_soilpars, initialize_PFT_pars, init_derived_species_data
-  public :: Set_PFTs_from_map, Climate_envelope_vars
-  public :: Set_PFTs_from_Data, Set_PFTs_from_Climate, Set_PFTs_from_LandCover
-  public :: Assign_Std_Cohorts
+  public :: read_global_setting, model_para_init, Climate_envelope_vars
+  public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
   public :: vegn_sum_tile, Zero_diagnostics
   public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
   public :: ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
@@ -579,36 +575,6 @@ contains
   end subroutine init_derived_species_data
 
   !=============================================================================
-  subroutine Set_PFTs_from_map(fPFT)
-    real, intent(in) :: fPFT(:)
-
-    !--------- local vars ------------
-    integer :: GridPFTs(N_PFTs)
-    integer :: i
-    real :: f_min = 0.01 ! coverage fraction threshold
-
-    ! Sorting PFT numbers according to fPFT
-    call rank_descending(fPFT,GridPFTs)
-    !PFTID = [character(len=3) :: 'C4G','C3G','TEB','TDB','EGN','CDB','CDN','CAS','AAS']
-    GridPFTs = GridPFTs - 1 ! PFT No. starts from 0.
-
-    ! Find out PFTs in this grid
-    init_cohort_N = min(M_initialCH,Max(1, COUNT(fPFT > f_min)))
-    do i=1, init_cohort_N
-      init_cohort_sps(i)   = GridPFTs(i)
-      init_cohort_Indiv(i) = 0.2  ! initial individual density, individual/m2
-      init_cohort_bsw(i)   = 0.01 ! initial biomass of sapwood, kg C/individual
-      init_cohort_nsc(i)   = 0.01 ! initial non-structural biomass, kg C/individual
-    enddo
-
-    ! Initial soil Carbon and Nitrogen for a vegn tile, Weng 2012-10-24
-    init_fast_SOC  = 0.5  ! initial fast soil C, kg C/m2
-    init_slow_SOC  = 20.0 ! initial slow soil C, kg C/m2
-    init_mineralN  = 0.02 ! Mineral nitrogen pool, (kg N/m2)
-    N_input        = 2.0  ! 0.0008 ! annual N input to soil N pool, kgN m-2 yr-1
-  end subroutine Set_PFTs_from_map
-
-  !=============================================================================
   ! Calculate vars of climate envelopes
   subroutine Climate_envelope_vars (forcingData,steps_per_day)
     implicit none
@@ -769,19 +735,15 @@ contains
     integer, allocatable, intent(out) :: PFTID(:)
 
     !--------- local vars ------------
-    integer :: idx
     logical :: use_Hurtt_data, is_crop
 
     use_Hurtt_data = .True.
     ! Assign PFT groups according to climate and land cover data at each grid
-    idx = maxloc(GridVC, dim=1)
-    write(*,*)'Max vegetation id', idx
-
     ! Igor & Paul: "GridFR" is from Hurtt's cropland file (states4.nc).
     if(use_Hurtt_data)then
       is_crop = GridFR(LC_year0) > 0.5
     else           ! TRENDY PFT data file
-      is_crop = idx >= 9 ! C3 or C4 grasses
+      is_crop = (maxloc(GridVC, dim=1) >= 9) ! C3 or C4 grasses
     endif
     ! Assign PFTs
     if (is_crop) then ! Use land cover data for crops

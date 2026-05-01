@@ -75,6 +75,15 @@ module BiomeE_mod
     type(vegn_tile_type), pointer :: pveg => NULL()
     integer :: i
 
+    ! Setup total days of model run (forcing data have been read in)
+    totdays   = INT(model_run_years/data_yrs+1)*data_days
+    if(output_days > 0)then
+      skipped_days = totdays - output_days
+    else
+      skipped_days = totdays - data_days
+    endif
+
+    ! Setup initial PFTs and cohorts information (not cohorts per se)
 #ifdef DO_Climate_VEG
     ! Update init_cohort_* arrays, 09/09/2025
     call Climate_envelope_vars(forcingData,steps_per_day)
@@ -84,12 +93,6 @@ module BiomeE_mod
     if(init_cohort_Indiv(1)<0.0) &
     call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
 
-    ! Setup total days of model run
-    totdays   = INT(model_run_years/yr_data+1)*days_data
-    equi_days = Max(0, totdays - days_data)
-#ifdef GlobalRun
-    equi_days = Max(0, totdays - min(3650, days_data))
-#endif
     ! ------ Land grid, vegetation tiles, and plant cohorts ------
     allocate(land)
     land%nTiles = 0
@@ -142,7 +145,7 @@ module BiomeE_mod
     skip_yrs     = Max(CO2_start_yr - 1700, 0)
     iCO2_hist    = skip_yrs + 1
     !Total years, CO2-history years, and experiment years
-    tot_yrs  = INT(model_run_years/yr_data+1)*yr_data
+    tot_yrs  = INT(model_run_years/data_yrs+1)*data_yrs
     hist_yrs = CO2_yrs
     spin_yrs = tot_yrs ! in case there is unrecognizable CO2Tag
     if(CO2Tag == 'Init')then
@@ -150,7 +153,7 @@ module BiomeE_mod
     elseif(CO2Tag == 'Hist')then
       spin_yrs = tot_yrs - hist_yrs
     elseif(CO2Tag == 'aCO2' .OR. CO2Tag == 'eCO2')then
-      spin_yrs = INT(750/yr_data)*yr_data - hist_yrs
+      spin_yrs = INT(750/data_yrs)*data_yrs - hist_yrs
     endif
 #endif
 
@@ -160,7 +163,7 @@ module BiomeE_mod
     idoy    = 0
     MonthDays = MonthDOY
     n_steps = StartLine - 1 ! steps skipped acc. the starting line, for UFL only
-    do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*days_data ! days for the model run
+    do idays =1, totdays - (StartLine - 1)/steps_per_day ! 1*data_days ! days for the model run
       idoy = idoy + 1
       ! Leap year or not (CRU data has 365 days/yr; use year number for calendar check)
       if(idoy == 1)then

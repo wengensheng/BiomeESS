@@ -455,8 +455,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   enddo
   forcingData => climateData
   datalines = totalL
-  days_data = totyr * 365
-  yr_data   = totyr
+  data_days = totyr * 365
+  data_yrs   = totyr
   dt_fast_yr= 1.0/(365.0 * 24.0 * steps_per_hour)
   step_hour = 1.0/steps_per_hour
   step_seconds  = 3600.0 * step_hour
@@ -662,9 +662,9 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
 
   ! Total days and lines
   steps_per_day = 24 ! Make sure to be consistent with interpolation
-  yr_data   = year1 - year0 + 1
-  days_data = yr_data * 365
-  datalines = days_data * steps_per_day
+  data_yrs   = year1 - year0 + 1
+  data_days = data_yrs * 365
+  datalines = data_days * steps_per_day
 
   ! Allocate arrays for reading in data
   allocate(input_data(niterms,datalines))
@@ -753,7 +753,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   enddo
 
   forcingData => climateData
-  write(*,*)"forcing from interpolated: hours,days,years", datalines,days_data,yr_data
+  write(*,*)"forcing from interpolated: hours,days,years", datalines,data_days,data_yrs
 
   ! Release memory
   deallocate(input_data, timecols)

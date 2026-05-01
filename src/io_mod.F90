@@ -29,6 +29,7 @@ module io_mod
 
 !====================== Buffered annual output ==========================
   subroutine init_annual_diagnostics_buffers()
+    implicit none
     if (.not. allocated(annual_cohort_buf))  allocate(annual_cohort_buf(annual_buf_max))
     if (.not. allocated(annual_cohort2_buf)) allocate(annual_cohort2_buf(annual_buf_max))
     if (.not. allocated(annual_patch_buf))   allocate(annual_patch_buf(annual_buf_max))
@@ -39,6 +40,7 @@ module io_mod
   end subroutine init_annual_diagnostics_buffers
 
   subroutine append_annual_line(unit_no, line)
+    implicit none
     integer, intent(in) :: unit_no
     character(len=*), intent(in) :: line
 
@@ -56,6 +58,7 @@ module io_mod
   end subroutine append_annual_line
 
   subroutine push_annual_line(buffer, nbuf, unit_no, line)
+    implicit none
     character(len=annual_line_len), intent(inout) :: buffer(:)
     integer, intent(inout) :: nbuf
     integer, intent(in) :: unit_no
@@ -67,6 +70,7 @@ module io_mod
   end subroutine push_annual_line
 
   subroutine flush_one_annual_buffer(buffer, nbuf, unit_no)
+    implicit none
     character(len=annual_line_len), intent(inout) :: buffer(:)
     integer, intent(inout) :: nbuf
     integer, intent(in) :: unit_no
@@ -79,6 +83,7 @@ module io_mod
   end subroutine flush_one_annual_buffer
 
   subroutine flush_annual_diagnostics_buffers()
+    implicit none
     logical :: is_open
 
     if (allocated(annual_cohort_buf)) then
@@ -103,15 +108,16 @@ module io_mod
 !====================== Read Forcing Data ===============================
 ! --------- Setup forcing data and step lenght ----------------------
   subroutine setup_forcingdata(climfile)
+    implicit none
     character(len=*),intent(in) :: climfile
 
 #ifdef DroughtPaleo
     call set_PaleoForcing(climfile,PaleoPfile,PaleoTfile,iDraw, &
-    forcingData,datalines,days_data,yr_data,step_hour)
+    forcingData,datalines,data_days,data_yrs,step_hour)
 #else
-    call Read_ForcingData(climfile,forcingData,datalines,days_data,yr_data,step_hour)
-    !call read_NACPforcing(forcingData,datalines,days_data,yr_data,step_hour)
-    !call read_CRUforcing(forcingData,datalines,days_data,yr_data,step_hour)
+    call Read_ForcingData(climfile,forcingData,datalines,data_days,data_yrs,step_hour)
+    !call read_NACPforcing(forcingData,datalines,data_days,data_yrs,step_hour)
+    !call read_CRUforcing(forcingData,datalines,data_days,data_yrs,step_hour)
 #endif
 
     ! ------ Setup steps for model run ------
@@ -119,16 +125,17 @@ module io_mod
     dt_fast_yr    = step_hour/(365.0 * 24.0)
     step_seconds  = step_hour*3600.0
     write(*,*)'steps/day,dt_fast,s/step',steps_per_day,dt_fast_yr,step_seconds
-    write(*,*)'Datalines,days_data,yr_data,step_hour',datalines,days_data,yr_data,step_hour
+    write(*,*)'Datalines,data_days,data_yrs,step_hour',datalines,data_days,data_yrs,step_hour
   end subroutine setup_forcingdata
 
 !=============================================================================
 ! read in forcing data (Users need to write their own data input procedure)
-  subroutine Read_ForcingData(fdata,forcingData,datalines,days_data,yr_data,timestep)
+  subroutine Read_ForcingData(fdata,forcingData,datalines,data_days,data_yrs,step_hour)
+    implicit none
     character(len=*),intent(in) :: fdata
     type(climate_data_type),pointer,intent(inout) :: forcingData(:)
-    integer,intent(inout) :: datalines,days_data,yr_data
-    real, intent(inout)   :: timestep
+    integer,intent(inout) :: datalines,data_days,data_yrs
+    real, intent(inout)   :: step_hour
     !------------local var -------------------
     type(climate_data_type), pointer :: climateData(:)
     character(len=80)  commts
@@ -141,7 +148,6 @@ module io_mod
 
     integer, allocatable :: HRMIN(:),doy_data(:),year_data(:)
     real,    allocatable :: DTIME(:),hour_data(:),input_data(:,:)
-    real    :: hr, clim(niterms)
     integer :: yr,dy
     integer :: istat1,istat2,istat3
     integer :: ndays,nyear,totlines
@@ -150,8 +156,8 @@ module io_mod
     ! Open forcing data
     climfile=trim(filepath_in)//trim(fdata)
     ! Check whether file exists
-    inquire (file=climfile, iostat=istat2)
-    if (istat2 /= 0) then
+    inquire (file=climfile, iostat=istat1)
+    if (istat1 /= 0) then
       write (*, '("Error: input file ", a, " does not exist")') climfile
       stop
     end if
@@ -164,21 +170,21 @@ module io_mod
     ! Count total lines
     totlines = 0  ! to record the lines in a file
     do
-      read(11,*,IOSTAT=istat3)yr !,hr,(clim(n),n=1,niterms)
+      read(11,*,IOSTAT=istat3)yr 
       if(istat3 < 0)exit
       totlines = totlines + 1
     enddo ! end of reading the forcing file
     write (*, '("Forcing file ", a, " total lines: ",I12)') trim(climfile),totlines
 
-    ! Allocate arrays for reading in data
-    allocate(doy_data(totlines),year_data(totlines),hour_data(totlines))
-    allocate(DTIME(totlines),HRMIN(totlines))
-    allocate(input_data(niterms,totlines))
-
     ! Read forcing files
     rewind 11
     read(11,'(a160)') commts
+
+    ! Allocate arrays for reading in data
+    allocate(doy_data(totlines),year_data(totlines),hour_data(totlines))
+    allocate(input_data(niterms,totlines))
 #ifdef FACE_run
+    allocate(DTIME(totlines),HRMIN(totlines))
     read(11,'(a160)') commts ! Two lines of head in FACDMDS-2
 #endif
     ndays = 0 ! the total days in this data file
@@ -209,13 +215,13 @@ module io_mod
     enddo
     ! Check fast time step
 #ifdef FACE_run
-    timestep = (HRMIN(2) - HRMIN(1))/60.0
+    step_hour = (HRMIN(2) - HRMIN(1))/60.0
 #else
-    timestep = hour_data(2) - hour_data(1)
+    step_hour = hour_data(2) - hour_data(1)
 #endif
-    if (timestep==1.0)then
+    if (step_hour==1.0)then
       write(*,*)"the data freqency is hourly"
-    elseif(timestep==0.5)then
+    elseif(step_hour==0.5)then
       write(*,*)"the data freqency is half hourly"
     else
       write(*,*)'hour data:',hour_data(1),hour_data(2),hour_data(3)
@@ -245,7 +251,7 @@ module io_mod
       climateData(i)%Tair      = input_data(3,i) + 273.16  ! air temperature, K
       climateData(i)%Tsoil     = input_data(4,i) + 273.16  ! soil temperature, K
       climateData(i)%RH        = min(input_data(5,i),99.9) * 0.01    ! relative humidity (0.xx)
-      climateData(i)%rain      = input_data(6,i)/(timestep * 3600)! ! kgH2O m-2 s-1
+      climateData(i)%rain      = input_data(6,i)/(step_hour * 3600)! ! kgH2O m-2 s-1
       climateData(i)%windU     = input_data(7,i)        ! wind velocity (m s-1)
       climateData(i)%P_air     = input_data(8,i)        ! pa
       climateData(i)%CO2       = input_data(9,i)        !ppm
@@ -256,23 +262,27 @@ module io_mod
     enddo
     forcingData => climateData
     datalines = totlines
-    days_data = ndays
-    yr_data   = nyear
+    data_days = ndays
+    data_yrs  = nyear
     write(*,*)"runID:  ", runID
-    write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
+    write(*,*)"forcing: hours,days,years", datalines,data_days,data_yrs
 
     !Close opened file and release memory
     close(11)    ! close forcing file
     deallocate(doy_data,year_data,hour_data,input_data)
+#ifdef FACE_run
+    deallocate(DTIME,HRMIN)
+#endif
   end subroutine Read_ForcingData
 
   !=============================================================
 #ifdef Use_NACP_site_data
   ! for reading in NACP site synthesis forcing
-  subroutine read_NACPforcing(forcingData,datalines,days_data,yr_data,timestep)
+  subroutine read_NACPforcing(forcingData,datalines,data_days,data_yrs,step_hour)
+    implicit none
     type(climate_data_type),pointer,intent(inout) :: forcingData(:)
-    integer,intent(inout) :: datalines,days_data,yr_data
-    real, intent(inout)   :: timestep
+    integer,intent(inout) :: datalines,data_days,data_yrs
+    real, intent(inout)   :: step_hour
     !------------local var -------------------
     type(climate_data_type), pointer :: climateData(:)
     character(len=80)  commts
@@ -297,7 +307,7 @@ module io_mod
     read(11,'(a160)') commts
     m       = 0  ! to record the lines in a file
     idays   = 1  ! the total days in a data file
-    yr_data = 0 ! to record years of a dataset
+    data_yrs = 0 ! to record years of a dataset
     do    ! read forcing files
       m=m+1
       read(11,*,IOSTAT=istat3)year_data(m),doy_data(m),hour_data(m),   &
@@ -311,11 +321,11 @@ module io_mod
       if(doy /= doy_data(m)) idays = idays + 1
     enddo ! end of reading the forcing file
 
-    timestep = hour_data(2) - hour_data(1)
-    write(*,*)"forcing",datalines,yr_data,timestep,dt_fast_yr
-    if (timestep==1.0)then
+    step_hour = hour_data(2) - hour_data(1)
+    write(*,*)"forcing",datalines,data_yrs,step_hour,dt_fast_yr
+    if (step_hour==1.0)then
       write(*,*)"the data freqency is hourly"
-    elseif(timestep==0.5)then
+    elseif(step_hour==0.5)then
       write(*,*)"the data freqency is half hourly"
     else
       write(*,*)"Please check time step!"
@@ -324,8 +334,8 @@ module io_mod
     close(11)    ! close forcing file
     ! Put the data into forcing
     datalines = m - 1
-    days_data = idays
-    yr_data  = year_data(datalines-1) - year_data(1) + 1
+    data_days = idays
+    data_yrs  = year_data(datalines-1) - year_data(1) + 1
 
     allocate(climateData(datalines))
     do i=1,datalines
@@ -346,24 +356,24 @@ module io_mod
     enddo
     forcingData => climateData
     write(*,*)"runID:  ", runID
-    write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
+    write(*,*)"forcing: hours,days,years", datalines,data_days,data_yrs
 
   end subroutine read_NACPforcing
 #endif
 
 !=============================================================================
 #ifdef DBEN_run
-  subroutine read_CRUforcing(forcingData,datalines,days_data,yr_data,timestep)
+  subroutine read_CRUforcing(forcingData,datalines,data_days,data_yrs,step_hour)
+    implicit none
     type(climate_data_type),pointer,intent(inout) :: forcingData(:)
-    integer,intent(inout) :: datalines,days_data,yr_data
-    real, intent(inout)   :: timestep
+    integer,intent(inout) :: datalines,data_days,data_yrs
+    real, intent(inout)   :: step_hour
     !------------local var -------------------
     type(climate_data_type), pointer :: climateData(:)
     character(len=80)  commts
     integer, parameter :: niterms=6 !'tmp','pre','tswrf','spfh','pres','windU'
     integer, allocatable :: doy_data(:),year_data(:)
     real,    allocatable :: hour_data(:),input_data(:,:)
-    real    :: hr, clim(niterms)
     real    :: td,cosz,solarelev,solarzen,r_light
     real    :: cosz14H
     integer :: H14 ! The line of each day's 2PM
@@ -389,7 +399,7 @@ module io_mod
     ! Count total lines
     totlines = 0  ! to record the lines in a file
     do
-      read(11,*,IOSTAT=istat3)yr,dy !,hr,(clim(n),n=1,niterms)
+      read(11,*,IOSTAT=istat3)yr,dy
       if(istat3 < 0)exit
       totlines = totlines + 1
     enddo ! end of reading the forcing file
@@ -418,10 +428,10 @@ module io_mod
       if(yr /= year_data(m))nyear = nyear + 1
     enddo
     ! Check fast time step
-    timestep = hour_data(2) - hour_data(1)
-    if (timestep==1.0)then
+    step_hour = hour_data(2) - hour_data(1)
+    if (step_hour==1.0)then
       write(*,*)"the data freqency is hourly"
-    elseif(timestep==0.5)then
+    elseif(step_hour==0.5)then
       write(*,*)"the data freqency is half hourly"
     else
       write(*,*)'hour data:',hour_data(1),hour_data(2),hour_data(3)
@@ -450,7 +460,7 @@ module io_mod
       climateData(i)%doy       = doy_data(i)           ! day of the year
       climateData(i)%Tair      = input_data(1,i)       ! air temperature, K
       climateData(i)%Tsoil     = input_data(1,i)*0.8 + 273.16*0.2  ! soil temperature, K
-      climateData(i)%rain      = input_data(2,i)/(timestep * 3600)! ! kgH2O m-2 s-1
+      climateData(i)%rain      = input_data(2,i)/(step_hour * 3600)! ! kgH2O m-2 s-1
       climateData(i)%P_air     = input_data(5,i)        ! pa
       climateData(i)%windU     = input_data(6,i)        ! wind velocity (m s-1)
       climateData(i)%RH        = input_data(4,i)/mol_h2o*mol_air * & ! relative humidity (0.xx)
@@ -461,11 +471,11 @@ module io_mod
     enddo
     forcingData => climateData
     datalines = totlines
-    days_data = ndays
-    yr_data   = nyear
+    data_days = ndays
+    data_yrs  = nyear
     write(*,*)"siteLAT:", siteLAT
     write(*,*)"runID:  ", runID
-    write(*,*)"forcing: hours,days,years", datalines,days_data,yr_data
+    write(*,*)"forcing: hours,days,years", datalines,data_days,data_yrs
 
     !open(14,file='DBEN_forcing.csv')
     !write(14,*)"YEAR,DOY,HOUR,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,aCO2,eCO2"
@@ -489,14 +499,14 @@ module io_mod
 #ifdef DroughtPaleo
   ! Set up forcing data with paleo precipitation and temperature (monthly)
   subroutine set_PaleoForcing(fdata,fPaleoP,fPaleoT,iDraw, &
-    forcingData,datalines,days_data,yr_data,timestep)
+    forcingData,datalines,data_days,data_yrs,step_hour)
     implicit none
     character(len=*),intent(in) :: fdata ! Base climate data
     character(len=*),intent(in) :: fPaleoP,fPaleoT ! Paleo inversion data
     integer,intent(in) :: iDraw
     type(climate_data_type),pointer,intent(inout) :: forcingData(:)
-    integer,intent(inout) :: datalines,days_data,yr_data
-    real, intent(inout)   :: timestep
+    integer,intent(inout) :: datalines,data_days,data_yrs
+    real, intent(inout)   :: step_hour
 
     !------------local var -------------------
     integer, parameter :: N_draws = 1000
@@ -518,16 +528,16 @@ module io_mod
     integer :: iLine,iBase,iBY,iY,iM,iD ! Year, Month, Day, Hour
 
     ! Read in baseline forcing data (1901~1930, 30 years)
-    call Read_ForcingData(fdata,forcingData,datalines,days_data,yr_data,timestep)
+    call Read_ForcingData(fdata,forcingData,datalines,data_days,data_yrs,step_hour)
     ! Calculate monthely P and T
-    allocate(monthlyP(yr_data,12),monthlyT(yr_data,12))
+    allocate(monthlyP(data_yrs,12),monthlyT(data_yrs,12))
     monthlyP = 0.0
     monthlyT = 0.0
     iBase = 0
-    do iY =1,yr_data
+    do iY =1,data_yrs
       do iM=1,12
         n =  0
-        do iD=1, MonthDays(iM) * int(24.0/timestep)
+        do iD=1, MonthDays(iM) * int(24.0/step_hour)
           n = n + 1
           iBase = iBase + 1
           if(iBase > datalines) exit
@@ -538,7 +548,7 @@ module io_mod
           monthlyP(iY,iM) = 1.0E-9     ! just for put the paleo rainfall at the last hour
           forcingData(iBase)%rain = 1.0E-9
         endif
-        monthlyP(iY,iM) = monthlyP(iY,iM) * (timestep * 3600) ! Monthly total
+        monthlyP(iY,iM) = monthlyP(iY,iM) * (step_hour * 3600) ! Monthly total
         monthlyT(iY,iM) = monthlyT(iY,iM) /n - 273.16 ! K to C
       enddo
     enddo
@@ -569,17 +579,17 @@ module io_mod
     enddo
 
     ! Replace base data's P and T
-    PaleoForcingLines = INT(PaleoYears*365*24/timestep)
+    PaleoForcingLines = INT(PaleoYears*365*24/step_hour)
     allocate(climateData(PaleoForcingLines))
     iBase = 0
     iLine = 0
     do iY =1, PaleoYears ! 901
-      iBY = MOD(iY-1,yr_data)+1 ! Corresponding base data year
+      iBY = MOD(iY-1,data_yrs)+1 ! Corresponding base data year
       do iM=1,12
         ! Calculate ratios of Paleo P and T to the base data's
         fPrcp = PaleoP((iY-1)*12+iM,iDraw) / monthlyP(iBY,iM)
         dTmp  = PaleoT((iY-1)*12+iM,iDraw) - monthlyT(iBY,iM)
-        do iD=1, MonthDays(iM) * int(24.0/timestep)
+        do iD=1, MonthDays(iM) * int(24.0/step_hour)
           iBase = MOD(iLine,datalines) + 1
           iLine = iLine + 1
           climateData(iline)       = forcingData(iBase)
@@ -588,15 +598,15 @@ module io_mod
           climateData(iline)%Tsoil = forcingData(iBase)%Tsoil+ dTmp
         enddo ! month hours
       enddo   ! Months
-      !if(iBY==yr_data)write(*,*)'iY,iLine:',iY,iLine
+      !if(iBY==data_yrs)write(*,*)'iY,iLine:',iY,iLine
     enddo     ! years
     deallocate(monthlyP,monthlyT)
     deallocate(forcingdata)
     ! Update data array for model run
     forcingData => climateData
     datalines = iLine
-    days_data = PaleoYears * 365
-    yr_data   = PaleoYears
+    data_days = PaleoYears * 365
+    data_yrs   = PaleoYears
 
     if(WriteForcing) then
       ! Write climateData to a csv file, for checking only
@@ -622,6 +632,7 @@ module io_mod
   subroutine setup_output_files()
 
     ! ----------Local vars ------------
+    implicit none
     character(len=150) :: YearlyCohort2, DailyPatch2  ! For DroughtMIP only
     character(len=120) :: filesuffix, fpath
     character(len=6)   :: LonLat
@@ -680,7 +691,7 @@ module io_mod
 
       open(fno4,file=trim(file_out(4)),  ACTION='write', IOSTAT=istat2)
       if(istat2 /= 0)then
-        write(*,*) 'fno3 open error. Stopped!'
+        write(*,*) 'fno4 open error. Stopped!'
         stop
       endif
 
@@ -798,6 +809,7 @@ module io_mod
 
 !================================================
   subroutine zip_output_files()
+    implicit none
     character(len=256) :: command
     integer :: N_files, i, iostat
     integer :: idx(6) = [6,5,4,3,2,1]
@@ -825,6 +837,7 @@ module io_mod
 !================= Diagnostics============================================
 ! Hourly fluxes sum to daily
   subroutine hourly_diagnostics(vegn,forcing,iyears,idoy,ihour,iday)
+    implicit none
     type(vegn_tile_type), intent(inout) :: vegn
     type(climate_data_type),intent(in):: forcing
     integer, intent(in) :: iyears,idoy,ihour,iday
@@ -898,6 +911,7 @@ module io_mod
 
 !========================================================================================
   subroutine daily_diagnostics(vegn,iyears,idoy,iday,MonthDays)
+    implicit none
     type(vegn_tile_type), intent(inout) :: vegn
     integer, intent(in) :: iyears,idoy,iday
     integer, intent(in) :: MonthDays(0:12)
@@ -937,7 +951,7 @@ module io_mod
     endif
 
 #elif DroughtFMT
-    if(outputdaily.and. iday>equi_days)then
+    if(outputdaily.and. iday > skipped_days)then
       !! Tile daily
       write(fno4,'(2(I5,","),70(E12.6,","))')iyears,idoy,         &
       vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
@@ -947,7 +961,7 @@ module io_mod
     endif
 
 #else
-    if(outputdaily .and. iday>equi_days)then
+    if(outputdaily .and. iday > skipped_days)then
       !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
       !! Cohort daily
       do i = 1, vegn%n_cohorts
@@ -1033,6 +1047,7 @@ module io_mod
 
 !==================================================================================================
   subroutine annual_diagnostics(vegn, iyears)
+    implicit none
     type(vegn_tile_type), intent(inout) :: vegn
     integer, intent(in) :: iyears
 
