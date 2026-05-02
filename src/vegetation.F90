@@ -2287,8 +2287,8 @@ subroutine Update_plant_hydro_vars(cc)
 
   associate (sp => spdata(cc%species) )
     ! Plant hydraulics-related variables
-    cc%Wmax_l = cc%bl *(1.0/sp%rho_leaf - 1.0/rho_cellwall)*rho_H2O ! max leaf water, kg H2O
-    cc%Wmax_s = cc%bsw*(1.0/sp%rho_wood - 1.0/rho_cellwall)*rho_H2O ! max stem water, kg H2O
+    cc%Wmax_l = cc%bl *(1.0/sp%rho_leaf - 1.0/rho_CW)*rho_H2O ! max leaf water, kg H2O
+    cc%Wmax_s = cc%bsw*(1.0/sp%rho_wood - 1.0/rho_CW)*rho_H2O ! max stem water, kg H2O
     cc%Wmin_l = cc%Wmax_l * exp(sp%psi0_LF*sp%CR_Leaf)
     cc%Wmin_s = cc%Wmax_s * exp(sp%psi0_WD*sp%CR_Wood)
   end associate
