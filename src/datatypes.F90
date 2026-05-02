@@ -10,20 +10,20 @@ module datatypes
   real,    parameter :: seconds_per_day  = 24. * 3600. ! 86400
 
   ! Physical constants
-  real, parameter :: PI      = 3.1415926
-  real, parameter :: rho_H2O = 1000.0 ! water density (kg m-3)
-  real, parameter :: TFREEZE = 273.16
-  real, parameter :: Rgas    = 8.314472 ! universal gas constant, J K-1 mol-1
-  real, parameter :: mol_C   = 12.0e-3 ! molar mass of carbon, kg
-  real, parameter :: mol_air = 28.96440e-3 ! molar mass of air, kg
-  real, parameter :: mol_CO2 = 44.00995e-3 ! molar mass of CO2,kg
-  real, parameter :: mol_h2o = 18.0e-3 ! molar mass of water, kg
-  real, parameter :: cpair   = 1010.     ! air heat capapcity (J/kg/K)
-  real, parameter :: H2OLv0  = 2.501e6   ! latent heat H2O (J/kg)
-  real, parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
-  real, parameter :: solarC  = 1361.0   ! Solar constant, W/m2
-  real, parameter :: f_PAR   = 0.5  ! Fraction of PAR in total solar radiation
-  real, parameter :: rad_phot = 0.0000046 ! PAR conversion factor of J -> mol of quanta
+  real,    parameter :: PI      = 3.1415926
+  real,    parameter :: rho_H2O = 1000.0   ! water density (kg m-3)
+  real,    parameter :: TFREEZE = 273.16   ! degree K
+  real,    parameter :: Rgas    = 8.31447  ! universal gas constant, J K-1 mol-1
+  real,    parameter :: mol_C   = 12.0e-3  ! molar mass of carbon, kg
+  real,    parameter :: mol_air = 28.96e-3 ! molar mass of air, kg
+  real,    parameter :: mol_CO2 = 44.01e-3 ! molar mass of CO2,kg
+  real,    parameter :: mol_h2o = 18.0e-3  ! molar mass of water, kg
+  real,    parameter :: cpair   = 1010.    ! air heat capapcity (J/kg/K)
+  real,    parameter :: H2OLv0  = 2.501e6  ! latent heat H2O (J/kg)
+  real,    parameter :: p_sea   = 101325.  ! atmospheric pressure  (Pa)
+  real,    parameter :: solarC  = 1361.0   ! Solar constant, W/m2
+  real,    parameter :: f_PAR   = 0.45     ! Fraction of PAR in solar SW radiation
+  real,    parameter :: rad_phot= 4.56E-6  ! PAR conversion factor of J -> mol of quanta, 0.0000046
 
   ! Vegetation and soil types
   integer, parameter :: n_dim_soil_types = 9
@@ -36,28 +36,28 @@ module datatypes
                         BAND_VIS   = 1, & ! visible radiation (wavelenght range?)
                         BAND_NIR   = 2    ! near infra-red radiation (wavelenght range?)
 
-  real,    parameter :: min_nindivs= 0.1E-4 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
-  real,    parameter :: zero_thld = 1.0e-12
+  real,    parameter :: min_nindivs= 1.0E-5 ! 2e-15 ! 1/m. 2e-15 is approximately 1 individual per Earth
+  real,    parameter :: zero_thld  = 1.0e-12
 
   ! For vegn_photosynthesis
   integer, parameter :: CLmax   = 5 ! Maximum crown layers
-  real, parameter :: light_crit = 1.0e-12
-  real, parameter :: gs_lim     = 0.25
-  real, parameter :: lai_min    = 1.0e-6
-  real, parameter :: lai_max    = 8.0        ! cc%LAI ranges from 0 to ~8
-  real, parameter :: ext_min    = 0.10       ! cc%extinct is usually 0.2~0.9
-  real, parameter :: ext_max    = 0.90
+  real,    parameter :: light_crit = 1.0e-12
+  real,    parameter :: gs_lim     = 0.25
+  real,    parameter :: lai_min    = 1.0e-6
+  real,    parameter :: lai_max    = 8.0        ! cc%LAI ranges from 0 to ~8
+  real,    parameter :: ext_min    = 0.10       ! cc%extinct is usually 0.2~0.9
+  real,    parameter :: ext_max    = 0.90
 
   ! Plant hydraulics-mortality
-  integer, parameter :: Ysw_max      = 210 ! Maximum function years of xylems
-  real, parameter    :: WDref0       = 300.0   ! Reference wood density, kgC m-3
-  real, parameter    :: rho_cellwall = 750.0 ! kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
-  real, parameter    :: LMAmin       = 0.02    ! minimum LMA (kgC/m2), boundary condition
+  integer, parameter :: Ysw_max = 210   ! Maximum function years of xylems
+  real,    parameter :: WDref0  = 300.0 ! Reference wood density, kgC m-3
+  real,    parameter :: rho_CW  = 750.0 ! cell wall density, kgC m-3, Kellogg & Wangaard 1969 1.5 g/cc
+  real,    parameter :: LMAmin  = 0.02  ! minimum LMA (kgC/m2), boundary condition
 
   ! Soil SOM reference C/N ratios
   integer, parameter :: N_SOM = 5
   !  fineL, structuralL, microbial, fast, slow
-  real, parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
+  real,    parameter :: CN0SOM(5) = (/50., 150., 10., 15., 40./) ! target CN ratios of SOM
 
   ! Soil water layers
   integer, parameter :: soil_L = 5 ! Soil layers, for soil water dynamics
@@ -89,7 +89,7 @@ module datatypes
                         LU_NTRL    = 3, & ! natural vegetation
                         LU_SCND    = 4    ! secondary vegetation
   integer, parameter :: CO2Yrs = 325      ! 325 = the years from 1701 to 2025
-  real, parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2024, ppm
+  real,    parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2024, ppm
   ! 1,     2,     3,     4,     5,     6,     7,     8,     9,     10
   (/276.59,276.62,276.65,276.67,276.70,276.72,276.75,276.78,276.80,276.83,  &
   276.86,276.89,276.92,276.95,276.98,277.02,277.05,277.09,277.13,277.17,  &
@@ -164,28 +164,28 @@ module datatypes
     real :: alpha_FR     ! Turnover rate of Fine roots, fraction yr-1
     real :: Kw_root      ! fine root water conductivity mol m m-2 s−1 Pa−1 !
     real :: root_perm    ! assume it is a fraction of root area active for water flow
-    !  real :: rho_N_up0   ! maximum N uptake rate
-    !  real :: N_roots0    ! root biomass at half of max. N-uptake rate
-    real :: R0_Nfix    ! Reference N fixation rate (kgN kgC-1 root)
-    real :: C0_Nfix    ! Carbon cost of N fixation (kgC kgN-1)
-    real :: S_facuN    ! Intensity of faculative N fixation, 0~1 usage of extraC
+    !real :: rho_N_up0   ! maximum N uptake rate
+    !real :: N_roots0    ! root biomass at half of max. N-uptake rate
+    real :: R0_Nfix      ! Reference N fixation rate (kgN kgC-1 root)
+    real :: C0_Nfix      ! Carbon cost of N fixation (kgC kgN-1)
+    real :: S_facuN      ! Intensity of faculative N fixation, 0~1 usage of extraC
     ! wood traits
     real :: rho_wood     ! woody density, kg C m-3 wood
     real :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
     real :: f_taper
 
     ! Fire related
-    real :: IgniteP ! Probability of ignition when climatic conditions are met (i.e., flammability).
-    real :: mu0fire ! PFT-specific fire sensitivity
+    real :: IgniteP      ! Probability of ignition when climatic conditions are met (i.e., flammability).
+    real :: mu0fire      ! PFT-specific fire sensitivity
 
     ! Plant hydraulics
-    real :: kx0  ! xylem conductivity, (mm/s)/(Mpa/m)
-    real :: WTC0 ! xylem water transfer capacity, m/lifetime
-    real :: CR_Leaf ! leaf compression ratio per MPa
-    real :: CR_Wood ! Wood compression ratio per MPa
-    real :: psi0_LF ! minimum leaf water potential
-    real :: psi0_WD ! minimum stem water potential
-    real :: psi50_WD !wood potential at which 50% conductivity lost, MPa
+    real :: kx0      ! xylem conductivity, (mm/s)/(Mpa/m)
+    real :: WTC0     ! xylem water transfer capacity, m/lifetime
+    real :: CR_Leaf  ! leaf compression ratio per MPa
+    real :: CR_Wood  ! Wood compression ratio per MPa
+    real :: psi0_LF  ! minimum leaf water potential
+    real :: psi0_WD  ! minimum stem water potential
+    real :: psi50_WD ! wood potential at which 50% conductivity lost, MPa
     real :: Kexp_WD  ! exponent of the PLC curve
     real :: f_supply ! fraction of stem water available for leaves per hour
     real :: f_plc    ! fraction of WTC loss due to low water potential (per day)
@@ -206,9 +206,9 @@ module datatypes
     real :: CNwood0
     real :: CNseed0
     ! phenology
-    real :: Tc0_OFF    ! C, for turning OFF a growth season
-    real :: Tc0_ON     ! C, for turning ON a growth season
-    real :: gdd_crit       ! C, critical value of GDD5 for turning ON growth season
+    real :: Tc0_OFF      ! degree C, for turning OFF a growth season
+    real :: Tc0_ON       ! degree C, for turning ON a growth season
+    real :: gdd_crit     ! degree C, critical value of GDD5 for turning ON growth season
     real :: gdd_par1
     real :: gdd_par2
     real :: gdd_par3
@@ -231,11 +231,11 @@ module datatypes
     real :: s_hu         ! hydraulic mortality sensitivity
     real :: W_mu0        ! Half-mortality transp deficit ratio, 0.5, 0.75, 2.5
     ! Population level variables
-    real :: f_cGap    ! fraction of internal gaps in the canopy
-    real :: LAImax    ! max. LAI
-    real :: LAImax_u  ! max. LAI understorey
-    real :: LAI_light ! light controlled maximum LAI
-    integer :: n_cc   ! for calculating LAImax via cc%LAImax derived from cc%NSN
+    real :: f_cGap       ! fraction of internal gaps in the canopy
+    real :: LAImax       ! max. LAI
+    real :: LAImax_u     ! max. LAI understorey
+    real :: LAI_light    ! light controlled maximum LAI
+    integer :: n_cc      ! for calculating LAImax via cc%LAImax derived from cc%NSN
   end type
 
   !----------cohort-----------------
@@ -277,13 +277,13 @@ module datatypes
     real :: bl_max    = 0.0 ! Max. leaf biomass, kg C/individual
     real :: br_max    = 0.0 ! Max. fine root biomass, kg C/individual
     real :: CSAsw     = 0.0
-    real :: DBH_ys        ! DBH at the begining of a year (growing season)
+    real :: DBH_ys          ! DBH at the begining of a year (growing season)
 
     ! Photosynthesis
     real :: An_op     = 0.0 ! mol C/(m2 of leaf per year)
     real :: An_cl     = 0.0 ! mol C/(m2 of leaf per year)
     real :: w_scale   = -9999.0
-    real :: extinct   = 0.75     ! light extinction coefficient in the canopy for photosynthesis
+    real :: extinct   = 0.75   ! light extinction coefficient in the canopy for photosynthesis
 
     ! Carbon fluxes
     real :: gpp  = 0.0 ! gross primary productivity kg C/step
@@ -363,19 +363,19 @@ module datatypes
 
     ! Diagnostics
     real :: Aleafmax = 0.0  ! Yearly maximum leaf area
-    real :: dailyTrsp ! Daily transpiration
-    real :: dailyWdmd ! Plant water demand
-    real :: dailyGPP   ! kgC/tree day-1
+    real :: dailyTrsp       ! Daily transpiration
+    real :: dailyWdmd       ! Plant water demand
+    real :: dailyGPP        ! kgC/tree day-1
     real :: dailyNPP
     real :: dailyResp
     real :: dailyNup
     real :: annualTrsp
-    real :: annualGPP ! C flux/tree
+    real :: annualGPP       ! C flux/tree
     real :: annualNPP
     real :: annualResp
     real :: CO2_c ! ppm
     real :: NfixDaily= 0.0
-    real :: NfixedYr = 0.0 ! annual N fixation per unit crown area
+    real :: NfixedYr = 0.0  ! annual N fixation per unit crown area
     real :: NupYr= 0.0
 
   end type cohort_type
@@ -392,18 +392,18 @@ module datatypes
     type(cohort_type), pointer :: initialCC(:)=>NULL()
     type(vegn_tile_type), pointer :: prev => null() ! Pointer to the older vegn tile
     type(vegn_tile_type), pointer :: next => null() ! Pointer to the younger vegn tile
-    real :: area              ! m2
-    real :: age = 0.0         ! tile age
-    real :: LAI               ! leaf area index
-    real :: LAImax            ! growing season max
-    real :: CAI               ! crown area index
+    real :: area               ! m2
+    real :: age = 0.0          ! tile age
+    real :: LAI                ! leaf area index
+    real :: LAImax             ! growing season max
+    real :: CAI                ! crown area index
     real :: LAI_L(CLmax) = 0.0 ! LAI of each crown layer, max. 9
     real :: f_gap(CLmax) = 0.0 ! gap fraction of each crown layer
     real :: CAI_L(CLmax) = 1.0 ! crown overlap of each crown layer (squeeze factor)
     real :: kp(CLmax)    = 0.0 ! light extinction coefficient for each layer
     ! uptake-related variables
     real :: root_distance(soil_L) ! characteristic half-distance between fine roots, m
-    real :: ArootL(soil_L) = 0.0 ! Root are per layer
+    real :: ArootL(soil_L) = 0.0  ! Root are per layer
     ! averaged quantities for PPA phenology
     real :: tc_daily = 0.0
     real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology
@@ -414,7 +414,7 @@ module datatypes
     real :: SON(5) = 0.
 
     !!  Nitrogen pools, Weng 2014-08-08
-    real :: mineralN= 0.  ! Mineral nitrogen pool, (kg N/m2)
+    real :: mineralN= 0.   ! Mineral nitrogen pool, (kg N/m2)
     real :: totN    = 0.
     real :: N_uptake= 0.0  ! kg N m-2 hour-1
     real :: fixedN  = 0.0  ! kg N/step
@@ -441,8 +441,8 @@ module datatypes
 
     ! Vegetation water content
     real :: W_leaf  ! Leaves
-    real :: W_sw  !
-    real :: W_hw  ! Heartwood ?
+    real :: W_sw    !
+    real :: W_hw    ! Heartwood ?
 
     ! water uptake-related variables
     real :: RAI                ! root area index
@@ -452,7 +452,7 @@ module datatypes
     !  Carbon fluxes
     real :: gpp  = 0  ! gross primary production, kgC m-2 yr-1
     real :: npp  = 0  ! net primary productivity
-    real :: resp = 0 ! auto-respiration of plants
+    real :: resp = 0  ! auto-respiration of plants
     real :: rh   = 0  ! soil carbon lost to the atmosphere
 
     ! Methane fluxes (soil biogeochemistry)
