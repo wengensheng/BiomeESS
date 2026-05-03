@@ -89,9 +89,9 @@ use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   do m = grid_No1, grid_No2  ! Grids in GridLonLat
     ! Get this grid's ID
     GridID = GridLonLat(m) ! for file names
-    GridVC = GridVegCov(:,m) ! From TRENDY land cover data, used in "vegetated"
+    GridVC = GridVegT(:,m) ! From TRENDY land cover data, used in "vegetated"
 #ifdef WIEMIP_setting
-    GridFR = GridFarm(:,m)
+    GridFM = GridFarm(:,m) ! Read from the netcdf or csv file. GridFM is used to assign initial PFTs
 #endif
     call cpu_time(last_time) ! Record time needed for one grid simulation
     print '(A, I6, A, I6)', 'Working at grid: ', GridID, '. Grid No. ', m

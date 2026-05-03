@@ -923,11 +923,11 @@ module datatypes
   integer :: HemiSP     = 1 ! 1: North hemisphere; 0: South hemisphere
   integer :: LC_year0   = 1176 ! initialization with the last year's cropland cover (WIEMIP setting)
   real    :: GridVC(N_Vegs) = 0.0 ! For WIE-MIP, vegetation cover percentage
-  real    :: GridFR(FM_Yrs) = 0.0 ! Farm land ratio, 1176 years
+  real    :: GridFM(FM_Yrs) = 0.0 ! Farm land ratio, 1176 years
 
   type(grid_initial_type), pointer :: LandGrid(:) => null()
   integer,allocatable     :: GridLonLat(:)     ! LonLat
-  real,allocatable,target :: GridVegCov(:,:)   ! Grid vegetation composition
+  real,allocatable,target :: GridVegT(:,:)     ! Grid vegetation composition
   real,allocatable,target :: GridFarm(:,:)     ! (FM_Yrs,N_VegGrids)
   real,allocatable,target :: ClimData(:,:,:)   ! N_yr*Ntime, N_vars, N_VegGrids
   real,allocatable        :: CRUtime(:)        ! Days since 1901-01-01 in CRU data

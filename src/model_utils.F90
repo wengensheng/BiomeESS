@@ -737,9 +737,9 @@ contains
 
     use_Hurtt_data = .True.
     ! Assign PFT groups according to climate and land cover data at each grid
-    ! Igor & Paul: "GridFR" is from Hurtt's cropland file (states4.nc).
+    ! Igor & Paul: "GridFM" is from Hurtt's cropland file (states4.nc).
     if(use_Hurtt_data)then
-      is_crop = GridFR(LC_year0) > 0.5
+      is_crop = GridFM(LC_year0) > 0.5
     else           ! TRENDY PFT data file
       is_crop = (maxloc(GridVC, dim=1) >= 9) ! C3 or C4 grasses
     endif
