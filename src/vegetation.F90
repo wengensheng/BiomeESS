@@ -69,17 +69,17 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! Plant Respiration
   call vegn_respiration(forcing,vegn)
 
+  ! Nitrogen deposition
+  call Vegn_N_deposition(forcing,vegn,dt_fast_yr) ! Hourly N deposition
+
+  !! Nitrogen uptake
+  call vegn_N_uptake(vegn, forcing%tsoil)
+
   ! Nitrogen fixation
   call vegn_N_fixation(forcing,vegn)
 
   ! Soil organic matter decomposition
   call Soil_BGC(vegn, forcing%tsoil, thetaS)
-
-  !! Nitrogen uptake
-  call vegn_N_uptake(vegn, forcing%tsoil)
-
-  ! Nitrogen deposition
-  call Vegn_N_deposition(vegn,forcing,dt_fast_yr) ! Hourly N deposition
 
 end subroutine vegn_CNW_budget_fast
 
@@ -752,6 +752,18 @@ subroutine vegn_N_uptake(vegn, tsoil)
   endif
 end subroutine vegn_N_uptake
 
+!==========================================================================
+subroutine vegn_N_deposition(forcing, vegn, dt)
+  ! Weng, 05/15/2023, 04/23/2026: Nitrogen deposition, fast time (hourly)
+  implicit none
+  type(climate_data_type),intent(in):: forcing
+  type(vegn_tile_type), intent(inout) :: vegn
+  real                , intent(in)    :: dt
+
+  ! Update mineral N pool (mineralN)
+  vegn%mineralN = vegn%mineralN + forcing%N_input * dt ! N_input is yearly
+end subroutine vegn_N_deposition
+
 !============================================================================
 !========================== Daily subroutines ===============================
 !============================================================================
@@ -1391,19 +1403,6 @@ subroutine vegn_daily_starvation (vegn)
      end associate
   enddo
 end subroutine vegn_daily_starvation
-
-
-! =========================================================================
-subroutine vegn_N_deposition(vegn, forcing, dt)
-  ! Weng, 05/15/2023, 04/23/2026: Nitrogen deposition, fast time (hourly)
-  implicit none
-  type(vegn_tile_type), intent(inout) :: vegn
-  type(climate_data_type),intent(in):: forcing
-  real                , intent(in)    :: dt
-
-  ! Update mineral N pool (mineralN)
-  vegn%mineralN = vegn%mineralN + forcing%N_input * dt ! N_input is yearly
-end subroutine vegn_N_deposition
 
 !==========================================================================
 !========================= Annual subroutines =============================
