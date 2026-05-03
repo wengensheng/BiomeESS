@@ -12,7 +12,7 @@ module model_utils
   public :: ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
   public :: TreeTotalC, TreeTotalN, PatchTotalC, PatchTotalN
   public :: PotentialET, A_function, calc_solarzen, qscomp, esat
-  public :: rank_descending, merge, mergerank
+  public :: rank_descending
 
 contains
 
@@ -80,13 +80,11 @@ contains
       do i = 1, vegn%n_cohorts
         cc => vegn%cohorts(i)
         associate ( sp => spdata(cc%species))
-          if(sp%lifeform==0) BMG = BMG + (cc%bl+cc%br+cc%bsw)*cc%nindivs
-          if(cc%layer == 1)then
-            if(sp%lifeform==0) then
-              vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
-            else
-              vegn%TreeCA  = vegn%TreeCA  + cc%Acrown*cc%nindivs
-            endif
+          if(sp%lifeform==0) then
+            BMG = BMG + TreeTotalC(cc) * cc%nindivs
+            if(cc%layer == 1) vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
+          else
+            if(cc%layer == 1) vegn%TreeCA  = vegn%TreeCA  + cc%Acrown*cc%nindivs
           endif
         end associate
       enddo
@@ -426,8 +424,8 @@ contains
     !  spdata%N_roots0  = N_roots0
 
     ! Plant traits
-    spdata%LMA      = LMA      ! leaf mass per unit area, kg C/m2
-    spdata%LNbase   = LNbase   ! Basal leaf nitrogen per unit area, kg N/m2
+    spdata%LMA      = LMA          ! leaf mass per unit area, kg C/m2
+    spdata%LNbase   = LNbase       ! Basal leaf nitrogen per unit area, kg N/m2
     spdata%CN0leafST= CN0leafST    ! Supportive tissues
     spdata%lifeform = lifeform
     spdata%leaf_size= leaf_size
@@ -593,7 +591,7 @@ contains
     N_days = size(forcingData)/steps_per_day
     N_yrs = N_days/365
     if (N_yrs < 1) then
-      error stop "Set_PFTs_from_Climate: need at least one year's data."
+      error stop "Climate_envelope_vars: need at least one year's data."
     endif
 
     ! Allocate variables
@@ -859,9 +857,9 @@ contains
       cc%DBH    = BM2DBH(   BM,cc%species)
       cc%height = DBH2HT(cc%DBH,cc%species)
       cc%Acrown = DBH2CA(cc%DBH,cc%species)
-      cc%bl_max = CA2BLmax(cc) !sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
-      cc%br_max = BLmax2BRmax(cc) !sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
-      cc%NSNmax = ccNSNmax(cc) ! sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+      cc%bl_max = CA2BLmax(cc)    ! sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
+      cc%br_max = BLmax2BRmax(cc) ! sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
+      cc%NSNmax = ccNSNmax(cc)    ! sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
     end associate
   end subroutine BM2Architecture
 
@@ -874,6 +872,7 @@ contains
     integer,intent(in) :: SP
     HT = spdata(SP)%alphaHT * DBH ** spdata(SP)%thetaHT
   end function
+
   !-------------------------------------------
   function DBH2CA(DBH,SP) result (CA)
     real :: CA ! returned value
@@ -881,6 +880,7 @@ contains
     integer,intent(in) :: SP
     CA = spdata(SP)%alphaCA * DBH ** spdata(SP)%thetaCA
   end function
+
   !-------------------------------------------
   function DBH2BM(DBH,SP) result (BM)
     real :: BM ! returned value
@@ -888,6 +888,7 @@ contains
     integer,intent(in) :: SP
     BM = spdata(SP)%alphaBM * DBH ** spdata(SP)%thetaBM
   end function
+
   !-------------------------------------------
   function BM2DBH(BM,SP) result (DBH)
     real :: DBH ! returned value
@@ -1108,12 +1109,13 @@ contains
     ! ranks array x in descending order: on return, idx() contains indices
     ! of elements of array x in descending order of x values. These codes
     ! are from Sergey Malyshev (LM3PPA, Weng et al. 2015 Biogeosciences)
-
     implicit none
     real,    intent(in)  :: x(:)
     integer, intent(out) :: idx(:)
-    integer :: i,n
+
+    !---- Local vars -----------------
     integer, allocatable :: t(:)
+    integer :: i,n
 
     n = size(x)
     do i = 1,n
@@ -1123,18 +1125,18 @@ contains
     allocate(t((n+1)/2))
     call mergerank(x,idx,n,t)
     deallocate(t)
-  end subroutine
+  end subroutine rank_descending
 
   ! =====================================================================
-  ! based on:
-  ! http://rosettacode.org/wiki/Sorting_algorithms/Merge_sort#Fortran
-  subroutine merge(x,a,na,b,nb,c,nc)
-    integer, intent(in) :: na,nb,nc ! Normal usage: NA+NB = NC
-    real, intent(in)       :: x(*)
-    integer, intent(in)    :: a(na)    ! B overlays C(NA+1:NC)
-    integer, intent(in)    :: b(nb)
-    integer, intent(inout) :: c(nc)
+  ! based on: http://rosettacode.org/wiki/Sorting_algorithms/Merge_sort#Fortran
+  subroutine mergeAB2C(x,a,na,b,nb,c,nc)
+    implicit none
+    real,    intent(in)  :: x(*)
+    integer, intent(in)  :: na,nb,nc     ! Normal usage: NA+NB = NC
+    integer, intent(in)  :: a(na), b(nb) ! B overlays C(NA+1:NC)
+    integer, intent(out) :: c(nc)
 
+    !---- Local vars -----------------
     integer :: i,j,k
 
     i = 1; j = 1; k = 1;
@@ -1149,7 +1151,7 @@ contains
     do while (i <= na)
       c(k) = a(i) ; i = i + 1 ; k = k + 1
     enddo
-  end subroutine merge
+  end subroutine mergeAB2C
 
   !=======================================================================
   recursive subroutine mergerank(x,a,n,t)
@@ -1176,7 +1178,7 @@ contains
 
   if (x(a(na)) < x(a(na+1))) then
     t(1:na)=a(1:na)
-    call merge(x,t,na,a(na+1),nb,a,n)
+    call mergeAB2C(x,t,na,a(na+1),nb,a,n)
   endif
 end subroutine mergerank
 

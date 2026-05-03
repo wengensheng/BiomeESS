@@ -1024,6 +1024,9 @@ module io_mod
     vegn%dNgas_Yr = vegn%dNgas_Yr     + vegn%dNgas_daily
     vegn%dNmin_Yr = vegn%dNmin_Yr     + vegn%dNmin_daily
 
+    ! for calculating yearly mean temperature
+    vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
+
     ! zero:
     vegn%dailyNup  = 0.0
     vegn%dailyGPP  = 0.0
@@ -1057,6 +1060,9 @@ module io_mod
     real :: plantC, plantN, soilC, soilN,BMtot,N_loss_yr
     integer :: f_cht,i,j,iyr_out,yr_Eq,yr_Sc
     character(len=annual_line_len) :: line
+
+    ! Yearly mean temperature
+    vegn%YearlyTmp = vegn%YearlyTmp/365.0
 
     ! Max LAI
     vegn%LAImax = 0.0
