@@ -1762,12 +1762,14 @@ subroutine vegn_fire (vegn, deltat)
       deadtrees = cc%nindivs * MIN(1.0, mu_fire * deltat/seconds_per_year) ! individuals / m2
 
       ! Carbon and Nitrogen release by burning
-      Cfire = Cfire + (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
-      Cfast = Cfast + (0.8*cc%NSC + 0.3*cc%bl    + 0.0*(cc%bsw+cc%bHW) + 1.0*cc%br    + 1.0*cc%seedC) * deadtrees
-      Cslow = Cslow + (0.0*cc%NSC + 0.0*cc%bl    + 0.8*(cc%bsw+cc%bHW) + 0.0*cc%br    + 0.0*cc%seedC) * deadtrees
-      Nfire = Nfire + (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
-      Nfast = Nfast + (0.8*cc%NSN + 0.3*cc%leafN + 0.0*(cc%swN+cc%hwN) + 1.0*cc%rootN + 1.0*cc%seedN) * deadtrees
-      Nslow = Nslow + (0.0*cc%NSN + 0.0*cc%leafN + 0.8*(cc%swN+cc%hwN) + 0.0*cc%rootN + 0.0*cc%seedN) * deadtrees
+      Cfire = Cfire + deadtrees * (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw + cc%bHW))
+      Nfire = Nfire + deadtrees * (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%swN + cc%hwN))
+      
+      Cfast = Cfast + deadtrees * (0.8*cc%NSC + 0.3*cc%bl    + cc%br    + cc%seedC)
+      Nfast = Nfast + deadtrees * (0.8*cc%NSN + 0.3*cc%leafN + cc%rootN + cc%seedN)
+
+      Cslow = Cslow + deadtrees * (0.8*(cc%bsw + cc%bHW))
+      Nslow = Nslow + deadtrees * (0.8*(cc%swN + cc%hwN))
 
       ! Update plant density (guard against tiny negatives)
       cc%nindivs = max(0.0, cc%nindivs - deadtrees)
