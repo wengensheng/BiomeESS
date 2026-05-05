@@ -52,7 +52,7 @@ EcoVars = ['CAI',    'LAI',  'GPP', 'Rauto', 'Rh', 'Burned', \
            'fineN',  'strucN', 'McrbN', 'fastSON', 'slowSON', 'mineralN',\
            'WC1_5',  'WC2_25', 'WC3_50', 'WC4_100', 'WC5_120', \
            'N_fxed', 'N_uptk', 'Nm_SL', 'Nm_FR','dNorg','dNgas','dNmin', \
-           'treeCA', 'grasscCA', 'BMgrass','PET', 'Frisk', 'Pburn','CH4',\
+           'treeCA', 'grassCA', 'BMgrass','PET', 'Frisk', 'Pburn','CH4',\
            'mu','muC','Indv']
 
 EcoLongID = ['Crown area index','Leaf area index','Gross Primary Production',\
@@ -86,31 +86,28 @@ EcoUnit = ['m2/m2','m2/m2','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2
 
 subfolder = ['Ecosystem','Cohort']
 
+N_pfts   = 8 # total PFTs at one site, 4
+N_Layers = 3
+Npre     = 6
+N_gridV  = 0 # 58 # added two more N losses and CH4, 55 # 54, added YealryTmp, 11/23/2025
+totYrs   = 0 # Will be updated by reading an ecosystem data file
+
 #%% Check the files
 # 'eCO2' # 'N2g1123' #  'N3g1121' # 'N3gLowNfx' # 'N3gTr10' # 'Ndps3g'
 # 'N4g1128' #  'Warming2C' # '0.5LonLat_N2g1125'
 expID = 'N2gLowNout' # 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
 #Resolution = 1 #Grids selected
 
-#fpath = '/home/eweng/weng/GlobalESSPFTs/NArun/output/Test8/Yearly/zipped/'
-#fpath = '../output/Test/'
-#fpout = '../output/'
 path0 = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_'+expID+'/'
 fpath = path0 +'Yearly/'
 fpout = path0 +''
-
-N_pfts   = 8 # total PFTs at one site, 4
-N_Layers = 3
-Npre     = 6
-N_gridV  = 58 # added two more N losses and CH4, 55 # 54, added YealryTmp, 11/23/2025
-
-totYrs = 0 # Will be updated by reading an ecosystem data file
 
 ecofiles = [f for f in os.listdir(fpath) if "Ecosystem_yearly.csv.gz" in f]
 cohfiles = [f for f in os.listdir(fpath) if "Cohort_yearly.csv.gz" in f]
 
 ecofiles.sort()
 cohfiles.sort()
+
 N_files = len(ecofiles)
 if len(ecofiles) != len(cohfiles):
     print(f"Ecosystem and Cohort files are not equal: {len(ecofiles)} != {len(cohfiles)}")
@@ -123,16 +120,13 @@ else:
 GridID    = np.zeros((N_files), dtype='int')
 LonFiles  = np.zeros((N_files), dtype='int')
 LatFiles  = np.zeros((N_files), dtype='int')
-VldFiles  = np.zeros((N_files), dtype='int')
 # Find out iLon and iLat
 maxLat = -1
 minLat = 999
 maxLon = -1
 minLon = 999
-N_valid = 0
 for ifile in range(N_files):
-    VldFiles[ifile] = 1
-    N_valid = N_valid + 1
+    # Read the file names to get Lat and Lon
     grid_str = ecofiles[ifile][Npre:Npre+6]
     iLonLat = int(grid_str)
     GridID[ifile]  = iLonLat
@@ -145,45 +139,41 @@ for ifile in range(N_files):
     minLat = min(minLat,iLat)
     maxLon = max(maxLon,iLon)
     minLon = min(minLon,iLon)
-    if N_valid == 1:
-        fname_gz = fpath + ecofiles[ifile]
-        try:
-            with gzip.open(fname_gz, 'rt', newline='') as f:
-                reader = csv.reader(f)
-                header = next(reader)  # Read the header row
-                #print(f"Header: {header}")
-                LandYrV=(np.array(list(csv.reader(f,delimiter=','))))
-        except IOError as e:
-            print(f"An I/O error occurred: {e}")
-            continue # skip this cycle
 
-        f.close()
+# Get model run years and the number of ecosystem variables
+fname_gz = fpath + ecofiles[1]
+try:
+    with gzip.open(fname_gz, 'rt', newline='') as f:
+        reader = csv.reader(f)
+        header = next(reader)  # Read the header row
+        #print(f"Header: {header}")
+        LandYrV=(np.array(list(csv.reader(f,delimiter=','))))
+except IOError as e:
+    print(f"An I/O error occurred: {e}")
 
-        rows = len(LandYrV)
-        col  = len(LandYrV[1]) - 1 - 2
+f.close()
 
-N_gridV= col
-totYrs = rows
+totYrs  = len(LandYrV)
+N_gridV = len(LandYrV[1]) - 1 - 2 # two empty and one additional cols in each row
 YR0 = int(totYrs * 0.2) # for calculating averages
+
 # Obtain the resolution of model run
 Resolution = int(GridID[1] -GridID[0])
 r_list = [1, 2, 3, 4, 5]
 if Resolution in r_list:
     print(f"Grid resolution is {Resolution}.")
-    print(N_valid,N_gridV, totYrs)
+    print(N_files,N_gridV, totYrs)
     print(minLat,maxLat,minLon,maxLon)
 else:
     print(f"Resolution {Resolution} is not in the resolution list.")
     sys.exit(0)
 
-
-#%% Define the dimensions and check simulated grids coverage
 #N_Lat = int((maxLat - minLat)/Resolution) + 1
 #N_Lon = int((maxLon - minLon)/Resolution) + 1
-
 N_Lat = int(N0_Lat/Resolution)
 N_Lon = int(N0_Lon/Resolution)
 
+#%% Check simulated grids coverage
 SimuCoverage = np.zeros((N_Lat,N_Lon))
 for ifile in range(N_files):
     iLon = int(LonFiles[ifile]/Resolution)-1
@@ -205,9 +195,8 @@ feco  = open(fpout + "EcoFileNames.txt", "w")
 
 # For ecosystem data
 AvgGridsData = np.zeros((N_gridV+3, N_Lat, N_Lon)) # include mu and muC
-
-# Read files
-iGrid = -1 # Count grids
+VldFiles     = np.zeros((N_files), dtype='int')
+N_valid      = 0
 for ifile in range(N_files):
     iLonLat = GridID[ifile]
     iLon = LonFiles[ifile] - 1
@@ -223,6 +212,8 @@ for ifile in range(N_files):
             header = next(reader)  # Read the header row
             #print(f"Header: {header}")
             LandYrV=(np.array(list(csv.reader(f,delimiter=','))))
+            VldFiles[ifile] = 1
+            N_valid = N_valid + 1
     except IOError as e:
         print(f"An I/O error occurred: {e}")
         continue # skip this cycle
@@ -235,7 +226,7 @@ for ifile in range(N_files):
     rows = len(LandYrV)
     col  = len(LandYrV[1]) - 1
     LandYr = LandYrV[0:rows,0:col].astype(np.float64)
-    print (ecofiles[ifile],LonFiles[ifile],LatFiles[ifile])
+    print (N_valid,ecofiles[ifile])
     AvgGridsData[0:N_gridV, n, m] = np.mean(LandYr[YR0:rows,2:2+N_gridV], axis=0)
 
 
@@ -276,7 +267,7 @@ mu  = np.zeros((totYrs, N_pfts))
 muC = np.zeros((totYrs, N_pfts))
 
 # Read in cohort files
-iGrid = -1 # Count grids
+N_valid = 0
 for ifile in range(N_files):
     iLonLat = GridID[ifile]
     iLon = LonFiles[ifile] - 1
@@ -292,7 +283,7 @@ for ifile in range(N_files):
             header = next(reader)  # Read the header row
             #print(f"Header: {header}")
             CCYrV=(np.array(list(csv.reader(f,delimiter=','))))
-
+            N_valid = N_valid + 1
     except IOError as e:
         print(f"An I/O error occurred: {e}")
         continue # skip this cycle
@@ -304,10 +295,9 @@ for ifile in range(N_files):
     col  = len(CCYrV[1]) - 1
     CCYr = CCYrV[0:rows,0:col].astype(np.float64)
     totCCL = rows
-    print (cohfiles[ifile],totCCL)
+    print (N_valid,cohfiles[ifile])
 
     # Calculate PFT-level  GPP, NPP, BA, CA, BM, LAI, height
-    iGrid = iGrid + 1
     GPP[:,:] = 0.0
     NPP[:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
     BA[:,:]  = 0.0 #    = np.zeros((totYrs, N_pfts))
@@ -329,11 +319,14 @@ for ifile in range(N_files):
         LA[iYr,iPFT]  = LA[iYr,iPFT]  + CCYr[i,6]*CCYr[i,14]/10000
         BM[iYr,iPFT]  = BM[iYr,iPFT]  + CCYr[i,6]*np.sum(CCYr[i,15:21])/10000
         HT[iYr,iPFT]  = max(HT[iYr,iPFT],CCYr[i,12])
+        
+        # Only the top layer
         if iLayer == 0:
             den[iYr,iPFT] = den[iYr,iPFT] + CCYr[i,6]
             mu[iYr,iPFT]  = mu[iYr,iPFT]  + CCYr[i,6]*CCYr[i,29] # Density weighted
             muC[iYr,iPFT] = muC[iYr,iPFT] + CCYr[i,6]*CCYr[i,29]*np.sum(CCYr[i,15:21])/10000
             CA[iYr,iPFT]  = CA[iYr,iPFT]  + CCYr[i,6]*CCYr[i,13]/10000
+        
         # Density weighted
         if (iYr < int(CCYr[i+1,1])-1 or i == totCCL-2):
             for j in range(8):
@@ -365,6 +358,11 @@ for ifile in range(N_files):
     #print('Mortality rate:')
     #print(meanPFTmu [:, n, m])
 
+
+    # Remove CCYr variables and release memory
+    del CCYr, CCYrV
+    gc.collect()
+
     # --------------- Write out Grid temporal files ---------------
     # Write temporal CA of the PFTs
     for i in range(N_pfts):
@@ -380,10 +378,6 @@ for ifile in range(N_files):
     for i in range(N_pfts):
         formatted_row = [f"{num:.2f}" for num in den[:,i]]
         fden.write(",".join(formatted_row) + "\n")
-
-    # Remove variables and release memory
-    del CCYr, CCYrV
-    gc.collect()
 
 fcoh.close()
 ftmp.close()
