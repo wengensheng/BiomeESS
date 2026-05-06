@@ -92,7 +92,7 @@ Npre     = 6
 N_gridV  = 0 # 58 # added two more N losses and CH4, 55 # 54, added YealryTmp, 11/23/2025
 totYrs   = 0 # Will be updated by reading an ecosystem data file
 
-#%% Check the files
+#%% --------------------- Check the files ---------------------
 # 'eCO2' # 'N2g1123' #  'N3g1121' # 'N3gLowNfx' # 'N3gTr10' # 'Ndps3g'
 # 'N4g1128' #  'Warming2C' # '0.5LonLat_N2g1125'
 expID = 'N2gLowNout' # 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
@@ -116,7 +116,7 @@ else:
     print(f"Ecosystem and Cohort files are equal: {len(ecofiles)} == {len(cohfiles)}")
 
 
-#%% Find out Resolution, and file data lines and rows
+#%% --------------------- Find out Resolution, and file data lines and rows
 GridID    = np.zeros((N_files), dtype='int')
 LonFiles  = np.zeros((N_files), dtype='int')
 LatFiles  = np.zeros((N_files), dtype='int')
@@ -173,7 +173,7 @@ else:
 N_Lat = int(N0_Lat/Resolution)
 N_Lon = int(N0_Lon/Resolution)
 
-#%% Check simulated grids coverage
+#%% --------------------- Check simulated grids coverage ---------------------
 SimuCoverage = np.zeros((N_Lat,N_Lon))
 for ifile in range(N_files):
     iLon = int(LonFiles[ifile]/Resolution)-1
@@ -189,7 +189,7 @@ plt.ylabel('Latitude', fontdict=font)
 plt.xlabel('Longitude', fontdict=font)
 
 
-#%% Read in ecosystem files
+#%% --------------------- Read in ecosystem files ---------------------
 # Opent output files
 feco  = open(fpout + "EcoFileNames.txt", "w")
 
@@ -236,12 +236,12 @@ for ifile in range(N_files):
 
 feco.close()
 
-#%% Read in cohort files
+#%% --------------------- Read in cohort files ---------------------
 # Opent output files
 fcoh  = open(fpout + "CohFileNames.txt", "w")
-ftmp  = open(fpout + "CA_Tmp.txt", 'w')
-fden  = open(fpout + "Den_Tmp.txt", 'w')
-fmu   = open(fpout + "Mu_Tmp.txt", 'w')
+fcai  = open(fpout + "CA_Tmp.txt", 'w')
+#fden  = open(fpout + "Den_Tmp.txt", 'w')
+#fmu   = open(fpout + "Mu_Tmp.txt", 'w')
 
 # For cohort data
 meanPFTGPP = np.zeros((N_pfts,N_Lat,N_Lon))
@@ -288,8 +288,6 @@ for ifile in range(N_files):
         print(f"An I/O error occurred: {e}")
         continue # skip this cycle
 
-    fcoh.write(cohfiles[ifile] + '\n')
-
     # Cohort Data dimensions
     rows = len(CCYrV)
     col  = len(CCYrV[1]) - 1
@@ -300,13 +298,13 @@ for ifile in range(N_files):
     # Calculate PFT-level  GPP, NPP, BA, CA, BM, LAI, height
     GPP[:,:] = 0.0
     NPP[:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    BA[:,:]  = 0.0 #    = np.zeros((totYrs, N_pfts))
-    CA[:,:]  = 0.0 #    = np.zeros((totYrs, N_pfts))
-    LA[:,:]  = 0.0 #    = np.zeros((totYrs, N_pfts))
-    BM[:,:]  = 0.0 #    = np.zeros((totYrs, N_pfts))
-    HT[:,:]  = 0.0 #    = np.zeros((totYrs, N_pfts))
+    BA [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
+    CA [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
+    LA [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
+    BM [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
+    HT [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
     den[:,:] = 0.0
-    mu[:,:]  = 0.0 #    Mortality rate
+    mu [:,:] = 0.0 #    Mortality rate
     muC[:,:] = 0.0 #    Mortality C flux
     for i in range(totCCL-1):
         iYr  = int(CCYr[i,1])-1
@@ -364,11 +362,12 @@ for ifile in range(N_files):
     gc.collect()
 
     # --------------- Write out Grid temporal files ---------------
+    fcoh.write(cohfiles[ifile] + '\n')
     # Write temporal CA of the PFTs
     for i in range(N_pfts):
         formatted_row = [f"{num:.2f}" for num in CA[:,i]]
-        ftmp.write(",".join(formatted_row) + "\n")
-
+        fcai.write(",".join(formatted_row) + "\n")
+'''
     # Write temporal mu of the PFTs
     for i in range(N_pfts):
         formatted_row = [f"{num:.2e}" for num in mu[:,i]]
@@ -378,11 +377,12 @@ for ifile in range(N_files):
     for i in range(N_pfts):
         formatted_row = [f"{num:.2f}" for num in den[:,i]]
         fden.write(",".join(formatted_row) + "\n")
-
-fcoh.close()
-ftmp.close()
 fmu.close()
 fden.close()
+'''
+fcoh.close()
+fcai.close()
+
 
 #%% ----------------- Write data to files --------------------------
 
@@ -513,7 +513,7 @@ f1.history = "Created " + today.strftime("%d/%m/%y")
 f1.close()
 
 
-#%% Data analysis
+#%% --------------------- Data analysis ---------------------
 # Copy to specific variables
 meanRain       = AvgGridsData[7,:,:]
 meanGPP        = AvgGridsData[2,:,:]  # np.mean(AllGridsData[2,200:totYrs,:,:])
@@ -527,7 +527,7 @@ meanCAgrass    = AvgGridsData[52,:,:] # np.mean(AllGridsData[49,200:totYrs,:,:])
 meanFrisk      = AvgGridsData[55,:,:] # np.mean(AllGridsData[52,200:totYrs,:,:])
 meanPburn      = AvgGridsData[56,:,:] # np.mean(AllGridsData[53,200:totYrs,:,:])
 
-#%% Plot
+#%% --------------------- Plot ---------------------
 PFTID = ['Woody','Grass']
 xLong = np.arange(N_Lon)
 Longi = np.arange(-179.25+minLon*0.5, -179.25+(maxLon+1)*0.5, 0.5*Resolution)
