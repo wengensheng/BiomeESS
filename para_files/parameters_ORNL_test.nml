@@ -97,4 +97,8 @@ do_fire         = .True.  ! .False. !
 do_RecoverSP    = .False. ! .True.   !
 do_VariedWTC0   = .True. ! .False. !
 do_VariedKx     = .True. ! .False. !
+! Checkpoint/restart
+do_restart_write = .False., ! Set to .True. to save state at end of run
+do_restart_read  = .False., ! Set to .True. to resume from a previous run
+restart_file     = './output/BiomeE_restart.bin',
 /

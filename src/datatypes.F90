@@ -840,6 +840,11 @@ module datatypes
   real     :: siteLAT = 36.01 !site latitude, ORNL
   integer  :: N_VegTile = 1 ! Initial vegn tiles
   integer  :: StartLine = 1 ! the first step model run start with, for UFL only
+
+  ! Checkpoint / restart flags
+  logical           :: do_restart_write = .False. ! Write restart file at end of run
+  logical           :: do_restart_read  = .False. ! Read restart file at start of run
+  character(len=256):: restart_file = './output/BiomeE_restart.bin'
   integer  :: datalines ! the total lines in forcing data file
   integer  :: data_yrs  ! Years of the forcing data
   integer  :: data_days ! days of the forcing data
@@ -988,6 +993,8 @@ module datatypes
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
   runID,model_run_years,output_days,Sc_prcp,Sc_dT,Sc_CO2,CO2_c,&
+  ! Checkpoint / restart
+  do_restart_write, do_restart_read, restart_file,             &
   ! Model components
   MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &
