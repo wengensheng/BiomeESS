@@ -84,6 +84,7 @@ SRCS=(
   "${SRC_DIR}/io_mod.F90"
   "${SRC_DIR}/soil.F90"
   "${SRC_DIR}/vegetation.F90"
+  "${SRC_DIR}/restart_mod.F90"
   "${SRC_DIR}/BiomeE.F90"
 )
 

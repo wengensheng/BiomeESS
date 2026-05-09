@@ -5,6 +5,7 @@ FSRCS="src/datatypes.F90 \
        src/netcdf_io.F90 \
        src/soil.F90 \
        src/vegetation.F90 \
+       src/restart_mod.F90 \
        src/BiomeE.F90 \
        src/main.F90"
 
@@ -12,6 +13,7 @@ CPPFLAGS=''
 CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DZip_outputs'
+CPPFLAGS+=' -DUSE_NETCDF'
 #CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DWIEMIP_setting'
 #CPPFLAGS+=' -DHydro_test'
@@ -38,7 +40,7 @@ echo $fparameter
 #cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess_global $fparameter
+./ess_global $fparameter
 
 #rm ./para_files/input.nml
 rm ess_global

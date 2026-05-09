@@ -28,6 +28,10 @@ outputdaily     = .True.  ! .False. !
 do_closedN_run  = .False. ! .True.  !
 do_fire         = .True.  ! .False. !
 do_RecoverSP    = .True.  ! .False. !
+! Checkpoint/restart
+do_restart_write = .False.,
+do_restart_read  = .False.,
+restart_file     = './output/BiomeE_restart.bin',
 /
 
 &soil_data_nml

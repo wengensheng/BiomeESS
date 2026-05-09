@@ -88,8 +88,8 @@ module datatypes
                         LU_CROP    = 2, & ! crops
                         LU_NTRL    = 3, & ! natural vegetation
                         LU_SCND    = 4    ! secondary vegetation
-  integer, parameter :: CO2Yrs = 325      ! 325 = the years from 1701 to 2025
-  real,    parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2024, ppm
+  integer, parameter :: CO2Yrs     = 326  ! 326 = the years from 1701 to 2026
+  real,    parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2025, ppm
   ! 1,     2,     3,     4,     5,     6,     7,     8,     9,     10
   (/276.59,276.62,276.65,276.67,276.70,276.72,276.75,276.78,276.80,276.83,  &
   276.86,276.89,276.92,276.95,276.98,277.02,277.05,277.09,277.13,277.17,  &
@@ -123,7 +123,7 @@ module datatypes
   353.27,354.56,355.50,356.27,357.78,359.71,361.39,362.70,365.44,367.26,  &
   368.42,370.02,372.15,374.62,376.33,378.45,380.51,382.53,384.42,386.05,  &
   388.23,390.03,392.13,394.88,396.94,399.24,402.52,404.71,406.94,409.63,  &
-  414.21,416.41,418.53,421.08,424.61/)
+  414.21,416.41,418.53,421.08,424.61,427.35/)
 
   !===============data types ==============================
   !-----------PFT data type----------------
@@ -840,6 +840,11 @@ module datatypes
   real     :: siteLAT = 36.01 !site latitude, ORNL
   integer  :: N_VegTile = 1 ! Initial vegn tiles
   integer  :: StartLine = 1 ! the first step model run start with, for UFL only
+
+  ! Checkpoint / restart flags
+  logical           :: do_restart_write = .False. ! Write restart file at end of run
+  logical           :: do_restart_read  = .False. ! Read restart file at start of run
+  character(len=256):: restart_file = './output/BiomeE_restart.bin'
   integer  :: datalines ! the total lines in forcing data file
   integer  :: data_yrs  ! Years of the forcing data
   integer  :: data_days ! days of the forcing data
@@ -900,14 +905,14 @@ module datatypes
   character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv' ! in int_fpath
   character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
   character (len = 6)   :: GridIDFMT    = '(I6.6)' ! For the file name string (GridID)
-  character(len=30)     :: Vegstr       = 'TOTAL_VEG'
-  character(len=9)      :: VegID(N_Vegs)= [character(len=9) :: &
+  character (len=30)    :: Vegstr       = 'TOTAL_VEG'
+  character (len=9)     :: VegID(N_Vegs)= [character(len=9) :: &
                            'SHRUBS_BD','SHRUBS_BE','SHRUBS_ND','SHRUBS_NE', &
                            'TREES_BD ','TREES_BE ','TREES_ND ','TREES_NE ', &
                            'GRASS_MAN','GRASS_NAT'] ! pft2011_0.5x0.5.nc
-  character(len=5)   :: CropID(N_Crop) = [character(len=5) :: &
+  character (len=5)     :: CropID(N_Crop) = [character(len=5) :: &
                            'c3ann', 'c3per', 'c3nfx',  'c4ann', 'c4per', 'pastr']
-  character(len=6)   :: NdpID(4) = [character(len=6) :: &
+  character (len=6)     :: NdpID(4) = [character(len=6) :: &
                            'wetnoy','wetnhx','drynoy','drynhx']
   integer :: LowerLon   = 1
   integer :: UpperLon   = 720 ! Grid number from -179.75 (latitude)
@@ -988,6 +993,8 @@ module datatypes
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
   runID,model_run_years,output_days,Sc_prcp,Sc_dT,Sc_CO2,CO2_c,&
+  ! Checkpoint / restart
+  do_restart_write, do_restart_read, restart_file,             &
   ! Model components
   MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &

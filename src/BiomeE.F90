@@ -49,6 +49,7 @@ module BiomeE_mod
   use model_utils
   use io_mod
   use esdvm
+  use restart_mod
 
   implicit none
   private
@@ -83,39 +84,56 @@ module BiomeE_mod
       skipped_days = totdays - data_days
     endif
 
-    ! Setup initial PFTs and cohorts information (not cohorts per se)
-#ifdef DO_Climate_VEG
-    ! Update init_cohort_* arrays, 09/09/2025
-    call Climate_envelope_vars(forcingData,steps_per_day)
-    call Set_PFTs_from_Data()
-#endif
-
-    if(init_cohort_Indiv(1)<0.0) &
-    call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
-
     ! ------ Land grid, vegetation tiles, and plant cohorts ------
     allocate(land)
     land%nTiles = 0
-    do i =1, N_VegTile
-      allocate(vegn)
-      call initialize_vegn_tile(vegn)
-      call relayer_cohorts(vegn)
-      call Zero_diagnostics(vegn)
-      vegn%Tc_pheno = forcingData(1)%Tair
-      vegn%tileID = i
-      land%nTiles = land%nTiles + 1
-      if(i==1)then
-        land%firstVegn => vegn
-        pveg => vegn
-      else
-        pveg%next => vegn
-        vegn%prev => pveg
-        pveg      => vegn
-      endif
-      vegn => NULL()
-    enddo
-    vegn => land%firstVegn
-    pveg => NULL()
+
+    if (do_restart_read) then
+      ! ---- Restore full model state from restart file ----
+      call read_restart(land)
+      ! Rebuild canopy layers and zero flux accumulators
+      vegn => land%firstVegn
+      do while (associated(vegn))
+        call vegn_RelayerCohorts(vegn)
+        call vegn_sum_tile(vegn)
+        call Zero_diagnostics(vegn)
+        vegn => vegn%next
+      enddo
+    else
+      ! ---- Original (spin-up) initialization path ----
+
+      ! Setup initial PFTs and cohorts information (not cohorts per se)
+#ifdef DO_Climate_VEG
+      ! Update init_cohort_* arrays, 09/09/2025
+      call Climate_envelope_vars(forcingData,steps_per_day)
+      call Set_PFTs_from_Data()
+#endif
+
+      if(init_cohort_Indiv(1)<0.0) &
+      call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
+
+      do i =1, N_VegTile
+        allocate(vegn)
+        call initialize_vegn_tile(vegn)
+        call vegn_RelayerCohorts(vegn)
+        call Zero_diagnostics(vegn)
+        vegn%Tc_pheno = forcingData(1)%Tair
+        vegn%tileID = i
+        land%nTiles = land%nTiles + 1
+        if(i==1)then
+          land%firstVegn => vegn
+          pveg => vegn
+        else
+          pveg%next => vegn
+          vegn%prev => pveg
+          pveg      => vegn
+        endif
+        vegn => NULL()
+      enddo
+      vegn => land%firstVegn
+      pveg => NULL()
+
+    endif ! do_restart_read
 
     ! ------ Start a new random number series ------
     call RANDOM_SEED()
@@ -204,7 +222,7 @@ module BiomeE_mod
 
         vegn => land%firstVegn
         do while(ASSOCIATED(vegn))
-          if(i == INT(steps_per_day/2) .and. idoy == 181)vegn%CO2_c = climateData%CO2 ! * 1.0e6
+          vegn%CO2_c = climateData%CO2 ! * 1.0e6
           call vegn_CNW_budget_fast(vegn,climateData)
           call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
           vegn => vegn%next
@@ -216,7 +234,6 @@ module BiomeE_mod
       vegn => land%firstVegn
       do while(ASSOCIATED(vegn))
         vegn%Tc_daily = land%Tc_daily
-        vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
         call vegn_daily_update(vegn,dt_daily_yr)
         call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
         vegn => vegn%next
@@ -238,9 +255,6 @@ module BiomeE_mod
 
           ! Fire disturbance
           if(do_fire) call vegn_fire(vegn,real(seconds_per_year))
-
-          ! Yearly mean temperature
-          vegn%YearlyTmp = vegn%YearlyTmp/365.0
 
 #ifdef SingleTreeTest
           call vegn_SingleCohort_annual_update(vegn)
@@ -267,9 +281,9 @@ module BiomeE_mod
           endif
           call kill_old_grass(vegn)
           !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
-          call relayer_cohorts(vegn)
+          call vegn_RelayerCohorts(vegn)
           call vegn_mergecohorts(vegn)
-          call kill_lowdensity_cohorts(vegn)
+          call vegn_Remove_empty_cc(vegn)
           ! Summarize tile and zero annual reporting variables
           call vegn_sum_tile(vegn)
           call Zero_diagnostics(vegn)
@@ -311,6 +325,9 @@ subroutine BiomeE_end
   logical :: is_open
 
   call flush_annual_diagnostics_buffers()
+
+  !------------ Write restart checkpoint (before closing output files)
+  if (do_restart_write) call write_restart(land)
 
   !------------ Close output files (only if opened)
   inquire(unit=fno1, opened=is_open); if (is_open) close(fno1)
