@@ -97,6 +97,7 @@ contains
   ! Weng, 2016-11-28
   subroutine Zero_diagnostics(vegn)
     type(vegn_tile_type), intent(inout) :: vegn
+    ! -------- Local vars -----------
     type(cohort_type),pointer :: cc
     integer :: i
 

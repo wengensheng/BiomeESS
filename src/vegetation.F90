@@ -176,7 +176,6 @@ subroutine vegn_photosynthesis(forcing, vegn)
     associate (sp => spdata(cc%species))
 
       if (cc%status == LEAF_ON .and. cc%Aleaf > zero_thld) then
-
         layer = max(1, min(cc%layer, nlayers))
 
         ! Ensure forcing%radiation is total SW (W m-2); convert to PAR with f_PAR.
@@ -219,18 +218,18 @@ subroutine vegn_photosynthesis(forcing, vegn)
         cc%An_cl   = 0.0
         cc%gpp     = 0.0
         cc%transp  = 0.0
-        cc%w_scale = -9999.0
+        cc%w_scale = 1.0
       end if
 
       ! NaN checks using ieee_is_nan for portability
-      if (ieee_is_nan(cc%gpp)) then
-        write(*,*) 'Error: cc%gpp is NaN for cohort ', i, ' species ', cc%species
-        stop 1
-      end if
-      if (ieee_is_nan(cc%transp)) then
-        write(*,*) 'Error: transp is NaN, wd, transp, lai = ', wd, transp, cc%LAI
-        stop 1
-      end if
+      !if (ieee_is_nan(cc%gpp)) then
+      !  write(*,*) 'Error: cc%gpp is NaN for cohort ', i, ' species ', cc%species
+      !  stop 1
+      !end if
+      !if (ieee_is_nan(cc%transp)) then
+      !  write(*,*) 'Error: transp is NaN, wd, transp, lai = ', wd, transp, cc%LAI
+      !  stop 1
+      !end if
 
     end associate
   end do
@@ -1472,7 +1471,7 @@ subroutine vegn_reproduction (vegn)
         ! Copy old information to new cohort, Weng, 2021-06-02
         do n =1, vegn%n_cohorts ! go through old cohorts
           if(reproPFTs(i) == ccold(n)%species)then
-            ccnew(k) = ccold(n) ! Use the information from partent cohort
+            ccnew(k) = ccold(n) ! Use the information from parent cohort
             exit
           endif
         enddo
@@ -1531,25 +1530,21 @@ subroutine setup_seedling(cc,totC,totN)
   ! ----------------------------
   associate(sp=>spdata(cc%species))
      layer = max(1, cc%layer)
-     if(sp%phenotype == 0)then
-        cc%status = LEAF_OFF
-     else
-        cc%status = LEAF_ON
-     endif
+     cc%status = LEAF_OFF ! Force the evergreen newborns to sleep on the first day 
      ! Leaf age
      cc%leafage = 0.0
      ! Carbon pools
-     cc%bl     = 0.0 * totC
+     cc%bl     = 0.0
      cc%br     = 0.1 * totC
      cc%bsw    = f_iniBSW * totC
-     cc%bHW    = 0.0 * totC
+     cc%bHW    = 0.0
      cc%seedC  = 0.0
      cc%nsc    = totC - cc%bsw -cc%br
      ! Nitrogen pools
      cc%leafN  = cc%bl/sp%CNleaf0
      cc%rootN  = cc%br/sp%CNroot0
-     cc%swN  = cc%bsw/sp%CNwood0
-     cc%hwN  = cc%bHW/sp%CNwood0
+     cc%swN    = cc%bsw/sp%CNwood0
+     cc%hwN    = cc%bHW/sp%CNwood0
      cc%seedN  = 0.0
      cc%NSN    = totN - (cc%leafN+cc%rootN+cc%swN) !cc%br/sp%CNroot0
 

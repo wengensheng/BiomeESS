@@ -222,7 +222,7 @@ module BiomeE_mod
 
         vegn => land%firstVegn
         do while(ASSOCIATED(vegn))
-          if(i == INT(steps_per_day/2) .and. idoy == 181)vegn%CO2_c = climateData%CO2 ! * 1.0e6
+          vegn%CO2_c = climateData%CO2 ! * 1.0e6
           call vegn_CNW_budget_fast(vegn,climateData)
           call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
           vegn => vegn%next

@@ -2,6 +2,7 @@
 FSRCS="src/datatypes.F90 \
        src/model_utils.F90 \
        src/io_mod.F90 \
+       src/restart_mod.F90 \
        src/soil.F90 \
        src/vegetation.F90 \
        src/BiomeE.F90 \
@@ -29,16 +30,11 @@ fparameter='./para_files/parameters_ORNL_test.nml'
 echo $fparameter
 
 # Write to the file that will be read by the model
-cat $fparameter > ./para_files/input.nml
+#cat $fparameter > ./para_files/input.nml
 
 # Run model
 ./ess $fparameter
 
-rm ./para_files/input.nml
+#rm ./para_files/input.nml
 rm ess
-rm esdvm.mod
-rm datatypes.mod
-rm model_utils.mod
-rm io_mod.mod
-rm soil_mod.mod
-rm biomee_mod.mod
+rm *.mod
