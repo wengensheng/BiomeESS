@@ -221,6 +221,7 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
   ! Leaf access is height-limited: fraction = browse_height / (height + browse_height).
   ! Litter access is controlled by sp%litter_pref (0 = no litter eating).
   ! C removed from cc%bl and vegn%SOC(1) is distributed by palatability-weighted forage.
+  ! cc%brsC and cc%brsN record the daily leaf C and N eaten from each plant cohort.
   implicit none
   type(ani_cohort_type), target, intent(inout) :: ac
   type(vegn_tile_type),          intent(inout) :: vegn
@@ -234,6 +235,7 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
   real :: B_avail, w_total       ! total available DM and weighted DM, kg DM m-2
   real :: B_litter, w_litter     ! litter DM and weighted litter, kg DM m-2
   real :: C_removed_cc, C_removed_all, C_removed_litter, frac_remain
+  real :: N_removed_cc
   integer :: i
 
   associate (sp => aftdata(ac%aft))
@@ -278,6 +280,10 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
     C_removed_cc = min(C_removed_cc, B_cc(i) * sp%DM_to_C)
     if (cc%nindivs > 0.0 .and. C_removed_cc > 0.0) then
       frac_remain = max(0.0, 1.0 - C_removed_cc / max(cc%bl * cc%nindivs, 1.e-12))
+      ! Record leaf C and N eaten from this cohort (kg m-2 day-1) before scaling
+      N_removed_cc = safe_div(cc%leafN, cc%bl) * C_removed_cc
+      cc%brsC = cc%brsC + C_removed_cc
+      cc%brsN = cc%brsN + N_removed_cc
       cc%bl    = cc%bl    * frac_remain
       cc%leafN = cc%leafN * frac_remain
     end if
