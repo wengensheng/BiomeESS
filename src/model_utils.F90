@@ -5,6 +5,7 @@ module model_utils
   private
 
   public :: read_init_namelist, read_vegn_namelist, read_soil_namelist
+  public :: read_ani_namelist
   public :: read_global_setting, model_para_init, Climate_envelope_vars
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
   public :: vegn_sum_tile, Zero_diagnostics
@@ -176,6 +177,7 @@ contains
     character(len=*),intent(in) :: fnml
     call initialize_soilpars(fnml)
     call initialize_PFT_pars(fnml)
+    call read_ani_namelist(fnml)    ! read AFT parameters (graceful if section absent)
 
     ! Hack for closedN setting
     if(do_closedN_run) then
@@ -259,6 +261,21 @@ contains
     close (fu)
 
   end subroutine read_soil_namelist
+
+  !----------------------------------------------------------------
+  subroutine read_ani_namelist(fnml)
+    ! Read &ani_parameters_nml; silently uses defaults if section is absent.
+    character(len=*),intent(in) :: fnml
+    integer :: rc, fu
+    open (action='read', file=fnml, status='old', iostat=rc, newunit=fu)
+    read (nml=ani_parameters_nml, iostat=rc, unit=fu)
+    if (rc == 0) then
+      write(*,*)'Namelist ani_parameters_nml read successfully.'
+    else
+      write(*,*)'ani_parameters_nml not found or error (rc=',rc,'). Using defaults.'
+    endif
+    close (fu)
+  end subroutine read_ani_namelist
 
   !----------------------------------------------------------------
   subroutine read_global_setting(fnml)

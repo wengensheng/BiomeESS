@@ -2528,6 +2528,7 @@ subroutine initialize_soil(vegn)
    type(vegn_tile_type),intent(inout) :: vegn
 
    ! Initial Soil pools and environmental conditions
+   vegn%SOC(1)    = init_litter_C ! metabolic litter pool, kgC m-2
    vegn%SOC(4)    = init_fast_SOC ! kgC m-2
    vegn%SOC(5)    = init_slow_SOC ! slow soil carbon pool, (kg C/m2)
    vegn%SON(4)    = vegn%SOC(4)/CN0SOM(4)  ! fast soil nitrogen pool, (kg N/m2)

@@ -5,6 +5,7 @@ FSRCS="src/datatypes.F90 \
        src/restart_mod.F90 \
        src/soil.F90 \
        src/vegetation.F90 \
+       src/animal.F90 \
        src/BiomeE.F90 \
        src/main.F90"
 
@@ -25,7 +26,7 @@ gfortran $FSRCS $CPPFLAGS -o ess
 #fparameter='./para_files/parameters_BCI_EG_DC.nml'
 #fparameter='./para_files/parameters_Konza_test.nml'
 #fparameter='./para_files/parameters_BCItest.nml'
-fparameter='./para_files/parameters_ORNL_test.nml'
+fparameter='./para_files/parameters_ORNL_animal_test.nml'
 
 echo $fparameter
 

@@ -125,7 +125,70 @@ module datatypes
   388.23,390.03,392.13,394.88,396.94,399.24,402.52,404.71,406.94,409.63,  &
   414.21,416.41,418.53,421.08,424.61,427.35/)
 
+  ! Animal functional types
+  integer, parameter :: N_AFT          = 10  ! max AFT species (like MSPECIES)
+  integer, parameter :: MAX_ANI_COHORTS = 20  ! max animal cohorts per tile
+  integer, parameter :: AFT_HERBIVORE  = 1   ! diet class: plant-feeding
+  integer, parameter :: AFT_CARNIVORE  = 2   ! diet class: prey-feeding
+  integer, parameter :: AFT_OMNIVORE   = 3   ! diet class: both
+
   !===============data types ==============================
+  !-----------AFT data type (analogous to spec_data_type)----------------
+  type aft_data_type
+    character(len=32) :: name        ! e.g. 'Deer', 'Wolf'
+    integer :: diet_class            ! AFT_HERBIVORE / CARNIVORE / OMNIVORE
+    ! Body traits
+    real :: body_mass                ! kg fresh mass ind-1
+    real :: f_C_body                 ! kg C kg-1 fresh (~0.12)
+    real :: f_N_body                 ! kg N kg-1 fresh (~0.025)
+    ! Plant foraging (herbivore / omnivore)
+    real :: I_max_plant              ! max plant DM intake, kg DM ind-1 day-1
+    real :: K_half_plant             ! half-saturation plant C, kg C m-2
+    real :: browse_height            ! max browsing height, m
+    real :: f_plant_diet             ! fraction of diet from plants, 0-1
+    real :: litter_pref              ! palatability of metabolic litter (SOC pool 1), 0-1
+    real :: palatability(0:MSPECIES) ! palatability weight per plant PFT (1=fully palatable, 0=avoided)
+    ! Prey foraging (carnivore / omnivore)
+    real :: I_max_prey               ! max prey C intake, kg C ind-1 day-1
+    real :: K_half_prey              ! half-saturation prey C density, kg C m-2
+    real :: f_prey_diet              ! fraction of diet from prey, 0-1
+    ! Digestion and excretion
+    real :: DM_to_C                  ! forage DM-to-C factor, kg C kg-1 DM (~0.45)
+    real :: digestibility            ! digestible fraction of DM, 0-1 (~0.65)
+    real :: f_N_feces                ! N content of feces, kg N kg-1 DM (~0.025)
+    real :: f_C_feces                ! C content of feces, kg C kg-1 DM (= (1-digestibility)*DM_to_C)
+    ! Maintenance and mortality
+    real :: I_maint                  ! maintenance intake, kg DM ind-1 day-1
+    real :: mu_starve_max            ! max starvation mortality rate, day-1 (~0.01)
+    real :: mu_background            ! background mortality rate, day-1 (~3e-4)
+    real :: r_max                    ! max annual per-capita birth rate, yr-1 (0=no reproduction)
+  end type aft_data_type
+
+  !-----------ani cohort type (analogous to cohort_type)----------------
+  type :: ani_cohort_type
+    integer :: aft     = 0   ! AFT index into aftdata(:), like cc%species -> spdata(:)
+    real :: nindivs    = 0.0 ! population density, ind m-2
+    real :: age        = 0.0 ! cohort age, years
+    ! Daily fluxes (written each step, available for output)
+    real :: intake_plant  = 0.0 ! DM consumed from plants,      kg DM m-2 day-1
+    real :: intake_prey   = 0.0 ! C consumed from prey,         kg C  m-2 day-1
+    real :: C_removed_veg = 0.0 ! C removed from vegn cohorts,  kg C  m-2 day-1
+    real :: C_feces       = 0.0 ! fecal C returned to SOC(1),   kg C  m-2 day-1
+    real :: N_feces       = 0.0 ! fecal N returned to SON(1),   kg N  m-2 day-1
+    real :: C_carcass     = 0.0 ! carcass C to SOC(2),          kg C  m-2 day-1
+    real :: N_carcass     = 0.0 ! carcass N to SON(2),          kg N  m-2 day-1
+    real :: mu_starve     = 0.0 ! realised starvation mortality, day-1
+    real :: deaths        = 0.0 ! deaths today,                 ind m-2
+    ! Annual accumulators (reset by ani_annual_diagnostics)
+    real :: annualIntakePlant = 0.0 ! kg DM m-2 yr-1
+    real :: annualIntakePrey  = 0.0 ! kg C  m-2 yr-1
+    real :: annualC_removed   = 0.0 ! kg C  m-2 yr-1
+    real :: annualC_feces     = 0.0 ! kg C  m-2 yr-1
+    real :: annualN_feces     = 0.0 ! kg N  m-2 yr-1
+    real :: annualC_carcass   = 0.0 ! kg C  m-2 yr-1
+    real :: annualN_carcass   = 0.0 ! kg N  m-2 yr-1
+  end type ani_cohort_type
+
   !-----------PFT data type----------------
   type spec_data_type
     integer :: lifeform  ! 0 for grasses, 1 for trees
@@ -390,6 +453,8 @@ module datatypes
     integer :: n_canopycc = 0
     type(cohort_type), pointer :: cohorts(:)=>NULL()
     type(cohort_type), pointer :: initialCC(:)=>NULL()
+    integer :: n_ani_cohorts = 0
+    type(ani_cohort_type), pointer :: ani_cohorts(:) => NULL()
     type(vegn_tile_type), pointer :: prev => null() ! Pointer to the older vegn tile
     type(vegn_tile_type), pointer :: next => null() ! Pointer to the younger vegn tile
     real :: area               ! m2
@@ -576,7 +641,7 @@ module datatypes
   ! Input forcing data
   type(climate_data_type), pointer :: forcingData(:)
   ! output files
-  integer :: fno1=211, fno2=212, fno3=213,fno4=214, fno5=215, fno6=216
+  integer :: fno1=211, fno2=212, fno3=213,fno4=214, fno5=215, fno6=216, fno7=217
 
   ! -------------------------------------------
   ! Soil water parameters
@@ -814,8 +879,14 @@ module datatypes
   real :: init_cohort_seedC(M_initialCH)  = 0.0  ! initial biomass of seeds, kg C/individual
   real :: init_cohort_nsc(M_initialCH)    = .01  ! initial non-structural biomass, kg C/individual
 
+  ! Initial animal cohort conditions (analogous to init_cohort_* for plants)
+  integer :: init_ani_cohort_N = 0                           ! number of initial animal cohorts
+  integer :: init_ani_cohort_aft(MAX_ANI_COHORTS)     = 0   ! AFT index for each initial cohort
+  real    :: init_ani_cohort_nindivs(MAX_ANI_COHORTS)  = 0.0 ! initial density, ind m-2
+
   ! Initial soil type, carbon and nitrogen at a vegn tile, Weng 2012-10-24
   integer :: soiltype    = SandyLoam  ! lookup table for soil hydrologic parameters
+  real :: init_litter_C  = 0.0  ! initial metabolic litter C (SOC pool 1), kg C/m2
   real :: init_fast_SOC  = 0.5  ! initial fast soil C, kg C/m2
   real :: init_slow_SOC  = 2.0  ! initial slow soil C, kg C/m2
   real :: init_mineralN  = 0.005  ! Mineral nitrogen pool, (kg N/m2)
@@ -974,6 +1045,31 @@ module datatypes
   type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
   type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! Soil hydraulics parameters
 
+  ! -------- AFT-specific parameters (analogous to plant PFT arrays) --------
+  ! Indexed 0:N_AFT; loaded via ani_parameters_nml, copied to aftdata by initialize_AFT_pars
+  integer :: aft_diet_class(0:N_AFT)     = AFT_HERBIVORE
+  real    :: aft_body_mass(0:N_AFT)      = 70.0    ! kg fresh mass ind-1
+  real    :: aft_f_C_body(0:N_AFT)       = 0.12    ! kg C kg-1
+  real    :: aft_f_N_body(0:N_AFT)       = 0.025   ! kg N kg-1
+  real    :: aft_I_max_plant(0:N_AFT)    = 2.5e-4  ! kg DM ind-1 day-1
+  real    :: aft_K_half_plant(0:N_AFT)   = 0.01    ! kg C m-2
+  real    :: aft_browse_height(0:N_AFT)  = 1.5     ! m
+  real    :: aft_f_plant_diet(0:N_AFT)   = 1.0     ! herbivore default
+  real    :: aft_litter_pref(0:N_AFT)    = 0.0     ! metabolic litter palatability (0=no litter eating)
+  real    :: aft_I_max_prey(0:N_AFT)     = 0.0     ! kg C ind-1 day-1
+  real    :: aft_K_half_prey(0:N_AFT)    = 0.0     ! kg C m-2
+  real    :: aft_f_prey_diet(0:N_AFT)    = 0.0     ! herbivore default
+  real    :: aft_DM_to_C(0:N_AFT)        = 0.45    ! kg C kg-1 DM
+  real    :: aft_digestibility(0:N_AFT)  = 0.65    ! dimensionless
+  real    :: aft_f_N_feces(0:N_AFT)      = 0.025   ! kg N kg-1 DM
+  real    :: aft_I_maint(0:N_AFT)        = 1.2e-4  ! kg DM ind-1 day-1
+  real    :: aft_mu_starve_max(0:N_AFT)  = 0.01    ! day-1
+  real    :: aft_mu_background(0:N_AFT)  = 3.0e-4  ! day-1
+  real    :: aft_r_max(0:N_AFT)          = 0.0     ! max annual per-capita birth rate, yr-1
+  real    :: aft_palatability(0:N_AFT, 0:MSPECIES) = 1.0  ! palatability weight per AFT per PFT
+
+  type(aft_data_type), save :: aftdata(0:N_AFT)   ! AFT parameter structures (like spdata)
+
   ! ------------- Global run model setting name list ------------
   namelist /global_setting_nml/ WriteForcing, yr_start, yr_end, &
   ncfilepath, ncversion, veg_path, veg_file, LUC_file,LC_year0, &
@@ -987,7 +1083,7 @@ module datatypes
   init_cohort_N, init_cohort_sps, init_cohort_Indiv,           &
   init_cohort_bl, init_cohort_br, init_cohort_bsw,             &
   init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,         &
-  init_fast_SOC, init_slow_SOC, init_mineralN, N_input,        &
+  init_litter_C, init_fast_SOC, init_slow_SOC, init_mineralN, N_input, &
   ! Climate envelopes for initializing PFTs
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
@@ -1041,6 +1137,16 @@ module datatypes
   CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
   EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max
+
+  ! --------- AFT parameter name list (analogous to vegn_parameters_nml) ---------
+  namelist /ani_parameters_nml/ &
+    aft_diet_class, aft_body_mass, aft_f_C_body, aft_f_N_body,         &
+    aft_I_max_plant, aft_K_half_plant, aft_browse_height, aft_f_plant_diet, &
+    aft_litter_pref, aft_palatability,                                   &
+    aft_I_max_prey,  aft_K_half_prey,  aft_f_prey_diet,                &
+    aft_DM_to_C, aft_digestibility, aft_f_N_feces, aft_I_maint,        &
+    aft_mu_starve_max, aft_mu_background, aft_r_max,                    &
+    init_ani_cohort_N, init_ani_cohort_aft, init_ani_cohort_nindivs
 
   !---------------------------------
 end module datatypes

@@ -50,6 +50,7 @@ module BiomeE_mod
   use io_mod
   use esdvm
   use restart_mod
+  use animal_mod
 
   implicit none
   private
@@ -112,9 +113,12 @@ module BiomeE_mod
       if(init_cohort_Indiv(1)<0.0) &
       call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
 
+      call initialize_AFT_pars()   ! populate aftdata(:) from aft_* module arrays
+
       do i =1, N_VegTile
         allocate(vegn)
         call initialize_vegn_tile(vegn)
+        call initialize_ani_tile(vegn) ! allocate and init animal cohorts
         call vegn_RelayerCohorts(vegn)
         call Zero_diagnostics(vegn)
         vegn%Tc_pheno = forcingData(1)%Tair
@@ -235,6 +239,7 @@ module BiomeE_mod
       do while(ASSOCIATED(vegn))
         vegn%Tc_daily = land%Tc_daily
         call vegn_daily_update(vegn,dt_daily_yr)
+        call ani_daily_update(vegn, dt_daily_yr)  ! animal feeding, mortality
         call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
         vegn => vegn%next
       enddo
@@ -264,6 +269,8 @@ module BiomeE_mod
           call vegn_demographics(vegn,real(seconds_per_year))
 #endif
 
+          call ani_reproduction(vegn)             ! births before diagnostics reset accumulators
+          call ani_annual_diagnostics(vegn, n_yr) ! write CSV and reset animal annual accumulators
           ! Case studies
           if(do_RecoverSP .and. MOD(n_yr, FreqY0)==0) &
           call vegn_species_recovery(vegn) ! for competition
@@ -336,6 +343,7 @@ subroutine BiomeE_end
   inquire(unit=fno4, opened=is_open); if (is_open) close(fno4)
   inquire(unit=fno5, opened=is_open); if (is_open) close(fno5)
   inquire(unit=fno6, opened=is_open); if (is_open) close(fno6)
+  inquire(unit=fno7, opened=is_open); if (is_open) close(fno7)
 
   !------------ Release vegetation tiles/cohorts
   if (associated(land)) then
@@ -351,6 +359,11 @@ subroutine BiomeE_end
       if (associated(vegn%initialCC)) then
         deallocate(vegn%initialCC)
         nullify(vegn%initialCC)
+      endif
+
+      if (associated(vegn%ani_cohorts)) then
+        deallocate(vegn%ani_cohorts)
+        nullify(vegn%ani_cohorts)
       endif
 
       deallocate(vegn)
