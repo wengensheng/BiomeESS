@@ -174,10 +174,10 @@ module datatypes
     real :: intake_plant  = 0.0 ! DM consumed from plants,      kg DM m-2 day-1
     real :: intake_prey   = 0.0 ! C consumed from prey,         kg C  m-2 day-1
     real :: C_removed_veg = 0.0 ! C removed from vegn cohorts,  kg C  m-2 day-1
-    real :: C_feces       = 0.0 ! fecal C returned to SOC(1),   kg C  m-2 day-1
-    real :: N_feces       = 0.0 ! fecal N returned to SON(1),   kg N  m-2 day-1
-    real :: C_carcass     = 0.0 ! carcass C to SOC(2),          kg C  m-2 day-1
-    real :: N_carcass     = 0.0 ! carcass N to SON(2),          kg N  m-2 day-1
+    real :: C_feces       = 0.0 ! fecal C returned to SOC(4),   kg C  m-2 day-1
+    real :: N_feces       = 0.0 ! fecal N returned to SON(4),   kg N  m-2 day-1
+    real :: C_carcass     = 0.0 ! carcass C to SOC(4),          kg C  m-2 day-1
+    real :: N_carcass     = 0.0 ! carcass N to SON(4),          kg N  m-2 day-1
     real :: mu_starve     = 0.0 ! realised starvation mortality, day-1
     real :: deaths        = 0.0 ! deaths today,                 ind m-2
     ! Annual accumulators (reset by ani_annual_diagnostics)
@@ -225,12 +225,12 @@ module datatypes
 
   ! --------- AFT parameter name list (analogous to vegn_parameters_nml) ---------
   namelist /ani_parameters_nml/ &
-    aft_diet_class, aft_body_mass, aft_f_C_body, aft_f_N_body,         &
-    aft_I_max_plant, aft_K_half_plant, aft_browse_height, aft_f_plant_diet, &
-    aft_litter_pref, aft_palatability,                                   &
-    aft_I_max_prey,  aft_K_half_prey,  aft_f_prey_diet,                &
-    aft_DM_to_C, aft_digestibility, aft_f_N_feces, aft_I_maint,        &
-    aft_mu_starve_max, aft_mu_background, aft_r_max,                    &
+    aft_diet_class, aft_body_mass, aft_f_C_body, aft_f_N_body,      &
+    aft_I_max_plant,  aft_K_half_plant, aft_browse_height,          &
+    aft_f_plant_diet, aft_litter_pref,  aft_palatability,           &
+    aft_I_max_prey,   aft_K_half_prey,  aft_f_prey_diet,            &
+    aft_DM_to_C, aft_digestibility, aft_f_N_feces, aft_I_maint,     &
+    aft_mu_starve_max, aft_mu_background, aft_r_max,                &
     init_ani_cohort_N, init_ani_cohort_aft, init_ani_cohort_nindivs
 
 #endif /* DO_ANIMAL */

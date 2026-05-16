@@ -102,27 +102,24 @@ subroutine ani_daily_update(vegn, deltat)
 
   do i = 1, vegn%n_ani_cohorts
     if (vegn%ani_cohorts(i)%nindivs <= 0.0) cycle
-    call ani_cohort_daily(i, vegn, deltat)
+    call ani_cohort_daily(vegn%ani_cohorts(i), vegn, deltat)
   end do
 
 end subroutine ani_daily_update
 
 !=============================================================================
-subroutine ani_cohort_daily(idx, vegn, deltat)
-  ! One daily step for cohort idx in vegn%ani_cohorts.
+subroutine ani_cohort_daily(ac, vegn, deltat)
+  ! One daily step for a single animal cohort.
   implicit none
-  integer,               intent(in)    :: idx
-  type(vegn_tile_type),  intent(inout) :: vegn
-  real,                  intent(in)    :: deltat
+  type(ani_cohort_type), target, intent(inout) :: ac
+  type(vegn_tile_type),          intent(inout) :: vegn
+  real,                          intent(in)    :: deltat
 
-  type(ani_cohort_type), pointer :: ac
   real :: intake_plant_ind, intake_prey_ind
   real :: intake_plant_tot, intake_prey_tot
   real :: intake_eff, C_removed
   real :: C_feces, N_feces, C_carcass, N_carcass
   real :: mu_starve, mu_total, dN
-
-  ac => vegn%ani_cohorts(idx)
 
   associate (sp => aftdata(ac%aft))
 
@@ -130,7 +127,7 @@ subroutine ani_cohort_daily(idx, vegn, deltat)
   ! 1. Plant feeding (herbivore / omnivore)
   !------------------------------------------------------------------
   if (sp%f_plant_diet > 0.0 .and. sp%I_max_plant > 0.0) then
-    call ani_plant_intake(idx, vegn, intake_plant_ind, intake_plant_tot, C_removed)
+    call ani_plant_intake(ac, vegn, intake_plant_ind, intake_plant_tot, C_removed)
   else
     intake_plant_ind = 0.0 ; intake_plant_tot = 0.0 ; C_removed = 0.0
   end if
@@ -139,7 +136,7 @@ subroutine ani_cohort_daily(idx, vegn, deltat)
   ! 2. Prey feeding (carnivore / omnivore)
   !------------------------------------------------------------------
   if (sp%f_prey_diet > 0.0 .and. sp%I_max_prey > 0.0) then
-    call ani_prey_intake(idx, vegn, intake_prey_ind, intake_prey_tot)
+    call ani_prey_intake(ac, vegn, intake_prey_ind, intake_prey_tot)
   else
     intake_prey_ind = 0.0 ; intake_prey_tot = 0.0
   end if
@@ -186,8 +183,8 @@ subroutine ani_cohort_daily(idx, vegn, deltat)
   !------------------------------------------------------------------
   C_carcass = dN * sp%body_mass * sp%f_C_body
   N_carcass = dN * sp%body_mass * sp%f_N_body
-  vegn%SOC(2) = vegn%SOC(2) + C_carcass
-  vegn%SON(2) = vegn%SON(2) + N_carcass
+  vegn%SOC(4) = vegn%SOC(4) + C_carcass
+  vegn%SON(4) = vegn%SON(4) + N_carcass
 
   !------------------------------------------------------------------
   ! 6. Store daily fluxes and advance age
@@ -219,19 +216,18 @@ subroutine ani_cohort_daily(idx, vegn, deltat)
 end subroutine ani_cohort_daily
 
 !=============================================================================
-subroutine ani_plant_intake(idx, vegn, intake_ind, intake_tot, C_removed_tot)
+subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
   ! Type II functional response on plant leaf biomass + metabolic litter (SOC pool 1).
   ! Leaf access is height-limited: fraction = browse_height / (height + browse_height).
   ! Litter access is controlled by sp%litter_pref (0 = no litter eating).
   ! C removed from cc%bl and vegn%SOC(1) is distributed by palatability-weighted forage.
   implicit none
-  integer,               intent(in)    :: idx
-  type(vegn_tile_type),  intent(inout) :: vegn
-  real,                  intent(out)   :: intake_ind    ! kg DM ind-1 day-1
-  real,                  intent(out)   :: intake_tot    ! kg DM m-2  day-1
-  real,                  intent(out)   :: C_removed_tot ! kg C  m-2  day-1 (leaves only)
+  type(ani_cohort_type), target, intent(inout) :: ac
+  type(vegn_tile_type),          intent(inout) :: vegn
+  real,                          intent(out)   :: intake_ind    ! kg DM ind-1 day-1
+  real,                          intent(out)   :: intake_tot    ! kg DM m-2  day-1
+  real,                          intent(out)   :: C_removed_tot ! kg C  m-2  day-1 (leaves only)
 
-  type(ani_cohort_type), pointer :: ac
   type(cohort_type),     pointer :: cc
   real :: B_cc(vegn%n_cohorts)   ! available leaf DM per plant cohort, kg DM m-2
   real :: w_cc(vegn%n_cohorts)   ! palatability-weighted forage per cohort, kg DM m-2
@@ -240,7 +236,6 @@ subroutine ani_plant_intake(idx, vegn, intake_ind, intake_tot, C_removed_tot)
   real :: C_removed_cc, C_removed_all, C_removed_litter, frac_remain
   integer :: i
 
-  ac => vegn%ani_cohorts(idx)
   associate (sp => aftdata(ac%aft))
 
   B_avail = 0.0 ; w_total = 0.0 ; B_cc = 0.0 ; w_cc = 0.0
@@ -303,31 +298,30 @@ subroutine ani_plant_intake(idx, vegn, intake_ind, intake_tot, C_removed_tot)
 end subroutine ani_plant_intake
 
 !=============================================================================
-subroutine ani_prey_intake(idx, vegn, intake_ind, intake_tot)
+subroutine ani_prey_intake(ac, vegn, intake_ind, intake_tot)
   ! Type II functional response on total body C of all OTHER animal cohorts.
   ! Prey density is reduced proportionally to prey C removed.
   implicit none
-  integer,               intent(in)    :: idx
-  type(vegn_tile_type),  intent(inout) :: vegn
-  real,                  intent(out)   :: intake_ind   ! kg C ind-1 day-1
-  real,                  intent(out)   :: intake_tot   ! kg C m-2  day-1
+  type(ani_cohort_type), target, intent(inout) :: ac
+  type(vegn_tile_type),          intent(inout) :: vegn
+  real,                          intent(out)   :: intake_ind   ! kg C ind-1 day-1
+  real,                          intent(out)   :: intake_tot   ! kg C m-2  day-1
 
-  type(ani_cohort_type), pointer :: ac
+  type(ani_cohort_type), pointer :: ac_j
   real :: B_prey(vegn%n_ani_cohorts)
   real :: B_prey_total, C_removed_prey, C_removed_cc, frac_remain
   integer :: j
 
-  ac => vegn%ani_cohorts(idx)
   associate (sp => aftdata(ac%aft))
 
   B_prey_total = 0.0 ; B_prey = 0.0
 
   do j = 1, vegn%n_ani_cohorts
-    if (j == idx) cycle
-    if (vegn%ani_cohorts(j)%nindivs <= 0.0) cycle
-    B_prey(j)    = vegn%ani_cohorts(j)%nindivs &
-                 * aftdata(vegn%ani_cohorts(j)%aft)%body_mass &
-                 * aftdata(vegn%ani_cohorts(j)%aft)%f_C_body
+    ac_j => vegn%ani_cohorts(j)
+    if (associated(ac_j, ac) .or. ac_j%nindivs <= 0.0) cycle
+    B_prey(j)    = ac_j%nindivs &
+                 * aftdata(ac_j%aft)%body_mass &
+                 * aftdata(ac_j%aft)%f_C_body
     B_prey_total = B_prey_total + B_prey(j)
   end do
 
@@ -340,15 +334,12 @@ subroutine ani_prey_intake(idx, vegn, intake_ind, intake_tot)
   C_removed_prey = min(intake_tot, B_prey_total)
 
   do j = 1, vegn%n_ani_cohorts
-    if (j == idx) cycle
-    if (vegn%ani_cohorts(j)%nindivs <= 0.0) cycle
-    if (B_prey_total <= 0.0) cycle
+    ac_j => vegn%ani_cohorts(j)
+    if (associated(ac_j, ac) .or. ac_j%nindivs <= 0.0 .or. B_prey_total <= 0.0) cycle
     C_removed_cc = C_removed_prey * safe_div(B_prey(j), B_prey_total)
     C_removed_cc = min(C_removed_cc, B_prey(j))
-    if (C_removed_cc > 0.0) then
-      frac_remain = max(0.0, 1.0 - C_removed_cc / max(B_prey(j), 1.e-12))
-      vegn%ani_cohorts(j)%nindivs = vegn%ani_cohorts(j)%nindivs * frac_remain
-    end if
+    frac_remain = max(0.0, 1.0 - C_removed_cc / max(B_prey(j), 1.e-12))
+    ac_j%nindivs = ac_j%nindivs * frac_remain
   end do
 
   end associate

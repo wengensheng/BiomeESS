@@ -1,0 +1,194 @@
+&soil_data_nml
+soiltype = 3,
+WaterLeakRate = 0.0, ! fraction per day
+thksl    = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
+/
+
+&vegn_parameters_nml
+f_iniBSW   = 0.1,
+K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
+K_DeNitr   = 1.2,
+rho_SON    = 0.0,
+etaN       = 0.01,
+f_M2SOM    = 0.8,
+l_fract    = 0.0,
+retransN   = 0.0,
+diff_S0    = 0.1,
+kx0_WD     = 5.0,
+p50_WD     = -1.565,
+ths0_WD    = 3.0,
+WTC0_WD    = 9.0E+3,
+CR0_LF     = 0.5,
+CR0_WD     = 0.3,
+m0_WTC     = 5.0
+m0_kx      = 5.0
+FSBM0      = 0.08,
+r_BK0      = -150.0,
+EnvF0      = 0.0,
+
+! species   0       1       2       3       4       5
+lifeform  = 0,      1,      1,      1,      1,      1,
+phenotype = 0,      1,      0,      0,      0,      0,
+pt        = 1,      0,      0,      0,      0,      0,
+s0_plant  = 0.05,   0.05,   0.05,   0.05,   0.05,   0.05,
+LMA       = 0.02,   0.05,   0.02,   0.06,   0.02,   0.02,
+phiRL     = 0.7,    1.5,    1.2,    1.2,    1.2,    1.2,
+LNbase    = 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3,
+mu0_topL  = 0.02,   0.02,   0.02,   0.02,   0.02,   0.02,
+D0mu      = 0.0,    1.2,    1.2,    1.2,    1.2,    1.2,
+W_mu0     = 2.5,    0.5,    0.7,    0.7,    0.7,    0.7,
+Tc0_OFF   = 12.,    12.,    12.,    12.,    12.,    12.,
+Tc0_ON    = 10.,    10.,    10.,    10.,    10.,    10.,
+betaON    = 0.2,    0.1,    0.8,    0.8,    0.8,    0.8,
+betaOFF   = 0.2,    0.0,    0.7,    0.6,    0.6,    0.6,
+rho_wood  = 150.,   350.,   350.,   350.,   350.,   350.,
+gamma_SW  = 0.02,   0.02,   0.02,   0.02,   0.02,   0.02,
+m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,
+LAImax    = 3.5,    3.5,    3.5,    3.5,    3.5,    3.5,
+phiCSA    = 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4,
+A_sd      = 4.0,    9.0,    9.0,    9.0,    9.0,    9.0,
+B_sd      = -60.,   -25.,   -25.,   -25.,   -25.,   -25.,
+A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,
+B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,
+IgniteP   = 1.0,    .01,    .01,    .01,    .01,    .01,
+alphaHT   = 30.,    36.,    36.,    36.,    36.,    36.,
+alphaCA   = 120.,   150.,   150.,   150.,   150.,   150.,
+tauNSC    = 2.0,    1.5,    1.5,    1.5,    1.5,    1.5,
+gdd_par1  = 50.,    0.0,    0.0,    0.0,    0.0,    0.0,
+gdd_par2  = 800.,   0.0,    600.,   600.,   600.,   600.,
+gdd_par3  = -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,
+R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+v_seed    = 0.2,    0.2,    0.2,    0.2,    0.2,    0.2,
+AgeRepro  = 0,      3,      3,      3,      3,      3
+/
+
+!===========================================================================
+! Animal Functional Type (AFT) parameters
+!
+! AFT 0: Deer  (herbivore - eats tree leaves)
+! AFT 1: Wolf  (carnivore - eats deer)
+!
+! diet_class: 1=AFT_HERBIVORE, 2=AFT_CARNIVORE, 3=AFT_OMNIVORE
+! All intake/maintenance rates are per INDIVIDUAL per DAY
+!   plant intake: kg dry matter (DM) ind-1 day-1
+!   prey  intake: kg C          ind-1 day-1
+! Density units: individuals m-2
+!===========================================================================
+&ani_parameters_nml
+
+! Diet class: Deer=herbivore(1), Wolf=carnivore(2)
+aft_diet_class(0) = 1,   ! Deer: herbivore
+aft_diet_class(1) = 2,   ! Wolf: carnivore
+
+!--- Body traits ---
+!                              Deer    Wolf
+aft_body_mass(0)  =  70.0,  ! kg fresh mass
+aft_body_mass(1)  =  40.0,
+aft_f_C_body(0)   =  0.12,  ! kg C kg-1 body
+aft_f_C_body(1)   =  0.15,
+aft_f_N_body(0)   =  0.025, ! kg N kg-1 body
+aft_f_N_body(1)   =  0.035,
+
+!--- Plant foraging (deer only) ---
+! I_max_plant: max dry-matter intake, kg DM ind-1 day-1
+! K_half_plant: leaf-C density at half max intake, kg C m-2
+! browse_height: max canopy height reachable, m
+! palatability: species-specific selectivity (1=fully palatable)
+aft_I_max_plant(0)   = 1.0,    ! 3 kg DM day-1 per deer
+aft_I_max_plant(1)   = 0.0,    ! wolves don't browse
+aft_K_half_plant(0)  = 0.05,   ! half-saturation at 50 gC m-2 leaf biomass
+aft_K_half_plant(1)  = 0.05,
+aft_browse_height(0) = 12.0,   ! deer can reach 50% leaves at tree height 2 m
+aft_browse_height(1) = 0.0,
+aft_f_plant_diet(0)  = 1.0,    ! 100% plant diet
+aft_f_plant_diet(1)  = 0.0,    ! 0% plant diet
+aft_litter_pref(0)   = 0.4,    ! deer: moderate litter foraging preference
+aft_litter_pref(1)   = 0.0,    ! wolf: no litter eating
+
+! Palatability of plant PFTs for deer (index 0=C4grass, 1-5=trees)
+! Deer strongly prefer deciduous trees (sp 2,3,5) over evergreen (sp 1,4)
+! and only moderately browse grass
+aft_palatability(0,0) = 0.3,   ! C4 grass - less preferred
+aft_palatability(0,1) = 0.6,   ! evergreen tree - moderate
+aft_palatability(0,2) = 1.0,   ! deciduous tree - preferred
+aft_palatability(0,3) = 1.0,   ! deciduous tree - preferred
+aft_palatability(0,4) = 0.6,   ! evergreen tree - moderate
+aft_palatability(0,5) = 1.0,   ! deciduous tree - preferred
+
+!--- Prey foraging (wolf only) ---
+! I_max_prey:  max prey-C intake, kg C ind-1 day-1
+! K_half_prey: prey body-C density at half max intake, kg C m-2
+aft_I_max_prey(0)  = 0.0,      ! deer don't eat prey
+aft_I_max_prey(1)  = 0.5,      ! wolf: 0.5 kg meat day-1 * 0.12 kgC/kg = 0.48 kgC
+aft_K_half_prey(0) = 0.0,
+aft_K_half_prey(1) = 4.0E-3,   ! half-saturation: ~33 deer ha-1 body-C density
+aft_f_prey_diet(0) = 0.0,
+aft_f_prey_diet(1) = 1.0,      ! 100% prey diet
+
+!--- Digestion ---
+!                               Deer    Wolf
+aft_DM_to_C(0)        = 0.45,  ! carbon in forage
+aft_DM_to_C(1)        = 0.45,
+aft_digestibility(0)  = 0.65,  ! 65% digestibility (ungulate)
+aft_digestibility(1)  = 0.80,  ! 80% digestibility (carnivore)
+aft_f_N_feces(0)      = 0.025, ! N concentration of feces, kg N kg-1 DM
+aft_f_N_feces(1)      = 0.030,
+
+!--- Maintenance intake and mortality ---
+! I_maint: min intake to avoid starvation
+!   herbivore: kg DM ind-1 day-1
+!   carnivore: kg C  ind-1 day-1 (prey-C equivalent)
+! mu_starve_max: max starvation mortality, day-1
+! mu_background: baseline mortality (predation, disease), day-1
+aft_I_maint(0)         = 0.15,    ! deer: 0.15 kg DM day-1 min
+aft_I_maint(1)         = 0.05,    ! wolf: 0.15 kg C day-1 min
+aft_mu_starve_max(0)   = 0.002,   ! deer: up to 2% day-1 starvation
+aft_mu_starve_max(1)   = 0.003,   ! wolf: up to 3% day-1 starvation
+aft_mu_background(0)   = 2.0E-4,  ! deer: ~6% yr-1 background mortality
+aft_mu_background(1)   = 1.5E-4,  ! wolf: ~5% yr-1 background mortality
+aft_r_max(0)           = 0.4,     ! deer: up to 40% annual growth when intake >= 2x maintenance
+aft_r_max(1)           = 0.2,     ! wolf: up to 20% annual growth
+
+!=== Initial animal cohorts ===
+! Cohort 1: Deer,  AFT index 0, density 0.001 ind m-2 (= 10 deer ha-1)
+! Cohort 2: Wolf,  AFT index 1, density 1.0e-5 ind m-2 (= 0.1 wolf ha-1)
+init_ani_cohort_N              = 2,
+init_ani_cohort_aft(1)         = 0,      ! cohort 1 = Deer
+init_ani_cohort_aft(2)         = 1,      ! cohort 2 = Wolf
+init_ani_cohort_nindivs(1)     = 1.0E-3, ! 10 deer ha-1
+init_ani_cohort_nindivs(2)     = 1.0E-5, ! 0.1 wolf ha-1
+/
+
+&initial_state_nml
+init_cohort_N     = 1,
+init_cohort_sps   = 3,    1,    2,    4,    5,
+init_cohort_Indiv = 0.2,  .002, .002, .002, .002,
+init_cohort_bsw   = 0.2,  0.2,  0.2,  0.2,  0.2,
+init_cohort_bHW   = 0.0,  0.0,  0.0,  0.0,  0.0,
+init_cohort_nsc   = 0.5,  0.5,  0.5,  0.5,  0.5,
+
+init_litter_C  = 0.3
+init_fast_SOC  = 0.5
+init_slow_SOC  = 40.0
+init_mineralN  = 5.0E-3
+N_input        = 2.4E-3
+
+filepath_in = './input/',
+filepath_out= './output/',
+runID       = 'ORNL_animal_test',
+climfile    = 'ORNL_forcing.txt',
+Sc_prcp     = 1.0,
+model_run_years = 300,
+outputhourly    = .False.
+outputdaily     = .True.
+Do_CH4          = .False.
+do_closedN_run  = .False.
+Do_DroughtMu    = .False.
+do_fire         = .False.
+do_RecoverSP    = .False.
+do_VariedWTC0   = .True.
+do_VariedKx     = .True.
+do_restart_write = .False.,
+do_restart_read  = .False.,
+restart_file     = './output/BiomeE_restart.bin',
+/
