@@ -14,18 +14,24 @@ module io_mod
   public :: zip_output_files
   public :: hourly_diagnostics, daily_diagnostics, annual_diagnostics
   public :: flush_annual_diagnostics_buffers
+#ifdef DO_ANIMAL
   public :: ani_annual_diagnostics
+#endif
 
   integer, parameter :: annual_buf_max = 2048
   integer, parameter :: annual_line_len = 8192
   character(len=annual_line_len), allocatable :: annual_cohort_buf(:)
   character(len=annual_line_len), allocatable :: annual_cohort2_buf(:)
   character(len=annual_line_len), allocatable :: annual_patch_buf(:)
+#ifdef DO_ANIMAL
   character(len=annual_line_len), allocatable :: annual_ani_buf(:)
+#endif
   integer :: n_annual_cohort_buf  = 0
   integer :: n_annual_cohort2_buf = 0
   integer :: n_annual_patch_buf   = 0
+#ifdef DO_ANIMAL
   integer :: n_annual_ani_buf     = 0
+#endif
 
 !---------------------------------
   contains
@@ -36,12 +42,16 @@ module io_mod
     if (.not. allocated(annual_cohort_buf))  allocate(annual_cohort_buf(annual_buf_max))
     if (.not. allocated(annual_cohort2_buf)) allocate(annual_cohort2_buf(annual_buf_max))
     if (.not. allocated(annual_patch_buf))   allocate(annual_patch_buf(annual_buf_max))
+#ifdef DO_ANIMAL
     if (.not. allocated(annual_ani_buf))     allocate(annual_ani_buf(annual_buf_max))
+#endif
 
     n_annual_cohort_buf  = 0
     n_annual_cohort2_buf = 0
     n_annual_patch_buf   = 0
+#ifdef DO_ANIMAL
     n_annual_ani_buf     = 0
+#endif
   end subroutine init_annual_diagnostics_buffers
 
   subroutine append_annual_line(unit_no, line)
@@ -53,8 +63,10 @@ module io_mod
       call push_annual_line(annual_cohort_buf, n_annual_cohort_buf, fno5, line)
     elseif (unit_no == fno6) then
       call push_annual_line(annual_patch_buf, n_annual_patch_buf, fno6, line)
+#ifdef DO_ANIMAL
     elseif (unit_no == fno7) then
       call push_annual_line(annual_ani_buf, n_annual_ani_buf, fno7, line)
+#endif
 #ifdef DroughtMIP
     elseif (unit_no == fno5+10) then
       call push_annual_line(annual_cohort2_buf, n_annual_cohort2_buf, fno5+10, line)
@@ -103,10 +115,12 @@ module io_mod
       if (is_open) call flush_one_annual_buffer(annual_patch_buf, n_annual_patch_buf, fno6)
     endif
 
+#ifdef DO_ANIMAL
     if (allocated(annual_ani_buf)) then
       inquire(unit=fno7, opened=is_open)
       if (is_open) call flush_one_annual_buffer(annual_ani_buf, n_annual_ani_buf, fno7)
     endif
+#endif
 
 #ifdef DroughtMIP
     if (allocated(annual_cohort2_buf)) then
@@ -604,6 +618,7 @@ module io_mod
       stop
     endif
 
+#ifdef DO_ANIMAL
     open(fno7, file=trim(fpath)//trim(filesuffix)//'_Animal_yearly.csv', &
          ACTION='write', IOSTAT=istat3)
     if(istat3 /= 0)then
@@ -616,6 +631,7 @@ module io_mod
       'IntakePlant','IntakePrey','C_removed',                     &
       'FecalC','FecalN','CarcassC','CarcassN',                    &
       'mu_starve','deaths'
+#endif
 
 #ifdef DroughtMIP
     !For baseline runs
@@ -1116,6 +1132,7 @@ module io_mod
   end subroutine annual_diagnostics
 
 !=============================================================================
+#ifdef DO_ANIMAL
   subroutine ani_annual_diagnostics(vegn, iyears)
     ! Write one CSV row per animal cohort to fno7 (_Animal_yearly.csv),
     ! then reset annual accumulators. Follows the pattern of annual_diagnostics.
@@ -1159,6 +1176,7 @@ module io_mod
     end do
 
   end subroutine ani_annual_diagnostics
+#endif /* DO_ANIMAL */
 
 !================================================
 end module io_mod

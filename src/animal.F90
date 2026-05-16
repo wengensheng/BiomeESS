@@ -21,6 +21,7 @@
 ! Weng Lab - 2026
 !======================================================================
 
+#ifdef DO_ANIMAL
 module animal_mod
   use datatypes
   implicit none
@@ -417,3 +418,4 @@ end function safe_div
 
 !=============================================================================
 end module animal_mod
+#endif /* DO_ANIMAL */

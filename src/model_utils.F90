@@ -5,7 +5,9 @@ module model_utils
   private
 
   public :: read_init_namelist, read_vegn_namelist, read_soil_namelist
+#ifdef DO_ANIMAL
   public :: read_ani_namelist
+#endif
   public :: read_global_setting, model_para_init, Climate_envelope_vars
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
   public :: vegn_sum_tile, Zero_diagnostics
@@ -177,7 +179,9 @@ contains
     character(len=*),intent(in) :: fnml
     call initialize_soilpars(fnml)
     call initialize_PFT_pars(fnml)
-    call read_ani_namelist(fnml)    ! read AFT parameters (graceful if section absent)
+#ifdef DO_ANIMAL
+    call read_ani_namelist(fnml)    ! read AFT parameters
+#endif
 
     ! Hack for closedN setting
     if(do_closedN_run) then
@@ -262,6 +266,7 @@ contains
 
   end subroutine read_soil_namelist
 
+#ifdef DO_ANIMAL
   !----------------------------------------------------------------
   subroutine read_ani_namelist(fnml)
     ! Read &ani_parameters_nml; silently uses defaults if section is absent.
@@ -276,6 +281,7 @@ contains
     endif
     close (fu)
   end subroutine read_ani_namelist
+#endif /* DO_ANIMAL */
 
   !----------------------------------------------------------------
   subroutine read_global_setting(fnml)

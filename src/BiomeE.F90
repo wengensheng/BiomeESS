@@ -50,7 +50,9 @@ module BiomeE_mod
   use io_mod
   use esdvm
   use restart_mod
+#ifdef DO_ANIMAL
   use animal_mod
+#endif
 
   implicit none
   private
@@ -113,12 +115,16 @@ module BiomeE_mod
       if(init_cohort_Indiv(1)<0.0) &
       call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
 
+#ifdef DO_ANIMAL
       call initialize_AFT_pars()   ! populate aftdata(:) from aft_* module arrays
+#endif
 
       do i =1, N_VegTile
         allocate(vegn)
         call initialize_vegn_tile(vegn)
+#ifdef DO_ANIMAL
         call initialize_ani_tile(vegn) ! allocate and init animal cohorts
+#endif
         call vegn_RelayerCohorts(vegn)
         call Zero_diagnostics(vegn)
         vegn%Tc_pheno = forcingData(1)%Tair
@@ -239,7 +245,9 @@ module BiomeE_mod
       do while(ASSOCIATED(vegn))
         vegn%Tc_daily = land%Tc_daily
         call vegn_daily_update(vegn,dt_daily_yr)
+#ifdef DO_ANIMAL
         call ani_daily_update(vegn, dt_daily_yr)  ! animal feeding, mortality
+#endif
         call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
         vegn => vegn%next
       enddo
@@ -269,8 +277,10 @@ module BiomeE_mod
           call vegn_demographics(vegn,real(seconds_per_year))
 #endif
 
+#ifdef DO_ANIMAL
           call ani_reproduction(vegn)             ! births before diagnostics reset accumulators
           call ani_annual_diagnostics(vegn, n_yr) ! write CSV and reset animal annual accumulators
+#endif
           ! Case studies
           if(do_RecoverSP .and. MOD(n_yr, FreqY0)==0) &
           call vegn_species_recovery(vegn) ! for competition
@@ -343,7 +353,9 @@ subroutine BiomeE_end
   inquire(unit=fno4, opened=is_open); if (is_open) close(fno4)
   inquire(unit=fno5, opened=is_open); if (is_open) close(fno5)
   inquire(unit=fno6, opened=is_open); if (is_open) close(fno6)
+#ifdef DO_ANIMAL
   inquire(unit=fno7, opened=is_open); if (is_open) close(fno7)
+#endif
 
   !------------ Release vegetation tiles/cohorts
   if (associated(land)) then
@@ -361,10 +373,12 @@ subroutine BiomeE_end
         nullify(vegn%initialCC)
       endif
 
+#ifdef DO_ANIMAL
       if (associated(vegn%ani_cohorts)) then
         deallocate(vegn%ani_cohorts)
         nullify(vegn%ani_cohorts)
       endif
+#endif
 
       deallocate(vegn)
       vegn => pveg
