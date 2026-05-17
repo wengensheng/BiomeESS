@@ -7,8 +7,7 @@
 !   - Subroutines address aftdata via  associate(sp => aftdata(ac%aft))
 !
 ! SOC/SON pool routing (mirrors plant2soil in vegetation.F90):
-!   SOC/SON(4) fast SOM -- feces and undigested prey remains
-!   SOC/SON(5) slow SOM -- carcasses (slow-decomposing)
+!   Feces, undigested prey remains, and carcasses all go to SOC/SON(4) fast SOM 
 !
 ! Calling sequence in main loop:
 !   call initialize_AFT_pars()             ! once at model startup
@@ -60,9 +59,10 @@ subroutine initialize_AFT_pars()
   aftdata(:)%mu_starve_max = aft_mu_starve_max
   aftdata(:)%mu_background = aft_mu_background
   aftdata(:)%r_max         = aft_r_max
-  ! Palatability: copy each AFT row from the 2-D module array
+  ! Palatability: copy each AFT column from the 2-D module array
+  ! aft_palatability is (0:MSPECIES, 0:N_AFT) so the first index is species
   do i = 0, N_AFT
-    aftdata(i)%palatability = aft_palatability(i, :)
+    aftdata(i)%palatability = aft_palatability(:, i)
   end do
 
 end subroutine initialize_AFT_pars
@@ -304,7 +304,7 @@ end subroutine ani_plant_intake
 !=============================================================================
 subroutine ani_prey_intake(ac, vegn, intake_ind, intake_tot)
   ! Type II functional response on total body C of all OTHER animal cohorts.
-  ! All biomass quantities in kg C m-2 (no DM conversion).
+  ! All biomass quantities in kg C m-2.
   ! Prey density is reduced proportionally to prey C removed.
   implicit none
   type(ani_cohort_type), target, intent(inout) :: ac

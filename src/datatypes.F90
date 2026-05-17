@@ -197,24 +197,24 @@ module datatypes
   ! -------- AFT-specific parameters (analogous to plant PFT arrays) --------
   ! Indexed 0:N_AFT; loaded via ani_parameters_nml, copied to aftdata by initialize_AFT_pars
   integer :: aft_diet_class(0:N_AFT)     = AFT_HERBIVORE
-  real    :: aft_body_mass(0:N_AFT)      = 70.0    ! kg fresh mass ind-1
+  real    :: aft_body_mass(0:N_AFT)      = 50.0    ! kg fresh mass ind-1
   real    :: aft_f_C_body(0:N_AFT)       = 0.12    ! kg C kg-1
   real    :: aft_f_N_body(0:N_AFT)       = 0.025   ! kg N kg-1
-  real    :: aft_I_max_plant(0:N_AFT)    = 8.04e-6  ! fraction of body_C day-1
+  real    :: aft_I_max_plant(0:N_AFT)    = 0.05    ! fraction of body_C day-1
   real    :: aft_K_half_plant(0:N_AFT)   = 0.01    ! kg C m-2
-  real    :: aft_browse_height(0:N_AFT)  = 1.5     ! m
+  real    :: aft_browse_height(0:N_AFT)  = 5.0     ! m, height of half-saturation
   real    :: aft_f_plant_diet(0:N_AFT)   = 1.0     ! herbivore default
   real    :: aft_litter_pref(0:N_AFT)    = 0.0     ! metabolic litter palatability (0=no litter eating)
   real    :: aft_I_max_prey(0:N_AFT)     = 0.0     ! fraction of body_C day-1
   real    :: aft_K_half_prey(0:N_AFT)    = 0.0     ! kg C m-2
   real    :: aft_f_prey_diet(0:N_AFT)    = 0.0     ! herbivore default
   real    :: aft_digestibility(0:N_AFT)  = 0.65    ! digestible fraction of C intake, dimensionless
-  real    :: aft_f_N_feces(0:N_AFT)      = 0.0556  ! N:C ratio of feces, kg N kg-1 C
-  real    :: aft_I_maint(0:N_AFT)        = 2.57e-6  ! fraction of body_C day-1
+  real    :: aft_f_N_feces(0:N_AFT)      = 0.05    ! N:C ratio of feces, kg N kg-1 C
+  real    :: aft_I_maint(0:N_AFT)        = 2.5e-3  ! fraction of body_C day-1
   real    :: aft_mu_starve_max(0:N_AFT)  = 0.01    ! day-1
   real    :: aft_mu_background(0:N_AFT)  = 3.0e-4  ! day-1
-  real    :: aft_r_max(0:N_AFT)          = 0.0     ! max annual per-capita birth rate, yr-1
-  real    :: aft_palatability(0:N_AFT, 0:MSPECIES) = 1.0  ! palatability weight per AFT per PFT
+  real    :: aft_r_max(0:N_AFT)          = 0.5     ! max annual per-capita birth rate, yr-1
+  real    :: aft_palatability(0:MSPECIES, 0:N_AFT) = 1.0  ! palatability weight per PFT per AFT; species index first so one namelist line covers all species for one AFT
 
   ! AFT parameter array
   type(aft_data_type), save :: aftdata(0:N_AFT)   ! AFT parameter structures (like spdata)

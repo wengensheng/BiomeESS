@@ -76,86 +76,57 @@ AgeRepro  = 0,      3,      3,      3,      3,      3
 !===========================================================================
 &ani_parameters_nml
 
-! Diet class: Deer=herbivore(1), Wolf=carnivore(2)
-aft_diet_class(0) = 1,   ! Deer: herbivore
-aft_diet_class(1) = 2,   ! Wolf: carnivore
+! AFT index:         0: Deer,  1: Wolf
+! diet_class:        1=herbivore, 2=carnivore, 3=omnivore
+! Intake/maintenance rates are fractions of body_C (=body_mass*f_C_body) day-1
+!   actual flux [kg C ind-1 day-1] = rate * body_C
 
 !--- Body traits ---
-!                              Deer    Wolf
-aft_body_mass(0)  =  40.0,  ! kg fresh mass
-aft_body_mass(1)  =  20.0,
-aft_f_C_body(0)   =  0.12,  ! kg C kg-1 body
-aft_f_C_body(1)   =  0.15,
-aft_f_N_body(0)   =  0.025, ! kg N kg-1 body
-aft_f_N_body(1)   =  0.030,
+aft_diet_class    =  1,        2,        ! 1=herbivore, 2=carnivore
+aft_body_mass     =  40.0,     20.0,     ! kg fresh mass ind-1
+aft_f_C_body      =  0.12,     0.15,     ! kg C kg-1 body
+aft_f_N_body      =  0.025,    0.030,    ! kg N kg-1 body
 
-!--- Plant foraging (deer only) ---
-! I_max_plant: max plant C intake rate, fraction of body_mass*f_C_body day-1
-!   actual intake = I_max_plant * body_mass * f_C_body [kg C ind-1 day-1]
-! K_half_plant: leaf-C density at half max intake, kg C m-2
-! browse_height: max canopy height reachable, m
-! palatability: species-specific selectivity (1=fully palatable)
-aft_I_max_plant(0)   = 0.04,   ! deer: 1.0 kgDM/d*0.45 kgC/kgDM / (70*0.12) kgC
-aft_I_max_plant(1)   = 0.0,    ! wolves don't browse
-aft_K_half_plant(0)  = 0.50,   ! half-saturation at 50 gC m-2 leaf biomass
-aft_K_half_plant(1)  = 0.0,
-aft_browse_height(0) = 12.0,   ! deer can reach 50% leaves at tree height 2 m
-aft_browse_height(1) = 0.0,
-aft_f_plant_diet(0)  = 1.0,    ! 100% plant diet
-aft_f_plant_diet(1)  = 0.0,    ! 0% plant diet
-aft_litter_pref(0)   = 0.4,    ! deer: moderate litter foraging preference
-aft_litter_pref(1)   = 0.0,    ! wolf: no litter eating
+!--- Plant foraging ---
+! I_max_plant * body_C = max C intake rate [kg C ind-1 day-1]
+! K_half_plant: leaf C density at half-max intake [kg C m-2]
+! browse_height: height access fraction = browse_height/(height+browse_height)
+! palatability: PFT selectivity (1=fully palatable, 0=avoided)
+aft_I_max_plant   =  0.04,     0.0,      ! fraction of body_C day-1; wolf=0
+aft_K_half_plant  =  0.50,     0.0,      ! kg C m-2
+aft_browse_height =  12.0,     0.0,      ! m; wolf cannot browse
+aft_f_plant_diet  =  1.0,      0.0,      ! fraction of diet from plants
+aft_litter_pref   =  0.4,      0.0,      ! metabolic litter palatability
 
-! Palatability of plant PFTs for deer (index 0=C4grass, 1-5=trees)
-! Deer strongly prefer deciduous trees (sp 2,3,5) over evergreen (sp 1,4)
-! and only moderately browse grass
-aft_palatability(0,0) = 0.3,   ! C4 grass - less preferred
-aft_palatability(0,1) = 0.6,   ! evergreen tree - moderate
-aft_palatability(0,2) = 1.0,   ! deciduous tree - preferred
-aft_palatability(0,3) = 1.0,   ! deciduous tree - preferred
-aft_palatability(0,4) = 0.6,   ! evergreen tree - moderate
-aft_palatability(0,5) = 1.0,   ! deciduous tree - preferred
-
-!--- Prey foraging (wolf only) ---
-! I_max_prey: max prey C intake rate, fraction of body_mass*f_C_body day-1
-!   actual intake = I_max_prey * body_mass * f_C_body [kg C ind-1 day-1]
-! K_half_prey: prey body-C density at half max intake, kg C m-2
-aft_I_max_prey(0)  = 0.0,      ! deer don't eat prey
-aft_I_max_prey(1)  = 0.02,     ! wolf: ratio to body_C
-aft_K_half_prey(0) = 0.0,
-aft_K_half_prey(1) = 4.0E-3,   ! half-saturation: ~33 deer ha-1 body-C density
-aft_f_prey_diet(0) = 0.0,
-aft_f_prey_diet(1) = 1.0,      ! 100% prey diet
+!--- Prey foraging ---
+! I_max_prey * body_C = max prey C intake rate [kg C ind-1 day-1]
+! K_half_prey: prey body-C density at half-max predation [kg C m-2]
+aft_I_max_prey    =  0.0,      0.02,     ! fraction of body_C day-1; deer=0
+aft_K_half_prey   =  0.0,      4.0E-3,   ! kg C m-2
+aft_f_prey_diet   =  0.0,      1.0,      ! fraction of diet from prey
 
 !--- Digestion ---
-!                               Deer    Wolf
-aft_digestibility(0)  = 0.65,  ! 65% digestibility (ungulate)
-aft_digestibility(1)  = 0.80,  ! 80% digestibility (carnivore)
-aft_f_N_feces(0)      = 0.0556, ! N:C ratio of feces, kg N kg-1 C (= 0.025/0.45)
-aft_f_N_feces(1)      = 0.0667, ! N:C ratio of feces, kg N kg-1 C (= 0.030/0.45)
+aft_digestibility =  0.65,     0.80,     ! digestible fraction of C intake
+aft_f_N_feces     =  0.05,     0.07,     ! N:C ratio of feces, kg N kg-1 C
 
-!--- Maintenance intake and mortality ---
-! I_maint: maintenance C intake rate, fraction of body_mass*f_C_body day-1
-!   actual maintenance = I_maint * body_mass * f_C_body [kg C ind-1 day-1]
-! mu_starve_max: max starvation mortality, day-1
-! mu_background: baseline mortality (predation, disease), day-1
-aft_I_maint(0)         = 2.5E-3,  ! deer: fraction of body_C ind-1 d-1
-aft_I_maint(1)         = 3.5E-3,  ! wolf: fraction of body_C ind-1 d-1
-aft_mu_starve_max(0)   = 0.001,   ! deer: starvation day-1
-aft_mu_starve_max(1)   = 0.002,   ! wolf: starvation day-1
-aft_mu_background(0)   = 1.0E-4,  ! deer: background mortality, day-1
-aft_mu_background(1)   = 0.5E-4,  ! wolf: background mortality, day-1
-aft_r_max(0)           = 2.0,     ! deer: maxi annual growth 
-aft_r_max(1)           = 0.5,     ! wolf: max annual growth
+!--- Maintenance and mortality ---
+! I_maint * body_C = daily maintenance C requirement [kg C ind-1 day-1]
+aft_I_maint       =  2.5E-3,   3.5E-3,   ! fraction of body_C day-1
+aft_mu_starve_max =  0.001,    0.002,    ! max starvation mortality, day-1
+aft_mu_background =  1.0E-4,   0.5E-4,   ! background mortality, day-1
+aft_r_max         =  2.0,      0.5,      ! max annual per-capita birth rate, yr-1
+
+! Palatability per AFT: one line per AFT, values = sp0, sp1, ..., sp5
+!   sp: 0=C4grass  1=evergreen  2=deciduous  3=deciduous  4=evergreen  5=deciduous
+aft_palatability(0,0) = 0.3, 0.6, 1.0, 1.0, 0.6, 1.0,  ! Deer
+aft_palatability(0,1) = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  ! Wolf (no plant foraging)
 
 !=== Initial animal cohorts ===
 ! Cohort 1: Deer,  AFT index 0, density 0.001 ind m-2 (= 10 deer ha-1)
 ! Cohort 2: Wolf,  AFT index 1, density 1.0e-5 ind m-2 (= 0.1 wolf ha-1)
-init_ani_cohort_N              = 2,
-init_ani_cohort_aft(1)         = 0,      ! cohort 1 = Deer
-init_ani_cohort_aft(2)         = 1,      ! cohort 2 = Wolf
-init_ani_cohort_nindivs(1)     = 1.0E-3, ! 10 deer ha-1
-init_ani_cohort_nindivs(2)     = 1.0E-5, ! 0.1 wolf ha-1
+init_ani_cohort_N       = 2,
+init_ani_cohort_aft     = 0,      1,
+init_ani_cohort_nindivs = 1.0E-3, 1.0E-5, 
 /
 
 &initial_state_nml

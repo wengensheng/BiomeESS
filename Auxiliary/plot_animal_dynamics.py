@@ -1,6 +1,12 @@
 """
 Plot AFT population dynamics from ORNL_animal_test_Animal_yearly.csv.
-Panels: population density, plant intake, prey intake, starvation mortality.
+Also plots plant C from ORNL_animal_test_Ecosystem_yearly.csv.
+
+Panel layout (2 × 2):
+  [0,0]  Population density        — Deer (left axis) + Wolf (right axis)
+  [0,1]  Ecosystem plant C         — from Ecosystem_yearly.csv
+  [1,0]  Annual intake             — Deer plant intake + Wolf prey intake combined
+  [1,1]  Starvation mortality rate — both AFTs
 """
 
 import pandas as pd
@@ -10,36 +16,39 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-# ── data path ────────────────────────────────────────────────────────────────
-script_dir = os.path.dirname(os.path.abspath(__file__))
-default_csv = os.path.join(script_dir, '..', 'output',
-                           'ORNL_animal_test_Animal_yearly.csv')
-csv_file = sys.argv[1] if len(sys.argv) > 1 else default_csv
+# ── data paths ────────────────────────────────────────────────────────────────
+script_dir  = os.path.dirname(os.path.abspath(__file__))
+output_dir  = os.path.join(script_dir, '..', 'output')
+run_id      = 'ORNL_animal_test'
 
-# ── load ─────────────────────────────────────────────────────────────────────
-df = pd.read_csv(csv_file, skipinitialspace=True)
+default_ani = os.path.join(output_dir, f'{run_id}_Animal_yearly.csv')
+default_eco = os.path.join(output_dir, f'{run_id}_Ecosystem_yearly.csv')
+
+ani_file = sys.argv[1] if len(sys.argv) > 1 else default_ani
+eco_file = sys.argv[2] if len(sys.argv) > 2 else default_eco
+
+# ── load animal data ──────────────────────────────────────────────────────────
+df = pd.read_csv(ani_file, skipinitialspace=True)
 df.columns = df.columns.str.strip()
-
-AFT_LABELS = {0: 'Deer (AFT 0, herbivore)', 1: 'Wolf (AFT 1, carnivore)'}
-COLORS     = {0: '#2196F3', 1: '#F44336'}   # blue, red
-
-# ── figure ───────────────────────────────────────────────────────────────────
-fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
-fig.suptitle('Animal population dynamics — ORNL animal test', fontsize=13)
-
-panel_cfg = [
-    # (ax,        column,         ylabel,                       scale, unit)
-    (axes[0, 1], 'IntakePlant', 'Annual plant intake',         1e0,  'kg DM m⁻² yr⁻¹'),
-    (axes[1, 0], 'IntakePrey',  'Annual prey intake',          1e0,  'kg C m⁻² yr⁻¹'),
-    (axes[1, 1], 'mu_starve',   'Starvation mortality rate',   1e0,  'day⁻¹'),
-]
-
-# ── population density panel: dual y-axis ────────────────────────────────────
-ax_deer = axes[0, 0]
-ax_wolf = ax_deer.twinx()
 
 deer = df[df['AFT'] == 0].sort_values('year')
 wolf = df[df['AFT'] == 1].sort_values('year')
+
+# ── load ecosystem data ───────────────────────────────────────────────────────
+eco = pd.read_csv(eco_file, skipinitialspace=True)
+eco.columns = eco.columns.str.strip()
+eco = eco.sort_values('year')
+
+# ── style ─────────────────────────────────────────────────────────────────────
+COLORS = {0: '#2196F3', 1: '#F44336'}   # blue = deer, red = wolf
+COLOR_ECO = '#4CAF50'                   # green for ecosystem
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+fig.suptitle('Animal population dynamics — ORNL animal test', fontsize=13)
+
+# ── [0,0]  Population density: dual y-axis ────────────────────────────────────
+ax_deer = axes[0, 0]
+ax_wolf = ax_deer.twinx()
 
 ln1, = ax_deer.plot(deer['year'], deer['nindivs'] * 1e4,
                     color=COLORS[0], linewidth=1.8, label='Deer (left)')
@@ -54,23 +63,45 @@ ax_deer.set_title('Population density', fontsize=9)
 ax_deer.grid(True, linestyle='--', alpha=0.4)
 ax_deer.legend(handles=[ln1, ln2], fontsize=8, loc='upper right')
 
-# ── remaining panels ─────────────────────────────────────────────────────────
-for ax, col, ylabel, scale, unit in panel_cfg:
-    for aft_id, label in AFT_LABELS.items():
-        sub = df[df['AFT'] == aft_id].sort_values('year')
-        if sub.empty:
-            continue
-        ax.plot(sub['year'], sub[col] * scale,
-                color=COLORS[aft_id], label=label, linewidth=1.8)
-    ax.set_ylabel(f'{ylabel}\n({unit})', fontsize=9)
-    ax.grid(True, linestyle='--', alpha=0.4)
-    ax.legend(fontsize=8)
+# ── [0,1]  Ecosystem plant C ──────────────────────────────────────────────────
+ax_pc = axes[0, 1]
+ax_pc.plot(eco['year'], eco['plantC'], color=COLOR_ECO, linewidth=1.8)
+ax_pc.set_ylabel('Plant C\n(kg C m⁻²)', fontsize=9)
+ax_pc.set_title('Plant carbon', fontsize=9)
+ax_pc.grid(True, linestyle='--', alpha=0.4)
 
+# ── [1,0]  Combined intake: Deer plant intake + Wolf prey intake ──────────────
+ax_int = axes[1, 0]
+
+ln_d, = ax_int.plot(deer['year'], deer['IntakePlant'],
+                    color=COLORS[0], linewidth=1.8, label='Deer — plant intake')
+ln_w, = ax_int.plot(wolf['year'], wolf['IntakePrey'],
+                    color=COLORS[1], linewidth=1.8, linestyle='--',
+                    label='Wolf — prey intake')
+
+ax_int.set_ylabel('Annual intake\n(kg C ind⁻¹ yr⁻¹)', fontsize=9)
+ax_int.set_title('Annual intake (deer: plant; wolf: prey)', fontsize=9)
+ax_int.grid(True, linestyle='--', alpha=0.4)
+ax_int.legend(fontsize=8)
+
+# ── [1,1]  Starvation mortality ───────────────────────────────────────────────
+ax_mu = axes[1, 1]
+for aft_id, sub, label in [(0, deer, 'Deer'), (1, wolf, 'Wolf')]:
+    ax_mu.plot(sub['year'], sub['mu_starve'],
+               color=COLORS[aft_id], linewidth=1.8,
+               linestyle='-' if aft_id == 0 else '--', label=label)
+ax_mu.set_ylabel('Starvation mortality\n(day⁻¹)', fontsize=9)
+ax_mu.set_title('Starvation mortality rate', fontsize=9)
+ax_mu.grid(True, linestyle='--', alpha=0.4)
+ax_mu.legend(fontsize=8)
+
+# ── x labels on bottom row only ───────────────────────────────────────────────
 for ax in axes[1]:
     ax.set_xlabel('Year', fontsize=9)
 
+# ── save ──────────────────────────────────────────────────────────────────────
 plt.tight_layout()
-out_png = csv_file.replace('.csv', '_dynamics.png')
+out_png = ani_file.replace('_Animal_yearly.csv', '_dynamics.png')
 plt.savefig(out_png, dpi=150)
 print(f'Saved: {out_png}')
 plt.show()
