@@ -35,7 +35,6 @@ contains
     vegn%rootC   = 0.0
     vegn%SwC     = 0.0
     vegn%HwC     = 0.0
-    vegn%brsC    = 0.0
 
     vegn%NSN     = 0.0
     vegn%SeedN   = 0.0
@@ -43,7 +42,6 @@ contains
     vegn%rootN   = 0.0
     vegn%SwN     = 0.0
     vegn%HwN     = 0.0
-    vegn%brsN    = 0.0
 
     vegn%W_sw = 0.0
     vegn%W_hw = 0.0
@@ -72,11 +70,8 @@ contains
         vegn%SwN     = vegn%SwN     + cc%swN    * cc%nindivs
         vegn%HwN     = vegn%HwN     + cc%hwN    * cc%nindivs
 
-        vegn%brsC    = vegn%brsC    + cc%brsC
-        vegn%brsN    = vegn%brsN    + cc%brsN
-
-        vegn%W_sw  = vegn%W_sw  + cc%W_sw * cc%nindivs
-        vegn%W_hw  = vegn%W_hw  + cc%W_hw * cc%nindivs
+        vegn%W_sw    = vegn%W_sw  + cc%W_sw * cc%nindivs
+        vegn%W_hw    = vegn%W_hw  + cc%W_hw * cc%nindivs
         vegn%W_leaf  = vegn%W_leaf  + cc%W_leaf * cc%nindivs
       end associate
     enddo

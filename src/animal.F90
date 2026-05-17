@@ -232,39 +232,34 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
   type(cohort_type),     pointer :: cc
   real :: B_cc(vegn%n_cohorts)   ! available leaf DM per plant cohort, kg DM m-2
   real :: w_cc(vegn%n_cohorts)   ! palatability-weighted forage per cohort, kg DM m-2
+  real :: B_vegn, W_vegn
+  real :: B_SOM1, W_SOM1     ! litter DM and weighted litter, kg DM m-2
   real :: B_avail, w_total       ! total available DM and weighted DM, kg DM m-2
-  real :: B_litter, w_litter     ! litter DM and weighted litter, kg DM m-2
   real :: C_removed_cc, C_removed_all, C_removed_litter, frac_remain
   real :: N_removed_cc
   integer :: i
 
   associate (sp => aftdata(ac%aft))
 
-  B_avail = 0.0 ; w_total = 0.0 ; B_cc = 0.0 ; w_cc = 0.0
-
+  B_vegn = 0.0 ; w_vegn = 0.0
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     ! cc%bl is kg C ind-1; convert to kg DM ind-1 via DM_to_C, then scale by density and browse fraction
-    B_cc(i) = (cc%bl / sp%DM_to_C) * cc%nindivs &
-            * sp%browse_height / (cc%height + sp%browse_height)
-    w_cc(i)  = sp%palatability(cc%species) * B_cc(i)
-    B_avail  = B_avail + B_cc(i)
-    w_total  = w_total + w_cc(i)
+    B_cc(i) = cc%bl / sp%DM_to_C * cc%nindivs * sp%browse_height / (cc%height + sp%browse_height)
+    w_cc(i) = sp%palatability(cc%species) * B_cc(i)
+    B_vegn  = B_vegn + B_cc(i)
+    w_vegn  = w_vegn + w_cc(i)
   end do
 
   !-- Add metabolic litter (SOC pool 1) as supplemental forage --
   ! vegn%SOC(1) is kg C m-2; convert to kg DM m-2
-  B_litter = vegn%SOC(1) / sp%DM_to_C
-  w_litter = sp%litter_pref * B_litter
-  B_avail  = B_avail + B_litter
-  w_total  = w_total + w_litter
+  B_SOM1  = vegn%SOC(1) / sp%DM_to_C
+  W_SOM1  = sp%litter_pref * B_SOM1
+  B_avail = B_vegn + B_SOM1
+  w_total = w_vegn + W_SOM1
 
   !-- Type II functional response: B_avail in kg DM m-2, intake in kg DM ind-1 day-1 --
-  if (B_avail > 0.0) then
-    intake_ind = sp%I_max_plant * B_avail / (sp%K_half_plant + B_avail)
-  else
-    intake_ind = 0.0
-  end if
+  intake_ind    = sp%I_max_plant * B_avail / (sp%K_half_plant + B_avail)
   intake_tot    = intake_ind * ac%nindivs               ! kg DM m-2 day-1
   C_removed_all = min(intake_tot, B_avail) * sp%DM_to_C ! kg C  m-2 day-1
 
@@ -282,19 +277,19 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
       frac_remain = max(0.0, 1.0 - C_removed_cc / max(cc%bl * cc%nindivs, 1.e-12))
       ! Record leaf C and N eaten from this cohort (kg m-2 day-1) before scaling
       N_removed_cc = safe_div(cc%leafN, cc%bl) * C_removed_cc
-      cc%brsC = cc%brsC + C_removed_cc
-      cc%brsN = cc%brsN + N_removed_cc
+      cc%brsC = cc%brsC   + C_removed_cc
+      cc%brsN = cc%brsN   + N_removed_cc
       cc%bl    = cc%bl    * frac_remain
       cc%leafN = cc%leafN * frac_remain
     end if
   end do
 
   !-- Distribute C removal to metabolic litter --
-  C_removed_litter = 0.0
-  if (w_total > 0.0 .and. w_litter > 0.0) then
-    C_removed_litter = C_removed_all * (w_litter / w_total)
-    C_removed_litter = min(C_removed_litter, vegn%SOC(1))
+  if (W_SOM1 > 0.0) then
+    C_removed_litter = min(C_removed_all * (W_SOM1/w_total), vegn%SOC(1))
     vegn%SOC(1) = max(0.0, vegn%SOC(1) - C_removed_litter)
+  else
+    C_removed_litter = 0.0
   end if
 
   C_removed_tot = C_removed_all - C_removed_litter  ! leaf-only C removal returned to caller

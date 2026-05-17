@@ -140,7 +140,7 @@ aft_f_N_feces(1)      = 0.030,
 !   carnivore: kg C  ind-1 day-1 (prey-C equivalent)
 ! mu_starve_max: max starvation mortality, day-1
 ! mu_background: baseline mortality (predation, disease), day-1
-aft_I_maint(0)         = 0.15,    ! deer: 0.15 kg DM day-1 min
+aft_I_maint(0)         = 0.05,    ! deer: 0.15 kg DM day-1 min
 aft_I_maint(1)         = 0.05,    ! wolf: 0.15 kg C day-1 min
 aft_mu_starve_max(0)   = 0.002,   ! deer: up to 2% day-1 starvation
 aft_mu_starve_max(1)   = 0.003,   ! wolf: up to 3% day-1 starvation
@@ -178,7 +178,7 @@ filepath_out= './output/',
 runID       = 'ORNL_animal_test',
 climfile    = 'ORNL_forcing.txt',
 Sc_prcp     = 1.0,
-model_run_years = 300,
+model_run_years = 500,
 outputhourly    = .False.
 outputdaily     = .True.
 Do_CH4          = .False.

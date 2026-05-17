@@ -414,7 +414,7 @@ module datatypes
     real :: seedC  = 0.0 ! biomass put aside for future progeny, kg C/individual
     real :: nsc    = 0.0 ! non-structural carbon, kg C/individual
 
-    ! Browsing by herbivore, daily (kg C or N m-2 day-1)
+    ! Browsing by herbivore, daily (kg C or N tree-1 day-1)
     real :: brsC   = 0.0 ! carbon of leaves eaten by herbivores
     real :: brsN   = 0.0 ! nitrogen of leaves eaten by herbivores
 
@@ -596,10 +596,6 @@ module datatypes
     real :: dailyNup
     real :: NfixDaily
     real :: dailyLFLIT = 0.0   !kgC day-1, leaf litter flux
-
-    ! Browsing by herbivore, daily (kg C or N m-2 day-1)
-    real :: brsC   = 0.0 ! carbon of leaves eaten by herbivores
-    real :: brsN   = 0.0 ! nitrogen of leaves eaten by herbivores
 
     ! Annual diagnostics
     real :: CO2_c ! ppm, annual atmospheric CO2 concentration
