@@ -143,23 +143,21 @@ module datatypes
     real :: f_C_body                 ! kg C kg-1 fresh (~0.12)
     real :: f_N_body                 ! kg N kg-1 fresh (~0.025)
     ! Plant foraging (herbivore / omnivore)
-    real :: I_max_plant              ! max plant DM intake, kg DM ind-1 day-1
-    real :: K_half_plant             ! half-saturation plant C, kg C m-2
+    real :: I_max_plant              ! max plant C intake rate, fraction of body_C day-1
+    real :: K_half_plant             ! half-saturation plant C density, kg C m-2
     real :: browse_height            ! max browsing height, m
     real :: f_plant_diet             ! fraction of diet from plants, 0-1
     real :: litter_pref              ! palatability of metabolic litter (SOC pool 1), 0-1
     real :: palatability(0:MSPECIES) ! palatability weight per plant PFT (1=fully palatable, 0=avoided)
     ! Prey foraging (carnivore / omnivore)
-    real :: I_max_prey               ! max prey C intake, kg C ind-1 day-1
+    real :: I_max_prey               ! max prey C intake rate, fraction of body_C day-1
     real :: K_half_prey              ! half-saturation prey C density, kg C m-2
     real :: f_prey_diet              ! fraction of diet from prey, 0-1
     ! Digestion and excretion
-    real :: DM_to_C                  ! forage DM-to-C factor, kg C kg-1 DM (~0.45)
-    real :: digestibility            ! digestible fraction of DM, 0-1 (~0.65)
-    real :: f_N_feces                ! N content of feces, kg N kg-1 DM (~0.025)
-    real :: f_C_feces                ! C content of feces, kg C kg-1 DM (= (1-digestibility)*DM_to_C)
+    real :: digestibility            ! digestible fraction of C intake, 0-1 (~0.65)
+    real :: f_N_feces                ! N:C ratio of feces, kg N kg-1 C (~0.056)
     ! Maintenance and mortality
-    real :: I_maint                  ! maintenance intake, kg DM ind-1 day-1
+    real :: I_maint                  ! maintenance C intake rate, fraction of body_C day-1
     real :: mu_starve_max            ! max starvation mortality rate, day-1 (~0.01)
     real :: mu_background            ! background mortality rate, day-1 (~3e-4)
     real :: r_max                    ! max annual per-capita birth rate, yr-1 (0=no reproduction)
@@ -170,8 +168,9 @@ module datatypes
     integer :: aft     = 0   ! AFT index into aftdata(:), like cc%species -> spdata(:)
     real :: nindivs    = 0.0 ! population density, ind m-2
     real :: age        = 0.0 ! cohort age, years
+    real :: body_C     = 0.0 ! body carbon per individual, kg C ind-1 (= body_mass * f_C_body)
     ! Daily fluxes (written each step, available for output)
-    real :: intake_plant  = 0.0 ! DM consumed from plants,      kg DM m-2 day-1
+    real :: intake_plant  = 0.0 ! C consumed from plants,       kg C  m-2 day-1
     real :: intake_prey   = 0.0 ! C consumed from prey,         kg C  m-2 day-1
     real :: C_removed_veg = 0.0 ! C removed from vegn cohorts,  kg C  m-2 day-1
     real :: C_feces       = 0.0 ! fecal C returned to SOC(4),   kg C  m-2 day-1
@@ -181,7 +180,7 @@ module datatypes
     real :: mu_starve     = 0.0 ! realised starvation mortality, day-1
     real :: deaths        = 0.0 ! deaths today,                 ind m-2
     ! Annual accumulators (reset by ani_annual_diagnostics)
-    real :: annualIntakePlant = 0.0 ! kg DM m-2 yr-1
+    real :: annualIntakePlant = 0.0 ! kg C  m-2 yr-1
     real :: annualIntakePrey  = 0.0 ! kg C  m-2 yr-1
     real :: annualC_removed   = 0.0 ! kg C  m-2 yr-1
     real :: annualC_feces     = 0.0 ! kg C  m-2 yr-1
@@ -201,18 +200,17 @@ module datatypes
   real    :: aft_body_mass(0:N_AFT)      = 70.0    ! kg fresh mass ind-1
   real    :: aft_f_C_body(0:N_AFT)       = 0.12    ! kg C kg-1
   real    :: aft_f_N_body(0:N_AFT)       = 0.025   ! kg N kg-1
-  real    :: aft_I_max_plant(0:N_AFT)    = 2.5e-4  ! kg DM ind-1 day-1
+  real    :: aft_I_max_plant(0:N_AFT)    = 8.04e-6  ! fraction of body_C day-1
   real    :: aft_K_half_plant(0:N_AFT)   = 0.01    ! kg C m-2
   real    :: aft_browse_height(0:N_AFT)  = 1.5     ! m
   real    :: aft_f_plant_diet(0:N_AFT)   = 1.0     ! herbivore default
   real    :: aft_litter_pref(0:N_AFT)    = 0.0     ! metabolic litter palatability (0=no litter eating)
-  real    :: aft_I_max_prey(0:N_AFT)     = 0.0     ! kg C ind-1 day-1
+  real    :: aft_I_max_prey(0:N_AFT)     = 0.0     ! fraction of body_C day-1
   real    :: aft_K_half_prey(0:N_AFT)    = 0.0     ! kg C m-2
   real    :: aft_f_prey_diet(0:N_AFT)    = 0.0     ! herbivore default
-  real    :: aft_DM_to_C(0:N_AFT)        = 0.45    ! kg C kg-1 DM
-  real    :: aft_digestibility(0:N_AFT)  = 0.65    ! dimensionless
-  real    :: aft_f_N_feces(0:N_AFT)      = 0.025   ! kg N kg-1 DM
-  real    :: aft_I_maint(0:N_AFT)        = 1.2e-4  ! kg DM ind-1 day-1
+  real    :: aft_digestibility(0:N_AFT)  = 0.65    ! digestible fraction of C intake, dimensionless
+  real    :: aft_f_N_feces(0:N_AFT)      = 0.0556  ! N:C ratio of feces, kg N kg-1 C
+  real    :: aft_I_maint(0:N_AFT)        = 2.57e-6  ! fraction of body_C day-1
   real    :: aft_mu_starve_max(0:N_AFT)  = 0.01    ! day-1
   real    :: aft_mu_background(0:N_AFT)  = 3.0e-4  ! day-1
   real    :: aft_r_max(0:N_AFT)          = 0.0     ! max annual per-capita birth rate, yr-1
@@ -229,7 +227,7 @@ module datatypes
     aft_I_max_plant,  aft_K_half_plant, aft_browse_height,          &
     aft_f_plant_diet, aft_litter_pref,  aft_palatability,           &
     aft_I_max_prey,   aft_K_half_prey,  aft_f_prey_diet,            &
-    aft_DM_to_C, aft_digestibility, aft_f_N_feces, aft_I_maint,     &
+    aft_digestibility, aft_f_N_feces, aft_I_maint,                  &
     aft_mu_starve_max, aft_mu_background, aft_r_max,                &
     init_ani_cohort_N, init_ani_cohort_aft, init_ani_cohort_nindivs
 

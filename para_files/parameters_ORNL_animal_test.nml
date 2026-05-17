@@ -82,22 +82,23 @@ aft_diet_class(1) = 2,   ! Wolf: carnivore
 
 !--- Body traits ---
 !                              Deer    Wolf
-aft_body_mass(0)  =  70.0,  ! kg fresh mass
-aft_body_mass(1)  =  40.0,
+aft_body_mass(0)  =  40.0,  ! kg fresh mass
+aft_body_mass(1)  =  20.0,
 aft_f_C_body(0)   =  0.12,  ! kg C kg-1 body
 aft_f_C_body(1)   =  0.15,
 aft_f_N_body(0)   =  0.025, ! kg N kg-1 body
-aft_f_N_body(1)   =  0.035,
+aft_f_N_body(1)   =  0.030,
 
 !--- Plant foraging (deer only) ---
-! I_max_plant: max dry-matter intake, kg DM ind-1 day-1
+! I_max_plant: max plant C intake rate, fraction of body_mass*f_C_body day-1
+!   actual intake = I_max_plant * body_mass * f_C_body [kg C ind-1 day-1]
 ! K_half_plant: leaf-C density at half max intake, kg C m-2
 ! browse_height: max canopy height reachable, m
 ! palatability: species-specific selectivity (1=fully palatable)
-aft_I_max_plant(0)   = 1.0,    ! 3 kg DM day-1 per deer
+aft_I_max_plant(0)   = 0.04,   ! deer: 1.0 kgDM/d*0.45 kgC/kgDM / (70*0.12) kgC
 aft_I_max_plant(1)   = 0.0,    ! wolves don't browse
-aft_K_half_plant(0)  = 0.05,   ! half-saturation at 50 gC m-2 leaf biomass
-aft_K_half_plant(1)  = 0.05,
+aft_K_half_plant(0)  = 0.50,   ! half-saturation at 50 gC m-2 leaf biomass
+aft_K_half_plant(1)  = 0.0,
 aft_browse_height(0) = 12.0,   ! deer can reach 50% leaves at tree height 2 m
 aft_browse_height(1) = 0.0,
 aft_f_plant_diet(0)  = 1.0,    ! 100% plant diet
@@ -116,10 +117,11 @@ aft_palatability(0,4) = 0.6,   ! evergreen tree - moderate
 aft_palatability(0,5) = 1.0,   ! deciduous tree - preferred
 
 !--- Prey foraging (wolf only) ---
-! I_max_prey:  max prey-C intake, kg C ind-1 day-1
+! I_max_prey: max prey C intake rate, fraction of body_mass*f_C_body day-1
+!   actual intake = I_max_prey * body_mass * f_C_body [kg C ind-1 day-1]
 ! K_half_prey: prey body-C density at half max intake, kg C m-2
 aft_I_max_prey(0)  = 0.0,      ! deer don't eat prey
-aft_I_max_prey(1)  = 0.5,      ! wolf: 0.5 kg meat day-1 * 0.12 kgC/kg = 0.48 kgC
+aft_I_max_prey(1)  = 0.02,     ! wolf: ratio to body_C
 aft_K_half_prey(0) = 0.0,
 aft_K_half_prey(1) = 4.0E-3,   ! half-saturation: ~33 deer ha-1 body-C density
 aft_f_prey_diet(0) = 0.0,
@@ -127,27 +129,24 @@ aft_f_prey_diet(1) = 1.0,      ! 100% prey diet
 
 !--- Digestion ---
 !                               Deer    Wolf
-aft_DM_to_C(0)        = 0.45,  ! carbon in forage
-aft_DM_to_C(1)        = 0.45,
 aft_digestibility(0)  = 0.65,  ! 65% digestibility (ungulate)
 aft_digestibility(1)  = 0.80,  ! 80% digestibility (carnivore)
-aft_f_N_feces(0)      = 0.025, ! N concentration of feces, kg N kg-1 DM
-aft_f_N_feces(1)      = 0.030,
+aft_f_N_feces(0)      = 0.0556, ! N:C ratio of feces, kg N kg-1 C (= 0.025/0.45)
+aft_f_N_feces(1)      = 0.0667, ! N:C ratio of feces, kg N kg-1 C (= 0.030/0.45)
 
 !--- Maintenance intake and mortality ---
-! I_maint: min intake to avoid starvation
-!   herbivore: kg DM ind-1 day-1
-!   carnivore: kg C  ind-1 day-1 (prey-C equivalent)
+! I_maint: maintenance C intake rate, fraction of body_mass*f_C_body day-1
+!   actual maintenance = I_maint * body_mass * f_C_body [kg C ind-1 day-1]
 ! mu_starve_max: max starvation mortality, day-1
 ! mu_background: baseline mortality (predation, disease), day-1
-aft_I_maint(0)         = 0.05,    ! deer: 0.15 kg DM day-1 min
-aft_I_maint(1)         = 0.05,    ! wolf: 0.15 kg C day-1 min
-aft_mu_starve_max(0)   = 0.002,   ! deer: up to 2% day-1 starvation
-aft_mu_starve_max(1)   = 0.003,   ! wolf: up to 3% day-1 starvation
-aft_mu_background(0)   = 2.0E-4,  ! deer: ~6% yr-1 background mortality
-aft_mu_background(1)   = 1.5E-4,  ! wolf: ~5% yr-1 background mortality
-aft_r_max(0)           = 0.4,     ! deer: up to 40% annual growth when intake >= 2x maintenance
-aft_r_max(1)           = 0.2,     ! wolf: up to 20% annual growth
+aft_I_maint(0)         = 2.5E-3,  ! deer: fraction of body_C ind-1 d-1
+aft_I_maint(1)         = 3.5E-3,  ! wolf: fraction of body_C ind-1 d-1
+aft_mu_starve_max(0)   = 0.001,   ! deer: starvation day-1
+aft_mu_starve_max(1)   = 0.002,   ! wolf: starvation day-1
+aft_mu_background(0)   = 1.0E-4,  ! deer: background mortality, day-1
+aft_mu_background(1)   = 0.5E-4,  ! wolf: background mortality, day-1
+aft_r_max(0)           = 2.0,     ! deer: maxi annual growth 
+aft_r_max(1)           = 0.5,     ! wolf: max annual growth
 
 !=== Initial animal cohorts ===
 ! Cohort 1: Deer,  AFT index 0, density 0.001 ind m-2 (= 10 deer ha-1)
@@ -178,7 +177,7 @@ filepath_out= './output/',
 runID       = 'ORNL_animal_test',
 climfile    = 'ORNL_forcing.txt',
 Sc_prcp     = 1.0,
-model_run_years = 500,
+model_run_years = 800,
 outputhourly    = .False.
 outputdaily     = .True.
 Do_CH4          = .False.
