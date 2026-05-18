@@ -94,7 +94,7 @@ aft_f_N_body      =  0.025,    0.030,    ! kg N kg-1 body
 ! palatability: PFT selectivity (1=fully palatable, 0=avoided)
 aft_I_max_plant   =  0.04,     0.0,      ! fraction of body_C day-1; wolf=0
 aft_K_half_plant  =  0.50,     0.0,      ! kg C m-2
-aft_browse_height =  12.0,     0.0,      ! m; wolf cannot browse
+aft_browse_height =  6.0,      0.0,      ! m; wolf cannot browse
 aft_f_plant_diet  =  1.0,      0.0,      ! fraction of diet from plants
 aft_litter_pref   =  0.4,      0.0,      ! metabolic litter palatability
 
@@ -102,7 +102,7 @@ aft_litter_pref   =  0.4,      0.0,      ! metabolic litter palatability
 ! I_max_prey * body_C = max prey C intake rate [kg C ind-1 day-1]
 ! K_half_prey: prey body-C density at half-max predation [kg C m-2]
 aft_I_max_prey    =  0.0,      0.02,     ! fraction of body_C day-1; deer=0
-aft_K_half_prey   =  0.0,      4.0E-3,   ! kg C m-2
+aft_K_half_prey   =  0.0,      2.5E-2,   ! kg C m-2
 aft_f_prey_diet   =  0.0,      1.0,      ! fraction of diet from prey
 
 !--- Digestion ---
@@ -148,7 +148,7 @@ filepath_out= './output/',
 runID       = 'ORNL_animal_test',
 climfile    = 'ORNL_forcing.txt',
 Sc_prcp     = 1.0,
-model_run_years = 800,
+model_run_years = 600,
 outputhourly    = .False.
 outputdaily     = .True.
 Do_CH4          = .False.

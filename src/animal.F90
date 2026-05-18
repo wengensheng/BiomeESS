@@ -315,6 +315,7 @@ subroutine ani_prey_intake(ac, vegn, intake_ind, intake_tot)
   type(ani_cohort_type), pointer :: ac_j
   real :: B_prey(vegn%n_ani_cohorts)
   real :: B_prey_total, C_eaten_prey, C_removed_cc, frac_remain, K_prey
+  real :: prey_D, prey_S
   integer :: j
 
   associate (sp => aftdata(ac%aft))
@@ -328,15 +329,18 @@ subroutine ani_prey_intake(ac, vegn, intake_ind, intake_tot)
     B_prey_total = B_prey_total + B_prey(j)
   end do
 
-  if (B_prey_total > 0.0) then
-    ! I_max_prey is fraction of body_C day-1 -> kg C ind-1 day-1
-    K_prey = B_prey_total / (sp%K_half_prey + B_prey_total)
-    intake_ind = sp%f_prey_diet * sp%I_max_prey * ac%body_C * K_prey
-  else
-    intake_ind = 0.0
-  end if
+  ! I_max_prey is fraction of body_C day-1 -> kg C ind-1 day-1
+  K_prey = B_prey_total / (sp%K_half_prey + B_prey_total)
+  prey_D = sp%f_prey_diet * sp%I_max_prey * ac%body_C     ! Demand by predators
+  prey_S = 0.002 * B_prey_total/(ac%nindivs + 1.0e-9) * K_prey
+
+  ! Test different foraging strategies
+  intake_ind = prey_D * K_prey ! Original stategy
+  !intake_ind = min(prey_D, prey_S) ! A stable foraging strategy
+  !intake_ind = prey_D * K_prey * exp(-ac%nindivs* 50.0) ! Predator density-dependent strategy
+
   intake_tot   = intake_ind * ac%nindivs       ! kg C m-2 day-1
-  C_eaten_prey = min(intake_tot, B_prey_total) ! kg C m-2 day-1 actually consumed
+  C_eaten_prey = min(intake_tot, 0.005 * B_prey_total) ! kg C m-2 day-1 actually consumed
 
   do j = 1, vegn%n_ani_cohorts
     ac_j => vegn%ani_cohorts(j)
