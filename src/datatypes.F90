@@ -972,6 +972,7 @@ module datatypes
   ! Historical CO2 years
   integer  :: CO2_start_yr = 1850 ! Minimum 1700
   integer  :: CO2_end_yr   = 2024 ! 1997
+  integer  :: post_yrs     = 50   ! Model run years after CO2_end_yr
 
   !-------------Plant and soil parameter types -----------------------
   type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
@@ -996,7 +997,7 @@ module datatypes
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
   runID, model_run_years, output_days, Sc_prcp, Sc_dT,         &
-  CO2Tag, Sc_CO2, CO2_c, CO2_start_yr, CO2_end_yr,             &
+  CO2Tag, Sc_CO2, CO2_c, CO2_start_yr, CO2_end_yr,post_yrs,    &
   ! Checkpoint / restart
   do_restart_write, do_restart_read, restart_file,             &
   ! Model components

@@ -162,7 +162,7 @@ module BiomeE_mod
     ! Total model run years and spin-up years
     tot_yrs  = INT(model_run_years/data_yrs + 1) * data_yrs
     hist_yrs = Max(CO2_end_yr - CO2_start_yr + 1, 1)
-    spin_yrs = tot_yrs - hist_yrs ! tot_yrs > hist_yrs
+    spin_yrs = tot_yrs - hist_yrs - post_yrs ! tot_yrs > hist_yrs
     i_hist   = Max(CO2_start_yr - 1700, 0) + 1
 #endif
 
@@ -286,7 +286,7 @@ module BiomeE_mod
         write(*,*)'i_hist, CO2Yrs, spin_yrs',i_hist, CO2Yrs, spin_yrs
         write(*,*)'Used CO2 concentration:',climateData%CO2, CO2_Hist(i_hist)
         ! Next Year's i_hist
-        if(n_yr > spin_yrs) i_hist = Min(i_hist + 1, CO2Yrs)
+        if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs) i_hist = Min(i_hist + 1, CO2Yrs)
 #endif
 
 #ifdef DroughtMIP
