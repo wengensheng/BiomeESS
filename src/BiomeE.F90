@@ -160,7 +160,7 @@ module BiomeE_mod
 
 #ifdef HistCO2
     ! Total model run years and spin-up years
-    tot_yrs  = INT(max(hist_yrs,model_run_years)/data_yrs + 1) * data_yrs
+    tot_yrs  = INT(model_run_years/data_yrs + 1) * data_yrs
     hist_yrs = Max(CO2_end_yr - CO2_start_yr + 1, 1)
     spin_yrs = tot_yrs - hist_yrs ! tot_yrs > hist_yrs
     i_hist   = Max(CO2_start_yr - 1700, 0) + 1
@@ -283,7 +283,7 @@ module BiomeE_mod
 
 #ifdef HistCO2
         ! CO2 concentration for this year
-        write(*,*)'i_hist, CO2Yrs',i_hist, CO2Yrs
+        write(*,*)'i_hist, CO2Yrs, spin_yrs',i_hist, CO2Yrs, spin_yrs
         write(*,*)'Used CO2 concentration:',climateData%CO2, CO2_Hist(i_hist)
         ! Next Year's i_hist
         if(n_yr > spin_yrs) i_hist = Min(i_hist + 1, CO2Yrs)
