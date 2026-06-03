@@ -1080,11 +1080,15 @@ module datatypes
   logical  :: outputdaily  = .True.
 
   ! Scenarios
-  character(len=4)  :: CO2Tag = 'aCO2' ! only takes 'aCO2' or 'eCO2', for FACE-MDS-3
+  character(len=4)  :: CO2Tag = 'aCO2' ! 'aCO2', 'eCO2', 'Init', and 'Hist', for FACE-MDS-3
   logical  :: Sc_CO2  = .True. ! Use CO2_C if true
   real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
   real     :: Sc_dT   = 0.0 ! Scenario of temperature changes
   real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
+  ! Historical CO2 years
+  integer  :: CO2_start_yr = 1850 ! Minimum 1700
+  integer  :: CO2_end_yr   = 2024 ! 1997
+  integer  :: post_yrs     = 50   ! Model run years after CO2_end_yr
 
   !-------------Plant and soil parameter types -----------------------
   type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
@@ -1108,7 +1112,8 @@ module datatypes
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
-  runID,model_run_years,output_days,Sc_prcp,Sc_dT,Sc_CO2,CO2_c,&
+  runID, model_run_years, output_days, Sc_prcp, Sc_dT,         &
+  CO2Tag, Sc_CO2, CO2_c, CO2_start_yr, CO2_end_yr,post_yrs,    &
   ! Checkpoint / restart
   do_restart_write, do_restart_read, restart_file,             &
   ! Model components
@@ -1116,7 +1121,7 @@ module datatypes
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &
   Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4,               &
   ! Specific test
-  siteLAT,Scefile,StartLine,yr_ResetVeg,yr_Baseline,CO2Tag,    &
+  siteLAT,Scefile,StartLine,yr_ResetVeg,yr_Baseline,    &
   PaleoPfile, PaleoTfile, iDraw
 
   ! ---------- Soil hydraulic and heat parameter name list ---------
