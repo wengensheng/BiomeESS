@@ -11,6 +11,7 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=''
 #CPPFLAGS+='-DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
+CPPFLAGS+=' -DHistCO2'
 CPPFLAGS+=' -DScreenOutput'
 
 echo $FSRCS
