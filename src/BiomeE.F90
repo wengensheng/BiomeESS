@@ -77,7 +77,8 @@ module BiomeE_mod
     integer :: i
 
     ! Setup total days of model run (forcing data have been read in)
-    totdays   = INT(model_run_years/data_yrs+1)*data_days
+    totdays  = INT(model_run_years/data_yrs+1)*data_days
+    totyears = INT(model_run_years/data_yrs+1)*data_yrs
     if(output_days > 0)then
       skipped_days = totdays - output_days
     else
@@ -149,20 +150,18 @@ module BiomeE_mod
     integer :: i, k, idays, idata, jdata, idoy
     integer :: n_steps, n_yr, year0, year1
     integer :: MonthDays(0:12)
-    integer :: i_hist
-    integer :: tot_yrs,spin_yrs,hist_yrs ! for FACE MDS III
     real    :: r_d
     logical :: new_annual_cycle
-
 #ifdef DroughtMIP
     logical :: BaseLineClimate = .True.
 #endif
 
 #ifdef HistCO2
+    integer :: spin_yrs,hist_yrs,i_hist ! for FACE MDS III
+
     ! Total model run years and spin-up years
-    tot_yrs  = INT(model_run_years/data_yrs + 1) * data_yrs
     hist_yrs = Max(CO2_end_yr - CO2_start_yr + 1, 1)
-    spin_yrs = tot_yrs - hist_yrs - post_yrs ! tot_yrs > hist_yrs
+    spin_yrs = totyears - hist_yrs - post_yrs
     i_hist   = Max(CO2_start_yr - 1700, 0) + 1
 #endif
 
@@ -193,11 +192,13 @@ module BiomeE_mod
         ! Set up scenarios for rainfall and CO2 concentration
         climateData%rain = forcingData(idata)%rain * Sc_prcp
         climateData%Tair = forcingData(idata)%Tair + Sc_dT
-        if(CO2Tag == 'eCO2') climateData%CO2 = forcingData(idata)%eCO2
-        if(Sc_CO2) climateData%CO2  = CO2_c ! ppm
-
 #ifdef HistCO2
         climateData%CO2 = CO2_Hist(i_hist)
+        if(n_yr > spin_yrs .and. CO2Tag == 'eCO2') &
+          climateData%CO2 = climateData%CO2 + dCO2
+#else
+        if(fixedCO2) climateData%CO2 = CO2_c ! ppm
+        if(CO2Tag == 'eCO2') climateData%CO2 = forcingData(idata)%eCO2
 #endif
         land%Tc_daily = land%Tc_daily + climateData%Tair - 273.16
 

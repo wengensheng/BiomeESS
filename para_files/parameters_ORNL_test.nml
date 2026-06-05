@@ -101,6 +101,8 @@ do_VariedKx     = .True. ! .False. !
 CO2_start_yr= 1850, ! Minimum 1700
 CO2_end_yr  = 2024, ! 1997
 post_yrs    = 200,  ! Model run after CO2_end_yr
+CO2Tag      = 'eCO2',! Use dCO2
+dCO2        = 300.  ! increased CO2 after spin-up run
 ! Checkpoint/restart
 do_restart_write = .False., ! Set to .True. to save state at end of run
 do_restart_read  = .False., ! Set to .True. to resume from a previous run
