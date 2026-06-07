@@ -157,12 +157,26 @@ module BiomeE_mod
 #endif
 
 #ifdef HistCO2
-    integer :: spin_yrs,hist_yrs,i_hist ! for FACE MDS III
+    real    :: dtCO2(CO2Yrs) ! CO2 increase from start year, scaled by CO2_mp
+    integer :: spin_yrs,hist_yrs,i0_hist ! for FACE MDS III
+    integer :: i_hist ! index for historical CO2 concentration array
 
-    ! Total model run years and spin-up years
-    hist_yrs = Max(CO2_end_yr - CO2_start_yr + 1, 1)
+    ! Recalculate total days and years of model run
+    totdays  = INT((model_run_years + post_yrs) / data_yrs + 1) * data_days
+    totyears = INT((model_run_years + post_yrs) / data_yrs + 1) * data_yrs
+
+    ! Spin-up years and historical CO2 years
+    hist_yrs = Max(CO2_yr1 - CO2_yr0 + 1, 1)
     spin_yrs = totyears - hist_yrs - post_yrs
-    i_hist   = Max(CO2_start_yr - 1700, 0) + 1
+
+    ! Initial CO2_Hist index
+    i0_hist = Max(CO2_yr0 - 1700, 0) + 1
+    i_hist  = i0_hist
+
+    ! CO2 increase rate relative to CO2_yr0, for scaling the increase rate
+    do i = 1, CO2Yrs
+      dtCO2(i) = CO2_Hist(i) - CO2_Hist(i0_hist)
+    enddo
 #endif
 
     !----------------------
@@ -193,7 +207,7 @@ module BiomeE_mod
         climateData%rain = forcingData(idata)%rain * Sc_prcp
         climateData%Tair = forcingData(idata)%Tair + Sc_dT
 #ifdef HistCO2
-        climateData%CO2 = CO2_Hist(i_hist)
+        climateData%CO2 = CO2_Hist(i0_hist) + CO2_mp * dtCO2(i_hist)
         if(n_yr > spin_yrs .and. CO2Tag == 'eCO2') &
           climateData%CO2 = climateData%CO2 + dCO2
 #else
@@ -284,7 +298,7 @@ module BiomeE_mod
 
 #ifdef HistCO2
         ! CO2 concentration for this year
-        write(*,*)'i_hist, CO2Yrs, spin_yrs',i_hist, CO2Yrs, spin_yrs
+        write(*,*)'i_hist, CO2Yrs, spin_yrs, CO2_mp',i_hist, CO2Yrs, spin_yrs, CO2_mp
         write(*,*)'Used CO2 concentration:',climateData%CO2, CO2_Hist(i_hist)
         ! Next Year's i_hist
         if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs) i_hist = Min(i_hist + 1, CO2Yrs)

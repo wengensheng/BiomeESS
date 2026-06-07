@@ -87,7 +87,7 @@ filepath_out= './output/',
 runID       = 'ORNL_test' ! 'LMA_ID_EGDC_LN12_mu02_Wmu30_Beta0806', ! Output file name
 climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv', !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years = 800, ! 1600,
+model_run_years = 500, ! 1600,
 outputhourly    = .False. ! .True.  !
 outputdaily     = .True.  ! .False. !
 Do_CH4          = .True.  ! .False. !
@@ -98,11 +98,12 @@ do_RecoverSP    = .False. ! .True.   !
 do_VariedWTC0   = .True. ! .False. !
 do_VariedKx     = .True. ! .False. !
 ! --- For HistCO2
-CO2_start_yr= 1850, ! Minimum 1700
-CO2_end_yr  = 2024, ! 1997
-post_yrs    = 200,  ! Model run after CO2_end_yr
-CO2Tag      = 'eCO2',! Use dCO2
-dCO2        = 300.  ! increased CO2 after spin-up run
+CO2_yr0  = 1850,   ! CO2 history start year, Minimum 1700
+CO2_yr1  = 2024,   ! CO2 history end year, 2024
+post_yrs = 1500,   ! Model run after CO2 end year
+CO2_mp   = 3.0,    ! CO2 increase rate multiplier
+CO2Tag   = 'aCO2', ! Use dCO2 if it is 'eCO2'
+dCO2     = 300.    ! increased CO2 after spin-up run when CO2Tag == 'eCO2'
 ! Checkpoint/restart
 do_restart_write = .False., ! Set to .True. to save state at end of run
 do_restart_read  = .False., ! Set to .True. to resume from a previous run

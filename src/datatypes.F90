@@ -969,10 +969,11 @@ module datatypes
   real     :: Sc_dT   = 0.0 ! Scenario of temperature changes
   real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
   real     :: dCO2    = 200.0 ! difference between eCO2 and aCO2
+  real     :: CO2_mp  = 1.0  ! CO2 increase rate multiplier (1=historical, 2=double, 3=triple)
   ! Historical CO2 years
-  integer  :: CO2_start_yr = 1850 ! Minimum 1700
-  integer  :: CO2_end_yr   = 2024 ! 1997
-  integer  :: post_yrs     = 50   ! Model run years after CO2_end_yr
+  integer  :: CO2_yr0  = 1850 ! CO2 history start year, Minimum 1700
+  integer  :: CO2_yr1  = 2024 ! CO2 history end year, 1997
+  integer  :: post_yrs = 150  ! Model run years after CO2_yr1
 
   !-------------Plant and soil parameter types -----------------------
   type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
@@ -996,8 +997,8 @@ module datatypes
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
-  runID, model_run_years, output_days, Sc_prcp, Sc_dT,         &
-  CO2Tag,fixedCO2,CO2_c,dCO2,CO2_start_yr,CO2_end_yr,post_yrs, &
+  runID, model_run_years, output_days, Sc_prcp, Sc_dT, CO2_c,  &
+  CO2Tag,fixedCO2,dCO2,CO2_mp,CO2_yr0,CO2_yr1,post_yrs,&
   ! Checkpoint / restart
   do_restart_write, do_restart_read, restart_file,             &
   ! Model components
