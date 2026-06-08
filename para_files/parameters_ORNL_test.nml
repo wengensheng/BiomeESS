@@ -100,7 +100,7 @@ do_VariedKx     = .True. ! .False. !
 ! --- For HistCO2
 CO2_yr0  = 1850,   ! CO2 history start year, Minimum 1700
 CO2_yr1  = 2024,   ! CO2 history end year, 2024
-post_yrs = 1500,   ! Model run after CO2 end year
+post_yrs = 600,    ! Model run after CO2 end year
 CO2_mp   = 3.0,    ! CO2 increase rate multiplier
 CO2Tag   = 'aCO2', ! Use dCO2 if it is 'eCO2'
 dCO2     = 300.    ! increased CO2 after spin-up run when CO2Tag == 'eCO2'
