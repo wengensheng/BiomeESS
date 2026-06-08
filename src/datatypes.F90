@@ -771,7 +771,7 @@ module datatypes
   real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
   real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
   real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality
-  real :: B_DBH(0:MSPECIES)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
+  real :: B_DBH(0:MSPECIES)    = 8.0     ! Size-based Mortality sensitivity, 1/m
   real :: s_hu(0:MSPECIES)     = -25.0   ! hydraulic mortality sensitivity
   real :: W_mu0(0:MSPECIES)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 
@@ -973,7 +973,7 @@ module datatypes
   ! Historical CO2 years
   integer  :: CO2_yr0  = 1850 ! CO2 history start year, Minimum 1700
   integer  :: CO2_yr1  = 2024 ! CO2 history end year, 1997
-  integer  :: post_yrs = 150  ! Model run years after CO2_yr1
+  integer  :: post_yrs = 0    ! Model run years after CO2_yr1 or model_run_years
 
   !-------------Plant and soil parameter types -----------------------
   type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
