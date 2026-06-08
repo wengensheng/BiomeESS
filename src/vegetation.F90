@@ -1859,7 +1859,8 @@ real function mortality_rate(cc) result(mu) ! per year
     n = MIN(cc%Nrings, Ysw_max)
     f_L = sp%A_un * SQRT(Max(0.0, cc%layer-1.0)) ! Layer effects (0~ infinite)
     f_S = sp%A_sd * exp(sp%B_sd*cc%dbh) + 1.0    ! Understory seedling
-    f_D = 1.0 + sp%A_DBH/(1.0 + exp(-sp%B_DBH*(cc%dbh-sp%D0mu))) ! Size effects (big tees, U-shaped)
+    ! Size effects (big tees, U-shaped, max: A_DBH)
+    f_D = 1. + (sp%A_DBH-1.)/(1. + exp(-sp%B_DBH*(cc%dbh-sp%D0mu)))
     ! Background mortality rate
     mu_bg = Min(0.5,sp%mu0_topL * (1.d0+f_L*f_S)*f_D) ! per year
 

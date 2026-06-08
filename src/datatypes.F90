@@ -766,12 +766,12 @@ module datatypes
 
   ! Mortality parameters
   real :: mu0_topL(0:MSPECIES) = 0.012 ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-  real :: D0mu(0:MSPECIES)     = 1.2     ! m, Mortality curve parameter
+  real :: D0mu(0:MSPECIES)     = 1.5     ! m, Mortality curve parameter
+  real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality (1.0 ~ A_DBH)
+  real :: B_DBH(0:MSPECIES)    = 5.0     ! Size-based Mortality sensitivity, 1/m
   real :: A_un(0:MSPECIES)     = 3.0     ! Multiplier for understory mortality
   real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
   real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
-  real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality
-  real :: B_DBH(0:MSPECIES)    = 8.0     ! Size-based Mortality sensitivity, 1/m
   real :: s_hu(0:MSPECIES)     = -25.0   ! hydraulic mortality sensitivity
   real :: W_mu0(0:MSPECIES)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 
