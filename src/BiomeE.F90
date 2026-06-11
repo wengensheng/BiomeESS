@@ -157,9 +157,9 @@ module BiomeE_mod
 #endif
 
 #ifdef HistCO2
-    real    :: dtCO2(CO2Yrs) ! CO2 increase from start year, scaled by CO2_mp
-    integer :: spin_yrs,hist_yrs,i0_hist ! for FACE MDS III
-    integer :: i_hist ! index for historical CO2 concentration array
+    real    :: dtCO2(SC_Yrs) ! CO2 increases for future CO2
+    integer :: hist_yrs, spin_yrs, i0_hist
+    integer :: i_hist, i_Sc ! indexes for historical and future CO2 concentration arrays
 
     ! Spin-up years and historical CO2 years
     hist_yrs = Max(CO2_yr1 - CO2_yr0 + 1, 1)
@@ -168,10 +168,11 @@ module BiomeE_mod
     ! Initial CO2_Hist index
     i0_hist = Max(CO2_yr0 - 1700, 0) + 1
     i_hist  = i0_hist
+    i_Sc    = 0
 
     ! CO2 increase rate relative to CO2_yr0, for scaling the increase rate
-    do i = 1, CO2Yrs
-      dtCO2(i) = CO2_Hist(i) - CO2_Hist(i0_hist)
+    do i = 1, SC_Yrs
+      dtCO2(i) = CO2_Future(i) - CO2_Hist(2021-1700) ! CO2 scenario starts from year 2021
     enddo
 #endif
 
@@ -203,9 +204,10 @@ module BiomeE_mod
         climateData%rain = forcingData(idata)%rain * Sc_prcp
         climateData%Tair = forcingData(idata)%Tair + Sc_dT
 #ifdef HistCO2
-        climateData%CO2 = CO2_Hist(i0_hist) + CO2_mp * dtCO2(i_hist)
-        if(n_yr > spin_yrs .and. CO2Tag == 'eCO2') &
-          climateData%CO2 = climateData%CO2 + dCO2
+        climateData%CO2 = CO2_Hist(i_hist)
+        if(n_yr > spin_yrs + hist_yrs .and. CO2Tag == 'eCO2') then
+          climateData%CO2 = CO2_Hist(i_hist) + CO2_mp * dtCO2(i_Sc) 
+        endif
 #else
         if(fixedCO2) climateData%CO2 = CO2_c ! ppm
         if(CO2Tag == 'eCO2') climateData%CO2 = climateData%CO2 + dCO2 ! forcingData(idata)%eCO2
@@ -296,8 +298,9 @@ module BiomeE_mod
         ! CO2 concentration for this year
         write(*,*)'i_hist, CO2Yrs, spin_yrs, CO2_mp',i_hist, CO2Yrs, spin_yrs, CO2_mp
         write(*,*)'Used CO2 concentration:',climateData%CO2
-        ! Next Year's i_hist
+        ! Next Year's i_hist and i_SC
         if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs) i_hist = Min(i_hist + 1, CO2Yrs)
+        if(n_yr > spin_yrs + hist_yrs) i_Sc = min(i_Sc + 1, SC_Yrs)
 #endif
 
 #ifdef DroughtMIP
