@@ -249,6 +249,7 @@ module BiomeE_mod
 
           ! Fire disturbance
           if(do_fire) call vegn_fire(vegn,real(seconds_per_year))
+          if(do_harvest) call vegn_harvest (vegn)
 
 #ifdef SingleTreeTest
           call vegn_SingleCohort_annual_update(vegn)

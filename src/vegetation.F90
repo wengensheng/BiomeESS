@@ -10,7 +10,7 @@ module esdvm
  !Core functions
  public :: initialize_vegn_tile
  public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics
- public :: vegn_phenology, vegn_fire, vegn_hydraulic_states
+ public :: vegn_phenology, vegn_fire, vegn_hydraulic_states, vegn_harvest
  public :: vegn_RelayerCohorts, vegn_mergecohorts,vegn_Remove_empty_cc
  public :: kill_old_grass
 
@@ -1798,6 +1798,72 @@ subroutine vegn_fire (vegn, deltat)
   vegn%Pfire = P_Ign
 
 end subroutine vegn_fire
+
+!========================================================================
+! Forest harvest, Weng, 06/13/2026 for LEAP summer 2026 project
+!========================================================================
+! Parameters: HV_freq, HV_minD, HV_frac
+subroutine vegn_harvest (vegn)
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc => null()
+  real :: ccCA, tot_HV, f_den
+  real :: FineC, FineN, CoarseC, CoarseN ! Litters due to harvest
+  real :: N_HV ! number of harvested trees
+  integer :: i
+
+  vegn%HarvYrs  = vegn%HarvYrs + 1
+  vegn%HarvestC = 0.0
+  vegn%HarvestN = 0.0
+  if(vegn%HarvYrs >= HV_freq)then
+    FineC   = 0.0
+    FineN   = 0.0
+    CoarseC = 0.0
+    CoarseN = 0.0
+    tot_HV  = 0.0
+    do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      if(cc%dbh > HV_minD .and. tot_HV < HV_frac)then
+        ccCA     = cc%nindivs * cc%Acrown
+        tot_HV = tot_HV + ccCA
+        ! Calculate the fraction of harvesting in this cohort
+        if(tot_HV < HV_frac)then
+          f_den = 1.0
+        else
+          f_den = 1.0 - (tot_HV - HV_frac)/ccCA
+        endif
+        ! Calculate harvested C, N, and litters to soil
+        N_HV          = cc%nindivs * f_den
+        vegn%HarvestC = vegn%HarvestC + N_HV * (cc%bsw + cc%bhw) * f_HV_BM
+        vegn%HarvestN = vegn%HarvestN + N_HV * (cc%hwN + cc%swN) * f_HV_BM
+        CoarseC       = CoarseC       + N_HV * (cc%bsw + cc%bhw) * (1.0-f_HV_BM)
+        CoarseN       = CoarseN       + N_HV * (cc%hwN + cc%swN) * (1.0-f_HV_BM)
+        FineC         = FineC         + N_HV * (cc%bl    + cc%br    + cc%seedC + cc%nsc)
+        FineN         = FineN         + N_HV * (cc%leafN + cc%rootN + cc%seedN + cc%nsn)
+
+        ! Put the harvested vegetation's water into evaporation
+        vegn%annualEvap = vegn%annualEvap + N_HV * (cc%W_leaf + cc%W_sw + cc%W_hw)
+
+        ! Update plant density
+        cc%nindivs = cc%nindivs - N_HV
+      endif
+      if(tot_HV > HV_frac) exit
+    enddo
+    ! Once the harvest happened
+    if(tot_HV > 0.0)  then
+      ! Put the harvest-induced litters to soil
+      vegn%SOC(1) = vegn%SOC(1) + FineC
+      vegn%SON(1) = vegn%SON(1) + FineN
+      vegn%SOC(2) = vegn%SOC(2) + CoarseC
+      vegn%SON(2) = vegn%SON(2) + CoarseN
+      ! Reset harvest interval (years)
+      vegn%HarvYrs = 0
+    endif
+  endif
+  write(*,*)'Hv_yr,Hv_C, Hv_N',vegn%HarvYrs,vegn%HarvestC,vegn%HarvestN
+end subroutine vegn_harvest
 
 !========================================================================
 subroutine plant2soil(vegn,cc,deadtrees)

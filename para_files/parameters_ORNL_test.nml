@@ -30,6 +30,11 @@ m0_kx      = 5.0
 FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
+! --- For Forest harvest
+HV_freq = 10,    ! Harvest frequency, Year
+HV_minD = 0.25,  ! Minimum trees for harvest(m, tree diameter)
+HV_frac = 0.5,   ! Maximum harvest fraction of forest coverage (crown area)
+f_HV_BM = 0.7,   ! Fraction of harvested woody biomass (taken out of the ecosystem)
 
 ! species   0       1       2       3       4       5
 lifeform  = 0,      1,      1,      1,      1,      1,       ! 0: grass; 1 Woody
@@ -97,12 +102,13 @@ do_fire         = .False. ! .True.  !
 do_RecoverSP    = .False. ! .True.   !
 do_VariedWTC0   = .True. ! .False. !
 do_VariedKx     = .True. ! .False. !
+do_harvest      = .True. !
 ! --- For HistCO2
 CO2_yr0  = 1991,   ! CO2 history start year, Minimum 1700
 CO2_yr1  = 2020,   ! CO2 history end year, Maximum 2025
 post_yrs = 400,    ! Model run after CO2 end year
 CO2_mp   = 1.0,    ! CO2 increase rate multiplier
-CO2Tag   = 'eCO2', ! Use CO2_Future
+CO2Tag   = 'aCO2', ! Use CO2_Future
 ! Checkpoint/restart
 do_restart_write = .False., ! Set to .True. to save state at end of run
 do_restart_read  = .False., ! Set to .True. to resume from a previous run

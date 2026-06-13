@@ -20,7 +20,7 @@ CPPFLAGS+=' -DUse_InterpolatedData'
 #CPPFLAGS+=' -DSingleTreeTest'
 #CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DZip_outputs'
-CPPFLAGS+=' -DHistCO2'
+#CPPFLAGS+=' -DHistCO2'
 
 echo $FSRCS
 echo $CPPFLAGS

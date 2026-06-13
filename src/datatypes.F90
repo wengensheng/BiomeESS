@@ -482,6 +482,11 @@ module datatypes
     real :: Frisk     = 0.0 ! Probability of climatic fire risk
     real :: Pfire     = 0.0 ! Probability of burning
 
+    ! Harvest carbon and nitrogen
+    integer :: HarvYrs  = 0.0 ! Years since last harvest
+    real    :: HarvestC = 0.0 ! Harvested carbon
+    real    :: HarvestN = 0.0 ! Harvested nitrogen
+
     ! Daily diagnostics
     real :: dailyGPP
     real :: dailyNPP
@@ -669,6 +674,12 @@ module datatypes
   real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012.
   ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
   real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
+
+  ! Harvest parameters
+  integer :: HV_freq = 10 ! Harvest frequency (years)
+  real    :: HV_minD = 0.2 ! Minimum tree size (DBH) for harvest
+  real    :: HV_frac = 0.3 ! Harvest fraction of top layer crown area
+  real    :: f_HV_BM = 0.7 ! fraction of harvested woody biomass
 
   ! Soil organic matter decomposition
   real :: K0SOM(5)     = [0.8, 0.25, 3.0, 1.5, 0.05] ! (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
@@ -902,6 +913,7 @@ module datatypes
   logical  :: Do_VariedWTC0       = .True.  ! WTC0 changes with trunk size
   logical  :: Do_mu0_F_WDen       = .False. ! mu0 as a function of wood density
   logical  :: Do_CH4              = .False. ! Methane emission modeling
+  logical  :: Do_Harvest          = .False. ! Forest harvest
 
   ! For global/regional run, Weng, 2025-07-22
   character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
@@ -1016,7 +1028,7 @@ module datatypes
   ! Model components
   MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &
-  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4,               &
+  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4, Do_Harvest,   &
   ! Specific test
   siteLAT,Scefile,yr_ResetVeg,yr_Baseline,    &
   PaleoPfile, PaleoTfile, iDraw
@@ -1058,7 +1070,9 @@ module datatypes
   K_DeNitr, rho_SON, fDON, etaN, fdsvN,                         &
   CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
-  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max
+  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max,   &
+  ! Harvest parameters
+  HV_freq, HV_minD, HV_frac,f_HV_BM
 
   !---------------------------------
 end module datatypes

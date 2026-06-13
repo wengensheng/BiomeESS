@@ -666,7 +666,8 @@ module io_mod
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
     'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
     'N_fxed','N_uptk','Nm_SL','Nm_FR','dNorg','dNgas','dNmin',   &
-    'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire','CH4'
+    'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire','CH4',    &
+    'HarvC','HarvN'
 
 #endif
 
@@ -1084,7 +1085,7 @@ module io_mod
       vegn%Nm_Soil*1000,vegn%Nm_Fire*1000,                            &
       vegn%dNorg_Yr*1000, vegn%dNgas_Yr*1000, vegn%dNmin_Yr*1000,     &
       vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,           &
-      vegn%Frisk,vegn%Pfire,vegn%annualCH4
+      vegn%Frisk,vegn%Pfire,vegn%annualCH4,vegn%HarvestC,vegn%HarvestN
       call append_annual_line(fno6, line)
 #endif
     endif
