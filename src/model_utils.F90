@@ -7,7 +7,7 @@ module model_utils
   public :: read_init_namelist, read_vegn_namelist, read_soil_namelist
   public :: read_global_setting, model_para_init, Climate_envelope_vars
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
-  public :: vegn_sum_tile, Zero_diagnostics
+  public :: vegn_hourly_sum, vegn_sum_tile, Zero_diagnostics
   public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
   public :: ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
   public :: TreeTotalC, TreeTotalN, PatchTotalC, PatchTotalN
@@ -17,6 +17,51 @@ module model_utils
 contains
 
   !========================== Summarize tile variables =====================
+  ! Hourly fluxes sum to daily, 06/14/2026
+  subroutine vegn_hourly_sum(vegn,forcing)
+    implicit none
+    type(vegn_tile_type), intent(inout) :: vegn
+    type(climate_data_type),intent(in):: forcing
+
+    !-------local var ------
+    type(cohort_type), pointer :: cc    ! current cohort
+    integer :: i
+
+    ! Tile summary
+    vegn%GPP    = 0.; vegn%fixedN = 0.
+    vegn%NPP    = 0.; vegn%Resp   = 0.
+    vegn%transp = 0.
+    do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      ! cohort daily
+      cc%dailyTrsp = cc%dailyTrsp + cc%transp ! kg day-1
+      cc%dailyGPP  = cc%dailygpp  + cc%gpp ! kg day-1
+      cc%dailyNPP  = cc%dailyNpp  + cc%Npp ! kg day-1
+      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
+      cc%NfixDaily = cc%NfixDaily + cc%fixedN ! kg day-1
+
+      ! Tile hourly
+      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
+      vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
+      vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs
+      vegn%transp = vegn%transp + cc%transp * cc%nindivs
+      vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
+    enddo
+    ! Daily summary:
+    vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
+    vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
+    vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
+    vegn%dailyResp = vegn%dailyResp + vegn%resp
+    vegn%dailyRh   = vegn%dailyRh   + vegn%rh
+    vegn%dailyCH4  = vegn%dailyCH4  + vegn%ch4_emit
+    vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
+    vegn%dailyEvap = vegn%dailyEvap + vegn%evap
+    vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
+    vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
+    vegn%NfixDaily = vegn%NfixDaily + vegn%fixedN
+  end subroutine vegn_hourly_sum
+
+  !==================================================================================================
   ! Weng, 2021-06-02
   subroutine vegn_sum_tile(vegn)
     implicit none
@@ -181,7 +226,7 @@ contains
     if(do_closedN_run) then
       K_DeNitr  = 0.0 ! rate of a year, 2.5
       rho_SON   = 0.0 ! organic nitrogen release rate
-      fdsvN     = 0.0 ! Maximum nitrogen loss rate with runoff
+      etaN      = 0.0 ! Nitrogen loss rate with runoff
       N_input   = 0.0 ! N input, kg N m-2 yr-1
     endif
 

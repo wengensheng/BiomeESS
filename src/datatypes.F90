@@ -421,20 +421,20 @@ module datatypes
     real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology
 
     ! litter and soil carbon pools
-    real :: litter = 0.0 ! litter flux
-    real :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
-    real :: SON(5) = 0.
+    real(8) :: litter = 0.0 ! litter flux
+    real(8) :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
+    real(8) :: SON(5) = 0.
 
     !!  Nitrogen pools, Weng 2014-08-08
-    real :: mineralN= 0.   ! Mineral nitrogen pool, (kg N/m2)
-    real :: totN    = 0.
-    real :: N_uptake= 0.0  ! kg N m-2 hour-1
-    real :: fixedN  = 0.0  ! kg N/step
-    real :: Nm_Soil = 0.0  ! annual available N in a year
-    real :: Nm_Fire = 0.0  ! Mineralized N due to burning
-    real :: NorgP2S = 0.0  ! annual N from plants to soil
-    real :: previousN      ! an weighted annual available N
-    real :: initialN0
+    real(8) :: mineralN= 0.   ! Mineral nitrogen pool, (kg N/m2)
+    real(8) :: totN    = 0.
+    real(8) :: N_uptake= 0.0  ! kg N m-2 hour-1
+    real(8) :: fixedN  = 0.0  ! kg N/step
+    real(8) :: Nm_Soil = 0.0  ! annual available N in a year
+    real(8) :: Nm_Fire = 0.0  ! Mineralized N due to burning
+    real(8) :: NorgP2S = 0.0  ! annual N from plants to soil
+    real(8) :: previousN      ! an weighted annual available N
+    real(8) :: initialN0
 
     ! Soil water
     integer :: soiltype = 3
@@ -1021,8 +1021,8 @@ module datatypes
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
-  runID, model_run_years, output_days, Sc_prcp, Sc_dT, CO2_c,  &
-  CO2Tag,fixedCO2,dCO2,CO2_mp,CO2_yr0,CO2_yr1,post_yrs,&
+  runID,model_run_years,post_yrs,output_days,Sc_prcp,Sc_dT,    &
+  CO2Tag, fixedCO2, CO2_c, dCO2, CO2_mp, CO2_yr0, CO2_yr1,     &
   ! Checkpoint / restart
   do_restart_write, do_restart_read, restart_file,             &
   ! Model components
@@ -1030,7 +1030,7 @@ module datatypes
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &
   Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4, Do_Harvest,   &
   ! Specific test
-  siteLAT,Scefile,yr_ResetVeg,yr_Baseline,    &
+  siteLAT,Scefile,yr_ResetVeg,yr_Baseline,           &
   PaleoPfile, PaleoTfile, iDraw
 
   ! ---------- Soil hydraulic and heat parameter name list ---------

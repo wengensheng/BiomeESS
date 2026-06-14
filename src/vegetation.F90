@@ -2171,7 +2171,7 @@ subroutine vegn_SW2HW_hydro(vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
-  real :: Atrunk, D_hw, SW1, dSW, r_sw
+  real :: Atrunk, D_hw, SW1, dSW, r_sw, dSWN, dSWW
   integer :: i
 
   do i = 1, vegn%n_cohorts
@@ -2188,13 +2188,14 @@ subroutine vegn_SW2HW_hydro(vegn)
        if( cc%bsw > SW1)then
           dSW     = Max(0.0, cc%bsw - SW1)
           r_sw    = dSW / cc%bsw    ! Calculated the ratio before r_sw is reducted
+          dSWN    = r_sw * cc%swN
+          dSWW    = r_sw * cc%W_sw
           cc%bsw  = cc%bsw  - dSW
           cc%bhw  = cc%bhw  + dSW
-          ! Update sapwood (sw) and heartwood (hw)'s nitrogen and soil
-          cc%swN  = cc%swN  - r_sw * cc%swN
-          cc%hwN  = cc%hwN  + r_sw * cc%swN
-          cc%W_sw = cc%W_sw - r_sw * cc%W_sw
-          cc%W_hw = cc%W_hw + r_sw * cc%W_sw 
+          cc%swN  = cc%swN  - dSWN
+          cc%hwN  = cc%hwN  + dSWN
+          cc%W_sw = cc%W_sw - dSWW
+          cc%W_hw = cc%W_hw + dSWW 
        endif
      endif
      end associate
@@ -3064,12 +3065,15 @@ subroutine vegn_reprod_samesized(vegn)
 
      N_demand = n_new * plantN
      C_demand = n_new * plantC
-     N_left = cc%seedN * cc%nindivs - N_demand
-     C_left = cc%seedC * cc%nindivs - C_demand
 
      ! Update density and seed pools
      if(n_new > zero_thld)then
         cc%nindivs  = cc%nindivs + n_new
+        ! Compute leftovers using nindivs_new so that the seedN/seedC carried
+        ! by the n_new new individuals (copies of parent) is included before
+        ! zeroing, preventing an n_new*seedN leak.
+        N_left = cc%seedN * cc%nindivs - N_demand
+        C_left = cc%seedC * cc%nindivs - C_demand
         cc%NSN = cc%NSN + N_left/cc%nindivs ! put the left N back to NSN pool
         cc%NSC = cc%NSC + C_left/cc%nindivs
         cc%seedC = 0.0

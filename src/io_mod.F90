@@ -712,39 +712,6 @@ module io_mod
     type(cohort_type), pointer :: cc    ! current cohort
     integer :: i
 
-    ! Tile summary
-    vegn%GPP    = 0.; vegn%fixedN = 0.
-    vegn%NPP    = 0.; vegn%Resp   = 0.
-    vegn%transp = 0.
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      ! cohort daily
-      cc%dailyTrsp = cc%dailyTrsp + cc%transp ! kg day-1
-      cc%dailyGPP  = cc%dailygpp  + cc%gpp ! kg day-1
-      cc%dailyNPP  = cc%dailyNpp  + cc%Npp ! kg day-1
-      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
-      cc%NfixDaily  = cc%NfixDaily  + cc%fixedN ! kg day-1
-
-      ! Tile hourly
-      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
-      vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
-      vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs
-      vegn%transp = vegn%transp + cc%transp * cc%nindivs
-      vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
-    enddo
-    ! Daily summary:
-    vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
-    vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
-    vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
-    vegn%dailyResp = vegn%dailyResp + vegn%resp
-    vegn%dailyRh   = vegn%dailyRh   + vegn%rh
-    vegn%dailyCH4  = vegn%dailyCH4  + vegn%ch4_emit
-    vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
-    vegn%dailyEvap = vegn%dailyEvap + vegn%evap
-    vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
-    vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
-    vegn%NfixDaily = vegn%NfixDaily  + vegn%fixedN
-
     !! Output horly diagnostics
     If(outputhourly .and. iday > totdays-366*5 ) then !  .and. ihour==12
       !write(fno1,'(4(I8,","))')vegn%n_cohorts
@@ -886,9 +853,9 @@ module io_mod
     vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
     vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
     vegn%NfixedYr   = vegn%NfixedYr   + vegn%NfixDaily
-    vegn%dNorg_Yr = vegn%dNorg_Yr     + vegn%dNorg_daily
-    vegn%dNgas_Yr = vegn%dNgas_Yr     + vegn%dNgas_daily
-    vegn%dNmin_Yr = vegn%dNmin_Yr     + vegn%dNmin_daily
+    vegn%dNorg_Yr   = vegn%dNorg_Yr   + vegn%dNorg_daily
+    vegn%dNgas_Yr   = vegn%dNgas_Yr   + vegn%dNgas_daily
+    vegn%dNmin_Yr   = vegn%dNmin_Yr   + vegn%dNmin_daily
 
     ! for calculating yearly mean temperature
     vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily

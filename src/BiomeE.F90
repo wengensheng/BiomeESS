@@ -218,6 +218,7 @@ module BiomeE_mod
         do while(ASSOCIATED(vegn))
           vegn%CO2_c = climateData%CO2 ! * 1.0e6
           call vegn_CNW_budget_fast(vegn,climateData)
+          call vegn_hourly_sum(vegn,climateData)
           call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
           vegn => vegn%next
         enddo
