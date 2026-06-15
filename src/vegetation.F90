@@ -47,13 +47,11 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! Water supply for leaves
   ! Soil water parameters (psi and conductivity for each layer)
   call SoilWater_psi_K(vegn)
-
 #ifdef Hydro_test
   ! Update plant hydraulic status, fluxes, and water supply for transpiration
   call Plant_water_dynamics_linear(vegn)
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
-
   ! Phloem transport, Mazen Nakad, 10/08/2023
   call vegn_Phloem_transport(forcing,vegn)
 #else
@@ -62,25 +60,18 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   call vegn_photosynthesis(forcing, vegn)
   call SoilWaterTranspUpdate(vegn)
 #endif
-
   ! Soil water dynamics: infiltration and surface evap.
   call SoilWaterDynamics(forcing,vegn)
-
   ! Plant Respiration
   call vegn_respiration(forcing,vegn)
-
   ! Nitrogen deposition
   call Vegn_N_deposition(forcing,vegn,dt_fast_yr) ! Hourly N deposition
-
   !! Nitrogen uptake
   call vegn_N_uptake(vegn, forcing%tsoil)
-
   ! Nitrogen fixation
   call vegn_N_fixation(forcing,vegn)
-
   ! Soil organic matter decomposition
   call Soil_BGC(vegn, forcing%tsoil, thetaS)
-
 end subroutine vegn_CNW_budget_fast
 
 !==========================================================================

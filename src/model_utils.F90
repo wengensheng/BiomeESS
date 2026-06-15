@@ -7,13 +7,12 @@ module model_utils
   public :: read_init_namelist, read_vegn_namelist, read_soil_namelist
   public :: read_global_setting, model_para_init, Climate_envelope_vars
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
-  public :: vegn_hourly_sum, vegn_sum_tile, Zero_diagnostics
+  public :: vegn_hourly_sum, vegn_daily_sum, vegn_sum_tile, Zero_diagnostics
   public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
   public :: ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
   public :: TreeTotalC, TreeTotalN, PatchTotalC, PatchTotalN
   public :: PotentialET, A_function, calc_solarzen, qscomp, esat
   public :: rank_descending
-
 contains
 
   !========================== Summarize tile variables =====================
@@ -22,30 +21,27 @@ contains
     implicit none
     type(vegn_tile_type), intent(inout) :: vegn
     type(climate_data_type),intent(in):: forcing
-
     !-------local var ------
     type(cohort_type), pointer :: cc    ! current cohort
     integer :: i
 
     ! Tile summary
-    vegn%GPP    = 0.; vegn%fixedN = 0.
-    vegn%NPP    = 0.; vegn%Resp   = 0.
-    vegn%transp = 0.
+    vegn%GPP = 0.; vegn%NPP = 0.; vegn%Resp = 0.
+    vegn%transp = 0.; vegn%fixedN = 0.
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      ! cohort daily
-      cc%dailyTrsp = cc%dailyTrsp + cc%transp ! kg day-1
-      cc%dailyGPP  = cc%dailygpp  + cc%gpp ! kg day-1
-      cc%dailyNPP  = cc%dailyNpp  + cc%Npp ! kg day-1
-      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
-      cc%NfixDaily = cc%NfixDaily + cc%fixedN ! kg day-1
-
       ! Tile hourly
       vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
       vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
       vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs
       vegn%transp = vegn%transp + cc%transp * cc%nindivs
       vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
+      ! cohort daily
+      cc%dailyGPP  = cc%dailygpp  + cc%gpp    ! kg day-1
+      cc%dailyNPP  = cc%dailyNpp  + cc%Npp    ! kg day-1
+      cc%dailyResp = cc%dailyResp + cc%Resp   ! kg day-1
+      cc%dailyTrsp = cc%dailyTrsp + cc%transp ! kg day-1
+      cc%NfixDaily = cc%NfixDaily + cc%fixedN ! kg day-1
     enddo
     ! Daily summary:
     vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
@@ -61,6 +57,70 @@ contains
     vegn%NfixDaily = vegn%NfixDaily + vegn%fixedN
   end subroutine vegn_hourly_sum
 
+  !==================================================================================================
+  ! Daily fluxes sum to yearly, 06/14/2026
+  subroutine vegn_daily_sum(vegn)
+    implicit none
+    type(vegn_tile_type), intent(inout) :: vegn
+    !-------local var ------
+    type(cohort_type), pointer :: cc    ! current cohort
+    integer :: i
+
+    ! Update yearly and zero daily, cohorts
+    do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      ! annual sum
+      cc%annualGPP  = cc%annualGPP  + cc%dailyGPP
+      cc%annualNPP  = cc%annualNPP  + cc%dailyNPP
+      cc%annualResp = cc%annualResp + cc%dailyResp
+      cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
+      cc%NfixedYr   = cc%NfixedYr   + cc%NfixDaily
+      cc%Aleafmax  = Max(cc%Aleafmax, cc%Aleaf)
+      ! Zero Daily variables
+      cc%dailyWdmd = 0.0
+      cc%dailyTrsp = 0.0
+      cc%dailyGPP = 0.0
+      cc%dailyNPP = 0.0
+      cc%dailyResp = 0.0
+      cc%NfixDaily = 0.0
+    enddo
+
+    !annual tile summary:
+    vegn%NupYr      = vegn%NupYr      + vegn%dailyNup
+    vegn%annualGPP  = vegn%annualGPP  + vegn%dailygpp
+    vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
+    vegn%annualResp = vegn%annualResp + vegn%dailyresp
+    vegn%annualRh   = vegn%annualRh   + vegn%dailyrh
+    vegn%annualCH4  = vegn%annualCH4  + vegn%dailyCH4
+    vegn%annualPrcp = vegn%annualPrcp + vegn%dailyPrcp
+    vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
+    vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
+    vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
+    vegn%NfixedYr   = vegn%NfixedYr   + vegn%NfixDaily
+    vegn%dNorg_Yr   = vegn%dNorg_Yr   + vegn%dNorg_daily
+    vegn%dNgas_Yr   = vegn%dNgas_Yr   + vegn%dNgas_daily
+    vegn%dNmin_Yr   = vegn%dNmin_Yr   + vegn%dNmin_daily
+
+    ! for calculating yearly mean temperature
+    vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
+
+    ! zero:
+    vegn%dailyNup  = 0.0
+    vegn%dailyGPP  = 0.0
+    vegn%dailyNPP  = 0.0
+    vegn%dailyResp = 0.0
+    vegn%dailyRh   = 0.0
+    vegn%dailyCH4  = 0.0
+    vegn%dailyPrcp = 0.0
+    vegn%dailyTrsp = 0.0
+    vegn%dailyEvap = 0.0
+    vegn%dailyRoff = 0.0
+    vegn%NfixDaily = 0.0
+    vegn%dailyLFLIT  = 0.0
+    vegn%dNorg_daily = 0.0
+    vegn%dNgas_daily = 0.0
+    vegn%dNmin_daily = 0.0
+  end subroutine vegn_daily_sum
   !==================================================================================================
   ! Weng, 2021-06-02
   subroutine vegn_sum_tile(vegn)

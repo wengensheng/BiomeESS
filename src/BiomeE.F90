@@ -218,7 +218,7 @@ module BiomeE_mod
         do while(ASSOCIATED(vegn))
           vegn%CO2_c = climateData%CO2 ! * 1.0e6
           call vegn_CNW_budget_fast(vegn,climateData)
-          call vegn_hourly_sum(vegn,climateData)
+          call vegn_hourly_sum(vegn,climateData) ! sum hourly vegn fluxes, and sum hourly to daily
           call hourly_diagnostics(vegn,climateData,n_yr,idoy,i,idays)
           vegn => vegn%next
         enddo
@@ -231,6 +231,7 @@ module BiomeE_mod
         vegn%Tc_daily = land%Tc_daily
         call vegn_daily_update(vegn,dt_daily_yr)
         call daily_diagnostics(vegn,n_yr,idoy,idays,MonthDays)
+        call vegn_daily_sum(vegn) ! Sum daily to yearly
         vegn => vegn%next
       enddo
 
