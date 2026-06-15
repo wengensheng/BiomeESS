@@ -173,7 +173,7 @@ D0mu      = 0.0,    0.0,    0.8,    0.8,    1.2,    1.2,    0.4,    0.25,   ! m,
 A_sd      = 0.0,    0.0,    8.0,    8.0,    8.0,    8.0,    8.0,    2.0,    ! Max multiplier for seedling mortality
 B_sd      = -60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.,   ! Mortality sensitivity for seedlings
 A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    ! Max multiplier for DBH-based mortality
-B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,   .125,   .125,   ! Size-based Mortality sensitivity, m
+B_DBH     = 8.0,    8.0,    8.0,    8.0,    8.0,    8.0,    8.0,    8.0,    ! Size-based Mortality sensitivity, 1/m
 W_mu0     = 2.5,    2.5,    0.50,   0.75,   0.75,   0.75,   0.75,   1.5,    ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 IgniteP   = 1.0,    1.0,    .01,    .02,    .03,    .01,    .02,    .10,    ! Intrinsic flammability
 gamma_SW  = .02,    .02,    .02,    .02,    .02,    .02,    .02,    .02,    ! Wood Acambium respiration rate (kgC/m2/yr)
@@ -239,6 +239,16 @@ Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
 model_run_years = 1190, !  1790,   ! 890, 
+! --- For HistCO2
+CO2_yr0  = 1991,   ! CO2 history start year, Minimum 1700
+CO2_yr1  = 2020,   ! CO2 history end year, Maximum 2025
+post_yrs = 400,    ! Model run after CO2 end year
+CO2_mp   = 1.0,    ! CO2 increase rate multiplier
+CO2Tag   = 'eCO2', ! Use CO2_Future
+! Checkpoint/restart
+do_restart_write = .False., ! Set to .True. to save state at end of run
+do_restart_read  = .False., ! Set to .True. to resume from a previous run
+restart_file     = './output/BiomeE_restart.bin',
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True.,  !
 do_closedN_run  = .False., ! .True.  !

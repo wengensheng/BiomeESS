@@ -88,7 +88,7 @@ module datatypes
                         LU_CROP    = 2, & ! crops
                         LU_NTRL    = 3, & ! natural vegetation
                         LU_SCND    = 4    ! secondary vegetation
-  integer, parameter :: CO2Yrs     = 326  ! 326 = the years from 1701 to 2026
+  integer, parameter :: CO2Yrs     = 326  ! 326 = the years from 1700 to 2025
   real,    parameter :: CO2_Hist(CO2Yrs) = & ! CO2 concentration 1700~2025, ppm
   ! 1,     2,     3,     4,     5,     6,     7,     8,     9,     10
   (/276.59,276.62,276.65,276.67,276.70,276.72,276.75,276.78,276.80,276.83,  &
@@ -124,6 +124,18 @@ module datatypes
   368.42,370.02,372.15,374.62,376.33,378.45,380.51,382.53,384.42,386.05,  &
   388.23,390.03,392.13,394.88,396.94,399.24,402.52,404.71,406.94,409.63,  &
   414.21,416.41,418.53,421.08,424.61,427.35/)
+
+  integer, parameter :: SC_Yrs = 80   ! CO2 scenario years from 2021 to 2100
+  real,    parameter :: CO2_Future(SC_Yrs) =    & ! CO2 concentration 2021~2100, ppm
+  ! 1,     2,     3,     4,     5,     6,     7,     8,     9,     10
+  (/416.41,418.53,421.08,424.61,427.35,430.09,432.97,435.95,438.78,441.64,  &
+    444.53,447.42,450.28,453.16,456.04,458.92,461.79,464.67,467.55,470.42,  &
+    473.30,476.18,479.06,481.93,484.81,487.69,490.56,493.44,496.32,499.19,  &
+    502.07,504.95,507.82,510.70,513.58,516.46,519.33,522.21,525.09,527.96,  &
+    530.84,533.72,536.59,539.47,542.35,545.23,548.10,550.98,553.86,556.73,  &
+    559.61,562.49,565.37,568.24,571.12,574.00,576.87,579.75,582.63,585.50,  &
+    588.38,591.26,594.14,597.01,599.89,602.77,605.64,608.52,611.40,614.27,  &
+    617.15,620.03,622.91,625.78,628.66,631.54,634.41,637.29,640.17,643.04/)
 
 #ifdef DO_ANIMAL
   ! Animal functional types
@@ -524,20 +536,20 @@ module datatypes
     real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology
 
     ! litter and soil carbon pools
-    real :: litter = 0.0 ! litter flux
-    real :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
-    real :: SON(5) = 0.
+    real(8) :: litter = 0.0 ! litter flux
+    real(8) :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
+    real(8) :: SON(5) = 0.
 
     !!  Nitrogen pools, Weng 2014-08-08
-    real :: mineralN= 0.   ! Mineral nitrogen pool, (kg N/m2)
-    real :: totN    = 0.
-    real :: N_uptake= 0.0  ! kg N m-2 hour-1
-    real :: fixedN  = 0.0  ! kg N/step
-    real :: Nm_Soil = 0.0  ! annual available N in a year
-    real :: Nm_Fire = 0.0  ! Mineralized N due to burning
-    real :: NorgP2S = 0.0  ! annual N from plants to soil
-    real :: previousN      ! an weighted annual available N
-    real :: initialN0
+    real(8) :: mineralN= 0.   ! Mineral nitrogen pool, (kg N/m2)
+    real(8) :: totN    = 0.
+    real(8) :: N_uptake= 0.0  ! kg N m-2 hour-1
+    real(8) :: fixedN  = 0.0  ! kg N/step
+    real(8) :: Nm_Soil = 0.0  ! annual available N in a year
+    real(8) :: Nm_Fire = 0.0  ! Mineralized N due to burning
+    real(8) :: NorgP2S = 0.0  ! annual N from plants to soil
+    real(8) :: previousN      ! an weighted annual available N
+    real(8) :: initialN0
 
     ! Soil water
     integer :: soiltype = 3
@@ -584,6 +596,11 @@ module datatypes
     real :: YearlyTmp = 0.0 ! Yearly mean air temperature, Celcius degree
     real :: Frisk     = 0.0 ! Probability of climatic fire risk
     real :: Pfire     = 0.0 ! Probability of burning
+
+    ! Harvest carbon and nitrogen
+    integer :: HarvYrs  = 0.0 ! Years since last harvest
+    real    :: HarvestC = 0.0 ! Harvested carbon
+    real    :: HarvestN = 0.0 ! Harvested nitrogen
 
     ! Daily diagnostics
     real :: dailyGPP
@@ -773,6 +790,12 @@ module datatypes
   ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
   real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
 
+  ! Harvest parameters
+  integer :: HV_freq = 10 ! Harvest frequency (years)
+  real    :: HV_minD = 0.2 ! Minimum tree size (DBH) for harvest
+  real    :: HV_frac = 0.3 ! Harvest fraction of top layer crown area
+  real    :: f_HV_BM = 0.7 ! fraction of harvested woody biomass
+
   ! Soil organic matter decomposition
   real :: K0SOM(5)     = [0.8, 0.25, 3.0, 1.5, 0.05] ! (/0.8, 0.25, 2.5, 1.0, 0.2/) ! turnover rate of SOM pools (yr-1)
   real :: CUEmax0      = 0.1     ! Maximum carbon use efficiency of microbes
@@ -881,12 +904,12 @@ module datatypes
 
   ! Mortality parameters
   real :: mu0_topL(0:MSPECIES) = 0.012 ! 0.01 ! yearly ! 0.012 for Acer, 0.0274 for Populus
-  real :: D0mu(0:MSPECIES)     = 1.2     ! m, Mortality curve parameter
-  real :: A_un(0:MSPECIES)     = 3.0     ! Multiplier for understory mortality
-  real :: A_sd(0:MSPECIES)     = 9.0     ! Max multiplier for seedling mortality
+  real :: D0mu(0:MSPECIES)     = 1.5     ! m, Mortality curve parameter
+  real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality (1.0 ~ A_DBH)
+  real :: B_DBH(0:MSPECIES)    = 5.0     ! Size-based Mortality sensitivity, 1/m
+  real :: A_un(0:MSPECIES)     = 4.0     ! Multiplier for understory mortality
+  real :: A_sd(0:MSPECIES)     = 5.0     ! Max multiplier for seedling mortality
   real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
-  real :: A_DBH(0:MSPECIES)    = 4.0     ! Max multiplier for DBH-based mortality
-  real :: B_DBH(0:MSPECIES)    = 0.125   ! 0.25   ! Size-based Mortality sensitivity, m
   real :: s_hu(0:MSPECIES)     = -25.0   ! hydraulic mortality sensitivity
   real :: W_mu0(0:MSPECIES)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 
@@ -955,7 +978,6 @@ module datatypes
   integer  :: iDraw = 1 ! Sample number
   real     :: siteLAT = 36.01 !site latitude, ORNL
   integer  :: N_VegTile = 1 ! Initial vegn tiles
-  integer  :: StartLine = 1 ! the first step model run start with, for UFL only
 
   ! Checkpoint / restart flags
   logical           :: do_restart_write = .False. ! Write restart file at end of run
@@ -1007,6 +1029,7 @@ module datatypes
   logical  :: Do_VariedWTC0       = .True.  ! WTC0 changes with trunk size
   logical  :: Do_mu0_F_WDen       = .False. ! mu0 as a function of wood density
   logical  :: Do_CH4              = .False. ! Methane emission modeling
+  logical  :: Do_Harvest          = .False. ! Forest harvest
 
   ! For global/regional run, Weng, 2025-07-22
   character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
@@ -1081,14 +1104,16 @@ module datatypes
 
   ! Scenarios
   character(len=4)  :: CO2Tag = 'aCO2' ! 'aCO2', 'eCO2', 'Init', and 'Hist', for FACE-MDS-3
-  logical  :: Sc_CO2  = .True. ! Use CO2_C if true
+  logical  :: fixedCO2= .True. ! Use CO2_C if true
   real     :: Sc_prcp = 1.0 ! Scenario of rainfall changes
   real     :: Sc_dT   = 0.0 ! Scenario of temperature changes
   real     :: CO2_c   = 375.0 ! 412 ! PPM, CO2 concentration at 2020
+  real     :: dCO2    = 200.0 ! difference between eCO2 and aCO2
+  real     :: CO2_mp  = 1.0  ! CO2 increase rate multiplier (1=historical, 2=double, 3=triple)
   ! Historical CO2 years
-  integer  :: CO2_start_yr = 1850 ! Minimum 1700
-  integer  :: CO2_end_yr   = 2024 ! 1997
-  integer  :: post_yrs     = 50   ! Model run years after CO2_end_yr
+  integer  :: CO2_yr0  = 1850 ! CO2 history start year, Minimum 1700
+  integer  :: CO2_yr1  = 2024 ! CO2 history end year, 1997
+  integer  :: post_yrs = 0    ! Model run years after CO2_yr1 or model_run_years
 
   !-------------Plant and soil parameter types -----------------------
   type(spec_data_type), save :: spdata(0:MSPECIES)         ! PFT-specific parameters
@@ -1112,16 +1137,16 @@ module datatypes
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
   filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
-  runID, model_run_years, output_days, Sc_prcp, Sc_dT,         &
-  CO2Tag, Sc_CO2, CO2_c, CO2_start_yr, CO2_end_yr,post_yrs,    &
+  runID,model_run_years,post_yrs,output_days,Sc_prcp,Sc_dT,    &
+  CO2Tag, fixedCO2, CO2_c, dCO2, CO2_mp, CO2_yr0, CO2_yr1,     &
   ! Checkpoint / restart
   do_restart_write, do_restart_read, restart_file,             &
   ! Model components
   MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &
-  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4,               &
+  Do_Fire, Do_FixedFrisk, Do_FixedFireS, Do_CH4, Do_Harvest,   &
   ! Specific test
-  siteLAT,Scefile,StartLine,yr_ResetVeg,yr_Baseline,    &
+  siteLAT,Scefile,yr_ResetVeg,yr_Baseline,           &
   PaleoPfile, PaleoTfile, iDraw
 
   ! ---------- Soil hydraulic and heat parameter name list ---------
@@ -1161,7 +1186,9 @@ module datatypes
   K_DeNitr, rho_SON, fDON, etaN, fdsvN,                         &
   CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
-  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max
+  EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max,   &
+  ! Harvest parameters
+  HV_freq, HV_minD, HV_frac,f_HV_BM
 
   !---------------------------------
 end module datatypes

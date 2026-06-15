@@ -65,12 +65,10 @@ module soil_mod
     !real :: fm_dcmp = 1.0
     !real :: fm_grow = 1.0       ! microbial growth rate, !Test for microbial controls on decomposition
     integer :: i
-
     ! Initialize arrays (important when some pools are disabled/commented)
     d_C  = 0.0
     d_N  = 0.0
     newM = 0.0
-
     ! Default microbial CUE for fast and slow SOM
     CUEf0 = CUEmax0        ! 0.4
     CUEs0 = CUEmax0 * 0.5  ! 0.2
@@ -129,7 +127,7 @@ module soil_mod
     ! ------- DON and mineralN losses ----------
     K_dn = A * K_DeNitr * dt_fast_yr
     !K_rf = fdsvN * (1.0 - exp(-etaN*vegn%runoff/fdsvN)) ! fdsvN is the max. loss rate when runoff is extremely high
-    K_rf = fdsvN * vegn%runoff / (fdsvN/etaN + vegn%runoff)
+    K_rf = etaN*vegn%runoff / (1.0 + etaN*vegn%runoff/max(fdsvN,0.01))
 
     ! Organic and mineral nitrogen losses: assume it is proportional to decomposition rates
     dN_SOM4 = fDON * d_N(4) * K_rf + vegn%SON(4) * rho_SON * A * dt_fast_yr

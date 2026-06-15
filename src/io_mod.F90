@@ -707,7 +707,8 @@ module io_mod
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
     'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
     'N_fxed','N_uptk','Nm_SL','Nm_FR','dNorg','dNgas','dNmin',   &
-    'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire','CH4'
+    'TreeCA','GrassCA','BMgrass','PET','Frisk','Pfire','CH4',    &
+    'HarvC','HarvN'
 
 #endif
 
@@ -752,39 +753,6 @@ module io_mod
     type(cohort_type), pointer :: cc    ! current cohort
     integer :: i
 
-    ! Tile summary
-    vegn%GPP    = 0.; vegn%fixedN = 0.
-    vegn%NPP    = 0.; vegn%Resp   = 0.
-    vegn%transp = 0.
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      ! cohort daily
-      cc%dailyTrsp = cc%dailyTrsp + cc%transp ! kg day-1
-      cc%dailyGPP  = cc%dailygpp  + cc%gpp ! kg day-1
-      cc%dailyNPP  = cc%dailyNpp  + cc%Npp ! kg day-1
-      cc%dailyResp = cc%dailyResp + cc%Resp ! kg day-1
-      cc%NfixDaily  = cc%NfixDaily  + cc%fixedN ! kg day-1
-
-      ! Tile hourly
-      vegn%GPP    = vegn%GPP    + cc%gpp    * cc%nindivs
-      vegn%NPP    = vegn%NPP    + cc%Npp    * cc%nindivs
-      vegn%Resp   = vegn%Resp   + cc%Resp   * cc%nindivs
-      vegn%transp = vegn%transp + cc%transp * cc%nindivs
-      vegn%fixedN = vegn%fixedN + cc%fixedN * cc%nindivs
-    enddo
-    ! Daily summary:
-    vegn%dailyNup  = vegn%dailyNup  + vegn%N_uptake
-    vegn%dailyGPP  = vegn%dailyGPP  + vegn%gpp
-    vegn%dailyNPP  = vegn%dailyNPP  + vegn%npp
-    vegn%dailyResp = vegn%dailyResp + vegn%resp
-    vegn%dailyRh   = vegn%dailyRh   + vegn%rh
-    vegn%dailyCH4  = vegn%dailyCH4  + vegn%ch4_emit
-    vegn%dailyTrsp = vegn%dailyTrsp + vegn%transp
-    vegn%dailyEvap = vegn%dailyEvap + vegn%evap
-    vegn%dailyRoff = vegn%dailyRoff + vegn%runoff
-    vegn%dailyPrcp = vegn%dailyPrcp + forcing%rain * step_seconds
-    vegn%NfixDaily = vegn%NfixDaily  + vegn%fixedN
-
     !! Output horly diagnostics
     If(outputhourly .and. iday > totdays-366*5 ) then !  .and. ihour==12
       !write(fno1,'(4(I8,","))')vegn%n_cohorts
@@ -823,13 +791,12 @@ module io_mod
     integer, intent(in) :: MonthDays(0:12)
     !-------local var ------
     type(cohort_type), pointer :: cc    ! current cohort
-    !integer, parameter :: MonthDays(0:12) =(/0,31,59,90,120,151,181,212,243,273,304,334,365)
     integer :: i,j
+#ifdef DroughtMIP
     integer :: f_eco,iyr_out
     integer :: iMonth, iDate
 
     ! Output daily cohorts
-#ifdef DroughtMIP
     if(iyears > 900)then
       !Write to two files
       if (iyears <= 1000) then
@@ -841,6 +808,7 @@ module io_mod
       endif
 
       !Convert doy to Month and Date
+      !MonthDays(0:12): (/0,31,59,90,120,151,181,212,243,273,304,334,365)
       do i=1,12
         if(idoy <= MonthDays(i))then
           iMonth = i
@@ -850,22 +818,18 @@ module io_mod
       enddo
 
       !! Tile daily
-      write(f_eco,'(3(I5,","),65(F12.4,","))')iyr_out,iMonth,iDate,    &
-      vegn%dailyGPP*1000., vegn%dailyNPP*1000., &
-      vegn%dailyTrsp+vegn%dailyEvap,   &
+      write(f_eco,'(3(I5,","),65(F12.4,","))')iyr_out,iMonth,iDate,          &
+      vegn%dailyGPP*1000.,vegn%dailyNPP*1000.,vegn%dailyTrsp+vegn%dailyEvap, &
       vegn%LAI,vegn%dailyLFLIT*1000., (vegn%wcl(i),i=2,5)
     endif
 
 #elif DroughtFMT
-    if(outputdaily.and. iday > skipped_days)then
-      !! Tile daily
-      write(fno4,'(2(I5,","),70(E12.6,","))')iyears,idoy,         &
-      vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,            &
-      vegn%dailyEvap,vegn%dailyRoff,                           &
-      vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5),          &
-      vegn%LAI,vegn%dailyGPP, vegn%dailyResp, vegn%dailyRh, vegn%dailyCH4
+    if(outputdaily.and. iday > skipped_days)then      !! Tile daily
+      write(fno4,'(2(I5,","),70(E12.6,","))')iyears,idoy,            &
+      vegn%tc_pheno, vegn%dailyPrcp,vegn%dailyTrsp,vegn%dailyEvap,   &
+      vegn%dailyRoff,vegn%SoilWater,vegn%thetaS,(vegn%wcl(j),j=1,5), &
+      vegn%LAI,vegn%dailyGPP,vegn%dailyResp,vegn%dailyRh,vegn%dailyCH4
     endif
-
 #else
     if(outputdaily .and. iday > skipped_days)then
       !write(fno3,'(3(I6,","))')iyears, idoy,vegn%n_cohorts
@@ -894,64 +858,6 @@ module io_mod
       vegn%dNorg_Daily*1000, vegn%dNgas_Daily*1000, vegn%dNmin_Daily*1000 !,vegn%kp(1)
     endif
 #endif
-
-    ! Update yearly and zero daily, cohorts
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      ! annual sum
-      cc%annualGPP  = cc%annualGPP  + cc%dailyGPP
-      cc%annualNPP  = cc%annualNPP  + cc%dailyNPP
-      cc%annualResp = cc%annualResp + cc%dailyResp
-      cc%annualTrsp = cc%annualTrsp + cc%dailyTrsp
-      cc%NfixedYr   = cc%NfixedYr   + cc%NfixDaily
-      cc%Aleafmax  = Max(cc%Aleafmax, cc%Aleaf)
-      ! Zero Daily variables
-      cc%dailyWdmd = 0.0
-      cc%dailyTrsp = 0.0
-      cc%dailyGPP = 0.0
-      cc%dailyNPP = 0.0
-      cc%dailyResp = 0.0
-      cc%NfixDaily = 0.0
-    enddo
-
-    !annual tile summary:
-    vegn%NupYr      = vegn%NupYr      + vegn%dailyNup
-    vegn%annualGPP  = vegn%annualGPP  + vegn%dailygpp
-    vegn%annualNPP  = vegn%annualNPP  + vegn%dailynpp
-    vegn%annualResp = vegn%annualResp + vegn%dailyresp
-    vegn%annualRh   = vegn%annualRh   + vegn%dailyrh
-    vegn%annualCH4  = vegn%annualCH4  + vegn%dailyCH4
-    vegn%annualPrcp = vegn%annualPrcp + vegn%dailyPrcp
-    vegn%annualTrsp = vegn%annualTrsp + vegn%dailytrsp
-    vegn%annualEvap = vegn%annualEvap + vegn%dailyevap
-    vegn%annualRoff = vegn%annualRoff + vegn%dailyRoff
-    vegn%NfixedYr   = vegn%NfixedYr   + vegn%NfixDaily
-    vegn%dNorg_Yr = vegn%dNorg_Yr     + vegn%dNorg_daily
-    vegn%dNgas_Yr = vegn%dNgas_Yr     + vegn%dNgas_daily
-    vegn%dNmin_Yr = vegn%dNmin_Yr     + vegn%dNmin_daily
-
-    ! for calculating yearly mean temperature
-    vegn%YearlyTmp = vegn%YearlyTmp + vegn%Tc_daily
-
-    ! zero:
-    vegn%dailyNup  = 0.0
-    vegn%dailyGPP  = 0.0
-    vegn%dailyNPP  = 0.0
-    vegn%dailyResp = 0.0
-    vegn%dailyRh   = 0.0
-    vegn%dailyCH4  = 0.0
-    vegn%dailyPrcp = 0.0
-    vegn%dailyTrsp = 0.0
-    vegn%dailyEvap = 0.0
-    vegn%dailyRoff = 0.0
-    vegn%NfixDaily = 0.0
-    vegn%dailyLFLIT  = 0.0
-    vegn%dNorg_daily = 0.0
-    vegn%dNgas_daily = 0.0
-    vegn%dNmin_daily = 0.0
-
-    ! Daily vegn state
-    call vegn_sum_tile(vegn)
   end subroutine daily_diagnostics
 
 !==================================================================================================
@@ -962,10 +868,14 @@ module io_mod
 
     ! --------local var --------
     type(cohort_type), pointer :: cc
-    real treeG, fseed, fleaf, froot,fwood,dDBH,dBA,dCA
-    real :: plantC, plantN, soilC, soilN,BMtot,N_loss_yr
-    integer :: f_cht,i,j,iyr_out,yr_Eq,yr_Sc
     character(len=annual_line_len) :: line
+    real :: treeG, fseed, fleaf, froot,fwood
+    real :: dDBH, dBA, dCA
+    real :: plantC, plantN, soilC, soilN, N_loss_yr
+    integer :: i,j,iyr_out
+#ifdef DroughtMIP
+    integer :: f_cht,yr_Eq,yr_Sc
+#endif
 
     ! Yearly mean temperature
     vegn%YearlyTmp = vegn%YearlyTmp/365.0
@@ -1007,12 +917,10 @@ module io_mod
             f_cht = fno5 + 10
             iyr_out = iyears - yr_Sc
           endif
-
-          BMtot = TreeTotalC(cc) ! cc%bl+cc%br+cc%bsw+cc%bHW+cc%seedC+cc%nsc
           write(line,'(3(I8,","),300(E15.4,","))')               &
           iyr_out,cc%species,i, cc%nindivs*10000*(1.0-cc%mu),    &
-          cc%dbh*100.,cc%height,BMtot,BMtot*0.7,2.0*sp%rho_wood, &
-          1.0/(2.0*sp%LMA), cc%Acrown
+          cc%dbh*100.,cc%height,TreeTotalC(cc),TreeTotalC(cc)*0.7, &
+          2.0*sp%rho_wood,1.0/(2.0*sp%LMA), cc%Acrown
           call append_annual_line(f_cht, line)
 
         endif
@@ -1125,7 +1033,7 @@ module io_mod
       vegn%Nm_Soil*1000,vegn%Nm_Fire*1000,                            &
       vegn%dNorg_Yr*1000, vegn%dNgas_Yr*1000, vegn%dNmin_Yr*1000,     &
       vegn%TreeCA,vegn%GrassCA,vegn%GrassBM,vegn%annualPET,           &
-      vegn%Frisk,vegn%Pfire,vegn%annualCH4
+      vegn%Frisk,vegn%Pfire,vegn%annualCH4,vegn%HarvestC,vegn%HarvestN
       call append_annual_line(fno6, line)
 #endif
     endif

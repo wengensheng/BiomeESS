@@ -12,9 +12,9 @@ thksl    = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
 &vegn_parameters_nml
 f_iniBSW   = 0.1,
 K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
-K_DeNitr   = 1.2, ! 2.4 ! rate of a year, 2.5
+K_DeNitr   = 0.0, ! 1.2, ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! 0.02 ! organic nitrogen release rate
-etaN       = 0.01,! 0.025 ! Nitrogen loss rate with runoff
+etaN       = 0.0, ! 0.01,! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
@@ -30,6 +30,11 @@ m0_kx      = 5.0
 FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
+! --- For Forest harvest
+HV_freq = 10,    ! Harvest frequency, Year
+HV_minD = 0.25,  ! Minimum trees for harvest(m, tree diameter)
+HV_frac = 0.5,   ! Maximum harvest fraction of forest coverage (crown area)
+f_HV_BM = 0.7,   ! Fraction of harvested woody biomass (taken out of the ecosystem)
 
 ! species   0       1       2       3       4       5
 lifeform  = 0,      1,      1,      1,      1,      1,       ! 0: grass; 1 Woody
@@ -40,7 +45,11 @@ LMA       = 0.02,   0.05,   0.02,   0.06,   0.02,   0.02,    ! Leaf mass per uni
 phiRL     = 0.7,    1.5,    1.2,    1.2,    1.2,    1.2,     ! Root/Leaf area ratio
 LNbase    = 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3, 1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 mu0_topL  = 0.02,   0.02,   0.02,   0.02,   0.02,   0.02,    ! canopy tree mortality rate, year-1
-D0mu      = 0.0,    1.2,    1.2,    1.2,    1.2,    1.2,     ! m, Mortality curve parameter
+D0mu      = 0.0,    1.2,    1.2,    1.5,    1.2,    1.2,     ! m, Mortality curve parameter
+A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,     ! Max multiplier for DBH-based mortality
+B_DBH     = 8.0,    8.0,    8.0,    5.0,    8.0,    8.0,     ! Size-based Mortality sensitivity, 1/m
+A_sd      = 4.0,    9.0,    9.0,    9.0,    9.0,    9.0,     ! Seedling mortality parameter
+B_sd      = -60.,   -25.,   -25.,   -25.,   -25.,   -25.,    ! Mortality sensitivity for seedlings
 W_mu0     = 2.5,    0.5,    0.7,    0.7,    0.7,    0.7,     ! Jeremy's Drought-mortality sensitivity: 0.5 high, 0.75: medium, 2.5 no effects
 Tc0_OFF   = 12.,    12.,    12.,    12.,    12.,    12.,     ! 283.16 ! OFF ! C for convenience
 Tc0_ON    = 10.,    10.,    10.,    10.,    10.,    10.,     ! 280.16 ! ON  ! C for convenience
@@ -51,10 +60,6 @@ gamma_SW  = 0.02,   0.02,   0.02,   0.02,   0.02,   0.02,    ! Wood cambium resp
 m_cond    = 7.0,    9.0,    9.0,    9.0,    9.0,    9.0,
 LAImax    = 3.5,    3.5,    3.5,    3.5,    3.5,    3.5,     ! maximum crown LAI
 phiCSA    = 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4, 0.3E-4,  ! ratio of Asap/Acrown
-A_sd      = 4.0,    9.0,    9.0,    9.0,    9.0,    9.0,     ! Seedling mortality parameter
-B_sd      = -60.,   -25.,   -25.,   -25.,   -25.,   -25.,    ! Mortality sensitivity for seedlings
-A_DBH     = 4.0,    4.0,    4.0,    4.0,    4.0,    4.0,     ! Max multiplier for DBH-based mortality
-B_DBH     = .125,   .125,   .125,   .125,   .125,   .125,    ! Size-based Mortality sensitivity, m
 IgniteP   = 1.0,    .01,    .01,    .01,    .01,    .01,     ! Intrinsic flammability
 alphaHT   = 30.,    36.,    36.,    36.,    36.,    36.,     ! Height parameter
 alphaCA   = 120.,   150.,   150.,   150.,   150.,   150.,    ! Crown area
@@ -76,10 +81,10 @@ init_cohort_bHW   = 0.0,  0.0,  0.0,  0.0,  0.0,
 init_cohort_nsc   = 0.5,  0.5,  0.5,  0.5,  0.5,
 
 !  Soil
-init_fast_SOC  = 0.5    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
-init_slow_SOC  = 40.0   ! kg C m-2  ! C/N = 40
-init_mineralN  = 5.0E-3 ! 402.5E-3, ! kg N m-2
-N_input        = 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+init_fast_SOC  = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_SOC  = 40.0 ,  ! kg C m-2  ! C/N = 40
+init_mineralN  = 5.0E-3, !  402.5E-3, ! ! kg N m-2
+N_input        = 0.0,  ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
 filepath_in = './input/',
@@ -87,20 +92,25 @@ filepath_out= './output/',
 runID       = 'ORNL_test' ! 'LMA_ID_EGDC_LN12_mu02_Wmu30_Beta0806', ! Output file name
 climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv', !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
-model_run_years = 800, ! 1600,
+fixedCO2    = .True., ! .False., !
+CO2_c       = 375.0, 
+model_run_years = 400, ! 1600,
 outputhourly    = .False. ! .True.  !
 outputdaily     = .True.  ! .False. !
 Do_CH4          = .True.  ! .False. !
-do_closedN_run  = .False. ! .True.  !
+do_closedN_run  = .True.  ! .False. !
 Do_DroughtMu    = .False. ! .True.  !
 do_fire         = .False. ! .True.  !
-do_RecoverSP    = .False. ! .True.   !
-do_VariedWTC0   = .True. ! .False. !
-do_VariedKx     = .True. ! .False. !
+do_RecoverSP    = .False. ! .True.  !
+do_VariedWTC0   = .True.  ! .False. !
+do_VariedKx     = .True.  ! .False. !
+do_harvest      = .False. ! .True.  !
 ! --- For HistCO2
-CO2_start_yr= 1850, ! Minimum 1700
-CO2_end_yr  = 2024, ! 1997
-post_yrs    = 200,  ! Model run after CO2_end_yr
+CO2_yr0  = 1991,   ! CO2 history start year, Minimum 1700
+CO2_yr1  = 2020,   ! CO2 history end year, Maximum 2025
+post_yrs = 0,      ! Model run after CO2 end year
+CO2_mp   = 1.0,    ! CO2 increase rate multiplier
+CO2Tag   = 'aCO2', ! Use CO2_Future
 ! Checkpoint/restart
 do_restart_write = .False., ! Set to .True. to save state at end of run
 do_restart_read  = .False., ! Set to .True. to resume from a previous run

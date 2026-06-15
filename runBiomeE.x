@@ -12,7 +12,7 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=''
 #CPPFLAGS+='-DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
-CPPFLAGS+=' -DHistCO2'
+#CPPFLAGS+=' -DHistCO2'
 CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DDO_ANIMAL'
 
