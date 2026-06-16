@@ -455,7 +455,7 @@ contains
     S_facuN(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.2,    0.0   ] ! Intensity of faculative N fixation
     ! Not used in current model setting (Global ESS PFTs)
     gdd_crit(0:N_EST)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
-    s_hu(0:N_EST)      = [-25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0,  -25.0 ] ! hydraulic mortality sensitivity
+    s_hu(0:N_EST)      = [25.0,   25.0,   25.0,   25.0,   25.0,   25.0,   25.0,   25.0  ] ! hydraulic mortality sensitivity
     AWD_crit(0:N_EST)  = [0.3,    0.3,    0.7,    0.7,    0.7,    0.7,    0.7,    0.2   ] ! Critical plant water availability factor (0~1)
 
     write(*,*)"GlobalPFT parameters implemented for Biome ESS"
@@ -922,29 +922,6 @@ contains
 
   end subroutine Assign_Std_Cohorts
 
-  ! ============================================================
-  subroutine qscomp(T, p, qsat)
-    real, intent(in) :: T    ! temperature, degK
-    real, intent(in) :: p    ! pressure, Pa
-    real, intent(out):: qsat ! saturated specific humidity, kg/kg
-    !--------local var
-    real :: esat ! sat. water vapor pressure
-    real :: Temp ! degC
-
-    ! calculate saturated specific humidity
-    Temp = T - 273.16 ! degC
-    esat=MIN(610.78*exp(17.27*Temp/(Temp+237.3)), p) ! Pa
-    qsat = 0.622*esat /(p - 0.378*esat )
-  end subroutine qscomp
-
-  !===========================
-  FUNCTION esat(T) ! pressure, Pa
-    IMPLICIT NONE
-    REAL :: esat
-    REAL, INTENT(IN) :: T ! degC
-    esat=610.78*exp(17.27*T/(T+237.3))
-  END FUNCTION esat
-
   !-------------------------------------------
   function TreeTotalC(cc) result (totC)
     real :: totC ! returned value
@@ -1160,6 +1137,29 @@ contains
     solarelev = asin(cosz)/pi*180.0  !since asin(cos(zen))=pi/2-zen=elev
     solarzen = 90.0 - solarelev ! pi/2.d0 - solarelev
   end subroutine calc_solarzen
+
+  ! ============================================================
+  subroutine qscomp(T, p, qsat)
+    real, intent(in) :: T    ! temperature, degK
+    real, intent(in) :: p    ! pressure, Pa
+    real, intent(out):: qsat ! saturated specific humidity, kg/kg
+    !--------local var
+    real :: esat ! sat. water vapor pressure
+    real :: Temp ! degC
+
+    ! calculate saturated specific humidity
+    Temp = T - 273.16 ! degC
+    esat=MIN(610.78*exp(17.27*Temp/(Temp+237.3)), p) ! Pa
+    qsat = 0.622*esat /(p - 0.378*esat )
+  end subroutine qscomp
+
+  !===========================
+  FUNCTION esat(T) ! pressure, Pa
+    IMPLICIT NONE
+    REAL :: esat
+    REAL, INTENT(IN) :: T ! degC
+    esat=610.78*exp(17.27*T/(T+237.3))
+  END FUNCTION esat
 
   !=================================================================
   ! Weng, 2025-09-07

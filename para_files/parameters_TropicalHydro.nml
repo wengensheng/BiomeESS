@@ -1,0 +1,102 @@
+! Test notes
+! Copied from parameters_BCI_N-full.nml 06/15/2026
+
+&soil_data_nml
+soiltype = 3,
+WaterLeakRate = 0.0, ! 0.001, ! fraction per day
+thksl = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
+GMD = 0.7, 0.4,  0.3,  0.1,  0.1,  0.07, 0.007,
+chb = 2.2, 2.64, 3.31, 4.38, 5.12, 6.58, 14.95,
+psi_sat_ref = -600., -790., -910., -1580., -1680., -1880., -5980., ! Pa
+k_sat_ref   = 130.8, 75.1,  53.2,  12.1,   11.1,   12.7,   1.69,   ! mol/(s MPa m)
+vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
+/
+
+&vegn_parameters_nml
+f_iniBSW = 0.1,
+K0SOM    = 0.8, 0.25, 3.0, 1.5, 0.05,   ! K0SOC5, ! turnover rates of SOM pools
+CUEmax0  = 0.10,   ! Maximum CUE of microbes
+K_DeNitr = 0.0,    ! 1.2 ! 2.4 ! rate of a year, 2.5
+fDON     = 0.0,    ! DON fraction in decomposed SON
+rho_SON  = 0.0,    ! Organic nitrogen release rate per year
+etaN     = 0.0,    ! Nitrogen loss rate with runoff
+C0_Nfix  = 12.0,   ! Carbon cost of N fixation, gC/g N fixed
+f_M2SOM  = 0.8,    ! fraction of microbes to litter
+diff_S0  = 0.1,    ! critical difference for merging of two cohorts
+!Plant hydraulics
+kx0_WD   = 5.0,    ! kx0 at reference WD
+p50_WD   = -1.565, ! stem psi50 at reference WD
+ths0_WD  = 3.0,    ! exponential of the PLC function for (psi/psi50)
+WTC0_WD  = 9.0E+3, ! 1.5E+3, ! 1200.0,  ! Water transport capacity at ref. wood density
+CR0_LF   = 0.5,    ! Compression ratio of leaf tissues at reference LMA
+CR0_WD   = 0.3,    ! 0.35 ! Compression ratio of wood tissues at reference WD
+m0_WTC   = 5.0,    ! DBH-WTC0 Radial variations, 12000/300 = 40,
+m0_kx    = 5.0,    ! DBH-Kx0 Radial variations
+
+!Fire related
+FSBM0    = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+r_BK0    = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
+EnvF0    = 0.0,  ! Climate fire risk
+
+! species     0        1        2        3        4        5
+lifeform    = 1,       1,       1,       1,       1,       1,       ! 0: grass; 1 Woody
+phenotype   = 1,       1,       1,       0,       0,       0,       ! 0: Deciduous; 1 Evergreen
+pt          = 0,       0,       0,       0,       0,       0,       ! 0: C3; 1: C4
+s0_plant    = 0.05,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial size of seedlings
+laimax      = 3.5,     3.5,     3.5,     4.0,     4.0,     4.0,     ! maximum crown LAI
+LMA         = 0.05,    0.05,    0.05,    0.02,    0.02,    0.02,    ! Leaf mass per unit area
+phiRL       = 1.5,     1.5,     1.5,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
+LNbase      = 1.2E-3,  1.2E-3,  1.5E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+mu0_topL    = 0.02,    0.03,    0.03,    0.03,    0.03,    0.03,    ! canopy tree mortality rate, year-1
+D0mu        = 1.2,     1.2,     1.2,     1.2,     1.5,     1.5,     ! m, Mortality curve parameter
+A_DBH       = 4.0,     4.0,     4.0,     4.0,     4.0,     4.0,     ! Max multiplier for DBH-based mortality
+B_DBH       = 8.0,     8.0,     8.0,     5.0,     8.0,     8.0,     ! Size-based Mortality sensitivity, 1/m
+A_sd        = 9.0,     9.0,     9.0,     9.0,     9.0,     9.0,     ! Seedling mortality parameter
+B_sd        = -25.,    -25.,    -25.,    -25.,    -25.,    -25.,    ! Mortality sensitivity for seedlings
+W_mu0       = 0.5,     0.5,     0.7,     0.7,     0.7,     0.7,     ! Jeremy's Drought-mortality sensitivity: 0.5 high, 0.75: medium, 2.5 no effects
+s_hu        = 25.0,    25.0,    25.0,    25.0,    25.0,    25.0,    ! hydraulic mortality sensitivity
+Tc0_OFF     = 12.,     12.,     12.,     12.,     12.,     12.,     ! 283.16 ! OFF ! C for convenience
+Tc0_ON      = 10.,     10.,     10.,     10.,     10.,     10.,     ! 280.16 ! ON  ! C for convenience
+betaON      = 0.1,     0.1,     0.8,     0.8,     0.8,     0.8,     ! Soil moisture for phenology ON
+betaOFF     = 0.0,     0.0,     0.7,     0.6,     0.6,     0.6,
+rho_wood    = 400.,    400.,    400.,    300.,    300.,    300.,
+CNwood0     = 300.,    300.,    300.,    350.,    350.,    350.,
+R0_Nfix     = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! 0.03 kgN kgRootC-1 yr-1
+S_facuN     = 0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     ! Intensity of carbon usage for faculative N fixation, 0~1
+gamma_SW    = 0.02,    0.02,    0.02,    0.02,    0.02,    0.02,    ! Wood cambium respiration rate (kgC/m2/yr)
+m_cond      = 9.0,     9.0,     9.0,     9.0,     9.0,     9.0,
+phiCSA      = .25E-4,  .25E-4,  .25E-4,  .25E-4,  .25E-4,  .25E-4,  ! ratio of Asap/Acrown
+AgeRepro    = 5,       5,       5,       5,       5,       5
+/
+
+&initial_state_nml
+!!   plant
+init_cohort_N     = 1, ! 2, ! total 5
+init_cohort_sps   = 2,    1,    3,    4,    5,
+init_cohort_Indiv = .002, .002, .002, .002, .002,
+init_cohort_bsw   = 0.2,  0.2,  0.2,  0.2,  0.2,
+init_cohort_bHW   = 0.0,  0.0,  0.0,  0.0,  0.0,
+init_cohort_nsc   = 0.5,  0.5,  0.5,  0.5,  0.5,
+
+!  Soil
+init_fast_SOC = 0.5,     ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
+init_slow_SOC = 40.0,    ! kg C m-2  ! C/N = 40
+init_mineralN = 5.0E-3,  ! 402.5E-3, ! kg N m-2
+N_input       = 0.0E-3,  ! 1.2E-3, !  2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+
+! Model run
+filepath_in = '../forcingData/DroughtMIPdrivers/',
+filepath_out= './output/',
+runID       = 'BCI_HydroTest', !
+climfile    = 'BCI_forcing.csv' !'BiomeE_TNF_HBhourly.csv',  ! 'BiomeE_GYF_HBhourly.csv', !
+Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
+model_run_years = 200, ! 1600,
+
+outputhourly    = .False. ! .True.  !
+outputdaily     = .True.  ! .False. !
+do_closedN_run  = .True.  !.False. !
+do_fire         = .False. ! .True.
+do_RecoverSP    = .True. ! .False. !
+do_VariedWTC0   = .True. ! .False. !
+do_VariedKx     = .True. ! .False. !
+/

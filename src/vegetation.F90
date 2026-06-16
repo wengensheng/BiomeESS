@@ -53,7 +53,7 @@ subroutine vegn_CNW_budget_fast(vegn, forcing)
   ! Photosynsthesis
   call vegn_photosynthesis(forcing, vegn)
   ! Phloem transport, Mazen Nakad, 10/08/2023
-  call vegn_Phloem_transport(forcing,vegn)
+  ! call vegn_Phloem_transport(forcing,vegn)
 #else
   ! Water supply from soil directly
   call SoilWaterSupply(vegn)
@@ -100,9 +100,6 @@ subroutine vegn_demographics(vegn, deltat)
   !-------- local vars ----------
   !real totN0
 
-  !! Total N balance checking
-  !call vegn_sum_tile(vegn)
-  !totN0 = PatchTotalN(vegn)
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
@@ -795,36 +792,25 @@ subroutine vegn_phenology(vegn)  ! daily step
 
   ! -------------- update vegn GDD and tc_pheno ---------------------------
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2  ! C
-
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species))
-
       if (sp%phenotype == 0) then  ! deciduous species
-
         if (cc%status == LEAF_ON) then
           cc%ngd = min(366, cc%ngd + 1)
-
           if (cc%ngd > Days_thld) cc%ALT = cc%ALT + min(0.0, vegn%tc_pheno - sp%tc0_off)
-
           if (cc%dailyWdmd > zero_thld) then
             cc%AWD = 0.9 * cc%AWD + 0.1 * (cc%dailyTrsp / cc%dailyWdmd)
           end if
-
         else  ! cc%status == LEAF_OFF
           cc%ndm = cc%ndm + 1
-
           if (vegn%tc_pheno < T0_chill) cc%ncd = cc%ncd + 1
-
           ! Keep gdd as zero in early non-growing season when ndm < Days_thld
           if (cc%ndm > Days_thld) then
             cc%gdd = cc%gdd + max(0.0, vegn%tc_pheno - T0_gdd)
           end if
-
         end if  ! cc%status
-
       end if  ! sp%phenotype == 0
-
     end associate
   end do
 
@@ -833,18 +819,13 @@ subroutine vegn_phenology(vegn)  ! daily step
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species))
-
       cc%firstday = .false.
-
       if (sp%phenotype == 0) then
-
         gdd_ON  = sp%gdd_par1 + sp%gdd_par2 * exp(sp%gdd_par3 * cc%ncd)  ! leaf green-up threshold
-
         PhenoON = (cc%status /= LEAF_ON)                                  &
                .and. (cc%gdd > gdd_ON .and. vegn%tc_pheno > sp%tc0_on)    &  ! thermal
                .and. (vegn%thetaS > sp%betaON .and. cc%ndm > Days_thld)   &  ! water + min dormancy
                .and. (.not. (sp%lifeform == 0 .and. cc%layer > MaxGrassLyr)) ! grasses only in low layers
-
         if (PhenoON) then
           cc%status   = LEAF_ON
           cc%firstday = .true.
@@ -876,22 +857,17 @@ subroutine vegn_phenology(vegn)  ! daily step
       else
         cc%status = LEAF_ON  ! evergreen species
       endif
-
     end associate
   end do
-
   if (any(vegn%cohorts(:)%firstday)) call vegn_RelayerCohorts(vegn)
 
   ! ---------- Turn OFF a growing season -----------------------------------
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species))
-
       if (sp%phenotype == 0) then
-
         ! Critical temperature triggering leaf-off
         Tc_OFF = sp%tc0_off - 5.0 * exp(-0.05 * (cc%ngd - N0_GD))
-
         PhenoOFF = (cc%status == LEAF_ON .and. cc%ngd > Days_thld) .and. &
                    ((cc%ALT < cold_thld .and. vegn%tc_pheno < Tc_OFF) .or. &
                     (vegn%thetaS < sp%betaOFF))
@@ -904,14 +880,10 @@ subroutine vegn_phenology(vegn)  ! daily step
           cc%ALT    = 0.0
           cc%AWD    = 1.0
         end if
-
         call Seasonal_fall(cc, vegn)  ! leaf fall
-
       end if
-
     end associate
   end do
-
 end subroutine vegn_phenology
 
 !-------------------------------------------------------------------------------
@@ -934,7 +906,7 @@ subroutine Seasonal_fall(cc,vegn)
   associate (sp => spdata(cc%species) )
   if(cc%status == LEAF_OFF .AND. cc%bl > zero_thld)then
      dBL = min(leaf_fall_rate * cc%bl_max, cc%bl)
-     dBR = min( root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
+     dBR = min(root_mort_rate * cc%br_max, cc%br)  ! Just for test: keep roots
      if(sp%lifeform == 0)then  ! grasses
          dBStem = MIN(1.0,dBL/cc%bl) * cc%bsw
          dNStem = MIN(1.0,dBL/cc%bl) * cc%swN
@@ -947,18 +919,15 @@ subroutine Seasonal_fall(cc,vegn)
      ! Nitrogen and water out
      dNL = dBL/cc%bl * cc%leafN !dBL/sp%CNleaf0
      dWLeaf = cc%W_leaf*dBL/cc%bl
-
+     dAleaf = BL2Aleaf(dBL,cc)
      if(cc%br>0)then
         dNR = dBR/cc%br * cc%rootN !dBR/sp%CNroot0
      else
         dNR = 0.0
      endif
 
-     dAleaf = BL2Aleaf(dBL,cc)
-#ifdef Hydro_test
      ! Put plant water into the first soil layer
      vegn%wcl(1) = vegn%wcl(1) + cc%nindivs*(dWLeaf+dWStem)/(thksl(1)*1000.0)
-#endif
 
      !Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
@@ -1605,7 +1574,6 @@ subroutine vegn_nat_mortality (vegn, deltat)
 
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-
      cc%mu = mortality_rate(cc)
      !if(cc%mu>=0.9) write(*,*)"Bulk motality happens!!!",cc%species,i
      !deadtrees = cc%nindivs*(1.0-exp(0.0-cc%mu*deltat/seconds_per_year)) ! individuals / m2
@@ -1615,7 +1583,6 @@ subroutine vegn_nat_mortality (vegn, deltat)
      ! Update plant density
      cc%nindivs = cc%nindivs - deadtrees
   enddo
-
 end subroutine vegn_nat_mortality
 
 !========================================================================
@@ -1640,7 +1607,6 @@ subroutine vegn_annual_starvation (vegn)
        if (cc%nsc < 0.0001*cc%bl_max) then !  .OR. cc%annualNPP < 0.0, annualNPP < 0 is for grasses only
            deathrate = 1.0
            deadtrees = cc%nindivs * deathrate !individuals / m2
-           ! write(*,*)"Yearly starvation: cNo., PFT:",i,cc%species,deathrate
            ! Carbon and Nitrogen from plants to soil pools
            call plant2soil(vegn,cc,deadtrees)
            ! update cohort individuals
@@ -1650,7 +1616,6 @@ subroutine vegn_annual_starvation (vegn)
        endif
      end associate
   enddo
-
 end subroutine vegn_annual_starvation
 
 !========================= Fire =========================
@@ -1873,10 +1838,9 @@ subroutine plant2soil(vegn,cc,deadtrees)
      loss_fine    = deadtrees * (cc%nsc + cc%seedC + cc%br    + cc%Aleaf*LMAmin)
      lossN_coarse = deadtrees * (cc%hwN + cc%swN   + cc%leafN - cc%Aleaf*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%Aleaf*sp%LNbase)
-#ifdef Hydro_test
      ! Assume water in plants goes to first layer of soil
      vegn%wcl(1) = vegn%wcl(1) +  deadtrees * (cc%W_leaf+cc%W_sw+cc%W_hw)/(thksl(1)*1000.0)
-#endif
+     ! Plant C and N go to litter pools
      vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + fsc_wood *loss_coarse
      vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
 
@@ -1905,13 +1869,8 @@ real function mortality_rate(cc) result(mu) ! per year
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
   real :: mu_bg      ! Background mortality rate
   real :: mu_hydro   ! Hydraulic failure
-  real :: mu_drought ! for UFL drought mortality
-  real :: mu_add
 
   !---------------------
-  mu_bg    = 0.0  ! Background mortality rate
-  mu_hydro = 0.0
-  mu_drought = 0.0
   associate ( sp => spdata(cc%species))
     n = MIN(cc%Nrings, Ysw_max)
     f_L = (sp%A_un - 1.) * SQRT(Max(0.0, cc%layer-1.0)) ! Layer effects
@@ -1921,6 +1880,10 @@ real function mortality_rate(cc) result(mu) ! per year
     ! Background mortality rate
     mu_bg = Min(0.5, sp%mu0_topL * (f_D + f_L*f_S)) ! per year
 
+#ifdef Hydro_test
+    ! Trunk hydraulic failure probability
+    mu_hydro = exp(-sp%s_hu * (1.0 - min(1.,cc%treeHU/cc%treeW0)))
+#else
     if(DO_DroughtMu)then
       ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)
       ! It can be turned off by setting a large sp%W_mu0
@@ -1929,19 +1892,11 @@ real function mortality_rate(cc) result(mu) ! per year
       else
         cc%w_scale = 1.0
       endif
-      mu_drought = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
+      mu_hydro = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
     endif
-
-#ifdef Hydro_test
-    ! Trunk hydraulic failure probability
-    mu_hydro = exp(sp%s_hu * (1.0 - min(1.,cc%treeHU/cc%treeW0)))
-    !mu_hydro = Max(0., 1. - cc%farea(n))
-    !mu_hydro = Max(0., 1. - cc%Asap/cc%Acrown/(sp%LAImax*sp%phiCSA))
 #endif
-
-  ! Total mortality rate:
-  mu_add = mu_hydro + mu_drought - mu_hydro*mu_drought
-  mu = mu_bg + (1.0 - mu_bg) * mu_add
+    ! Total mortality rate:
+    mu = mu_bg + (1.0 - mu_bg) * mu_hydro
   end associate
 
 end function mortality_rate
@@ -2037,13 +1992,16 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 
      ! Update Asap and Ktrunk
      call calculate_Asap_Ktrunk (cc)
-
-     ! This year's mortality rate, calculation only, for output
-     cc%mu = mortality_rate(cc)
   enddo
   ! Sapwood conversion and tile variables
   call vegn_SW2HW_hydro(vegn)
   call vegn_sum_tile(vegn)
+
+  ! Calculate only, for output
+  do i = 1, vegn%n_cohorts
+     cc => vegn%cohorts(i)
+      cc%mu = mortality_rate(cc)
+  enddo
 end subroutine vegn_hydraulic_states
 
 !========================================================================
@@ -2283,7 +2241,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
         k_stem = cc%Ktrunk * plc_function(psi_stem,sp%psi50_WD,sp%Kexp_WD)
         wflux  = MIN(dpsi * k_stem * step_base, 0.5*(W_sw - cc%Wmin_S))
         S_stem = S_stem + wflux
-        W_sw = W_sw - wflux
+        W_sw   = W_sw - wflux
         !if(S_stem >= f0_sup * (cc%W_sw - cc%Wmin_s))exit
       enddo
     endif

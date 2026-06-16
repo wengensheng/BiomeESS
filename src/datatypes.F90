@@ -764,7 +764,7 @@ module datatypes
   real :: CR0_WD   = 0.35    ! Compression ratio of wood tissues at reference WD
   real :: p50_WD   = -1.565  ! stem psi50 at reference WD
   real :: r_DF     = 100.0   ! sensitivity of defunction due to water transport usage
-  real :: m0_WTC   = 8.0     !  DBH-WTC0 Radial variations, 12000/300 = 40,
+  real :: m0_WTC   = 8.0     ! DBH-WTC0 Radial variations, 12000/300 = 40,
   real :: m0_kx    = 8.0     ! DBH-Kx0 Radial variations
   real :: ths0_WD  = 3.0     ! exponential of the PLC function for (psi/psi50)
   real :: fsup0_WD = 1.0     ! Fraction of plant water for transpiration per hour at zero WD
@@ -910,7 +910,7 @@ module datatypes
   real :: A_un(0:MSPECIES)     = 4.0     ! Multiplier for understory mortality
   real :: A_sd(0:MSPECIES)     = 5.0     ! Max multiplier for seedling mortality
   real :: B_sd(0:MSPECIES)     = -20.    ! Mortality sensitivity for seedlings
-  real :: s_hu(0:MSPECIES)     = -25.0   ! hydraulic mortality sensitivity
+  real :: s_hu(0:MSPECIES)     = 25.0    ! hydraulic mortality sensitivity
   real :: W_mu0(0:MSPECIES)    = 1.0     ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
 
   ! Plant hydraulics parameters
@@ -1123,16 +1123,15 @@ module datatypes
   namelist /global_setting_nml/ WriteForcing, yr_start, yr_end, &
   ncfilepath, ncversion, veg_path, veg_file, LUC_file,LC_year0, &
   int_fpath, int_prefix, GridListFile, grid_No1, grid_No2,      &
-  LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon,           &
-  Ndp_path
+  LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon, Ndp_path
 
   ! ------------- Model initialization name list ------------
   namelist /initial_state_nml/ N_VegTile,                      &
   ! initial vegetation and soil states
-  init_cohort_N, init_cohort_sps, init_cohort_Indiv,           &
+  N_input, init_cohort_N, init_cohort_sps, init_cohort_Indiv,  &
   init_cohort_bl, init_cohort_br, init_cohort_bsw,             &
   init_cohort_bHW, init_cohort_seedC, init_cohort_nsc,         &
-  init_litter_C, init_fast_SOC, init_slow_SOC, init_mineralN, N_input, &
+  init_litter_C, init_fast_SOC, init_slow_SOC, init_mineralN,  &
   ! Climate envelopes for initializing PFTs
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls

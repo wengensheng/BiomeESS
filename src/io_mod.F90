@@ -879,7 +879,6 @@ module io_mod
 
     ! Yearly mean temperature
     vegn%YearlyTmp = vegn%YearlyTmp/365.0
-
     ! Max LAI
     vegn%LAImax = 0.0
     do i = 1, vegn%n_cohorts
@@ -1053,22 +1052,22 @@ module io_mod
 
     do i = 1, vegn%n_ani_cohorts
       associate (ac => vegn%ani_cohorts(i))
-        write(line,'(4(I8,","),11(E15.6,","))') &
+        write(line,'(4(I8,","),11(E15.6,","))')  &
           vegn%tileID, iyears, i, ac%aft,        &
           ac%nindivs, ac%age,                    &
-          ac%annualIntakePlant,                   &
-          ac%annualIntakePrey,                    &
-          ac%annualC_removed,                     &
-          ac%annualC_feces,  ac%annualN_feces,    &
-          ac%annualC_carcass,ac%annualN_carcass,  &
+          ac%annualIntakePlant,                  &
+          ac%annualIntakePrey,                   &
+          ac%annualC_removed,                    &
+          ac%annualC_feces,  ac%annualN_feces,   &
+          ac%annualC_carcass,ac%annualN_carcass, &
           ac%mu_starve,      ac%deaths
         call append_annual_line(fno7, line)
 
 #ifdef ScreenOutput
-        write(*,'(A,I3,A,I2,2(A,ES11.3),2(A,ES11.3))')        &
-          '  AFT cohort', i, '  AFT=', ac%aft,                 &
-          '  nindivs=', ac%nindivs, '  age=', ac%age,          &
-          '  PlantIntake=', ac%annualIntakePlant,               &
+        write(*,'(A,I3,A,I2,2(A,ES11.3),2(A,ES11.3))') &
+          '  AFT cohort', i, '  AFT=', ac%aft,         &
+          '  nindivs=', ac%nindivs, '  age=', ac%age,  &
+          '  PlantIntake=', ac%annualIntakePlant,      &
           '  PreyIntake=', ac%annualIntakePrey
 #endif
 
