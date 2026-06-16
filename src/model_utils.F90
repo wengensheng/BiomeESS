@@ -150,7 +150,7 @@ contains
 
     vegn%W_sw = 0.0
     vegn%W_hw = 0.0
-    vegn%W_leaf = 0.0
+    vegn%W_lf = 0.0
 
     vegn%LAI    = 0.0
     vegn%CAI    = 0.0
@@ -177,7 +177,7 @@ contains
 
         vegn%W_sw    = vegn%W_sw  + cc%W_sw * cc%nindivs
         vegn%W_hw    = vegn%W_hw  + cc%W_hw * cc%nindivs
-        vegn%W_leaf  = vegn%W_leaf  + cc%W_leaf * cc%nindivs
+        vegn%W_lf    = vegn%W_lf  + cc%W_lf * cc%nindivs
       end associate
     enddo
 

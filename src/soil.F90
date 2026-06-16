@@ -397,8 +397,8 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
       cc%W_supply = sum(cc%WupL(:))
 
       ! Just fill water for plant water pool (for non-hydro only)
-      cc%W_leaf = cc%Wmax_L
-      cc%W_sw   = cc%Wmax_s
+      cc%W_lf = cc%Wmax_L
+      cc%W_sw = cc%Wmax_s
 
       !------- Error check -----------------
       if(isnan(cc%W_supply))then

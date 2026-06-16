@@ -97,14 +97,11 @@ subroutine vegn_demographics(vegn, deltat)
   implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   real, intent(in) :: deltat ! seconds of a year
-  !-------- local vars ----------
-  !real totN0
 
   ! For the incoming year
   call vegn_annual_starvation(vegn) ! turn it off for grass run
   call vegn_nat_mortality(vegn, deltat)
   call vegn_reproduction(vegn)
-  !call check_N_conservation(vegn,totalN1,'annual')
 
 end subroutine vegn_demographics
 
@@ -918,7 +915,7 @@ subroutine Seasonal_fall(cc,vegn)
      endif
      ! Nitrogen and water out
      dNL = dBL/cc%bl * cc%leafN !dBL/sp%CNleaf0
-     dWLeaf = cc%W_leaf*dBL/cc%bl
+     dWLeaf = cc%W_lf * dBL/cc%bl
      dAleaf = BL2Aleaf(dBL,cc)
      if(cc%br>0)then
         dNR = dBR/cc%br * cc%rootN !dBR/sp%CNroot0
@@ -1541,7 +1538,7 @@ subroutine setup_seedling(cc,totC,totN)
 
      ! Cohort hydraulic properties
      call Update_plant_hydro_vars(cc)
-     cc%W_leaf = cc%Wmax_l
+     cc%W_lf   = cc%Wmax_l
      cc%W_sw   = cc%Wmax_s
      cc%W_hw   = 0.0
      call Plant_water2psi_exp(cc)
@@ -1800,7 +1797,7 @@ subroutine vegn_harvest (vegn)
         FineN         = FineN         + N_HV * (cc%leafN + cc%rootN + cc%seedN + cc%nsn)
 
         ! Put the harvested vegetation's water into evaporation
-        vegn%annualEvap = vegn%annualEvap + N_HV * (cc%W_leaf + cc%W_sw + cc%W_hw)
+        vegn%annualEvap = vegn%annualEvap + N_HV * (cc%W_lf + cc%W_sw + cc%W_hw)
 
         ! Update plant density
         cc%nindivs = cc%nindivs - N_HV
@@ -1839,7 +1836,7 @@ subroutine plant2soil(vegn,cc,deadtrees)
      lossN_coarse = deadtrees * (cc%hwN + cc%swN   + cc%leafN - cc%Aleaf*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%Aleaf*sp%LNbase)
      ! Assume water in plants goes to first layer of soil
-     vegn%wcl(1) = vegn%wcl(1) +  deadtrees * (cc%W_leaf+cc%W_sw+cc%W_hw)/(thksl(1)*1000.0)
+     vegn%wcl(1) = vegn%wcl(1) +  deadtrees * (cc%W_lf+cc%W_sw+cc%W_hw)/(thksl(1)*1000.0)
      ! Plant C and N go to litter pools
      vegn%SOC(1) = vegn%SOC(1) + fsc_fine *loss_fine + fsc_wood *loss_coarse
      vegn%SOC(2) = vegn%SOC(2) + (1.0-fsc_fine)*loss_fine + (1.0-fsc_wood)*loss_coarse
@@ -1922,8 +1919,8 @@ subroutine vegn_hydraulic_states(vegn, deltat)
      associate ( sp => spdata(cc%species))
        ! Set up the first year seedling
        if(cc%Nrings == 1)then
-          cc%WTC0(1) = NewWoodWTC(cc)
-          cc%Kx(1)   = NewWoodKx(cc)
+          cc%WTC0(1)  = NewWoodWTC(cc)
+          cc%Kx(1)    = NewWoodKx(cc)
           cc%farea(1) = 1.0
           cc%accH(1)  = 0.0
           cc%plcH(1)  = 0.0
@@ -1932,7 +1929,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
           cc%Aring(1) = PI * cc%Rring(1)**2
        endif
 
-       ! Set up a new ring and move previous years' states inward
+       ! Set up a new ring and move previous years' states inward if cc%Nrings > Ysw_max
        if(cc%DBH > cc%DBH_ys)then
          cc%Nrings = cc%Nrings + 1 ! A new ring
          if(cc%Nrings > Ysw_max)then
@@ -1984,9 +1981,9 @@ subroutine vegn_hydraulic_states(vegn, deltat)
          !cc%farea(k) = 1. - 1./(1. + exp(r_DF * (1. - cc%accH(k)/cc%WTC0(k))))
 
          ! Update tree hydraulic usage and WTC0
-         funcA = cc%farea(k) * cc%Aring(k)
-         cc%treeHU   = cc%treeHU + funcA * cc%accH(k)
-         cc%treeW0   = cc%treeW0 + funcA * cc%WTC0(k)
+         funcA     = cc%farea(k) * cc%Aring(k)
+         cc%treeHU = cc%treeHU + funcA * cc%accH(k)
+         cc%treeW0 = cc%treeW0 + funcA * cc%WTC0(k)
        enddo
      end associate
 
@@ -2032,31 +2029,29 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        ! Refine plant water status based on water content
        cc%psi_s0 = maxval(vegn%psi_soil(:))
        call Plant_water2psi_exp(cc)
-       cc%H_leaf = sp%CR_Leaf * cc%W_leaf  ! Leaf Capacitance
+       cc%H_leaf = sp%CR_Leaf * cc%W_lf  ! Leaf Capacitance
        cc%H_stem = sp%CR_Wood * cc%W_sw  ! Stem capacitance
 
        ! Calculate ! Water flux from stems to leaves
        Q_air  = cc%transp   ! /step_seconds
        psi_sl = (cc%psi_stem + cc%psi_leaf)/2
-       plc = plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
+       plc    = plc_function(psi_sl,sp%psi50_WD,sp%Kexp_WD)
        k_stem = cc%Ktrunk * plc
        psi_ht = HT2MPa(cc%height) ! MPa
 
        !Approximately estimate psi_leaf and Q_leaf
        ! find out "psi_leaf" that makes water flux from stems to leaves equal
        ! to Q_air (Transpiration)
-       psi_leaf = (k_stem*step_seconds*(cc%psi_stem-psi_ht)+  &
-            cc%H_leaf*cc%psi_leaf - Q_air) /(k_stem*step_seconds+cc%H_leaf)
-       cc%Q_leaf = (cc%psi_stem - psi_leaf - psi_ht) * k_stem * step_seconds
-
+       cc%psi_leaf = (k_stem * (cc%psi_stem-psi_ht) * step_seconds + &
+                      cc%H_leaf * cc%psi_leaf - Q_air)             / &
+                     (k_stem * step_seconds + cc%H_leaf)
+       cc%Q_leaf   =  k_stem * (cc%psi_stem - cc%psi_leaf - psi_ht) * step_seconds
        ! Adjust Q_leaf to make it reasonable
-       cc%Q_leaf = MIN(Max(cc%Wmax_L - cc%W_leaf + Q_air, 0.0), &
-                       Max(cc%W_sw - cc%Wmin_s, 0.0), cc%Q_leaf)
+       cc%Q_leaf = MIN(cc%Q_leaf, Max(cc%Wmax_L-cc%W_lf+Q_air,0.), Max(cc%W_sw-cc%Wmin_s,0.))
 
-       !Update water content and psi
-       cc%W_leaf = cc%W_leaf + cc%Q_leaf - Q_air
+       !Update water content
+       cc%W_lf = cc%W_lf + cc%Q_leaf - Q_air
        cc%W_sw = cc%W_sw - cc%Q_leaf
-       cc%psi_leaf = psi_leaf
 
        ! Xylem damage when plc is low
        if(plc <= plc_crit)then
@@ -2169,8 +2164,7 @@ subroutine vegn_SW2HW_fixedHv(vegn)
   real :: CSAwd  ! Heartwood cross sectional area, m2
   real :: D_hw   ! diameter of heartwood at breast height, m
   real :: BSWmax ! max sapwood biomass, kg C/individual
-  real :: dSW    ! Sapwood to Heartwood, kgC/individual
-  real :: dNS    ! Nitrogen from SW to HW
+  real :: dSWC, dSWN, dSWW  ! Sapwood to Heartwood (C, N, and water)
   integer :: i
 
   do i = 1, vegn%n_cohorts
@@ -2182,15 +2176,16 @@ subroutine vegn_SW2HW_fixedHv(vegn)
           CSAwd  = max(0.0, CSAtot - CSAsw)
           D_hw   = 2*sqrt(CSAwd/PI)
           BSWmax = sp%alphaBM * (cc%DBH**sp%thetaBM - D_hw**sp%thetaBM)
-          dSW    = max(cc%bsw - BSWmax, 0.0)
-          dNS    = dSW/cc%bsw *cc%swN
+          dSWC   = max(cc%bsw - BSWmax, 0.0)
+          dSWN   = cc%swN  * dSWC/cc%bsw
+          dSWW   = cc%W_sw * dSWC/cc%bSW
           ! update C and N of sapwood and wood
-          cc%bHW   = cc%bHW   + dSW
-          cc%bsw   = cc%bsw   - dSW
-          cc%swN = cc%swN - dNS
-          cc%hwN = cc%hwN + dNS
-          cc%W_sw = cc%W_sw - cc%W_sw * dSW/cc%bSW
-          cc%W_hw = cc%W_hw + cc%W_sw * dSW/cc%bSW
+          cc%bHW = cc%bHW  + dSWC
+          cc%bsw = cc%bsw  - dSWC
+          cc%swN = cc%swN  - dSWN
+          cc%hwN = cc%hwN  + dSWN
+          cc%W_sw= cc%W_sw - dSWW
+          cc%W_hw= cc%W_hw + dSWW
 
           !Update Atrunk and Asap
           D_hw = bm2dbh(cc%bHW,cc%species)
@@ -2231,7 +2226,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
       S_stem = f0_sup * Max((cc%W_sw - cc%Wmin_s),0.0)
     else ! Calculated as a function of woody properties
       n_iterations = int(step_seconds/step_base)
-      psi_leaf = log(cc%W_leaf/cc%Wmax_l)/sp%CR_Leaf
+      psi_leaf = log(cc%W_lf/cc%Wmax_l)/sp%CR_Leaf
       W_sw = cc%W_sw
       S_stem = 0.0
       do i =1, n_iterations
@@ -2247,7 +2242,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
     endif
   end associate
   !Leaf water supply
-  S_leaf = max(f0_sup * (cc%W_leaf - cc%Wmin_L),0.0)
+  S_leaf = max(f0_sup * (cc%W_lf - cc%Wmin_L),0.0)
   ! Total plant water supply
   pws = S_leaf + S_stem
 
@@ -2257,7 +2252,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
      write(*,*)'cc%bl,cc%bsw',cc%bl,cc%bsw
      write(*,*)'cc%Wmin_L,cc%Wmax_L',cc%Wmin_L,cc%Wmax_L
      write(*,*)'cc%Wmin_s,cc%Wmax_s',cc%Wmin_s,cc%Wmax_s
-     write(*,*)'cc%W_leaf,cc%W_sw',cc%W_leaf,cc%W_sw
+     write(*,*)'cc%W_lf,cc%W_sw',cc%W_lf,cc%W_sw
      write(*,*)'cc%H_leaf,cc%H_stem',cc%H_leaf,cc%H_stem
      write(*,*)'cc%psi_leaf,cc%psi_stem',cc%psi_leaf,cc%psi_stem
      stop 'pws (PlantWaterSupply) is an NaN!'
@@ -2321,9 +2316,9 @@ subroutine Plant_psi2water(cc)
   type(cohort_type), intent(inout) :: cc
 
   associate ( sp => spdata(cc%species) )
-    !cc%W_leaf = cc%Wmax_L - (cc%Wmax_L - cc%Wmin_L) * cc%psi_leaf/sp%psi0_LF
+    !cc%W_lf = cc%Wmax_L - (cc%Wmax_L - cc%Wmin_L) * cc%psi_leaf/sp%psi0_LF
     !cc%W_sw = cc%Wmax_S - (cc%Wmax_S - cc%Wmin_S) * cc%psi_stem/sp%psi0_WD
-    cc%W_leaf = cc%Wmax_l * exp(cc%psi_leaf*sp%CR_Leaf)
+    cc%W_lf = cc%Wmax_l * exp(cc%psi_leaf*sp%CR_Leaf)
     cc%W_sw = cc%Wmax_s * exp(cc%psi_stem*sp%CR_Wood)
   end associate
 end subroutine Plant_psi2water
@@ -2347,7 +2342,7 @@ subroutine Plant_water2psi_exp(cc)
     endif
 
     if(cc%Wmax_l > 1.0E-4)then
-      W_status = MIN(max(1.0E-4,cc%W_leaf),cc%Wmax_l)
+      W_status = MIN(max(1.0E-4,cc%W_lf),cc%Wmax_l)
       cc%psi_leaf = log(W_status/cc%Wmax_l)/sp%CR_Leaf
     else
       cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
@@ -2859,7 +2854,7 @@ subroutine merge_cohorts(c1, c2) ! Put c1 into c2
   c2%NSN   = x1 * c1%NSN   + x2 * c2%NSN
 
   ! Water content
-  c2%W_leaf = x1 * c1%W_leaf + x2 * c2%W_leaf
+  c2%W_lf = x1 * c1%W_lf + x2 * c2%W_lf
   c2%W_sw   = x1 * c1%W_sw   + x2 * c2%W_sw
   c2%W_hw   = x1 * c1%W_hw   + x2 * c2%W_hw
 
@@ -2953,24 +2948,6 @@ function Mergeable_cohorts(c1, c2) result(is_mergeable)
                  .and. (sameSize .or. LowDensity)
 
 end function Mergeable_cohorts
-
-! ============================================================================
-subroutine check_N_conservation(vegn,totN0,tag)
-  implicit none
-  type(vegn_tile_type),intent(in) :: vegn
-  real,                intent(in) :: totN0
-  character(len = *),  intent(in) :: tag
-  !-------local var --------
-  real :: totN1
-  ! Total N balance checking
-  totN1 = PatchTotalN(vegn)
-  if(abs(totN0 - totN1) > 1.0E-6)then ! Precision: 1.19209290E-07
-    write(*,*)"Imbalance of nitrogen in: ", tag
-    write(*,*)'N0, N1, N0-N1', totN0, totN1, totN0 - totN1
-    !stop
-  endif
-  write(*,*)tag, ': N0, N1, N0-N1', totN0, totN1, totN0 - totN1
-end subroutine check_N_conservation
 
 !======================= Specific experiments ================================
 !=======================================================================
@@ -3106,7 +3083,7 @@ subroutine vegn_Wood_turnover(vegn)
 #ifdef Hydro_test
      ! Assume water in plants goes to first layer of soil
      vegn%wcl(1) = vegn%wcl(1) + cc%nindivs * &
-                   (cc%W_leaf * dBL /(cc%bl + dBL) + &
+                   (cc%W_lf * dBL /(cc%bl + dBL) + &
                     cc%W_sw * dCSW/(cc%bsw + dCSW)+ &
                     cc%W_hw * dCHW/(cc%bhw + dCHW))/(thksl(1)*1000.0)
 #endif
@@ -3363,7 +3340,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      associate ( sp => spdata(cc%species) )
 
      ! Calculate plant tissue water potentials ! Hack
-     dW_L = Max(0.0, cc%transp + cc%Wmax_L - cc%W_leaf)/step_seconds ! per step -> per second
+     dW_L = Max(0.0, cc%transp + cc%Wmax_L - cc%W_lf)/step_seconds ! per step -> per second
      dW_S = Max(0.0, cc%Wmax_S - cc%W_sw)/step_seconds ! per step -> per second
      call plant_water_potential_equi(vegn,cc,dW_L,dW_S,psi_leaf,psi_stem)
      cc%psi_stem = psi_stem
@@ -3373,7 +3350,7 @@ subroutine Plant_water_dynamics_equi(vegn) ! forcing,
      k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
      psi_ht = HT2MPa(cc%height) ! MPa
      cc%Q_leaf = (cc%psi_stem - cc%psi_leaf - psi_ht) * k_stem * step_seconds
-     cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
+     cc%W_lf = cc%W_lf - cc%transp + cc%Q_leaf
      cc%W_sw = cc%W_sw - cc%Q_leaf
 
      ! Water fluxes from soil layers to stem base (and between soil layers via roots)
@@ -3523,7 +3500,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     k_stem = cc%Ktrunk * plc_function(cc%psi_stem,sp%psi50_WD,sp%Kexp_WD)
 
     call Plant_water2psi_exp(cc) ! Refine plant water potential based on water content
-    cc%H_leaf = sp%CR_Leaf * cc%W_leaf  ! Leaf Capacitance
+    cc%H_leaf = sp%CR_Leaf * cc%W_lf  ! Leaf Capacitance
     cc%H_stem = sp%CR_Wood * cc%W_sw  ! Stem capacitance
 
     !! Soil Water psi and K from plant's perspective
@@ -3554,7 +3531,7 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
       cc%psi_leaf = cc%psi_stem - psi_ht
       psi_leaf    = cc%psi_leaf
       wflux_wl    = 0.0
-      cc%W_leaf   = 0.0
+      cc%W_lf   = 0.0
     endif
 
     !------------------ Stem psi and water flux from soil to leaves------------------
@@ -3573,9 +3550,9 @@ subroutine plant_water_dynamics_Xiangtao(vegn)
     !------------------ Update plant water and hydraulic status ------------------
     cc%Q_leaf = wflux_wl !* step_seconds
     cc%Q_stem = wflux_gw !* step_seconds
-    !cc%W_leaf = cc%W_leaf - cc%transp + cc%Q_leaf
+    !cc%W_lf = cc%W_lf - cc%transp + cc%Q_leaf
     !cc%W_sw = cc%W_sw - cc%Q_leaf + cc%Q_stem
-    cc%W_leaf = cc%W_leaf - cc%transp + wflux_wl
+    cc%W_lf = cc%W_lf - cc%transp + wflux_wl
     cc%W_sw   = cc%W_sw   + (psi_stem - cc%psi_stem) * cc%H_stem
     cc%psi_leaf = psi_leaf
     cc%psi_stem = psi_stem
@@ -3613,7 +3590,7 @@ subroutine Plant_water2psi_linear(cc)
     dW_S =  (cc%Wmax_S - cc%W_sw)/(cc%Wmax_S - cc%Wmin_S)
     cc%psi_stem = sp%psi0_WD * dW_S
     if(cc%bl > 0.001)then
-      dW_L =  Max(0.0,MIN(1.0,(cc%Wmax_L - cc%W_leaf)/(cc%Wmax_L - cc%Wmin_L)))
+      dW_L =  Max(0.0,MIN(1.0,(cc%Wmax_L - cc%W_lf)/(cc%Wmax_L - cc%Wmin_L)))
       cc%psi_leaf = sp%psi0_LF * dW_L
     else
       cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)

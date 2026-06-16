@@ -559,7 +559,7 @@ module io_mod
       'density','dbh','height','Acrown',      &
       'bl','LAI','GPP', 'NPP', 'Transp',      &
 #ifdef Hydro_test
-      'Psi_L','Psi_W','W_leaf','W_sw'
+      'Psi_L','Psi_W','W_lf','W_sw'
 #else
       'W_supply','W_scale'
 #endif
@@ -570,7 +570,7 @@ module io_mod
       'Tair','Prcp', 'GPP', 'Resp',         &
       'Transp','Evap','Runoff','Soilwater', &
       'wcl', 'psi_soil','k_soil',           &
-      'bl','Psi_L','Psi_W','W_leaf','W_sw','Transp'
+      'bl','Psi_L','Psi_W','W_lf','W_sw','Transp'
     endif
 
     if(outputdaily)then
@@ -591,9 +591,9 @@ module io_mod
       'c_No','PFT','layer','Pheno','ndm','ncd',     &
       'density','Acrown','LAI','LeafAge',           &
       'gpp','resp','transp','NPPL','NPPR','NPPW',   &
-      !'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
-      !'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
-      !'W_LF','W_SW','W_HW',                         &
+      'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
+      'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+      'W_LF','W_SW','W_HW',                         &
       'GDD','ALT','AWD'
 
       write(fno4,'(2(a8,","),55(a10,","))')'Yr'//LonLat, 'doy',   &  ! Tile daily
@@ -763,7 +763,7 @@ module io_mod
         cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,      &
         cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,             &
 #ifdef Hydro_test
-        cc%psi_leaf,cc%psi_stem,cc%W_leaf,cc%W_sw
+        cc%psi_leaf,cc%psi_stem,cc%W_lf,cc%W_sw
 #else
         cc%W_supply,cc%W_scale
 #endif
@@ -776,7 +776,7 @@ module io_mod
         forcing%rain,vegn%GPP,vegn%resp,vegn%transp,         &
         vegn%evap,vegn%runoff,vegn%soilwater,                &
         vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2),         &
-        cc1%bl,cc1%psi_leaf,cc1%psi_stem,cc1%W_leaf,         &
+        cc1%bl,cc1%psi_leaf,cc1%psi_stem,cc1%W_lf,         &
         cc1%W_sw,cc1%transp
       end associate
     endif
@@ -841,11 +841,10 @@ module io_mod
         cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
         cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
         cc%NPPleaf,cc%NPProot,cc%NPPwood,                &
-        !cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
-        !cc%NSN*1000,cc%seedN*1000, cc%leafN*1000,        &
-        !cc%rootN*1000,cc%swN*1000,cc%hwN*1000,       &
-        !cc%W_leaf,cc%W_sw,cc%W_hw,                   &
-        cc%gdd,cc%ALT,cc%AWD
+        cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
+        cc%NSN*1000,cc%seedN*1000, cc%leafN*1000,        &
+        cc%rootN*1000,cc%swN*1000,cc%hwN*1000,           &
+        cc%W_lf,cc%W_sw,cc%W_hw,cc%gdd,cc%ALT,cc%AWD
       enddo
       !! Tile daily
       write(fno4,'(2(I5,","),70(E12.6,","))')iyears,idoy,      &

@@ -137,7 +137,6 @@ module datatypes
     588.38,591.26,594.14,597.01,599.89,602.77,605.64,608.52,611.40,614.27,  &
     617.15,620.03,622.91,625.78,628.66,631.54,634.41,637.29,640.17,643.04/)
 
-#ifdef DO_ANIMAL
   ! Animal functional types
   integer, parameter :: N_AFT          = 10  ! max AFT species (like MSPECIES)
   integer, parameter :: MAX_ANI_COHORTS= 20  ! max animal cohorts per tile
@@ -201,6 +200,7 @@ module datatypes
     real :: annualN_carcass   = 0.0 ! kg N  m-2 yr-1
   end type ani_cohort_type
 
+#ifdef DO_ANIMAL
  ! Initial animal cohort conditions (analogous to init_cohort_* for plants)
   integer :: init_ani_cohort_N                        = 0   ! number of initial animal cohorts
   integer :: init_ani_cohort_aft(MAX_ANI_COHORTS)     = 0   ! AFT index for each initial cohort
@@ -460,7 +460,7 @@ module datatypes
     real :: psi_stem ! MPa, stem water potential
     real :: H_leaf ! Leaf capacitance, kgH2O MPa-1 (per tree)
     real :: H_stem ! Stem capacitance, kgH2O MPa-1 (per tree)
-    real :: W_leaf ! Leaf water content, kgH2O (per tree)
+    real :: W_lf ! Leaf water content, kgH2O (per tree)
     real :: W_sw   ! Stem water content, kgH2O (per tree)
     real :: W_hw   ! water storage in heartwood, just for balance counting.
     real :: Wmax_l ! Leaf max water content, kgH2O (per tree)
@@ -513,10 +513,8 @@ module datatypes
     integer :: n_canopycc = 0
     type(cohort_type), pointer :: cohorts(:)=>NULL()
     type(cohort_type), pointer :: initialCC(:)=>NULL()
-#ifdef DO_ANIMAL
-    integer :: n_ani_cohorts = 0
     type(ani_cohort_type), pointer :: ani_cohorts(:) => NULL()
-#endif
+    integer :: n_ani_cohorts = 0
     type(vegn_tile_type), pointer :: prev => null() ! Pointer to the older vegn tile
     type(vegn_tile_type), pointer :: next => null() ! Pointer to the younger vegn tile
     real :: area               ! m2
@@ -567,7 +565,7 @@ module datatypes
     real :: W0topSL           ! kg m-2, maximal free soil water in topSL layers)
 
     ! Vegetation water content
-    real :: W_leaf  ! Leaves
+    real :: W_lf    ! Leaves
     real :: W_sw    !
     real :: W_hw    ! Heartwood ?
 

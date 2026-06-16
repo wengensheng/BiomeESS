@@ -12,9 +12,9 @@ thksl    = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
 &vegn_parameters_nml
 f_iniBSW   = 0.1,
 K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
-K_DeNitr   = 0.0, ! 1.2, ! 2.4 ! rate of a year, 2.5
+K_DeNitr   = 0.8, ! 1.2, ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0, ! 0.02 ! organic nitrogen release rate
-etaN       = 0.0, ! 0.01,! 0.025 ! Nitrogen loss rate with runoff
+etaN       = 0.01,! 0.025 ! Nitrogen loss rate with runoff
 f_M2SOM    = 0.8, ! fraction of microbes to litter
 l_fract    = 0.0,
 retransN   = 0.0,
@@ -32,7 +32,7 @@ r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness
 EnvF0      = 0.0,    ! Climate fire risk
 ! --- For Forest harvest
 HV_freq = 10,    ! Harvest frequency, Year
-HV_minD = 0.25,  ! Minimum trees for harvest(m, tree diameter)
+HV_minD = 0.2,   ! Minimum trees for harvest(m, tree diameter)
 HV_frac = 0.5,   ! Maximum harvest fraction of forest coverage (crown area)
 f_HV_BM = 0.7,   ! Fraction of harvested woody biomass (taken out of the ecosystem)
 
@@ -84,7 +84,7 @@ init_cohort_nsc   = 0.5,  0.5,  0.5,  0.5,  0.5,
 init_fast_SOC  = 0.5,    ! .1 ! 0.8  ! kg C m-2  ! C/N = 15
 init_slow_SOC  = 40.0 ,  ! kg C m-2  ! C/N = 40
 init_mineralN  = 5.0E-3, !  402.5E-3, ! ! kg N m-2
-N_input        = 0.0,  ! 2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
+N_input        = 1.5E-3, ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
 filepath_in = './input/',
@@ -98,13 +98,13 @@ model_run_years = 400, ! 1600,
 outputhourly    = .False. ! .True.  !
 outputdaily     = .True.  ! .False. !
 Do_CH4          = .True.  ! .False. !
-do_closedN_run  = .True.  ! .False. !
+do_closedN_run  = .False. ! .True.  !
 Do_DroughtMu    = .False. ! .True.  !
 do_fire         = .False. ! .True.  !
 do_RecoverSP    = .False. ! .True.  !
 do_VariedWTC0   = .True.  ! .False. !
 do_VariedKx     = .True.  ! .False. !
-do_harvest      = .False. ! .True.  !
+do_harvest      = .True.  !.False. !
 ! --- For HistCO2
 CO2_yr0  = 1991,   ! CO2 history start year, Minimum 1700
 CO2_yr1  = 2020,   ! CO2 history end year, Maximum 2025

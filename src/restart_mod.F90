@@ -110,7 +110,7 @@ contains
       write(iunit) vegn%initialN0
 
       !--- tile vegetation water ---
-      write(iunit) vegn%W_leaf
+      write(iunit) vegn%W_lf
       write(iunit) vegn%W_sw
       write(iunit) vegn%W_hw
 
@@ -204,7 +204,7 @@ contains
           write(iunit) cc%psi_stem
           write(iunit) cc%H_leaf
           write(iunit) cc%H_stem
-          write(iunit) cc%W_leaf
+          write(iunit) cc%W_lf
           write(iunit) cc%W_sw
           write(iunit) cc%W_hw
           write(iunit) cc%Wmax_l
@@ -310,7 +310,7 @@ contains
       read(iunit) vegn%initialN0
 
       !--- tile vegetation water ---
-      read(iunit) vegn%W_leaf
+      read(iunit) vegn%W_lf
       read(iunit) vegn%W_sw
       read(iunit) vegn%W_hw
 
@@ -406,7 +406,7 @@ contains
           read(iunit) cc%psi_stem
           read(iunit) cc%H_leaf
           read(iunit) cc%H_stem
-          read(iunit) cc%W_leaf
+          read(iunit) cc%W_lf
           read(iunit) cc%W_sw
           read(iunit) cc%W_hw
           read(iunit) cc%Wmax_l
