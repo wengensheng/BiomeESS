@@ -127,7 +127,8 @@ module soil_mod
     ! ------- DON and mineralN losses ----------
     K_dn = A * K_DeNitr * dt_fast_yr
     !K_rf = fdsvN * (1.0 - exp(-etaN*vegn%runoff/fdsvN)) ! fdsvN is the max. loss rate when runoff is extremely high
-    K_rf = etaN*vegn%runoff / (1.0 + etaN*vegn%runoff/max(fdsvN,0.01))
+    !K_rf = fdsvN * vegn%runoff / (vegn%runoff + vegn%soilwater + vegn%W0_WILT)
+    K_rf = fdsvN * etaN*vegn%runoff / (fdsvN + etaN*vegn%runoff + zero_thld)
 
     ! Organic and mineral nitrogen losses: assume it is proportional to decomposition rates
     dN_SOM4 = fDON * d_N(4) * K_rf + vegn%SON(4) * rho_SON * A * dt_fast_yr

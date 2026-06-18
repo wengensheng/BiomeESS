@@ -658,8 +658,8 @@ subroutine vegn_N_fixation(forcing,vegn)
           Cfix_max = Max(0.2 * (cc%nsc - sp%S_facuN * cc%extraC), 0.0)
 
           ! Baseline nitrogen fixation (Obligate)
-          Nobl = Min(Nfix_max * Max(0.02,(1.0 - sp%S_facuN)), & ! Minimum is 20% for faculative N fixation
-                     Cfix_max / max(1.0, C0_Nfix))
+          Nobl = Min(Nfix_max * Max(0.02,(1.0 - sp%S_facuN)), & ! Minimum is 2% of the potential N fixation rate
+                     Cfix_max / max(1.0, C0_Nfix)) ! Carbon limited N fixation rate
           ! Facultative N fixation
           ! cc%extrac just indicates the amount of C that can be taken from NSC)
           Nfac = Min(sp%S_facuN * cc%extraC/steps_per_day/max(1.0, C0_Nfix), Nfix_max) ! Carbon used for faculative N fixation
@@ -2552,6 +2552,7 @@ subroutine initialize_soil(vegn)
    vegn%WILTPT   = max(soilpars(soiltype)%vwc_wp, zero_thld)
    vegn%FLDCAP   = max(soilpars(soiltype)%vwc_fc, vegn%WILTPT + 0.05)
    vegn%wcl      = vegn%FLDCAP ! vegn%WILTPT + 0.5 * (vegn%FLDCAP-vegn%WILTPT)
+   vegn%W0_WILT  = vegn%WILTPT * sum(thksl(:)) * 1000.
    vegn%W0topSL  = (vegn%FLDCAP-vegn%WILTPT) * sum(thksl(1:topSL)) * 1000. ! maximal free soil water of topSL layers
    vegn%thetaS   = 1.0 ! 0.5
    call SoilWater_psi_K(vegn)

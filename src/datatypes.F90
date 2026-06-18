@@ -429,22 +429,22 @@ module datatypes
     real :: brsN   = 0.0 ! nitrogen of leaves eaten by herbivores
 
     ! ---- Nitrogen model related parameters
-    real :: NSNmax = 0.
-    real :: NSN    = 0. ! non-structural N pool
-    real :: leafN  = 0.
-    real :: swN    = 0.
-    real :: hwN    = 0. ! N of heart wood
-    real :: rootN  = 0. ! N of fine roots
-    real :: seedN  = 0. !
-    real :: fixedN = 0. ! fixed N at each stem per tree
-    real :: extraC = 0. ! The carbon amount that is re-allocated to woody tissues due to N deficit
-    real :: N_uptake = 0.
+    real(8) :: NSNmax = 0.
+    real(8) :: NSN    = 0. ! non-structural N pool
+    real(8) :: leafN  = 0.
+    real(8) :: swN    = 0.
+    real(8) :: hwN    = 0. ! N of heart wood
+    real(8) :: rootN  = 0. ! N of fine roots
+    real(8) :: seedN  = 0. !
+    real(8) :: fixedN = 0. ! fixed N at each stem per tree
+    real(8) :: N_uptake = 0.
+    real    :: extraC = 0. ! The carbon amount that is re-allocated to woody tissues due to N deficit
 
     ! ---- water uptake-related variables
     real :: root_length(soil_L) ! m
     real :: rootarea ! total fine root area per tree
     real :: ArootL(soil_L) = 0.0 ! Root area per layer
-    real :: WupL(soil_L) = 0.0 ! normalized vertical distribution of uptake
+    real :: WupL(soil_L)   = 0.0 ! normalized vertical distribution of uptake
     real :: Q_soil(soil_L) = 0.0 ! Soil to roots water flux (kg H2O/tree/step)
     real :: W_supply  ! potential water uptake rate per unit time per tree
     real :: totDemand  = 0.0 ! Total water demand in a growing season
@@ -491,15 +491,15 @@ module datatypes
     real :: dailyGPP        ! kgC/tree day-1
     real :: dailyNPP
     real :: dailyResp
-    real :: dailyNup
     real :: annualTrsp
     real :: annualGPP       ! C flux/tree
     real :: annualNPP
     real :: annualResp
     real :: CO2_c ! ppm
-    real :: NfixDaily= 0.0
-    real :: NfixedYr = 0.0  ! annual N fixation per unit crown area
-    real :: NupYr= 0.0
+    real(8) :: dailyNup
+    real(8) :: NfixDaily= 0.0
+    real(8) :: NfixedYr = 0.0  ! annual N fixation per unit crown area
+    real(8) :: NupYr= 0.0
 
   end type cohort_type
 
@@ -534,13 +534,12 @@ module datatypes
     real :: tc_pheno = 0.0 ! smoothed canopy air temperature for phenology
 
     ! litter and soil carbon pools
-    real(8) :: litter = 0.0 ! litter flux
-    real(8) :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
-    real(8) :: SON(5) = 0.
-
+    real    :: litter = 0.0 ! litter flux
+    real    :: SOC(5) = 0. ! metabolicL, structuralL, microbial, fastSOM, slowSOM
     !!  Nitrogen pools, Weng 2014-08-08
-    real(8) :: mineralN= 0.   ! Mineral nitrogen pool, (kg N/m2)
-    real(8) :: totN    = 0.
+    real(8) :: SON(5) = 0.
+    real(8) :: mineralN= 0.0  ! Mineral nitrogen pool, (kg N/m2)
+    real(8) :: totN    = 0.0
     real(8) :: N_uptake= 0.0  ! kg N m-2 hour-1
     real(8) :: fixedN  = 0.0  ! kg N/step
     real(8) :: Nm_Soil = 0.0  ! annual available N in a year
@@ -563,6 +562,7 @@ module datatypes
     real :: K_soil(soil_L)    ! Kg H2O/(m2 s MPa)
     real :: soilWater         ! kg m-2 in root zone
     real :: W0topSL           ! kg m-2, maximal free soil water in topSL layers)
+    real :: W0_WILT           ! kg m-2, soil water content at wilting point
 
     ! Vegetation water content
     real :: W_lf    ! Leaves
@@ -598,16 +598,16 @@ module datatypes
     ! Harvest carbon and nitrogen
     integer :: HarvYrs  = 0.0 ! Years since last harvest
     real    :: HarvestC = 0.0 ! Harvested carbon
-    real    :: HarvestN = 0.0 ! Harvested nitrogen
+    real(8) :: HarvestN = 0.0 ! Harvested nitrogen
 
     ! Daily diagnostics
+    real(8) :: dailyNup
+    real(8) :: NfixDaily
     real :: dailyGPP
     real :: dailyNPP
     real :: dailyResp
     real :: dailyRh
     real :: dailyCH4 = 0.0
-    real :: dailyNup
-    real :: NfixDaily
     real :: dailyLFLIT = 0.0   !kgC day-1, leaf litter flux
 
     ! Annual diagnostics
@@ -802,7 +802,7 @@ module datatypes
   real :: rho_SON      = 0.05    ! SON release rate per year
   real :: f_M2SOM      = 0.8     ! the ratio of C and N returned to litters from microbes
   real :: etaN         = 0.025   ! Coefficient of N loss through runoff (etaN*runoff is a fraction of organic or mineral N)
-  real :: fdsvN        = 0.30    ! Max fraction of soluble N taken out by runoff (01/17/2026, Weng)
+  real :: fdsvN        = 0.20    ! Max fraction of soluble N taken out by runoff (01/17/2026, Weng)
 
   ! --- Methane (CH4) parameters for soil BGC (MVP) ---
   real :: CH4_alpha   = 0.20   ! fraction of Rh routed to CH4 under fully anaerobic conditions (0-1)

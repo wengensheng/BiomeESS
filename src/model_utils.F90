@@ -295,6 +295,7 @@ contains
       K_DeNitr  = 0.0 ! rate of a year, 2.5
       rho_SON   = 0.0 ! organic nitrogen release rate
       etaN      = 0.0 ! Nitrogen loss rate with runoff
+      fdsvN     = 0.0 ! Maximal N leaching rate
       N_input   = 0.0 ! N input, kg N m-2 yr-1
     endif
 

@@ -31,7 +31,7 @@ FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
 EnvF0      = 0.0,    ! Climate fire risk
 ! --- For Forest harvest
-HV_freq = 10,    ! Harvest frequency, Year
+HV_freq = 50,    ! Harvest frequency, Year
 HV_minD = 0.2,   ! Minimum trees for harvest(m, tree diameter)
 HV_frac = 0.5,   ! Maximum harvest fraction of forest coverage (crown area)
 f_HV_BM = 0.7,   ! Fraction of harvested woody biomass (taken out of the ecosystem)
