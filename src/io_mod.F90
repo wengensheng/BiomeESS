@@ -528,6 +528,14 @@ module io_mod
     character(len=120) :: filesuffix, fpath
     character(len=6)   :: LonLat
     integer :: istat1, istat2, istat3
+#ifdef Hydro_test
+    integer :: k_h
+    character(len=8) :: farea_hdr(Ysw_max)
+
+    do k_h = 1, Ysw_max
+      write(farea_hdr(k_h), '(a,i0)') 'farea', k_h
+    enddo
+#endif
 
     call init_annual_diagnostics_buffers()
 
@@ -688,14 +696,18 @@ module io_mod
     'CO2','CH4'
 
 #else
-    write(fno5,'(4(a8,","),80(a7,","))')              &    ! Yearly cohort
+    write(fno5,'(4(a8,","),380(a8,","))')             &    ! Yearly cohort
     'G'//LonLat,'yr','cNo.','cID', 'PFT','layer',     &
     'N_ha','f_L','dD','dBA','dCA','dbh','ht','Acrown',&
     'Aleaf','bl','br','bSW','bHW','seed','nsc','NSN', &
     'GPP','NPP','Gtree','f_sd','f_lf','f_fr','f_wd',  &
     'mu','Trsp','dmdW','Nup','Nfix','gddON','TcOFF',  &
-    'Atrunk','Asap','Ktree','treeHU','treeW0',        &
-    'farea1','farea2','farea3','farea4','farea5'
+    'Atrunk','Asap','Ktree','treeHU',                 &
+#ifdef Hydro_test
+    'treeW0', (farea_hdr(k_h), k_h=1,Ysw_max)
+#else
+    'treeW0'
+#endif
 
     write(fno6,'(1(a8,","),80(a12,","))')'G'//LonLat,'year',     &  ! Yearly tile
     'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &

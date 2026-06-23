@@ -175,7 +175,7 @@ subroutine vegn_photosynthesis(forcing, vegn)
         cana_co2 = forcing%CO2 * 1.0e-6                                        ! ppm -> mol/mol
 
         ! Water supply: convert W_supply (kg H2O / tree / step) to mol H2O m-2 leaf s-1.
-        water_supply = cc%W_supply / (cc%Aleaf * step_seconds * mol_h2o)
+        water_supply = max(0.0, cc%W_supply) / (cc%Aleaf * step_seconds * mol_h2o)
 
         fc = 0.0   ! assume no wet/snow cover effect
 
@@ -923,8 +923,10 @@ subroutine Seasonal_fall(cc,vegn)
         dNR = 0.0
      endif
 
-     ! Put plant water into the first soil layer
+     ! Put plant water into the first soil layer and remove from plant
      vegn%wcl(1) = vegn%wcl(1) + cc%nindivs*(dWLeaf+dWStem)/(thksl(1)*1000.0)
+     cc%W_lf = max(0.0, cc%W_lf - dWLeaf)
+     cc%W_sw = max(0.0, cc%W_sw - dWStem)
 
      !Retranslocation to NSC and NSN
      cc%nsc = cc%nsc + l_fract  * (dBL + dBR + dBStem)
@@ -2855,9 +2857,9 @@ subroutine merge_cohorts(c1, c2) ! Put c1 into c2
   c2%NSN   = x1 * c1%NSN   + x2 * c2%NSN
 
   ! Water content
-  c2%W_lf = x1 * c1%W_lf + x2 * c2%W_lf
-  c2%W_sw   = x1 * c1%W_sw   + x2 * c2%W_sw
-  c2%W_hw   = x1 * c1%W_hw   + x2 * c2%W_hw
+  c2%W_lf  = x1 * c1%W_lf  + x2 * c2%W_lf
+  c2%W_sw  = x1 * c1%W_sw  + x2 * c2%W_sw
+  c2%W_hw  = x1 * c1%W_hw  + x2 * c2%W_hw
 
   ! Allometry recalculation
   btot = c2%bsw + c2%bHW
