@@ -1971,7 +1971,7 @@ subroutine vegn_hydraulic_states(vegn, deltat)
          ! Lifetime water transported for functional xylem conduits
          funcA = cc%farea(k) * cc%Aring(k)
          if(funcA > 1.0e-8)then
-           trsp_ring = 1.e-3 * cc%annualTrsp * cc%Kring(k)/cc%Ktrunk ! ton, per ring
+           trsp_ring = 1.e-3 * max(0.0, cc%annualTrsp) * cc%Kring(k)/cc%Ktrunk ! ton, per ring
            cc%accH(k) = cc%accH(k) + trsp_ring/funcA  ! m, for functional conduits only
            !cc%accH(k) = cc%accH(k) + 1.e-3 * cc%annualTrsp * cc%Kx(k)/Lmax/cc%Ktrunk
          endif
@@ -2049,9 +2049,9 @@ subroutine Plant_water_dynamics_linear(vegn)     ! forcing,
        ! Adjust Q_leaf to make it reasonable
        cc%Q_leaf = MIN(cc%Q_leaf, Max(cc%Wmax_L-cc%W_lf+Q_air,0.), Max(cc%W_sw-cc%Wmin_s,0.))
 
-       !Update water content
-       cc%W_lf = cc%W_lf + cc%Q_leaf - Q_air
-       cc%W_sw = cc%W_sw - cc%Q_leaf
+       !Update water content; clamp to prevent log(negative) in PlantWaterSupply
+       cc%W_lf = max(cc%Wmin_l, cc%W_lf + cc%Q_leaf - Q_air)
+       cc%W_sw = max(cc%Wmin_s, cc%W_sw - cc%Q_leaf)
 
        ! Xylem damage when plc is low
        if(plc <= plc_crit)then
@@ -2226,7 +2226,7 @@ real function PlantWaterSupply(cc,step_seconds) result(pws)
       S_stem = f0_sup * Max((cc%W_sw - cc%Wmin_s),0.0)
     else ! Calculated as a function of woody properties
       n_iterations = int(step_seconds/step_base)
-      psi_leaf = log(cc%W_lf/cc%Wmax_l)/sp%CR_Leaf
+      psi_leaf = log(max(1.0E-4, cc%W_lf)/cc%Wmax_l)/sp%CR_Leaf
       W_sw = cc%W_sw
       S_stem = 0.0
       do i =1, n_iterations
@@ -2864,6 +2864,13 @@ subroutine merge_cohorts(c1, c2) ! Put c1 into c2
   call BM2Architecture(c2, btot)
   call update_max_LFR_NSN(c2)
   call Update_plant_hydro_vars(c2)
+  ! Conserve water after allometry change: excess leaf water flows back to stem
+  if (c2%W_lf > c2%Wmax_l) then
+    c2%W_sw = c2%W_sw + (c2%W_lf - c2%Wmax_l)
+    c2%W_lf = c2%Wmax_l
+  endif
+  c2%W_lf = max(c2%Wmin_l, c2%W_lf)
+  c2%W_sw = min(max(c2%Wmin_s, c2%W_sw), c2%Wmax_s)
   call Plant_water2psi_exp(c2)
 
   ! Reset tree rings' hydraulics
