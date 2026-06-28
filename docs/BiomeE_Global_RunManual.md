@@ -59,10 +59,9 @@ The model uses C preprocessor (`-cpp`) flags to switch features on and off at co
 
 | Flag | Effect |
 |---|---|
-| `-DGlobalRun` | Enable global/regional mode (netCDF forcing, grid loop) |
+| `-DGlobalRun` | Enable global/regional mode (netCDF forcing by defaut, grid loop) |
 | `-DDO_Climate_VEG` | Initialize PFT fractions from a climate-envelope map |
-| `-DUSE_NETCDF` | Read raw CRUJRA netCDF files directly |
-| `-DUse_InterpolatedData` | Read pre-interpolated hourly netCDF files (faster) |
+| `-DUse_InterpolatedData` | Read pre-interpolated hourly grid csv files |
 | `-DZippedNCfiles` | Read gzip-compressed netCDF files |
 | `-DZip_outputs` | Compress output files with gzip |
 | `-DScreenOutput` | Print diagnostics to stdout |
@@ -169,7 +168,8 @@ the model with `-DGlobalRun -DDO_Climate_VEG -DZip_outputs` (but **without**
 `-DUse_InterpolatedData`) and sets `WriteForcing = .True.` in the namelist. Instead of
 running the ecological model, it reads the raw CRUJRA netCDF data, interpolates each
 grid cell's climate to hourly resolution, and writes the result to a per-grid CSV file.
-Those files are then consumed by `runMultiBlocks.x`.
+Those files are then used by `runMultiBlocks.x`.
+When `WriteForcing = .True.`, the model processes will be skipped.
 
 **Two-step workflow:**
 

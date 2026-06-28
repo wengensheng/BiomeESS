@@ -9,7 +9,7 @@ program BiomeE
 #ifdef GlobalRun
   use netcdf_io
 #endif
-use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
+  use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   use BiomeE_mod, only: BiomeE_main
 
   implicit none
@@ -137,7 +137,7 @@ use io_mod, only: setup_forcingdata,setup_output_files,zip_output_files
   enddo
 
   ! Release netcdf-related allocatable data arrays and close files
-  call CRU_end()
+  call Release_grid_memory()
 
 #else
 

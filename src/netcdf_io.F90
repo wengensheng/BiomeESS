@@ -7,6 +7,7 @@
 !==============================================================
 !==============================================================
 module netcdf_io
+#ifdef GlobalRun
   use netcdf
   use datatypes
   use model_utils
@@ -14,12 +15,11 @@ module netcdf_io
 
   private
 
-  public ReadNCfiles, CRU_Interpolation, CRU_end
+  public ReadNCfiles, CRU_Interpolation
   public read_GridLonLat, read_interpolatedCRU
-  public unzip_gzip_file
+  public Release_grid_memory
 
 contains
-
 !===================================================
 subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
   ! Read in all netcdf files for global run, including;
@@ -493,7 +493,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 end subroutine CRU_Interpolation
 
 !==============================================
-subroutine CRU_end()
+subroutine Release_grid_memory()
   if(WriteForcing) close(Grids_UN1)
 #ifdef WIEMIP_setting
   if(WriteForcing) close(Grids_UN2)
@@ -507,7 +507,7 @@ subroutine CRU_end()
   if(allocated(ClimData)) deallocate(ClimData)
   deallocate(LandGrid)
 #endif
-end subroutine CRU_end
+end subroutine Release_grid_memory
 
 !=============================================================================
 ! Read the interpolated data file list
@@ -870,7 +870,6 @@ end subroutine unzip_gzip_file
     call check( nf90_close(ncid) )
   end subroutine nc_read_3D
 
-
   !==============================================
   subroutine nc_read_2D(file_name, var_name, da, start, count)
     ! Read a 2-D netCDF variable. Optionally read a hyperslab using start/count.
@@ -951,7 +950,6 @@ end subroutine unzip_gzip_file
     call check( nf90_get_var(ncid, varid, da) )
     call check( nf90_close(ncid) )
   end subroutine nc_read_1D
-
 
 !===================================================
   subroutine nc_write(FILE_NAME,NDIMS,NX,NY)
@@ -1074,5 +1072,6 @@ end subroutine unzip_gzip_file
     end if
   end subroutine check
 
+#endif
 end module
 !=================================================================

@@ -2,9 +2,6 @@ module io_mod
 ! Data input and output
   use datatypes
   use model_utils
-#ifdef USE_NETCDF
-  use netcdf
-#endif
 
   implicit none
   private
