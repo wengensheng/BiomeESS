@@ -46,7 +46,7 @@ s0_plant    = 0.01,    0.05,    0.05,    0.05,    0.05,    0.05,    ! initial si
 laimax      = 3.5,     4.0,     4.0,     4.0,     4.0,     4.0,     ! maximum crown LAI
 LMA         = 0.05,    0.06,    0.02,    0.02,    0.02,    0.02,    ! Leaf mass per unit area
 phiRL       = 1.5,     1.6,     1.6,     1.2,     1.2,     1.2,     ! Root/Leaf area ratio
-LNbase      = 1.2E-3,  1.2E-3,  1.5E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
+LNbase      = 1.2E-3,  0.9E-3,  1.2E-3,  1.2E-3,  1.2E-3,  1.2E-3,  ! kgN m-2 leaf, Vmax = 0.03125*LNbase
 mu0_topL    = 0.02,    0.02,    0.04,    0.03,    0.03,    0.03,    ! canopy tree mortality rate, year-1
 D0mu        = 1.2,     1.2,     1.2,     1.2,     1.5,     1.5,     ! m, Mortality curve parameter
 A_DBH       = 4.0,     4.0,     4.0,     4.0,     4.0,     4.0,     ! Max multiplier for DBH-based mortality

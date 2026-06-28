@@ -10,7 +10,7 @@ FSRCS="src/datatypes.F90 \
        src/main.F90"
 
 CPPFLAGS=''
-CPPFLAGS+=' -DHydro_test'
+#CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DFixedFireRisk'
 #CPPFLAGS+=' -DDO_ANIMAL'
 #CPPFLAGS+=' -DSingleTreeTest'

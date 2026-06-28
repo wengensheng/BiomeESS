@@ -523,7 +523,7 @@ module io_mod
     implicit none
     character(len=150) :: YearlyCohort2, DailyPatch2  ! For DroughtMIP only
     character(len=120) :: filesuffix, fpath
-    character(len=6)   :: LonLat
+    character(len=6)   :: LonLat =''
     integer :: istat1, istat2, istat3
 #ifdef Hydro_test
     integer :: k_h
