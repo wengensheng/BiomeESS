@@ -438,7 +438,406 @@ In global mode each grid cell writes its own set of files; outputs may be gzip-c
 
 ---
 
-## 10. Common Issues
+## 10. Model Process Description
+
+BiomeE is an individual-based, height-structured vegetation demographic model coupled
+to soil carbon–nitrogen biogeochemistry and soil water dynamics. The basic simulation
+unit is the **plant cohort** — a group of individuals of the same PFT sharing size,
+biomass pools, and physiological state. Cohorts are organized within a **vegetation
+tile** (one grid cell), and the tile tracks canopy structure, soil pools, and water
+balance. Processes operate on three timescales: **hourly** (physiology, soil water),
+**daily** (phenology, growth, tissue turnover), and **annual** (demographics, fire,
+hydraulic ageing).
+
+---
+
+### 10.1 Plant Physiology
+
+#### Photosynthesis and Stomatal Conductance
+
+Photosynthesis is computed each hour using the **Leuning (1995) coupled
+photosynthesis–stomatal conductance model** implemented in `gs_Leuning`. The canopy is
+divided into up to 5 crown layers (CLmax = 5). Light attenuation through the canopy
+follows Beer–Lambert extinction, where the PAR fraction reaching layer *i* depends on
+the accumulated projected crown area and leaf extinction coefficient of all layers above.
+
+For **C3 species**, gross photosynthesis (Ag) is the minimum of the light-limited rate
+(using quantum efficiency α and absorbed PAR) and the Rubisco-limited rate (Farquhar
+1980, Vm·(ci−Γ)/(ci+Kc·(1+O/Ko))). For **C4 species** (pt=1), alternative Vm and
+light-saturation expressions apply. The maximum carboxylation rate Vm is scaled from
+the reference value Vmax by an Arrhenius temperature response (activation energy
+24,920 J mol⁻¹). Similarly, Michaelis–Menten constants Kc and Ko are temperature
+dependent.
+
+Net photosynthesis An = Ag − Rd, where leaf dark respiration Rd scales with the leaf
+nitrogen content per unit area (LNA) and the same Arrhenius temperature function,
+suppressed at temperatures below 5 °C and above 45 °C. Stomatal conductance gs follows
+the Leuning form: gs = m·An/(ci−Γ)/(1+Ds/D0) + b, where Ds is the leaf-to-air vapour
+pressure deficit and m_cond (the g1 parameter) sets the plant's water-use strategy.
+When potential transpiration demand Ed exceeds water supply ws from the soil, gs and An
+are scaled down proportionally. GPP and transpiration per cohort are computed by
+integrating over the cohort's total leaf area (Aleaf = LAI × crown area).
+
+#### Transpiration
+
+Potential transpiration demand Ed (mol H₂O m⁻² leaf s⁻¹) is computed from stomatal
+and aerodynamic conductances. Realised transpiration is `transp = min(ws, Ed)`, where
+`ws` is the water supply per unit leaf area. In the standard (non-hydraulics) mode,
+ws is derived directly from soil water availability via `SoilWaterSupply`. In
+plant-hydraulics mode (`-DHydro_test`), ws is calculated explicitly from the stem–leaf
+water potential gradient and trunk hydraulic conductance.
+
+#### Maintenance Respiration
+
+Maintenance respiration is calculated each hour in `vegn_respiration` for three
+components:
+- **Leaf respiration** (`r_leaf`): returned directly from the photosynthesis routine
+  as the canopy dark respiration rate (An_cl × Aleaf × step_seconds).
+- **Stem (sapwood) respiration** (`r_stem`): proportional to cambium area
+  (π × DBH × height × 1.2), the sapwood-specific respiration coefficient γ_SW, and the
+  Arrhenius temperature factor tf = exp(9000 × (1/298.16 − 1/TairK)).
+- **Root respiration** (`r_root`): proportional to fine root nitrogen content (rootN)
+  and γ_FR.
+
+All respiration rates are additionally scaled by `fnsc`, a sigmoid function of the NSC
+pool relative to a target (3 × (bl_max + br_max)), reducing respiration when carbon
+stores are depleted. NPP per cohort per step is GPP − total respiration.
+
+#### Growth Respiration
+
+A construction cost of 50 % of all new biomass is applied during daily growth
+(`resg = 0.5 × dBtotal`), drawn from the NSC pool.
+
+---
+
+### 10.2 Phenology
+
+Phenology is updated daily in `vegn_phenology`. **Evergreen** species keep
+`status = LEAF_ON` year-round. **Deciduous** species follow a two-threshold scheme:
+
+- **Leaf-on** is triggered when accumulated growing degree days (GDD, base temperature
+  T0_gdd) exceed a chilling-modified threshold `gdd_ON = gdd_par1 + gdd_par2 ×
+  exp(gdd_par3 × ncd)`, the smoothed daily temperature (tc_pheno, 80/20 exponential
+  smoother) is above `tc0_on`, and soil moisture (thetaS) exceeds a species minimum
+  (betaON).
+- **Leaf-off** is triggered when tc_pheno falls below a dynamic cold threshold
+  `Tc_OFF = tc0_off − 5 × exp(−0.05 × (ngd − N0_GD))`, or soil moisture drops below
+  betaOFF, after a minimum growing season length.
+
+At leaf-off, `Seasonal_fall` sheds leaves and (for deciduous species) fine roots at a
+daily rate (5 % of bl_max and 2.5 % of br_max per day). A fixed fraction (l_fract) of
+senesced leaf, root, and grass-stem carbon is retranslocated to NSC; the nitrogen
+retranslocation fraction is retransN. The non-retranslocated fraction enters the fine
+litter (SOC1/SON1) and coarse litter (SOC2/SON2) pools.
+
+For deciduous grasses, each new growing season the grass cohort is reset: total
+plant carbon and nitrogen are redistributed as a new seedling at the density that can
+be supported by the available C and N.
+
+---
+
+### 10.3 Plant Growth and Allocation
+
+Growth is computed daily in `vegn_growth` and `fetch_CN_for_growth`.
+
+#### Carbon and Nitrogen mobilisation
+
+Each day, available carbon for growth (Cgrowth) and nitrogen supply (Nsupply) are
+drawn from the non-structural pools (NSC and NSN). The draw combines a **demand-pull**
+component (leaf and root filling rate LFR_rate × deficit from bl_max and br_max) and a
+**surplus-push** component (excess NSC/NSN above a target drained over a residence time
+tauNSC). Cgrowth is capped at 2 % of NSC per day; Nsupply is similarly capped.
+
+#### Carbon allocation
+
+Carbon is allocated in the following priority order:
+
+1. **Leaves (dBL) and fine roots (dBR)**: carbon is spent to fill deficits toward
+   `bl_max` and `br_max`. The split between leaves and roots is proportional to their
+   respective maximum biomass targets, bounded by the maximum fraction f_LFR_max of
+   Cgrowth that can go to leaves and roots.
+2. **Seeds (dSeed)**: only for canopy-layer cohorts older than AgeRepro. A fixed
+   fraction v_seed of the remaining carbon goes to seed production.
+3. **Sapwood (dBSW)**: the remainder of Cgrowth after leaves, roots, and seeds.
+
+For grasses, seeds are allocated in all canopy layers.
+
+#### Nitrogen adjustment
+
+If the nitrogen demand for planned leaf, root, and seed growth exceeds Nsupply, all
+three are scaled down by the ratio r_N_SD = Nsupply/Ndemand, and the freed carbon
+(cc%extraC) is redirected to sapwood growth. This ensures that when nitrogen is limiting,
+plants grow thicker stems rather than thin foliage.
+
+#### Nitrogen pool bookkeeping
+
+- Leaf nitrogen: `leafN += dBL / CNleaf0`
+- Root nitrogen: `rootN += dBR / CNroot0`
+- Seed nitrogen: `seedN += dSeed / CNseed0`
+- Sapwood nitrogen: updated from NSN with a fixed fraction (f_N_add × NSN) transferred
+  to wood each day, and the balance of N supply after tissue allocation. Any excess
+  above the sapwood C:N target (CNwood0) is returned to NSN.
+
+#### Allometry and architecture
+
+After each growth step, `BM2Architecture` updates height, DBH, crown area (Acrown),
+and root zone distribution from the total woody biomass (bsw + bHW). Crown area sets
+the maximum leaf biomass `bl_max = f_CO2 × LAImax × LMA × Acrown × (1 − f_cGap)`.
+Maximum root biomass `br_max` is derived from `bl_max` by the leaf-to-root ratio.
+Maximum NSN is set proportional to the nitrogen needed for full leaf and root growth.
+
+#### Tissue turnover
+
+Daily turnover in `vegn_tissue_turnover` sheds leaves at a rate that accelerates with
+leaf age (up to 20 % d⁻¹), fine roots at the species-specific rate α_FR/365, and
+grass stems at the leaf rate. Retranslocated C and N return to NSC and NSN; the rest
+enters litter pools.
+
+---
+
+### 10.4 Crown Organisation and Canopy Layering
+
+Cohorts are sorted annually by height and assigned to discrete **crown layers** (1 =
+top, increasing downward) in `vegn_RelayerCohorts`. The layer assignment determines
+the light available to each cohort (Beer–Lambert extinction through all layers above)
+and feeds back into the mortality, growth, and maximum leaf area calculations.
+
+The LAI within each layer is tracked (`LAI_L`) and accumulated crown area index (CAI)
+determines gap fraction and radiation penetration. Crown area per cohort equals
+`nindivs × Acrown`. Cohorts in lower layers receive less light, suppressing their
+photosynthesis and increasing mortality (via the layer-dependent factor f_L in
+`mortality_rate`).
+
+After demographics, similar cohorts (same species, same layer, similar biomass and
+density within tolerance diff_S0) are **merged** by `vegn_mergecohorts` to limit the
+total number of cohorts and keep the simulation tractable.
+
+---
+
+### 10.5 Demographic Processes
+
+#### Natural Mortality
+
+Mortality rate (yr⁻¹) is calculated in `mortality_rate` as:
+
+```
+mu = mu_bg + (1 − mu_bg) × mu_hydro
+```
+
+Background mortality `mu_bg` (capped at 0.5 yr⁻¹) has three multiplicative components:
+- **Size effect** f_D: a U-shaped function of DBH (high for seedlings and large old
+  trees, minimum at intermediate size), parameterised by A_DBH, B_DBH, D0mu.
+- **Layer effect** f_L: mortality increases with layer depth (understory suppression),
+  scaled by A_un.
+- **Seedling effect** f_S: an exponential decline with DBH (very high for small
+  seedlings), scaled by A_sd and B_sd.
+
+Hydraulic failure mortality `mu_hydro` is computed as a logistic function of the annual
+transpiration supply/demand ratio (w_scale = annualTrsp / totDemand). When w_scale is
+low (chronic water stress), mu_hydro is high. The sensitivity is parameterised by the
+species-specific threshold W_mu0.
+
+**Carbon starvation** (`vegn_annual_starvation`) kills an entire cohort instantly if
+its NSC drops below 0.01 % of bl_max.
+
+Dead tree C and N are partitioned into fine litter (NSC, seeds, fine roots, leaf cell
+wall fraction) and coarse litter (sapwood, heartwood, structural leaf) pools in
+`plant2soil`.
+
+#### Reproduction
+
+Each year in `vegn_reproduction`, cohorts in the top canopy layer (layer == 1) that
+are older than AgeRepro and have accumulated seed carbon above the minimum seedling
+mass s0_plant produce a new cohort of seedlings. Seed carbon and nitrogen pooled from
+all reproducible parent cohorts of the same PFT are converted to seedling density:
+`nindivs = seedC / s0_plant`. Seedling biomass is initialised by `setup_seedling`:
+10 % of totC to fine roots, f_iniBSW × totC to sapwood, and the remainder to NSC;
+leaves start at zero (LEAF_OFF).
+
+#### Cohort Management
+
+After each annual cycle, zero-density cohorts are removed, remaining cohorts are
+re-sorted into layers, similar cohorts are merged, and empty cohorts are deleted. If
+all cohorts go extinct, the vegetation is reset to the initial seedling state.
+
+---
+
+### 10.6 Nitrogen Uptake and Fixation
+
+**Nitrogen uptake** (hourly, `vegn_N_uptake`) uses a Michaelis–Menten equation:
+total N uptake rate ρ_N_up = ρ_N_up0 × N_roots / (N_roots0 + N_roots), scaled by the
+Arrhenius temperature response of soil at tsoil. Total uptake is proportional to
+mineralN, and distributed among cohorts in proportion to their root biomass (only for
+cohorts with NSN < NSNmax). Mineral N is decremented by the amount absorbed.
+
+**Nitrogen deposition** is added to mineralN each hour proportional to the annual
+deposition rate N_input.
+
+**Biological nitrogen fixation** (`vegn_N_fixation`) is active for PFTs with R0_Nfix > 0
+(e.g., N-fixing shrubs). Fixation has an obligate component (a minimum fraction of the
+potential rate) and a facultative component that uses surplus carbon (extraC). The
+carbon cost of fixation is C0_Nfix kgC per kgN fixed, drawn from NSC and charged to
+respiration.
+
+---
+
+### 10.7 Soil Biogeochemical Processes
+
+Soil biogeochemistry is computed hourly in `Soil_BGC` (soil.F90) using a five-pool
+coupled carbon–nitrogen model:
+
+| Pool | Symbol | C:N | Description |
+|---|---|---|---|
+| 1 | SOC1 / SON1 | 50 | Fine (metabolic) litter |
+| 2 | SOC2 / SON2 | 150 | Coarse (structural) litter |
+| 3 | SOC3 / SON3 | 10 | Microbial biomass |
+| 4 | SOC4 / SON4 | 15 | Fast SOM |
+| 5 | SOC5 / SON5 | 40 | Slow SOM |
+
+**Decomposition** of litter pools 1 and 2 is a first-order process with rates K0SOM(1)
+and K0SOM(2), transferring C and N to the fast and slow SOM pools respectively. SOM
+pools 3–5 decay at rates K0SOM(3–5) multiplied by the environmental scalar
+`A(tsoil, thetaS)` (a joint temperature–moisture response).
+
+**Microbial growth** from decomposition of pools 4 and 5 is limited by the minimum of
+the carbon yield (CUE × d_C) and the nitrogen available at microbial C:N = 10. A
+fraction (1 − f_M2SOM) of new microbial C returns to the microbial pool (SOC3);
+the rest cycles back to the fast and slow pools.
+
+**Net N mineralisation** is the nitrogen released from decomposing pools minus the
+nitrogen incorporated into new microbial biomass. Mineralised N is added to the
+mineral nitrogen pool (mineralN) and becomes available for plant uptake.
+
+**Nitrogen losses** from the system:
+- **Denitrification** (d_Ngas): proportional to mineralN, scaled by the environmental
+  scalar A and the denitrification rate K_DeNitr.
+- **Mineral N leaching** (d_Nmin): proportional to mineralN and a runoff-scaled loss
+  rate K_rf (which is a saturating function of runoff: K_rf = fdsvN × etaN × runoff /
+  (fdsvN + etaN × runoff)).
+- **Dissolved organic N (DON) leaching** (dN_SOM4, dN_SOM5): a fraction of the
+  decomposed N from fast and slow pools, also scaled by K_rf.
+
+An optional **methane module** (`-DDo_CH4`) partitions a fraction of heterotrophic
+respiration into CH4 production under anaerobic conditions (high thetaS), with partial
+re-oxidation before emission.
+
+---
+
+### 10.8 Soil Water Dynamics
+
+Soil water is tracked in five layers of configurable thickness (thksl) in
+`SoilWaterDynamics` (soil.F90). Each hourly step:
+
+1. **Surface evaporation** is calculated using a Penman–Monteith approach with
+   aerodynamic (rAero), canopy (rLAI), and soil surface (rSoil) resistances. rSoil
+   increases exponentially as the top-layer moisture approaches the wilting point.
+   Surface evaporation is deducted from the top soil layer.
+
+2. **Precipitation infiltration** fills each layer from top to bottom up to field
+   capacity (FLDCAP). Any water exceeding field capacity in the bottom layer becomes
+   runoff.
+
+3. **Drainage** removes a fraction WaterLeakRate of free water per layer per day,
+   passing it to the layer below (or to runoff from the bottom layer).
+
+4. **Transpiration** water is removed from soil layers in proportion to the root area
+   index per layer (ArootL) and the soil–root conductance. In standard mode
+   (`SoilWaterTranspUpdate`), total transpiration from photosynthesis is apportioned
+   by root distribution. In hydraulics mode, water uptake per layer is solved from
+   the soil–root–stem water potential gradient.
+
+Soil hydraulic properties (matric potential ψ and conductivity K) for each layer are
+updated each hour via `SoilWater_psi_K` using the van Genuchten (or similar) functions
+parameterised by soil texture.
+
+Soil wetness for the top three layers (thetaS) feeds back to photosynthesis (water
+supply for transpiration), phenology (betaON/OFF thresholds), soil decomposition (A
+scalar), and fire risk.
+
+---
+
+### 10.9 Plant Hydraulics
+
+When compiled with `-DHydro_test`, the model replaces the simplified water supply
+scheme with explicit plant hydraulic states, updated hourly in
+`Plant_water_dynamics_linear`:
+
+- Each cohort tracks separate **leaf water content** (W_lf) and **stem (sapwood) water
+  content** (W_sw), converted to water potential via exponential pressure–volume curves:
+  ψ = ln(W/Wmax) / CR (where CR is the tissue hydraulic capacitance coefficient).
+- **Trunk hydraulic conductance** Ktrunk is the sum of conductances across all sapwood
+  rings (up to Ysw_max = 210 years), each degraded by a **percent loss of conductivity
+  (PLC)** function of stem water potential: PLC = 1/(1 + (ψ/ψ50)^Kexp).
+- Water flows from soil to stem base down the water potential gradient through
+  layer-by-layer root–soil conductances k_rs(i) = K_soil(i) × ArootL(i). Stem water
+  flows to leaves through Ktrunk.
+- Xylem embolism is tracked per ring: accumulated hydraulic usage (accH) and
+  embolism-induced damage (plcH) reduce the functional area fraction farea of each ring
+  following: `farea = 1 − exp(−r_DF × (1 − (accH + plcH) / WTC0))`. This feeds back
+  annually into Ktrunk and the hydraulic failure mortality term.
+
+---
+
+### 10.10 Fire Processes
+
+Fire is evaluated once per year in `vegn_fire`:
+
+1. **Environmental fire risk** (Frisk) is a logistic function of the annual
+   precipitation-to-PET ratio (P_ET): `Frisk = 1/(1 + exp(A_MI × (P_ET − MI0Fire)))`.
+   Drier years have higher Frisk. Alternatively, Frisk can be fixed at a constant value.
+
+2. **Ignition probability** P_Ign combines the flammabilities of grasses and woody
+   plants weighted by their fractional crown cover:
+   `P_Ign = 1 − (1 − flmb_G × Frisk) × (1 − flmb_W × Frisk)`,
+   where flmb_G = max(IgniteP for grasses) × GrassCA and flmb_W = max(IgniteP for trees) × TreeCA.
+
+3. **Fire occurrence** is stochastic: a random number r_Ign is drawn; fire occurs if
+   r_Ign < P_Ign.
+
+4. **Fire effects on vegetation**: each cohort's fire-induced mortality rate is
+   `mu_fire = mu0fire × p_fire`. For woody plants in a grass fire, p_fire depends on
+   grass biomass (severity s_fireG) and an exponential bark-resistance term (r_BK0 × DBH);
+   thicker-barked, larger trees survive better. For woody plants in a canopy fire,
+   p_fire depends on tree canopy cover.
+
+5. **Carbon and nitrogen partitioning at fire**:
+   - **Volatilised to atmosphere** (Cfire/Nfire): 70 % of leaf C/N, 20 % of
+     NSC/NSN and woody C/N from dead plants.
+   - **To fine litter** (SOC1/SON1, Cfast/Nfast): 30 % of leaf, all fine roots and
+     seeds, 80 % of NSC/NSN.
+   - **To coarse litter** (SOC2/SON2, Cslow/Nslow): 80 % of sapwood and heartwood.
+   - Surface litter is also partially burned: 70 % of SOC1 and 20 % of SOC2
+     volatilised.
+   - Fire-released N (Nfire from plants and litter) is added to the mineral N pool.
+
+---
+
+### 10.11 Animal Functional Types (optional, `-DDO_ANIMAL`)
+
+When compiled with `-DDO_ANIMAL`, the model supports animal cohorts within each
+vegetation tile. Animals are characterised by diet class (herbivore, carnivore,
+omnivore), body mass, intake rates, digestibility, and mortality parameters.
+
+- **Herbivore feeding** removes plant carbon from vegetation cohorts in proportion to
+  palatability and plant biomass, following a Michaelis–Menten functional response.
+- **Carnivore feeding** preys on other animal cohorts.
+- **Excretion and carcasses** return C and N to the fast SOM pool (SOC4/SON4).
+- **Starvation mortality** increases when intake falls below the maintenance requirement.
+- **Reproduction** is annual, proportional to body condition and r_max.
+
+---
+
+### 10.12 Temporal Integration Summary
+
+| Timescale | Processes |
+|---|---|
+| Hourly | Photosynthesis, stomatal conductance, transpiration, plant respiration, N uptake, N deposition, N fixation, soil BGC decomposition, soil water dynamics, plant hydraulics (if enabled) |
+| Daily | Phenology (leaf-on/off), plant growth and allocation, tissue turnover, leaf senescence, grass thinning, age update, soil water potential |
+| Annual | Fire, harvest (if enabled), mortality (background + hydraulic failure + starvation), reproduction, cohort relayering, cohort merging, plant hydraulic state update (ring ageing, xylem embolism), animal reproduction and diagnostics |
+
+---
+
+## 11. Common Issues
 
 | Problem | Likely cause | Fix |
 |---|---|---|
