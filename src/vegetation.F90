@@ -1765,14 +1765,15 @@ subroutine vegn_harvest (vegn)
   ! ---- local vars
   type(cohort_type), pointer :: cc => null()
   real :: ccCA, tot_HV, f_den
-  real :: FineC, FineN, CoarseC, CoarseN ! Litters due to harvest
+  real :: FineC, CoarseC
+  real(8) :: FineN, CoarseN ! Litters due to harvest
   real :: N_HV ! number of harvested trees
   integer :: i
 
   vegn%HarvYrs  = vegn%HarvYrs + 1
   vegn%HarvestC = 0.0
   vegn%HarvestN = 0.0
-  if(vegn%HarvYrs >= HV_freq)then
+  if(vegn%HarvYrs >= HV_freq .and. HV_freq > 0)then
     FineC   = 0.0
     FineN   = 0.0
     CoarseC = 0.0
@@ -1817,7 +1818,9 @@ subroutine vegn_harvest (vegn)
       vegn%HarvYrs = 0
     endif
   endif
+#ifdef ScreenOutput
   write(*,*)'Hv_yr,Hv_C, Hv_N',vegn%HarvYrs,vegn%HarvestC,vegn%HarvestN
+#endif
 end subroutine vegn_harvest
 
 !========================================================================
