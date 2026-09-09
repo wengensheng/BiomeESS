@@ -357,7 +357,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     ! Calculate daily max SW (SWmax)
     SWmax = 0.0
     do j=1,96 ! a day with 15 minutes interval
-      td = timecols(i,2) + (j-1)/96.0
+      !td = timecols(i,2) + (j-1)/96.0 ! This is wrong because timecols(i,2) is not daily step (Nsteps/day)
+      td = timecols((i-1)*Nsteps+1,2) + (j-1)/96.0 ! For each day, move Nsteps; Corrected by Paul, 09/08/2026
       call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
       SWmax = SWmax + cosz * solarC * seconds_per_day/96.0
     enddo
