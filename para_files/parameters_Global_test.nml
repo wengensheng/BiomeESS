@@ -105,12 +105,12 @@ int_fpath  = '/Users/eweng/Documents/BiomeESS/forcingData/interpolated/',
 
 int_prefix = 'crujra.v2.4.5d.',
 GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
-WriteForcing = .False., ! .True., !  
+WriteForcing = .True., !  .False., ! 
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 205, ! 211, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 206, ! 212, ! 720, !  209,
-LowerLat = 240, ! 250, ! 260, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 250, ! 252, ! 261, ! 320, ! 247,252
+LowerLat = 250, ! 260, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
+UpperLat = 252, ! 261, ! 320, ! 247,252
 yr_start = 2010, ! Data start year of netCDF files
 yr_end   = 2011, ! Data end year
 LC_year0 = 1176, ! the last year's farmland distribution (Started from year 850)

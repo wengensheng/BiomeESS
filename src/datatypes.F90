@@ -994,7 +994,7 @@ module datatypes
   integer, parameter :: NDIMS = 3, Nlon = 720, Nlat = 360, Ntime = 1460 ! NC file dimensions
   integer, parameter :: Hours_NCstep = hours_per_year/Ntime ! 6
   real,    parameter :: Lon0 = -180.0, Lat0 = -90.0 ! The first grid's coordinates
-  real,    parameter :: Wlat = 360.0/Nlon, Wlon = 180.0/Nlat
+  real,    parameter :: Wlon = 360.0/Nlon, Wlat = 180.0/Nlat
 
   ! Data interpolation (hourly)
   integer, parameter :: TargetSteps_per_hour = 1

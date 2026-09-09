@@ -307,23 +307,21 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
   real    :: WindS1, WindS2, SWdaily, SWmax
+  real    :: tmLocal ! Local time, may be negative values as the previous day 
   real    :: tmp1(23,10), tmp2(SHshift,10)  ! Shift hourly data
   integer :: forcing_unit ! for interpolated grid forcing file writting
-  integer :: iLon, iLat   ! Column and Lines (started from -179.75 and -89.75)
   integer :: year0, year1 ! Start and end year
   integer :: yr,doy,iday,ihour,iyr
   integer :: ndays,nyear,totalL,Nsteps
   integer :: iostat,m,i,j,k
   integer :: totyr, totDays, Nlines
 
-  ! Assigne LandGrid data to local variables
+  ! Assigne LandGrid climate data to local variables
   GridData => LandGrid%climate
-  iLon = LandGrid%iLon
-  iLat = LandGrid%iLat
 
-  ! Latitude and Longitude of this grid
-  Longi = Lon0 + (iLon - 0.5) * Wlon
-  Lati  = Lat0 + (iLat - 0.5) * Wlat
+  ! Latitude and Longitude of this grid, (started from -179.75 and -89.75)
+  Longi = Lon0 + (LandGrid%iLon - 0.5) * Wlon
+  Lati  = Lat0 + (LandGrid%iLat - 0.5) * Wlat
 
   ! Data lines
   Nlines = SIZE(CRUtime)
@@ -342,10 +340,10 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   allocate(climateData(totalL))
   timecols(:,:) = 0
   do m=1, Nlines
-    timecols(m,1) = int(CRUtime(m)/365.0) + 1901       ! Year
-    timecols(m,2) = MOD(int(CRUtime(m)),365) + 1.0    ! Day of the year
-    timecols(m,3) = MOD(CRUtime(m)*24.0,24.0)+int(Longi/15.0) ! Local time
-    timecols(m,3) = MOD(timecols(m,3), 24.0) ! Converted to 0~23
+    tmLocal       = MODULO(CRUtime(m)*24.0,24.0) + int(Longi/15.0) ! Local time
+    timecols(m,3) = MODULO(tmLocal, 24.0)          ! Hour, in the range of 0~23
+    timecols(m,2) = MODULO(int(CRUtime(m)),365) + 1.0 ! Day of the year, 1~365
+    timecols(m,1) = int(CRUtime(m)/365.0) + 1901   ! Year, CRUtime is days since 1901-01-01
   enddo
 
   ! Calculate fdSW
@@ -353,16 +351,13 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   do i = 1, totDays
     ! Actual daily radiation
     SWdaily = sum(GridData((i-1)*Nsteps+1 : i*Nsteps, 3))
-
     ! Calculate daily max SW (SWmax)
     SWmax = 0.0
     do j=1,96 ! a day with 15 minutes interval
-      !td = timecols(i,2) + (j-1)/96.0 ! This is wrong because timecols(i,2) is not daily step (Nsteps/day)
       td = timecols((i-1)*Nsteps+1,2) + (j-1)/96.0 ! For each day, move Nsteps; Corrected by Paul, 09/08/2026
       call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
       SWmax = SWmax + cosz * solarC * seconds_per_day/96.0
     enddo
-
     ! Fraction of solar radiation
     fdSW((i-1)*Nsteps+1 : i*Nsteps) = Max(0.0,Min(1.0,SWdaily/(SWmax+0.0001))) ! *0.8 ! too high!
   enddo
@@ -395,9 +390,6 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     hourly_data(totalL-j,8) = GridData(Nlines,5) + (GridData(1,5)-GridData(Nlines,5))*j/steps_in_6H ! air presssure, Pa
     hourly_data(totalL-j,9) = WindS1 + (WindS2 - WindS1)*j/steps_in_6H
   enddo
-  ! Assign air pressure and wind speed since they are not read in from NC files
-  !hourly_data(:,8) = 101325.0 ! air presssure, Pa
-  !hourly_data(:,9) = 1.2      ! Wind speed m/s
 
   ! Shift data to fit a whole day
   m = int(timecols(1,3))

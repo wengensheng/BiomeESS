@@ -33,14 +33,13 @@ gfortran $FSRCS $CPPFLAGS -o ess_global -I/opt/local/include -L/opt/local/lib -l
 # namelist file (Parameter and model setting file)
 fparameter='./para_files/parameters_Global_test.nml'
 
-
 echo $fparameter
 
 # Write to the file that will be read by the model
 #cat $fparameter > ./para_files/input.nml
 
 # Run model
-#./ess_global $fparameter
+./ess_global $fparameter
 
 #rm ./para_files/input.nml
 rm ess_global
