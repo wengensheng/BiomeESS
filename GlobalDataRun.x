@@ -1,6 +1,7 @@
 #!/bin/bash
 FSRCS="src/datatypes.F90 \
        src/model_utils.F90 \
+       src/restart_mod.F90 \
        src/io_mod.F90 \
        src/netcdf_io.F90 \
        src/soil.F90 \
@@ -26,7 +27,7 @@ echo $CPPFLAGS
 #gfortran src/datatypes.F90 src/io_mod.F90 src/soil.F90 src/vegetation.F90 src/BiomeE.F90 src/main.F90 -DHydro_test -o ess
 #gfortran -fopenmp $FSRCS $CPPFLAGS -o ess_global -I/opt/local/include -L/opt/local/lib -lnetcdff
 
-gfortran $FSRCS $CPPFLAGS -o ess_global -I/usr/local/include -L/usr/local/lib -lnetcdff
+gfortran $FSRCS $CPPFLAGS -o ess_data -I/usr/local/include -L/usr/local/lib -lnetcdff
 
 # -----------------------------------------------------------------------------
 # -------------------Setup data blocks----------------------------------------
@@ -38,8 +39,8 @@ fp1='./para_files/parameters_GlobalData.nml'
 echo $fp1
 
 # ----------------- Setup output directory path ------------
-runTag='InterpolatedData' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
-DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/"$runTag
+runTag='Interpolated20260908'
+DIRECTORY='/media/eweng/HD2/weng/Data/'$runTag
 echo $DIRECTORY
 # Check if the directory exists. If not, create it.
 if [ ! -d "$DIRECTORY" ]; then
@@ -73,11 +74,10 @@ for iB in "${!Lon2[@]}"; do
     echo "Run Longitude ${Lon1[$iB]}-${Lon2[$iB]}"
 
     # Run model
-    ./ess_global $fp2
+    ./ess_data $fp2
 
   fi
 done
 
-
-#rm ess_global
-#rm *.mod
+rm ess_data
+rm *.mod
