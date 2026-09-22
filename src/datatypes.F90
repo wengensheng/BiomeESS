@@ -787,6 +787,8 @@ module datatypes
   real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012.
   ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
   real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
+  real :: f_wood_burned= 0.2   ! Burned fraction for woody biomass and structural litter
+  real :: f_fine_burned= 0.7   ! Burned fraction for fine litter
 
   ! Harvest parameters
   integer :: HV_freq = 10 ! Harvest frequency (years)

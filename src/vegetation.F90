@@ -1636,7 +1636,9 @@ subroutine vegn_fire (vegn, deltat)
   real :: rFR              ! Stochastic canopy fire severity
   real :: p_fire           ! Fire impacts on mortality
   real :: mu_fire          ! fire-induced mortality fraction (0–1) over period deltat
-  real :: deadtrees        ! number of trees that died over the time step
+  real :: d_burned         ! number of bunred trees
+  real :: f_burned         ! Fraction of burned vegetation at a fire event
+  real :: f_remain         ! Survived fraction of trees or pools
   real :: Cfire, Cfast, Cslow ! C fluxes at fire
   real :: Nfire, Nfast, Nslow ! N fluxes at fire
   integer :: i
@@ -1688,6 +1690,7 @@ subroutine vegn_fire (vegn, deltat)
   if(r_Ign < P_Ign)then ! Fire_ON
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
+      if(cc%nindivs <= 0.0) cycle ! --- Skip empty cohorts ----
       associate ( sp => spdata(cc%species))
       p_fire = 1.0  ! Grass fire sensitivity as default
       if(sp%lifeform > 0) then  ! Woody plants
@@ -1707,34 +1710,54 @@ subroutine vegn_fire (vegn, deltat)
       endif
       mu_fire = sp%mu0fire * p_fire
 
-      ! Burned vegetation and soils
-      deadtrees = cc%nindivs * MIN(1.0, mu_fire * deltat/seconds_per_year) ! individuals / m2
-
-      ! Carbon and Nitrogen release by burning
-      Cfire = Cfire + deadtrees * (0.2*cc%NSC + 0.7*cc%bl    + 0.2*(cc%bsw + cc%bHW))
-      Nfire = Nfire + deadtrees * (0.2*cc%NSN + 0.7*cc%leafN + 0.2*(cc%swN + cc%hwN))
-      
-      Cfast = Cfast + deadtrees * (0.8*cc%NSC + 0.3*cc%bl    + cc%br    + cc%seedC)
-      Nfast = Nfast + deadtrees * (0.8*cc%NSN + 0.3*cc%leafN + cc%rootN + cc%seedN)
-
-      Cslow = Cslow + deadtrees * (0.8*(cc%bsw + cc%bHW))
-      Nslow = Nslow + deadtrees * (0.8*(cc%swN + cc%hwN))
-
-      ! Update plant density (guard against tiny negatives)
-      cc%nindivs = max(0.0, cc%nindivs - deadtrees)
+      ! Update burned vegetation and litter
+      f_burned = MAX(0.0, MIN(1.0, mu_fire * deltat/seconds_per_year)) ! Burned fraction
+      d_burned = cc%nindivs * f_burned ! individuals / m2 or total burned in a cohort
+      ! Water in burned plants/tissues goes to first layer of soil
+      vegn%wcl(1) = vegn%wcl(1) + d_burned * (cc%W_lf+cc%W_sw+cc%W_hw)/(thksl(1)*1000.0)
+      ! Burn plants according to their lifeforms
+      if(sp%lifeform > 0) then  ! for woody plants
+        ! Burn all leaves and 20% stems
+        Cfire = Cfire + d_burned * (cc%bl    + f_wood_burned*(cc%NSC + cc%bsw + cc%bHW))
+        Nfire = Nfire + d_burned * (cc%leafN + f_wood_burned*(cc%NSN + cc%swN + cc%hwN))
+        ! Roots, fecundity C and N, and 80% of NSC/NSN go to fine litter
+        Cfast = Cfast + d_burned * (cc%br    + (1.0 - f_wood_burned)*cc%NSC + cc%seedC)
+        Nfast = Nfast + d_burned * (cc%rootN + (1.0 - f_wood_burned)*cc%NSN + cc%seedN)
+        ! 80% of stems go to structural litter
+        Cslow = Cslow + d_burned * ((1.0 - f_wood_burned)*(cc%bsw + cc%bHW))
+        Nslow = Nslow + d_burned * ((1.0 - f_wood_burned)*(cc%swN + cc%hwN))
+        ! Update plant density
+        cc%nindivs = cc%nindivs - d_burned
+      else    ! For grasses
+        ! Only leaves and stems are burned, plant density does not change
+        ! Keep NSC, roots, and seeds for the next year 
+        Cfire = Cfire + d_burned * (cc%bl    + cc%bsw + cc%bHW)
+        Nfire = Nfire + d_burned * (cc%leafN + cc%swN + cc%hwN)
+        ! Update cohort biomass pools only (no density changes for grasses)
+        f_remain = 1.0 - f_burned
+        cc%bl    = f_remain * cc%bl
+        cc%bsw   = f_remain * cc%bsw
+        cc%bHW   = f_remain * cc%bHW
+        cc%leafN = f_remain * cc%leafN
+        cc%swN   = f_remain * cc%swN
+        cc%hwN   = f_remain * cc%hwN
+        cc%W_lf  = f_remain * cc%W_lf
+        cc%W_sw  = f_remain * cc%W_sw
+        cc%W_hw  = f_remain * cc%W_hw
+      endif
       end associate
     enddo
 
     ! C and N fluxes due to fire
-    vegn%C_burned = Cfire + 0.7*vegn%SOC(1)+0.2*vegn%SOC(2) ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
-    vegn%Nm_Fire  = Nfire + 0.7*vegn%SON(1)+0.2*vegn%SON(2)
+    vegn%C_burned = Cfire + f_fine_burned*vegn%SOC(1)+f_wood_burned*vegn%SOC(2) ! Burned litter: 70% of fine litter and 20% of coarse litter are burned
+    vegn%Nm_Fire  = Nfire + f_fine_burned*vegn%SON(1)+f_wood_burned*vegn%SON(2)
 
     ! Update mineralN and Litter C & N pools
     vegn%mineralN = vegn%mineralN + vegn%Nm_Fire
-    vegn%SOC(1) = (1.0-0.7)*vegn%SOC(1) + Cfast
-    vegn%SOC(2) = (1.0-0.2)*vegn%SOC(2) + Cslow
-    vegn%SON(1) = (1.0-0.7)*vegn%SON(1) + Nfast
-    vegn%SON(2) = (1.0-0.2)*vegn%SON(2) + Nslow
+    vegn%SOC(1) = (1.0-f_fine_burned)*vegn%SOC(1) + Cfast
+    vegn%SON(1) = (1.0-f_fine_burned)*vegn%SON(1) + Nfast
+    vegn%SOC(2) = (1.0-f_wood_burned)*vegn%SOC(2) + Cslow
+    vegn%SON(2) = (1.0-f_wood_burned)*vegn%SON(2) + Nslow
 
     ! Annual N from plants to soil
     vegn%NorgP2S = vegn%NorgP2S + Nfast + Nslow
