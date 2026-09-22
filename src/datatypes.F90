@@ -1186,6 +1186,7 @@ module datatypes
   CH4_alpha, CH4_beta_ox, CH4_wfps0, CH4_wfps1,                 &
   ! Fire model parameters, updated 11/25/2025
   EnvF0,MI0Fire,FSBM0,A_MI,f_bk,r_BK0,IgniteP,mu0fire,s0_max,   &
+  f_wood_burned, f_fine_burned,                                 &
   ! Harvest parameters
   HV_freq, HV_minD, HV_frac,f_HV_BM
 
