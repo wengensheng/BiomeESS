@@ -12,8 +12,8 @@ module model_utils
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
   public :: vegn_hourly_sum, vegn_daily_sum, vegn_sum_tile, Zero_diagnostics
   public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
-  public :: ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
-  public :: TreeTotalC, TreeTotalN, PatchTotalC, PatchTotalN
+  public :: ccNSCmax, ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
+  public :: IndividualTotC, TreeTotalN, PatchTotalC, PatchTotalN
   public :: PotentialET, A_function, calc_solarzen, qscomp, esat
   public :: rank_descending
 contains
@@ -158,7 +158,7 @@ contains
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
-        vegn%NSC     = vegn%NSC     + cc%NSC    * cc%nindivs
+        vegn%NSC     = vegn%NSC     + (cc%NSC + cc%facuC) * cc%nindivs
         vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
         vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
         vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
@@ -189,7 +189,7 @@ contains
         cc => vegn%cohorts(i)
         associate ( sp => spdata(cc%species))
           if(sp%lifeform==0) then
-            BMG = BMG + TreeTotalC(cc) * cc%nindivs
+            BMG = BMG + IndividualTotC(cc) * cc%nindivs
             if(cc%layer == 1) vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
           else
             if(cc%layer == 1) vegn%TreeCA  = vegn%TreeCA  + cc%Acrown*cc%nindivs
@@ -597,6 +597,7 @@ contains
     spdata%LAImax_u = LAImax/3.0
     spdata%LAI_light= LAI_light
     spdata%tauNSC   = tauNSC
+    spdata%fNSCmax  = fNSCmax
     spdata%fNSNmax  = fNSNmax
     spdata%transT   = transT
     spdata%phiRL    = phiRL
@@ -924,11 +925,10 @@ contains
   end subroutine Assign_Std_Cohorts
 
   !-------------------------------------------
-  function TreeTotalC(cc) result (totC)
+  function IndividualTotC(cc) result (totC)
     real :: totC ! returned value
     type(cohort_type), intent(in) :: cc    ! cohort to update
-
-    totC = cc%NSC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC
+    totC = cc%NSC + cc%facuC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC
   end function
 
   !-------------------------------------------
@@ -966,9 +966,10 @@ contains
       cc%DBH    = BM2DBH(   BM,cc%species)
       cc%height = DBH2HT(cc%DBH,cc%species)
       cc%Acrown = DBH2CA(cc%DBH,cc%species)
-      cc%bl_max = CA2BLmax(cc)    ! sp%LMA  * sp%LAImax * cc%Acrown * (1.0-sp%f_cGap)/max(1,cc%layer)
-      cc%br_max = BLmax2BRmax(cc) ! sp%phiRL* cc%bl_max/(sp%LMA*sp%SRA)
-      cc%NSNmax = ccNSNmax(cc)    ! sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+      cc%bl_max = CA2BLmax(cc)
+      cc%br_max = BLmax2BRmax(cc)
+      cc%NSNmax = ccNSNmax(cc)
+      cc%NSCmax = ccNSCmax(cc)
     end associate
   end subroutine BM2Architecture
 
@@ -1004,6 +1005,15 @@ contains
     real,   intent(in) :: BM
     integer,intent(in) :: SP
     DBH = (BM/spdata(SP)%alphaBM) ** ( 1.0/spdata(SP)%thetaBM )
+  end function
+
+  !-------------------------------------------
+  function ccNSCmax(cc) result (NSCmax)
+    real :: NSCmax ! returned value, Target NSC
+    type(cohort_type), intent(in) :: cc    ! cohort to update
+    associate(sp=>spdata(cc%species))
+      NSCmax = sp%fNSCmax * (cc%bl_max + cc%br_max)
+    end associate
   end function
 
   !-------------------------------------------

@@ -588,7 +588,7 @@ subroutine vegn_respiration(forcing,vegn)
   real :: tf,tfs ! thermal inhibition factors for above- and below-ground biomass
   real :: r_leaf, r_stem, r_root
   real :: Acambium  ! cambium area, m2/tree
-  real :: fnsc,NSCtarget ! used to regulation respiration rate
+  real :: fnsc ! used to regulation respiration rate
   integer :: i
 
   !-----------------------
@@ -602,8 +602,7 @@ subroutine vegn_respiration(forcing,vegn)
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
        ! With nitrogen model, leaf respiration is a function of leaf nitrogen
-       NSCtarget = 3. * (cc%bl_max + cc%br_max)
-       fnsc = min(max(0.0,cc%nsc/NSCtarget-0.05),1.0)
+       fnsc = min(max(0.0,cc%nsc/cc%NSCmax-0.05),1.0)
        Acambium = PI * cc%DBH * cc%height * 1.2
 
        ! r_leaf = fnsc*sp%gamma_LN  * cc%leafN * tf * dt_fast_yr  ! tree-1 step-1
@@ -635,10 +634,10 @@ subroutine vegn_N_fixation(forcing,vegn)
   !---------local var ---------
   type(cohort_type), pointer :: cc
   real :: TairK, tf     ! air temperature (K) and thermal inhibition factor
-  real :: NSCtarget, fnsc ! used to regulation metabolic rate
+  real :: fnsc ! used to regulation metabolic rate
   real :: Nfix_max, Cfix_max  ! Maximum N fixation rate and N fixation carbon cost
   real :: Nobl, Nfac ! Obligate and Faculative N fixation rates
-  real :: r_Nfix    ! respiration cost for N fixation
+  real :: Cobl, Cfac ! Carbon costs of obligate (from NSC) and faculative (from facuC) N fixation
   integer :: i
 
   !-----------------------
@@ -646,35 +645,36 @@ subroutine vegn_N_fixation(forcing,vegn)
   tf  = exp(9000.0*(1.0/298.16-1.0/tairK)) ! temperature response function
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
-     NSCtarget = 3. * (cc%bl_max + cc%br_max)
-     fnsc      = min(max(0.0,cc%nsc/NSCtarget-0.05),1.0)
      associate ( sp => spdata(cc%species) )
        ! ----- Nitrogen fixation (Obligate and Faculative) ------
-       cc%fixedN = 0.0 ! Assign a default value
-       cc%resn   = 0.0
-       if(sp%R0_Nfix > zero_thld) then ! Nitrogen fixer
-          ! Max N fixation rate and carbon availability
+       Nobl = 0.0; Cobl = 0.0
+       Nfac = 0.0; Cfac = 0.0
+       ! Obligate N fixation (controlled by sp%R0_Nfix), paid from NSC
+       if(sp%R0_Nfix > zero_thld) then
+          fnsc     = min(max(0.0,cc%nsc/cc%NSCmax-0.05),1.0)
           Nfix_max = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
-          Cfix_max = Max(0.2 * (cc%nsc - sp%S_facuN * cc%extraC), 0.0)
-
-          ! Baseline nitrogen fixation (Obligate)
-          Nobl = Min(Nfix_max * Max(0.02,(1.0 - sp%S_facuN)), & ! Minimum is 2% of the potential N fixation rate
-                     Cfix_max / max(1.0, C0_Nfix)) ! Carbon limited N fixation rate
-          ! Facultative N fixation
-          ! cc%extrac just indicates the amount of C that can be taken from NSC)
-          Nfac = Min(sp%S_facuN * cc%extraC/steps_per_day/max(1.0, C0_Nfix), Nfix_max) ! Carbon used for faculative N fixation
-
-          ! N fixation rate and carbon cost
-          cc%fixedN = Nobl + Nfac
-          r_Nfix    = cc%fixedN * C0_Nfix
-
-          ! Update Respiration, NPP, NSC, and NSN
-          cc%resn = r_Nfix ! Nitrogen fixation resp, tree-1 step-1
-          cc%resp = cc%resp + r_Nfix  !Plant total resp, kgC tree-1 step-1
-          cc%npp  = cc%npp  - r_Nfix ! kgC tree-1 step-1
-          cc%nsc  = cc%nsc  - r_Nfix ! included respiration and cost of N fixation
-          cc%NSN  = cc%NSN  + cc%fixedN
+          Cfix_max = Max(0.2 * cc%nsc, 0.0) ! NSC available for N fixation
+          Nobl = Min(Nfix_max, Cfix_max / max(1.0, C0_Nfix)) ! Carbon limited N fixation rate
+          Cobl = Nobl * C0_Nfix
        endif
+
+       ! Facultative N fixation (controlled by sp%S_facuN), paid from facuC
+       ! cc%facuC is filled in vegn_growth with the C re-allocated due to N deficit
+       if(sp%S_facuN > zero_thld .and. cc%facuC > zero_thld) then
+          Cfac = cc%facuC / steps_per_day ! Carbon used for faculative N fixation
+          Nfac = Cfac / max(1.0, C0_Nfix)
+          cc%facuC = cc%facuC - Cfac
+       endif
+
+       ! N fixation rate and carbon cost
+       cc%fixedN = Nobl + Nfac
+       cc%resn   = Cobl + Cfac ! Nitrogen fixation resp, tree-1 step-1
+
+       ! Update Respiration, NPP, NSC, and NSN
+       cc%resp = cc%resp + cc%resn ! Plant total resp, kgC tree-1 step-1
+       cc%npp  = cc%npp  - cc%resn ! kgC tree-1 step-1
+       cc%nsc  = cc%nsc  - Cobl    ! Obligate cost only; facultative cost is paid from facuC
+       cc%NSN  = cc%NSN  + cc%fixedN
      end associate
   enddo ! all cohorts
 end subroutine vegn_N_fixation
@@ -841,7 +841,7 @@ subroutine vegn_phenology(vegn)  ! daily step
 
         ! Reset deciduous grasses at the first day of a growing season
         if (sp%lifeform == 0 .and. (cc%firstday .and. cc%age > 0.5)) then
-          ccNSC = TreeTotalC(cc) * cc%nindivs
+          ccNSC = IndividualTotC(cc) * cc%nindivs
           ccNSN = TreeTotalN(cc) * cc%nindivs
           nindivs = min(ccNSC / sp%s0_plant, ccNSN / (sp%s0_plant / sp%CNroot0))
           if (nindivs > zero_thld) then
@@ -981,6 +981,7 @@ subroutine vegn_growth(vegn)
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: G_LFR      ! amount of carbon spent on leaf and root growth
   real :: Cgrowth, Nsupply
+  real :: transC, CforN  ! C re-allocated due to N deficit, and the part for facultative N fixation
   real :: dBL, dBR, dBSW, dSeed  ! growth of leaf, root, sapwood, and seeds (kgC/individual)
   real :: DBH0       ! the DBH before growth
   real :: Ndemand, extraN
@@ -1036,19 +1037,26 @@ subroutine vegn_growth(vegn)
 
       ! ------------ Updated 2026-01-21 (from scheme 2019-05-21) ----------
       ! Nitrogen adjustment: if Nsupply < Ndemand, reduce leaf/root/seed
-      ! allocations proportionally and move the carbon surplus to wood.
+      ! allocations proportionally and move the carbon surplus to wood
+      ! and, for facultative N fixers, to the facuC pool.
       Ndemand = dBL / sp%CNleaf0 + dBR / sp%CNroot0 + dSeed / sp%CNseed0 + dBSW / sp%CNwood0
 
       if (Ndemand > zero_thld .and. Nsupply < Ndemand) then
-        r_N_SD   = max(0.0, Nsupply / Ndemand)
-        cc%extraC = (1.0 - r_N_SD) * (dBL + dBR + dSeed)
+        r_N_SD = max(0.0, Nsupply / Ndemand)
+        transC = (1.0 - r_N_SD) * (dBL + dBR + dSeed) ! C re-allocated due to N deficit
 
-        dBSW  = dBSW + cc%extraC
+        ! Facultative N fixation: move part of transC from NSC to facuC
+        if (sp%S_facuN > zero_thld .and. cc%NSN < cc%NSNmax) then
+          CforN    = sp%S_facuN * transC
+          cc%facuC = cc%facuC + CforN
+          cc%NSC   = cc%NSC   - CforN ! Deducted from nsc
+          transC   = transC   - CforN ! Deducted from transC (to be going to sapwood)
+        end if
+
+        dBSW  = dBSW + transC
         dBR   = r_N_SD * dBR
         dBL   = r_N_SD * dBL
         dSeed = r_N_SD * dSeed
-      else
-        cc%extraC = 0.0
       end if
 
       ! --- Update plant pools -------------------------------------------
@@ -1108,14 +1116,12 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Nsupply)
   real, intent(out):: Cgrowth, Nsupply
 
   !------local var -----------
-  real :: NSCtarget
   real :: C_push, C_pull
   real :: N_push, N_pull
   real :: LFR_rate
 
   associate ( sp => spdata(cc%species) )
     ! Fetch C from labile C pool if it is in the growing season
-    NSCtarget = 3.0 * (cc%bl_max + cc%br_max)      ! kgC/tree
     LFR_rate = sp%LFR_rate ! 1.0 !  1.0/16.0 ! filling rate/day
 
     C_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0) +   &
@@ -1123,7 +1129,7 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Nsupply)
     N_pull = LFR_rate * (Max(cc%bl_max - cc%bl,0.0)/sp%CNleaf0 +  &
               Max(cc%br_max - cc%br,0.0)/sp%CNroot0)
 
-    C_push = max(0.0,cc%nsc-0.1*NSCtarget)/(days_per_year*sp%tauNSC) ! max(cc%nsc-NSCtarget, 0.0)/(days_per_year*sp%tauNSC)
+    C_push = max(0.0,cc%nsc-0.1*cc%NSCmax)/(days_per_year*sp%tauNSC) ! max(cc%nsc-cc%NSCmax, 0.0)/(days_per_year*sp%tauNSC)
     N_push = max(0.0,cc%NSN)/(days_per_year*sp%tauNSC)
 
     Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
@@ -1157,7 +1163,8 @@ subroutine update_max_LFR_NSN(cc)
     cc%bl_max = BL_u + min(1., cc%topyear/sp%transT) * (BL_c - BL_u)
 !    if(cc%layer > 1) cc%bl_max = sp%LMA * 1.0 * cc%Acrown * (1.0-sp%f_cGap)
     cc%br_max = BLmax2BRmax(cc)
-    cc%NSNmax = ccNSNmax(cc)
+    cc%NSCmax = ccNSCmax(cc) ! Target NSC
+    cc%NSNmax = ccNSNmax(cc) ! Target NSN
   end associate
 end subroutine update_max_LFR_NSN
 
@@ -1499,6 +1506,7 @@ subroutine setup_seedling(cc,totC,totN)
      cc%bHW    = 0.0
      cc%seedC  = 0.0
      cc%nsc    = totC - cc%bsw -cc%br
+     cc%facuC  = 0.0 ! totC includes facuC
      ! Nitrogen pools
      cc%leafN  = cc%bl/sp%CNleaf0
      cc%rootN  = cc%br/sp%CNroot0
@@ -1860,7 +1868,7 @@ subroutine plant2soil(vegn,cc,deadtrees)
      associate (sp => spdata(cc%species))
     ! Carbon and Nitrogen from plants to soil pools
      loss_coarse  = deadtrees * (cc%bHW + cc%bsw   + cc%bl    - cc%Aleaf*LMAmin)
-     loss_fine    = deadtrees * (cc%nsc + cc%seedC + cc%br    + cc%Aleaf*LMAmin)
+     loss_fine    = deadtrees * (cc%nsc + cc%facuC + cc%seedC + cc%br + cc%Aleaf*LMAmin)
      lossN_coarse = deadtrees * (cc%hwN + cc%swN   + cc%leafN - cc%Aleaf*sp%LNbase)
      lossN_fine   = deadtrees * (cc%rootN+cc%seedN + cc%NSN   + cc%Aleaf*sp%LNbase)
      ! Assume water in plants goes to first layer of soil
@@ -2017,6 +2025,10 @@ subroutine vegn_hydraulic_states(vegn, deltat)
 
      ! Update Asap and Ktrunk
      call calculate_Asap_Ktrunk (cc)
+
+     ! Put the unused facultative N fixation C back to NSC each year
+     cc%nsc   = cc%nsc + cc%facuC
+     cc%facuC = 0.0
   enddo
   ! Sapwood conversion and tile variables
   call vegn_SW2HW_hydro(vegn)
@@ -2607,7 +2619,7 @@ subroutine initialize_cohort_from_biomass(cc,btot,psi_s0)
       cc%bl      = 0.0
     endif
     cc%br     = cc%br_max
-    cc%nsc    = 2.0 * (cc%bl_max + cc%br_max)
+    cc%nsc    = ccNSCmax(cc)
     cc%seedC  = 0.0
 
     ! N pools
@@ -3020,7 +3032,7 @@ subroutine vegn_reprod_samesized(vegn)
   do i=1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      !Carbon content of a current individual of this cohort
-     plantC = TreeTotalC(cc)
+     plantC = IndividualTotC(cc)
      plantN = TreeTotalN(cc)
      n_newC  = cc%seedC * cc%nindivs / plantC
      n_newN  = cc%seedN * cc%nindivs / plantN
@@ -3271,7 +3283,7 @@ subroutine vegn_species_recovery (vegn)
                exit
             endif
         enddo
-        totC = cc%bl + cc%br + cc%bsw + cc%bHW + cc%nsc
+        totC = IndividualTotC(cc)
         totN = cc%leafN + cc%rootN + cc%swN + cc%hwN + cc%NSN
         addedC = addedC + cc%nindivs * totC
         addedN = addedN + cc%nindivs * totN

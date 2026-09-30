@@ -16,6 +16,7 @@
 
 module restart_mod
   use datatypes
+  use model_utils, only: ccNSCmax, ccNSNmax
   implicit none
   private
 
@@ -178,7 +179,6 @@ contains
           write(iunit) cc%nsc
 
           !-- N pools --
-          write(iunit) cc%NSNmax
           write(iunit) cc%NSN
           write(iunit) cc%leafN
           write(iunit) cc%swN
@@ -380,7 +380,9 @@ contains
           read(iunit) cc%nsc
 
           !-- N pools --
-          read(iunit) cc%NSNmax
+          ! NSCmax and NSNmax are not saved; recomputed from bl_max and br_max
+          cc%NSCmax = ccNSCmax(cc)
+          cc%NSNmax = ccNSNmax(cc)
           read(iunit) cc%NSN
           read(iunit) cc%leafN
           read(iunit) cc%swN

@@ -926,7 +926,7 @@ module io_mod
           endif
           write(line,'(3(I8,","),300(E15.4,","))')               &
           iyr_out,cc%species,i, cc%nindivs*10000*(1.0-cc%mu),    &
-          cc%dbh*100.,cc%height,TreeTotalC(cc),TreeTotalC(cc)*0.7, &
+          cc%dbh*100.,cc%height,IndividualTotC(cc),IndividualTotC(cc)*0.7, &
           2.0*sp%rho_wood,1.0/(2.0*sp%LMA), cc%Acrown
           call append_annual_line(f_cht, line)
 

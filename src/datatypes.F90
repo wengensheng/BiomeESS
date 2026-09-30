@@ -287,7 +287,7 @@ module datatypes
     !real :: N_roots0    ! root biomass at half of max. N-uptake rate
     real :: R0_Nfix      ! Reference N fixation rate (kgN kgC-1 root)
     real :: C0_Nfix      ! Carbon cost of N fixation (kgC kgN-1)
-    real :: S_facuN      ! Intensity of faculative N fixation, 0~1 usage of extraC
+    real :: S_facuN      ! Intensity of faculative N fixation, 0~1 fraction of N-deficit C put into facuC
     ! wood traits
     real :: rho_wood     ! woody density, kg C m-3 wood
     real :: gamma_SW     ! sapwood respiration rate, kgC m-2 Acambium yr-1
@@ -316,7 +316,8 @@ module datatypes
     real :: phiRL            ! ratio of fine root to leaf area
     real :: phiCSA           ! ratio of sapwood CSA to target leaf area
     real :: tauNSC           ! residence time of C in NSC (to define storage capacity)
-    real :: fNSNmax          ! multiplier for NSNmax
+    real :: fNSNmax          ! multiplier for target NSN (NSNmax)
+    real :: fNSCmax          ! multiplier for target NSC (NSCmax)
     real :: f_N_add
     real :: transT           ! Structural transitional time for canopy layer trees
     ! Default C/N ratios
@@ -395,6 +396,7 @@ module datatypes
     real :: D_bark    = 0.0 ! thickness of bark
     real :: bl_max    = 0.0 ! Max. leaf biomass, kg C/individual
     real :: br_max    = 0.0 ! Max. fine root biomass, kg C/individual
+    real :: NSCmax    = 0.0 ! Target NSC
     real :: CSAsw     = 0.0
     real :: DBH_ys          ! DBH at the begining of a year (growing season)
 
@@ -438,7 +440,7 @@ module datatypes
     real(8) :: seedN  = 0. !
     real(8) :: fixedN = 0. ! fixed N at each stem per tree
     real(8) :: N_uptake = 0.
-    real    :: extraC = 0. ! The carbon amount that is re-allocated to woody tissues due to N deficit
+    real    :: facuC  = 0. ! C pool for facultative N fixation, re-allocated from growth due to N deficit
 
     ! ---- water uptake-related variables
     real :: root_length(soil_L) ! m
@@ -827,10 +829,11 @@ module datatypes
   real :: thetaBM(0:MSPECIES) = 2.5
   real :: phiRL(0:MSPECIES)   = 3.5 ! ratio of fine root area to leaf area
   real :: phiCSA(0:MSPECIES)  = 0.25E-4 ! ratio of sapwood area to leaf area
-  real :: tauNSC(0:MSPECIES)  = 6 ! 3 ! NSC residence time,years
-  real :: fNSNmax(0:MSPECIES) = 5 ! 5 ! multiplier for NSNmax as sum of potential bl and br
-  real :: transT(0:MSPECIES)  = 3 ! Years
-  real :: f_cGap(0:MSPECIES)  = 0.1  ! The gaps between trees
+  real :: tauNSC(0:MSPECIES)  = 3.0 ! NSC residence time,years
+  real :: fNSNmax(0:MSPECIES) = 5.0 ! multiplier for NSNmax as sum of potential bl and br
+  real :: fNSCmax(0:MSPECIES) = 3.0 ! multiplier for NSCmax as sum of bl_max and br_max
+  real :: transT(0:MSPECIES)  = 3.0 ! Years
+  real :: f_cGap(0:MSPECIES)  = 0.1 ! The gaps between trees
   real :: LFR_rate(0:MSPECIES)= 1.0/21.0
 
   ! Leaf parameters
@@ -931,7 +934,7 @@ module datatypes
   real :: CNroot0(0:MSPECIES)  = 40.0 ! C/N ratios for leaves ! Gordon & Jackson 2000
   real :: CNseed0(0:MSPECIES)  = 20.0 ! C/N ratios for seeds
   real :: R0_Nfix(0:MSPECIES)  = 0.0  ! Reference N fixation rate (0.03 kgN kg rootC-1 yr-1)
-  real :: S_facuN(0:MSPECIES)  = 0.0  ! Faculative N fixation intensity, 0~1. 0: Non; 1.0 full extraC usage
+  real :: S_facuN(0:MSPECIES)  = 0.0  ! Faculative N fixation intensity, 0~1. 0: Non; 1.0 all N-deficit C to facuC
 
   ! Standard cohorts for the ESS PFTs, Weng, 09/12/2025
   !--------------------------------------0:C4G, 1:C3G, 2:TrE, 3:TrD, 4:TmE, 5:TmD, 6:Nfx, 7:DeS
@@ -1164,7 +1167,7 @@ module datatypes
   rho_N_up0, N_roots0,                                          &
   ! Growth & respiration
   f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,    &
-  R0_Nfix, C0_Nfix, S_facuN, f_N_add, fNSNmax, retransN,        &
+  R0_Nfix, C0_Nfix, S_facuN, f_N_add, fNSNmax, fNSCmax, retransN, &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   MaxGrassLyr, MaxGrassAge, MaxGrassCA,                         &
   ! Phenology
