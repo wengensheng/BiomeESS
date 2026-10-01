@@ -174,16 +174,21 @@ module io_mod
     integer :: istat1,istat2,istat3
     integer :: ndays,nyear,totlines
     integer :: m,n,i
+    logical :: file_exists
 
     ! Open forcing data
     climfile=trim(filepath_in)//trim(fdata)
     ! Check whether file exists
-    inquire (file=climfile, iostat=istat1)
-    if (istat1 /= 0) then
-      write (*, '("Error: input file ", a, " does not exist")') climfile
+    inquire (file=trim(climfile), exist=file_exists)
+    if (.not. file_exists) then
+      write (*, '("Error: input file ", a, " does not exist")') trim(climfile)
       stop
     end if
     open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
+    if (istat2 /= 0) then
+      write (*, '("Error: cannot open input file ", a, ", IOSTAT=", I6)') trim(climfile), istat2
+      stop
+    end if
     ! Skip 1 line of input met data file
     read(11,'(a160)') commts ! MDK data only has one line comments
 #ifdef FACE_run

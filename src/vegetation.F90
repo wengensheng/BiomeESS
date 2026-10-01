@@ -980,12 +980,10 @@ subroutine vegn_growth(vegn)
   type(cohort_type), pointer :: cc    ! current cohort
   real :: LFR_deficit, LF_deficit, FR_deficit
   real :: G_LFR      ! amount of carbon spent on leaf and root growth
-  real :: Cgrowth, Nsupply
-  real :: transC, CforN  ! C re-allocated due to N deficit, and the part for facultative N fixation
-  real :: dBL, dBR, dBSW, dSeed  ! growth of leaf, root, sapwood, and seeds (kgC/individual)
+  real :: Csupply, Gtot, dBL, dBR, dBSW, dSeed  ! growth of leaf, root, sapwood, and seeds (kgC/individual)
+  real :: transC, CforN  ! C re-allocated to stems due to N deficit, and the part for facultative N fixation
+  real :: Ndemand, Nsupply, extraN, r_N_SD     ! nitrogen supply/demand ratio
   real :: DBH0       ! the DBH before growth
-  real :: Ndemand, extraN
-  real :: r_N_SD     ! nitrogen supply/demand ratio
   integer :: i, k
 
   ! Allocate C_gain to tissues
@@ -999,7 +997,7 @@ subroutine vegn_growth(vegn)
     end if
 
     ! Get carbon and nitrogen available from NSC/NSN pools
-    call fetch_CN_for_growth(cc, Cgrowth, Nsupply)  ! Weng, 2017-10-19
+    call fetch_CN_for_growth(cc, Csupply, Nsupply)  ! Weng, 2017-10-19
 
     associate (sp => spdata(cc%species))
 
@@ -1008,8 +1006,8 @@ subroutine vegn_growth(vegn)
       FR_deficit  = max(0.0, cc%br_max - cc%br)
       LFR_deficit = LF_deficit + FR_deficit
 
-      ! Carbon spent on leaf+root growth (bounded by f_LFR_max * Cgrowth)
-      G_LFR = max(min(LFR_deficit, f_LFR_max * Cgrowth), 0.0)
+      ! Carbon spent on leaf+root growth (bounded by f_LFR_max * Csupply)
+      G_LFR = max(min(LFR_deficit, f_LFR_max * Csupply), 0.0)
 
       ! Distribute between leaves and roots
       dBL = min(max(0.0, (G_LFR * cc%bl_max + cc%bl_max * cc%br - cc%br_max * cc%bl) / &
@@ -1020,11 +1018,11 @@ subroutine vegn_growth(vegn)
 
       ! Sapwood and seed allocation (trees, top layer, mature)
       if (cc%layer == 1 .and. cc%age > sp%AgeRepro) then
-        dSeed = sp%v_seed * (Cgrowth - G_LFR)
-        dBSW  = (1.0 - sp%v_seed) * (Cgrowth - G_LFR)
+        dSeed = sp%v_seed * (Csupply - G_LFR)
+        dBSW  = (1.0 - sp%v_seed) * (Csupply - G_LFR)
       else
         dSeed = 0.0
-        dBSW  = Cgrowth - G_LFR
+        dBSW  = Csupply - G_LFR
       end if
 
       ! For grasses: temporary scheme — allocate seeds in all layers
@@ -1060,8 +1058,9 @@ subroutine vegn_growth(vegn)
       end if
 
       ! --- Update plant pools -------------------------------------------
-      cc%NSC  = cc%NSC - dBR - dBL - dSeed - dBSW
-      cc%resg = 0.5 * (dBR + dBL + dSeed + dBSW)
+      Gtot    = dBR + dBL + dSeed + dBSW
+      cc%NSC  = cc%NSC - Gtot
+      cc%resg = 0.5 * Gtot
 
       cc%bl    = cc%bl    + dBL
       cc%br    = cc%br    + dBR
@@ -1105,7 +1104,7 @@ subroutine vegn_growth(vegn)
 end subroutine vegn_growth
 
 !------------------------ Calculate carbon and nitrogen supply ------------------------
-subroutine fetch_CN_for_growth(cc,Cgrowth,Nsupply)
+subroutine fetch_CN_for_growth(cc,Csupply,Nsupply)
   !@sum Fetch C from labile C pool according to the demand of leaves and fine roots,
   !@+   and the push of labile C pool
   !@+   Daily call.
@@ -1113,7 +1112,7 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Nsupply)
 
   implicit none
   type(cohort_type), intent(inout) :: cc
-  real, intent(out):: Cgrowth, Nsupply
+  real, intent(out):: Csupply, Nsupply
 
   !------local var -----------
   real :: C_push, C_pull
@@ -1132,7 +1131,7 @@ subroutine fetch_CN_for_growth(cc,Cgrowth,Nsupply)
     C_push = max(0.0,cc%nsc-0.1*cc%NSCmax)/(days_per_year*sp%tauNSC) ! max(cc%nsc-cc%NSCmax, 0.0)/(days_per_year*sp%tauNSC)
     N_push = max(0.0,cc%NSN)/(days_per_year*sp%tauNSC)
 
-    Cgrowth = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
+    Csupply = Min(max(0.02*cc%NSC,0.0), C_pull + C_push)
     Nsupply = Min(max(0.02*cc%NSN,0.0), N_pull + N_push)
 
   end associate
