@@ -638,6 +638,7 @@ subroutine vegn_N_fixation(forcing,vegn)
   real :: Nfix_max, Cfix_max  ! Maximum N fixation rate and N fixation carbon cost
   real :: Nobl, Nfac ! Obligate and Faculative N fixation rates
   real :: Cobl, Cfac ! Carbon costs of obligate (from NSC) and faculative (from facuC) N fixation
+  real :: Cmtn       ! Maintenance respiration for N fixation function (including obligate and facultative)
   integer :: i
 
   !-----------------------
@@ -646,24 +647,39 @@ subroutine vegn_N_fixation(forcing,vegn)
   do i = 1, vegn%n_cohorts
      cc => vegn%cohorts(i)
      associate ( sp => spdata(cc%species) )
+       ! Check if this cohort is N fixer
+       if((sp%S_facuN+sp%R0_Nfix)*C0_Nfix < zero_thld)then
+         cycle ! Not a N fixer, or C0_Nfix is not properly assigned
+       endif
+
        ! ----- Nitrogen fixation (Obligate and Faculative) ------
        Nobl = 0.0; Cobl = 0.0
        Nfac = 0.0; Cfac = 0.0
+       Cmtn = 0.0
        ! Obligate N fixation (controlled by sp%R0_Nfix), paid from NSC
        if(sp%R0_Nfix > zero_thld) then
           fnsc     = min(max(0.0,cc%nsc/cc%NSCmax-0.05),1.0)
           Nfix_max = sp%R0_Nfix * cc%br * fnsc * tf * dt_fast_yr ! kgN tree-1 step-1
           Cfix_max = Max(0.2 * cc%nsc, 0.0) ! NSC available for N fixation
-          Nobl = Min(Nfix_max, Cfix_max / max(1.0, C0_Nfix)) ! Carbon limited N fixation rate
+          Nobl = Min(Nfix_max, Cfix_max/C0_Nfix) ! Carbon limited N fixation rate
           Cobl = Nobl * C0_Nfix
        endif
 
        ! Facultative N fixation (controlled by sp%S_facuN), paid from facuC
+       ! I will test two additional C cost for facultative N fixation:
+       ! 1) Maintenance cost for N fixation machinery
+       ! 2) Higher C fixation cost for faculative N fixation
        ! cc%facuC is filled in vegn_growth with the C re-allocated due to N deficit
-       if(sp%S_facuN > zero_thld .and. cc%facuC > zero_thld) then
+       if(cc%facuC > zero_thld) then
           Cfac = cc%facuC / steps_per_day ! Carbon used for faculative N fixation
-          Nfac = Cfac / max(1.0, C0_Nfix)
+          Nfac = Cfac / (C0_Nfix + C0_Nfacu)
           cc%facuC = cc%facuC - Cfac
+       endif
+
+       ! N fixation maintenance cost for N fixers
+       if(sp%R0_Nfix > zero_thld .or. sp%S_facuN > zero_thld) then
+          Cmtn = min(0.05*cc%nsc, cc%resr * f_NfixM)
+          cc%resr = cc%resr + Cmtn
        endif
 
        ! N fixation rate and carbon cost
@@ -671,9 +687,9 @@ subroutine vegn_N_fixation(forcing,vegn)
        cc%resn   = Cobl + Cfac ! Nitrogen fixation resp, tree-1 step-1
 
        ! Update Respiration, NPP, NSC, and NSN
-       cc%resp = cc%resp + cc%resn ! Plant total resp, kgC tree-1 step-1
-       cc%npp  = cc%npp  - cc%resn ! kgC tree-1 step-1
-       cc%nsc  = cc%nsc  - Cobl    ! Obligate cost only; facultative cost is paid from facuC
+       cc%resp = cc%resp + cc%resn + Cmtn ! Plant total resp, kgC tree-1 step-1
+       cc%npp  = cc%npp  - cc%resn - Cmtn ! kgC tree-1 step-1
+       cc%nsc  = cc%nsc  - Cmtn - Cobl     ! Obligate and maintenance cost only; facultative cost is paid from facuC
        cc%NSN  = cc%NSN  + cc%fixedN
      end associate
   enddo ! all cohorts
@@ -1006,8 +1022,8 @@ subroutine vegn_growth(vegn)
       FR_deficit  = max(0.0, cc%br_max - cc%br)
       LFR_deficit = LF_deficit + FR_deficit
 
-      ! Carbon spent on leaf+root growth (bounded by f_LFR_max * Csupply)
-      G_LFR = max(min(LFR_deficit, f_LFR_max * Csupply), 0.0)
+      ! Carbon spent on leaf+root growth (bounded by fLFR_max * Csupply)
+      G_LFR = max(min(LFR_deficit, fLFR_max * Csupply), 0.0)
 
       ! Distribute between leaves and roots
       dBL = min(max(0.0, (G_LFR * cc%bl_max + cc%bl_max * cc%br - cc%br_max * cc%bl) / &
@@ -1075,12 +1091,12 @@ subroutine vegn_growth(vegn)
       cc%rootN = cc%rootN + dBR   / sp%CNroot0
       cc%seedN = cc%seedN + dSeed / sp%CNseed0
 
-      cc%swN = cc%swN + sp%f_N_add * cc%NSN + &
+      cc%swN = cc%swN + f_N_add * cc%NSN + &
                (Nsupply - dBL / sp%CNleaf0 - dBR / sp%CNroot0 - dSeed / sp%CNseed0)
 
       extraN  = max(0.0, cc%swN - cc%bsw / sp%CNwood0)
       cc%swN  = cc%swN - extraN
-      cc%NSN  = cc%NSN + extraN - sp%f_N_add * cc%NSN - Nsupply
+      cc%NSN  = cc%NSN + extraN - f_N_add * cc%NSN - Nsupply
 
       ! Accumulated C allocated to leaf, root, and wood
       cc%NPPleaf = cc%NPPleaf + dBL

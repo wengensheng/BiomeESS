@@ -609,9 +609,8 @@ contains
     spdata%CNwood0  = CNwood0
     spdata%CNroot0  = CNroot0
     spdata%CNseed0  = CNseed0
-    spdata%f_N_add  = f_N_add
     spdata%R0_Nfix  = R0_Nfix
-    spdata%C0_Nfix  = C0_Nfix ! scalar, not an array, same cost for all PFTs
+    !spdata%C0_Nfix  = C0_Nfix ! scalar, not an array, same cost for all PFTs
     spdata%S_facuN  = S_facuN
 
     ! Phenology

@@ -286,7 +286,7 @@ module datatypes
     !real :: rho_N_up0   ! maximum N uptake rate
     !real :: N_roots0    ! root biomass at half of max. N-uptake rate
     real :: R0_Nfix      ! Reference N fixation rate (kgN kgC-1 root)
-    real :: C0_Nfix      ! Carbon cost of N fixation (kgC kgN-1)
+    !real :: C0_Nfix      ! Carbon cost of N fixation (kgC kgN-1) ! Commented out by Weng, 10/01/2026
     real :: S_facuN      ! Intensity of faculative N fixation, 0~1 fraction of N-deficit C put into facuC
     ! wood traits
     real :: rho_wood     ! woody density, kg C m-3 wood
@@ -318,7 +318,6 @@ module datatypes
     real :: tauNSC           ! residence time of C in NSC (to define storage capacity)
     real :: fNSNmax          ! multiplier for target NSN (NSNmax)
     real :: fNSCmax          ! multiplier for target NSC (NSCmax)
-    real :: f_N_add
     real :: transT           ! Structural transitional time for canopy layer trees
     ! Default C/N ratios
     real :: CNleaf0
@@ -749,11 +748,13 @@ module datatypes
   real :: retransN  = 0.0     ! retranslocation coefficient of Nitrogen
   real :: f_iniBSW  = 0.1     ! 0.01, 0.2
   real :: f_N_add   = 0.02    ! re-fill of N for sapwood
-  real :: f_LFR_max = 0.85    ! max allocation to leaves and fine roots each step
+  real :: fLFR_max  = 0.85    ! max allocation to leaves and fine roots each step
   real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
   real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
   real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
   real :: C0_Nfix   = 12.0    ! gC/gN, carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
+  real :: C0_Nfacu  = 0.0     ! 3.0, Additional C cost for facultative N fixation (gC/gN)
+  real :: f_NfixM   = 0.0     ! 0.2, Additional root respiration for N fixers (fraction)
 
   ! Plant hydraulics
   real :: psi0_osm = 0.5     ! MPa, leaf osmotic pressure
@@ -1165,10 +1166,11 @@ module datatypes
   ! Wood and root
   rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,          &
   rho_N_up0, N_roots0,                                          &
-  ! Growth & respiration
-  f_iniBSW,f_LFR_max,GR_factor,LFR_rate,tauNSC,phiRL,phiCSA,    &
-  R0_Nfix, C0_Nfix, S_facuN, f_N_add, fNSNmax, fNSCmax, retransN, &
+  ! Growth, respiration, and nitrogen fixation
+  f_iniBSW, GR_factor, LFR_rate, fLFR_max, phiRL, phiCSA,       &
+  tauNSC, fNSCmax, fNSNmax, retransN, f_N_add,                  &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
+  R0_Nfix, S_facuN, C0_Nfix, C0_Nfacu, f_NfixM,                 &
   MaxGrassLyr, MaxGrassAge, MaxGrassCA,                         &
   ! Phenology
   Tc0_OFF, Tc0_ON, T0_chill, betaON, betaOFF, AWD_crit,         &
