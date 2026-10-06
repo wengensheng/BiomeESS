@@ -743,7 +743,7 @@ module datatypes
   real :: MaxGrassCA = 1.2    ! Maximum grass CA in the top layer
   real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
   real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
-  real :: GR_factor = 0.33    ! growth respiration factor
+  real :: f_respG   = 0.50    ! respiration cost as a fraction of net growth
   real :: l_fract   = 0.0     ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
   real :: retransN  = 0.0     ! retranslocation coefficient of Nitrogen
   real :: f_iniBSW  = 0.1     ! 0.01, 0.2
@@ -1167,7 +1167,7 @@ module datatypes
   rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,          &
   rho_N_up0, N_roots0,                                          &
   ! Growth, respiration, and nitrogen fixation
-  f_iniBSW, GR_factor, LFR_rate, fLFR_max, phiRL, phiCSA,       &
+  f_iniBSW, f_respG, LFR_rate, fLFR_max, phiRL, phiCSA,         &
   tauNSC, fNSCmax, fNSNmax, retransN, f_N_add,                  &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   R0_Nfix, S_facuN, C0_Nfix, C0_Nfacu, f_NfixM,                 &

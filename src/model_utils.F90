@@ -10,7 +10,7 @@ module model_utils
 #endif
   public :: read_global_setting, model_para_init, Climate_envelope_vars
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
-  public :: vegn_hourly_sum, vegn_daily_sum, vegn_sum_tile, Zero_diagnostics
+  public :: vegn_hourly_sum, vegn_daily_sum, vegn_sum_tile, Zero_diagnostics, Zero_vegn_diagnostics, Zero_cohort_diagnostics
   public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
   public :: ccNSCmax, ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
   public :: IndividualTotC, TreeTotalN, PatchTotalC, PatchTotalN
@@ -206,8 +206,18 @@ contains
   subroutine Zero_diagnostics(vegn)
     type(vegn_tile_type), intent(inout) :: vegn
     ! -------- Local vars -----------
-    type(cohort_type),pointer :: cc
     integer :: i
+
+    call Zero_vegn_diagnostics(vegn)
+    do i = 1, vegn%n_cohorts
+      call Zero_cohort_diagnostics(vegn%cohorts(i))
+    enddo
+  end subroutine Zero_diagnostics
+
+  !==================================================================================================
+  ! Zero the tile-level daily and annual diagnostics
+  subroutine Zero_vegn_diagnostics(vegn)
+    type(vegn_tile_type), intent(inout) :: vegn
 
     vegn%NfixDaily = 0.0
     vegn%dailyPrcp = 0.0
@@ -245,39 +255,42 @@ contains
     vegn%GrassBM    = 0.0
     vegn%annualPET  = 0.0
     vegn%YearlyTmp  = 0.0
+  end subroutine Zero_vegn_diagnostics
 
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      cc%gpp       = 0.0
-      cc%npp       = 0.0
-      cc%resp      = 0.0
-      cc%resl      = 0.0
-      cc%resr      = 0.0
-      cc%resg      = 0.0
-      cc%transp    = 0.0
-      cc%dailyWdmd = 0.0
-      cc%dailyTrsp = 0.0
-      cc%dailyGPP  = 0.0
-      cc%dailyNPP  = 0.0
-      cc%dailyResp = 0.0
-      cc%dailyNup  = 0.0
-      cc%NfixDaily = 0.0
-      cc%annualTrsp= 0.0
-      cc%annualGPP = 0.0
-      cc%annualNPP = 0.0
-      cc%annualResp= 0.0
-      cc%NupYr     = 0.0
-      cc%NfixedYr  = 0.0
-      cc%totDemand = 0.0
-      cc%NPPleaf   = 0.0
-      cc%NPProot   = 0.0
-      cc%NPPwood   = 0.0
-      cc%DBH_ys    = cc%DBH
-      cc%Aleafmax  = 0.0
-      cc%brsC      = 0.0
-      cc%brsN      = 0.0
-    enddo
-  end subroutine Zero_diagnostics
+  !==================================================================================================
+  ! Zero the cohort-level daily and annual diagnostics
+  subroutine Zero_cohort_diagnostics(cc)
+    type(cohort_type), intent(inout) :: cc
+
+    cc%gpp       = 0.0
+    cc%npp       = 0.0
+    cc%resp      = 0.0
+    cc%resl      = 0.0
+    cc%resr      = 0.0
+    cc%resg      = 0.0
+    cc%transp    = 0.0
+    cc%dailyWdmd = 0.0
+    cc%dailyTrsp = 0.0
+    cc%dailyGPP  = 0.0
+    cc%dailyNPP  = 0.0
+    cc%dailyResp = 0.0
+    cc%dailyNup  = 0.0
+    cc%NfixDaily = 0.0
+    cc%annualTrsp= 0.0
+    cc%annualGPP = 0.0
+    cc%annualNPP = 0.0
+    cc%annualResp= 0.0
+    cc%NupYr     = 0.0
+    cc%NfixedYr  = 0.0
+    cc%totDemand = 0.0
+    cc%NPPleaf   = 0.0
+    cc%NPProot   = 0.0
+    cc%NPPwood   = 0.0
+    cc%DBH_ys    = cc%DBH
+    cc%Aleafmax  = 0.0
+    cc%brsC      = 0.0
+    cc%brsN      = 0.0
+  end subroutine Zero_cohort_diagnostics
 
   !==========================================================================
   ! Initialize model processes/settings and model parameters

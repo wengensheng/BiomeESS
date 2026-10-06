@@ -1076,7 +1076,7 @@ subroutine vegn_growth(vegn)
       ! --- Update plant pools -------------------------------------------
       Gtot    = dBR + dBL + dSeed + dBSW
       cc%NSC  = cc%NSC - Gtot
-      cc%resg = 0.5 * Gtot
+      cc%resg = f_respG * Gtot ! Will be deducted from NSC in vegn_respiration
 
       cc%bl    = cc%bl    + dBL
       cc%br    = cc%br    + dBR
@@ -1464,13 +1464,18 @@ subroutine vegn_reproduction (vegn)
         ! update child cohort parameters
         associate (sp => spdata(reproPFTs(i)))
           totC = sp%s0_plant
+          totN = totC * seedN(i)/seedC(i)
           cc%nindivs = seedC(i)/totC ! density
-          if(seedC(i)>0.0)then
-            totN = totC * seedN(i)/seedC(i)
-          else
-            totN = totC/10.0
-          endif
           call setup_seedling(cc,totC,totN)
+          ! Reset the history-dependent variables inherited from the parent cohort
+          call Zero_cohort_diagnostics(cc)
+          cc%mu        = sp%mu0_topL
+          cc%layerfrac = 0.0
+          cc%An_op     = 0.0
+          cc%An_cl     = 0.0
+          cc%resn      = 0.0
+          cc%fixedN    = 0.0
+          cc%N_uptake  = 0.0
           ! Take water from the second soil layer
           vegn%wcl(2) = Max(0.0, vegn%wcl(2)-cc%nindivs*cc%W_sw/(thksl(2)*1000.0))
 
@@ -1508,6 +1513,7 @@ subroutine setup_seedling(cc,totC,totN)
   real,              intent(in)    :: totN
   ! ----- local var -----------
   integer :: layer
+  real    :: scalef
   ! ----------------------------
   associate(sp=>spdata(cc%species))
      layer = max(1, cc%layer)
@@ -1529,6 +1535,18 @@ subroutine setup_seedling(cc,totC,totN)
      cc%hwN    = cc%bHW/sp%CNwood0
      cc%seedN  = 0.0
      cc%NSN    = totN - (cc%leafN+cc%rootN+cc%swN) !cc%br/sp%CNroot0
+
+     ! Safeguard: when N is too small to support the initial structural pools,
+     ! scale down root and sapwood (C moves to NSC) so that C and N are conserved
+     if(cc%NSN < 0.0)then
+        scalef = totN / (cc%rootN + cc%swN)
+        cc%br    = cc%br  * scalef
+        cc%bsw   = cc%bsw * scalef
+        cc%nsc   = totC - cc%bsw - cc%br
+        cc%rootN = cc%br/sp%CNroot0
+        cc%swN   = cc%bsw/sp%CNwood0
+        cc%NSN   = 0.0
+     endif
 
      ! Structure
      call BM2Architecture(cc,cc%bsw+cc%bHW )
@@ -1577,7 +1595,7 @@ logical function cohort_can_reproduce(cc)
   associate (sp => spdata(cc%species) )
     cohort_can_reproduce = (cc%layer == 1 .and.               &
       cc%nindivs > zero_thld .and. cc%age > sp%AgeRepro.and.  &
-      cc%seedC > sp%s0_plant .and. cc%seedN > sp%s0_plant/sp%CNseed0)
+      cc%seedC > sp%s0_plant .and. cc%seedN*sp%CNseed0 > 0.9*cc%seedC)
   end associate
 end function
 
@@ -3272,7 +3290,7 @@ subroutine vegn_species_recovery (vegn)
   ! Generate new cohorts
   addedC = 0.0
   addedN = 0.0
-  newcohorts = n
+  newcohorts = n ! New corhots to be parameterized by n missing PFTs
   if (newcohorts >= 1) then   ! build new cohorts for seedlings
      ccold => vegn%cohorts ! keep old cohort information
      nCohorts = vegn%n_cohorts + newcohorts
@@ -3287,22 +3305,21 @@ subroutine vegn_species_recovery (vegn)
      do i = 1, newcohorts
         k = k+1 ! increment new cohort index
         cc => vegn%cohorts(k)
-        ! Give the new cohort an ID
-        cc%ccID = MaxCohortID + i
         ! find out the equivalent initial cohort with species n
         do n=1, vegn%n_initialCC
             if(vegn%initialCC(n)%species == missingPFTs(i))then
                ! update new cohort parameters
                cc = vegn%initialCC(n) ! Reset the missing PFT to the initial
-               !cc%nindivs = 0.01 ! a small number of individuals
+               ! Give the new cohort an ID
+               cc%ccID = MaxCohortID + i
+               totC = IndividualTotC(cc)
+               totN = TreeTotalN(cc) ! includes seedN, consistent with totC
+               call setup_seedling(cc,totC,totN)
                exit
             endif
         enddo
-        totC = IndividualTotC(cc)
-        totN = cc%leafN + cc%rootN + cc%swN + cc%hwN + cc%NSN
         addedC = addedC + cc%nindivs * totC
         addedN = addedN + cc%nindivs * totN
-        call setup_seedling(cc,totC,totN)
      enddo
 
      MaxCohortID = MaxCohortID + newcohorts
@@ -3310,6 +3327,10 @@ subroutine vegn_species_recovery (vegn)
      ccnew => null()
 
      ! Make carbon and nitrogen balance
+     if(addedC > 0.99*vegn%SOC(2)) &
+        write(*,*)'vegn_species_recovery: SOC(2) too small, C not balanced by',addedC-0.99*vegn%SOC(2)
+     if(addedN > 0.99*vegn%SON(2)) &
+        write(*,*)'vegn_species_recovery: SON(2) too small, N not balanced by',addedN-0.99*vegn%SON(2)
      vegn%SOC(2) = vegn%SOC(2) - min(0.99*vegn%SOC(2),addedC)
      vegn%SON(2) = vegn%SON(2) - min(0.99*vegn%SON(2),addedN)
   endif ! set up newly moved-in cohorts
