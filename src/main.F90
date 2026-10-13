@@ -147,6 +147,10 @@ program BiomeE
   call setup_output_files()
   call BiomeE_main()
 
+#ifdef Zip_outputs
+    call zip_output_files()
+#endif
+
 #endif
 
   ! ---------- Time stamp -------------
