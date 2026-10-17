@@ -18,6 +18,7 @@ module esdvm
  public :: vegn_SingleCohort_annual_update
  public :: vegn_annualLAImax_update, vegn_gap_fraction_update
  public :: reset_vegn_initial, vegn_species_recovery
+ public :: MaxCohortID ! reset after reading a restart file
 
  integer :: MaxCohortID = 0
 

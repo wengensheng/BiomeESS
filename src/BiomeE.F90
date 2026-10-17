@@ -92,9 +92,30 @@ module BiomeE_mod
     allocate(land)
     land%nTiles = 0
 
+    ! Initial PFTs and cohort settings: needed in both cases. For a restart they are
+    ! used to reset the vegetation ("zero cohorts") and, with the initial cohorts
+    ! (initialCC) read from the restart file, to recover missing PFTs.
+#ifdef DO_Climate_VEG
+    ! Update init_cohort_* arrays, 09/09/2025
+    call Climate_envelope_vars(forcingData,steps_per_day)
+    call Set_PFTs_from_Data()
+#endif
+    if(init_cohort_Indiv(1)<0.0) &
+    call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
+#ifdef DO_ANIMAL
+    call initialize_AFT_pars()   ! populate aftdata(:) from aft_* module arrays
+#endif
+
     if (do_restart_read) then
       ! ---- Restore full model state from restart file ----
       call read_restart(land)
+      ! Keep the cohort IDs unique: new cohorts get IDs above the existing ones
+      MaxCohortID = 0
+      vegn => land%firstVegn
+      do while (associated(vegn))
+        if (vegn%n_cohorts > 0) MaxCohortID = max(MaxCohortID, maxval(vegn%cohorts(1:vegn%n_cohorts)%ccID))
+        vegn => vegn%next
+      enddo
       ! Rebuild canopy layers and zero flux accumulators
       vegn => land%firstVegn
       do while (associated(vegn))
@@ -105,20 +126,6 @@ module BiomeE_mod
       enddo
     else
       ! ---- Original (spin-up) initialization path ----
-
-      ! Setup initial PFTs and cohorts information (not cohorts per se)
-#ifdef DO_Climate_VEG
-      ! Update init_cohort_* arrays, 09/09/2025
-      call Climate_envelope_vars(forcingData,steps_per_day)
-      call Set_PFTs_from_Data()
-#endif
-
-      if(init_cohort_Indiv(1)<0.0) &
-      call Assign_Std_Cohorts (init_cohort_sps,init_cohort_N)
-
-#ifdef DO_ANIMAL
-      call initialize_AFT_pars()   ! populate aftdata(:) from aft_* module arrays
-#endif
 
       do i =1, N_VegTile
         allocate(vegn)

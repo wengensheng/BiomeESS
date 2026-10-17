@@ -279,7 +279,7 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
     if (cc%nindivs > 0.0 .and. C_removed_cc > 0.0) then
       frac_remain = max(0.0, 1.0 - C_removed_cc / max(cc%bl * cc%nindivs, 1.e-12))
       ! Record leaf C and N eaten from this cohort (kg m-2 day-1) before scaling
-      N_removed_cc = safe_div(cc%leafN, cc%bl) * C_removed_cc
+      N_removed_cc = safe_div(real(cc%leafN), cc%bl) * C_removed_cc
       cc%brsC = cc%brsC   + C_removed_cc
       cc%brsN = cc%brsN   + N_removed_cc
       cc%bl    = cc%bl    * frac_remain
