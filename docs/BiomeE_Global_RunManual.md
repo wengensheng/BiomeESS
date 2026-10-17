@@ -61,7 +61,7 @@ The model uses C preprocessor (`-cpp`) flags to switch features on and off at co
 |---|---|
 | `-DGlobalRun` | Enable global/regional mode (netCDF forcing by defaut, grid loop) |
 | `-DDO_Climate_VEG` | Initialize PFT fractions from a climate-envelope map |
-| `-DUse_InterpolatedData` | Read pre-interpolated hourly grid csv files |
+| `-DUse_GridCellData` | Read pre-interpolated hourly grid csv files |
 | `-DZippedNCfiles` | Read gzip-compressed netCDF files |
 | `-DZip_outputs` | Compress output files with gzip |
 | `-DScreenOutput` | Print diagnostics to stdout |
@@ -159,13 +159,13 @@ Key sections to configure:
 
 ### 5.1 Purpose and workflow
 
-Running `runMultiBlocks.x` with `-DUse_InterpolatedData` is substantially faster than
+Running `runMultiBlocks.x` with `-DUse_GridCellData` is substantially faster than
 reading the raw CRUJRA netCDF files at runtime, because the model skips the per-grid
 temporal interpolation step and reads ready-made hourly CSV files instead.
 
 `GlobalDataRun.x` is the preprocessing step that produces those CSV files. It compiles
 the model with `-DGlobalRun -DDO_Climate_VEG -DZip_outputs` (but **without**
-`-DUse_InterpolatedData`) and sets `WriteForcing = .True.` in the namelist. Instead of
+`-DUse_GridCellData`) and sets `WriteForcing = .True.` in the namelist. Instead of
 running the ecological model, it reads the raw CRUJRA netCDF data, interpolates each
 grid cell's climate to hourly resolution, and writes the result to a per-grid CSV file.
 Those files are then used by `runMultiBlocks.x`.
@@ -177,7 +177,7 @@ When `WriteForcing = .True.`, the model processes will be skipped.
 Step 1: GlobalDataRun.x
   raw CRUJRA netCDF  →  hourly forcing CSVs  (one file per grid cell)
 
-Step 2: runMultiBlocks.x  (compiled with -DUse_InterpolatedData)
+Step 2: runMultiBlocks.x  (compiled with -DUse_GridCellData)
   hourly forcing CSVs  →  BiomeE model output
 ```
 
@@ -253,13 +253,13 @@ local data layout and the desired climate period.
 One CSV file is written per vegetated land grid cell, named by grid coordinates and
 placed in `DIRECTORY`. These files contain hourly meteorological forcing at the same
 13-column format described in §4.4 and are read directly by `runMultiBlocks.x` when
-compiled with `-DUse_InterpolatedData`.
+compiled with `-DUse_GridCellData`.
 
 ### 5.6 Connecting to `runMultiBlocks.x`
 
 After `GlobalDataRun.x` finishes, point `int_fpath` in
 `para_files/parameters_GlobalBlock.nml` to the directory that was set as `DIRECTORY`
-here, then compile and run `runMultiBlocks.x` with `-DUse_InterpolatedData` enabled.
+here, then compile and run `runMultiBlocks.x` with `-DUse_GridCellData` enabled.
 
 ---
 
@@ -267,7 +267,7 @@ here, then compile and run `runMultiBlocks.x` with `-DUse_InterpolatedData` enab
 
 ### 6.1 What it does
 
-1. Compiles the model with `-DGlobalRun` (and usually `-DDO_Climate_VEG -DUse_InterpolatedData -DZip_outputs`), linking NetCDF libraries.
+1. Compiles the model with `-DGlobalRun` (and usually `-DDO_Climate_VEG -DUse_GridCellData -DZip_outputs`), linking NetCDF libraries.
 2. Divides the global land grid (57,134 cells at 0.5°×0.5°) into **N parallel blocks**.
 3. For each block, generates a block-specific namelist by substituting `StartGrid`/`EndGrid` placeholders with actual grid indices via `sed`.
 4. Launches each block as a background (`nohup … &`) process.

@@ -14,7 +14,7 @@ CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DZip_outputs'
 #CPPFLAGS+=' -DZippedNCfiles'
-#CPPFLAGS+=' -DUse_InterpolatedData'
+#CPPFLAGS+=' -DUse_GridCellData'
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
 #CPPFLAGS+=' -DScreenOutput'
@@ -32,14 +32,14 @@ gfortran $FSRCS $CPPFLAGS -o ess_data -I/usr/local/include -L/usr/local/lib -lne
 # -----------------------------------------------------------------------------
 # -------------------Setup data blocks----------------------------------------
 #! Total grids are 56395 when Lat 61~320 and Lon 1~720 at 0.5x0.5 grid
-Lon1=(1   181 251 381 451 541 621)
-Lon2=(180 250 380 450 540 620 720)
+Lon1=(1   251 401 551)
+Lon2=(250 400 550 720)
 # namelist file (Parameter and model setting file)
 fp1='./para_files/parameters_GlobalData.nml'
 echo $fp1
 
 # ----------------- Setup output directory path ------------
-runTag='Interpolated20260908'
+runTag='Interpolated20260909'
 DIRECTORY='/media/eweng/HD2/weng/Data/'$runTag
 echo $DIRECTORY
 # Check if the directory exists. If not, create it.

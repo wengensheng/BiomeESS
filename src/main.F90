@@ -53,7 +53,7 @@ program BiomeE
   call Preset_GlobalPFTs()   ! Hardwired global pft parameters
   call model_para_init(fnml) ! Update hardwired global PFT & soil parameters from namelists
 
-#ifdef Use_InterpolatedData
+#ifdef Use_GridCellData
   call read_GridLonLat(GridListFile,file_exists)
   if(.not. file_exists)then
     write(*,*)trim(GridListFile), 'does not exist. Stopped!'
@@ -98,14 +98,28 @@ program BiomeE
     print '(A, I6, A, I6)', 'The ', m - grid_No1 + 1, 'th grid of ', grid_No2 - grid_No1 + 1
 
     ! --------- Get the forcingData for this grid -----------
-#ifdef Use_InterpolatedData
+#ifdef Use_GridCellData
     ! Read interpolated data from disk files. Moved here to avoid reading errors
+#ifdef Use_6hourlyData
+    ! Read the 6-hourly data into LandGrid(1), then interpolate to hourly
+    call read_6hourlyCRU(int_fpath,int_prefix,GridID,m,yr_start,yr_end,file_exists)
+    if(.not. file_exists)then
+      print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
+      cycle
+    endif
+    call CRU_Interpolation(LandGrid(1),forcingData)
+#else
     call read_interpolatedCRU(int_fpath,int_prefix,GridID,yr_start,yr_end,forcingData,file_exists)
     if(.not. file_exists)then
       print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
       cycle
     endif
+#endif
 #else
+    if(WriteCell6H)then
+      call Write_6hourly(LandGrid(m))
+      cycle ! Skip data interpolation and model run. Only output grid climate data
+    endif
     ! Interpolate grid data to hourly
     call CRU_Interpolation(LandGrid(m),forcingData)
     if(WriteForcing)then

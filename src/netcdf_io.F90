@@ -15,8 +15,8 @@ module netcdf_io
 
   private
 
-  public ReadNCfiles, CRU_Interpolation
-  public read_GridLonLat, read_interpolatedCRU
+  public ReadNCfiles, CRU_Interpolation, Write_6hourly
+  public read_GridLonLat, read_interpolatedCRU, read_6hourlyCRU
   public Release_grid_memory
 
 contains
@@ -290,6 +290,37 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
 end subroutine ReadNCfiles
 
 !=============================================================================
+subroutine Write_6hourly(LandGrid)
+  ! Write the 6-hourly CRU data of one grid without interpolation or any time shift
+  ! (neither the local-time nor the Southern Hemisphere shift; BiomeE applies them
+  ! when it interpolates). The columns are the values stored in ClimData: tmp (K), pre (mm per 6 hours), tswrf (J m-2
+  ! per 6 hours), spfh, pres (Pa), ugrd, vgrd (m s-1), and N input (kgN m-2 yr-1).
+  implicit none
+  type(grid_initial_type), pointer, intent(in) :: LandGrid
+  real, pointer     :: GridData(:,:)
+  character(len=256):: command, fout
+  character(len=6)  :: GridStr
+  integer :: forcing_unit, iostat, i, Nlines
+
+  GridData => LandGrid%climate
+  Nlines = SIZE(CRUtime)
+
+  write(GridStr, GridIDFMT) GridID
+  fout = trim(filepath_out)//trim(ncversion)//trim(GridStr)//'_forcing6h.csv'
+  open(NEWUNIT=forcing_unit,file=trim(fout))
+  write(forcing_unit,*)'Tair,RAIN,SWdown6h,SPFH,PRESSURE,WINDU,WINDV,Ndpst'
+  do i=1,Nlines
+    write(forcing_unit,'(8(E15.8,","))') GridData(i,1:7), LandGrid%N_input
+  enddo
+  close(forcing_unit)
+  command = 'gzip -f ' // trim(fout)
+  call execute_command_line(command, exitstat=iostat)
+
+  write(Grids_UN1,'(I8,11(",",E9.4))') &
+        GridID,(LandGrid%VegCover(i),i=1,N_vegs),LandGrid%N_input
+end subroutine Write_6hourly
+
+!=============================================================================
 subroutine CRU_Interpolation(LandGrid,forcingData)
   implicit none
   type(grid_initial_type), pointer, intent(in) :: LandGrid
@@ -303,6 +334,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   real, allocatable :: fdSW(:)
   real, allocatable :: timecols(:,:)
   real, allocatable :: hourly_data(:,:)
+  real, allocatable :: cosz_doy(:,:)      ! cos(zenith) for each day of the year and time step of the day
+  real    :: SWmax_doy(365)               ! Daily maximum SW (J m-2) for each day of the year
   real    :: Lati, Longi
   real    :: steps_in_6H ! Temporary variable, steps interpolated
   real    :: td,cosz,solarelev,solarzen,r_light
@@ -346,18 +379,29 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     timecols(m,1) = int(CRUtime(m)/365.0) + 1901   ! Year, CRUtime is days since 1901-01-01
   enddo
 
+  ! Daily maximum SW and cos(zenith) depend only on the latitude and the day of the year,
+  ! so calculate them once for the 365 days (not for every day of every year)
+  allocate(cosz_doy(365,steps_per_day))
+  do k = 1, 365
+    SWmax_doy(k) = 0.0
+    do j=1,96 ! a day with 15 minutes interval
+      td = real(k) + (j-1)/96.0
+      call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
+      SWmax_doy(k) = SWmax_doy(k) + cosz * solarC * seconds_per_day/96.0
+    enddo
+    do j=1,steps_per_day
+      td = real(k) + (24.0 * (j - 1)/steps_per_day)/24.0
+      call calc_solarzen(td,Lati,cosz_doy(k,j),solarelev,solarzen)
+    enddo
+  enddo
+
   ! Calculate fdSW
   Nsteps = 24/Hours_NCstep ! netCDF Data daily steps, 4 for CRU
   do i = 1, totDays
     ! Actual daily radiation
     SWdaily = sum(GridData((i-1)*Nsteps+1 : i*Nsteps, 3))
-    ! Calculate daily max SW (SWmax)
-    SWmax = 0.0
-    do j=1,96 ! a day with 15 minutes interval
-      td = timecols((i-1)*Nsteps+1,2) + (j-1)/96.0 ! For each day, move Nsteps; Corrected by Paul, 09/08/2026
-      call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
-      SWmax = SWmax + cosz * solarC * seconds_per_day/96.0
-    enddo
+    ! Daily max SW (SWmax) of this day of the year
+    SWmax = SWmax_doy(nint(timecols((i-1)*Nsteps+1,2))) ! Corrected by Paul, 09/08/2026
     ! Fraction of solar radiation
     fdSW((i-1)*Nsteps+1 : i*Nsteps) = Max(0.0,Min(1.0,SWdaily/(SWmax+0.0001))) ! *0.8 ! too high!
   enddo
@@ -414,9 +458,8 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
 
   ! Update radiation according to solar constant, zenith angle and SW fraction
   do i=1,totalL
-    td = hourly_data(i,2) + hourly_data(i,3)/24.0
-    call calc_solarzen(td,Lati,cosz,solarelev,solarzen)
-    hourly_data(i,6) = solarC * cosZ * hourly_data(i,10)      ! W/m2
+    j = nint(hourly_data(i,3) * steps_per_day / 24.0) + 1 ! time step of the day
+    hourly_data(i,6) = solarC * cosz_doy(nint(hourly_data(i,2)),j) * hourly_data(i,10)      ! W/m2
   enddo
 
   ! Shift up 182 days for Southern Hemisphere, Weng 2025-09-22
@@ -482,7 +525,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
   endif
 
   !Release memory
-  deallocate(hourly_data, fdSW, timecols)
+  deallocate(hourly_data, fdSW, timecols, cosz_doy)
 end subroutine CRU_Interpolation
 
 !==============================================
@@ -494,7 +537,12 @@ subroutine Release_grid_memory()
   if(allocated(GridLonLat)) deallocate(GridLonLat)
   if(allocated(GridVegT))   deallocate(GridVegT)
   if(allocated(GridFarm))   deallocate(GridFarm)
-#ifndef Use_InterpolatedData
+#ifdef Use_6hourlyData
+  if(allocated(CRUtime))  deallocate(CRUtime)
+  if(allocated(ClimData)) deallocate(ClimData)
+  if(associated(LandGrid)) deallocate(LandGrid)
+#endif
+#ifndef Use_GridCellData
   !deallocate(CRUData)
   if(allocated(CRUtime))  deallocate(CRUtime)
   if(allocated(ClimData)) deallocate(ClimData)
@@ -606,6 +654,98 @@ subroutine read_GridLonLat(fname,file_exists)
   write(*,*)"LowerLon, UpperLon, LowerLat, UpperLat:", LowerLon, UpperLon, LowerLat, UpperLat
   write(*,*)"In read_GridLonLat, N_VegGrids, grid_No1, grid_No2:", N_VegGrids, grid_No1, grid_No2
 end subroutine read_GridLonLat
+
+!=============================================================================
+! Read the 6-hourly forcing file of one grid (written by CRU_Interp.F90 with
+! Interpolate=F) into LandGrid(1), so that CRU_Interpolation(LandGrid(1),forcingData)
+! can then do the interpolation, local-time and Southern Hemisphere shifts.
+! Use with -DUse_GridCellData -DUse_6hourlyData; m is the grid's index in GridVegT.
+subroutine read_6hourlyCRU(fpath,fprefix,GridID,m,year0,year1,file_exists)
+  character(len=*),intent(in) :: fpath,fprefix
+  integer, intent(in) :: GridID, m, year0, year1
+  logical, intent(out) :: file_exists
+
+  !------------local var -------------------
+  character(len=250) :: command, climfile
+  character(len=6)   :: GridStr
+  character(len=160) :: commts
+  real    :: temp(8)
+  integer :: istat2, u, exitstat
+  integer :: i, n, totL, N_yrs
+  logical :: unzip_ok
+
+  write(GridStr,GridIDFMT) GridID
+  climfile = trim(fpath)//trim(fprefix)//trim(GridStr)//'_forcing6h.csv'
+
+  inquire(file=trim(climfile)//'.gz', exist=file_exists)
+  if (.not. file_exists) then
+    write (*, '("read_6hourlyCRU: ", a, " does not exist")') trim(climfile)//'.gz'
+    return
+  endif
+  call unzip_gzip_file(trim(climfile)//'.gz', ok=unzip_ok)
+  if (.not. unzip_ok) then
+    file_exists = .false.
+    write (*, '("read_6hourlyCRU: unzip failed for ", a)') trim(climfile)//'.gz'
+    return
+  endif
+
+  N_yrs = year1 - year0 + 1
+  totL  = N_yrs * Ntime
+
+  ! Set up LandGrid(1) and the work arrays (allocated once, reused for each grid)
+  if(.not. associated(LandGrid)) allocate(LandGrid(1))
+  if(allocated(ClimData))then
+    if(size(ClimData,1) /= totL) deallocate(ClimData)
+  endif
+  if(.not. allocated(ClimData)) allocate(ClimData(totL, size(ncfields), 1))
+  if(allocated(CRUtime))then
+    if(size(CRUtime) /= totL) deallocate(CRUtime)
+  endif
+  if(.not. allocated(CRUtime)) allocate(CRUtime(totL))
+
+  open(newunit=u, file=climfile, status='old', action='read', iostat=istat2)
+  if (istat2 /= 0) then
+    file_exists = .false.
+    write (*, '("read_6hourlyCRU: cannot open ", a, ", iostat=", I0)') trim(climfile), istat2
+    return
+  endif
+  read(u,'(a160)', iostat=istat2) commts ! Header line
+
+  n = 0
+  do while (n < totL .and. istat2 == 0)
+    read(u,*, iostat=istat2) temp
+    if (istat2 == 0) then
+      n = n + 1
+      ClimData(n,:,1) = temp(1:size(ncfields))
+    endif
+  enddo
+  close(u)
+
+  command = 'rm ' // trim(climfile) ! Remove unzipped CSV; keep .gz
+  call execute_command_line(command, exitstat=exitstat)
+
+  if (n /= totL) then
+    write (*, '("In read_6hourlyCRU, File ",a," is shorter than needed: lines: ",I12)') trim(climfile), n
+    file_exists = .false.
+    return
+  endif
+
+  ! CRU time: days since 1901-01-01, 365-day calendar, 4 steps per day starting at 00:00
+  do i = 1, totL
+    CRUtime(i) = (year0 - 1901) * 365.0 + (i - 1) * 0.25
+  enddo
+
+  LandGrid(1)%iLon = GridID / 1000
+  LandGrid(1)%iLat = mod(GridID, 1000)
+#ifdef WIEMIP_setting
+  LandGrid(1)%N_input = temp(8) ! last line's N input, kgN m-2 yr-1
+#else
+  LandGrid(1)%N_input = N_input
+#endif
+  LandGrid(1)%VegCover => GridVegT(:,m)
+  LandGrid(1)%climate  => ClimData(:,:,1)
+  write(*,*)"forcing from 6-hourly data: steps, years", totL, N_yrs
+end subroutine read_6hourlyCRU
 
 !=============================================================================
 subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,file_exists)

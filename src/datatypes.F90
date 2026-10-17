@@ -1082,6 +1082,7 @@ module datatypes
   !real,    allocatable,target :: CRUData(:,:,:,:)  ! N_yr*Ntime, N_vars, Nlon, Nlat
 
   ! Output interpolated grid climate data files
+  logical :: WriteCell6H  = .False. ! Write grid climate data (6 hourly for CRU)
   logical :: WriteForcing = .False. ! .True. ! Write interpolated forcing data
   integer :: Grids_UN1   = 99       ! Vegetated grids list file
   integer :: Grids_UN2   = 98       ! Grid cropland cover file
@@ -1124,7 +1125,7 @@ module datatypes
   type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! Soil hydraulics parameters
 
   ! ------------- Global run model setting name list ------------
-  namelist /global_setting_nml/ WriteForcing, yr_start, yr_end, &
+  namelist /global_setting_nml/ WriteCell6H, WriteForcing, yr_start, yr_end, &
   ncfilepath, ncversion, veg_path, veg_file, LUC_file,LC_year0, &
   int_fpath, int_prefix, GridListFile, grid_No1, grid_No2,      &
   LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon, Ndp_path
