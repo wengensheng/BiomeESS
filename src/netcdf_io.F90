@@ -128,7 +128,8 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
 #endif
     ! -------------- Select land grids for model run ------------------!
     write(yr_str, '(I4)') yr_start
-    fcru = trim(cru_path)//trim(ncfields(1))//'/'//trim(ncversion)//trim(ncfields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
+    !fcru = trim(cru_path)//trim(ncfields(1))//'/'//trim(ncversion)//trim(ncfields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
+    fcru = trim(cru_path)//'crujra3/'//trim(ncversion)//trim(ncfields(1))//'.'//trim(yr_str)//'.365d.noc.nc'
     fgz  = trim(fcru)//'.gz'
 
     ! If fcru exists, use fcru. Otherwise unzip fgz
@@ -234,10 +235,15 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
 #endif
 
     ! ----------------- Read in all climate data ----------------------!
-    do j= 1, N_vars ! 7 ('tmp','pre','dswrf','spfh','pres','ugrd','vgrd')
+    do j= 1, N_vars ! 7 ('tmp','pre','dswrf'/'tswrf','spfh','pres','ugrd','vgrd')
       do i =1, N_yrs
         write(yr_str, '(I4)') yr_start + i - 1
-        fcru = trim(cru_path)//trim(ncfields(j))//'/'//trim(ncversion)//trim(ncfields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
+        if(index(ncfields(j),'tswrf') > 0)then
+          fcru = trim(cru_path)//'Radiation/Processed/'//trim(ncfields(j))//'_v15_'//trim(yr_str)//'.nc'
+        else
+          !fcru = trim(cru_path)//trim(ncfields(j))//'/'//trim(ncversion)//trim(ncfields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
+          fcru = trim(cru_path)//'crujra3/'//trim(ncversion)//trim(ncfields(j))//'.'//trim(yr_str)//'.365d.noc.nc'
+        endif
         fgz  = trim(fcru)//'.gz'
 
         ! If the climate file is gzipped, unzip it and returen unzip_ok. 
@@ -569,7 +575,11 @@ subroutine read_GridLonLat(fname,file_exists)
   integer :: TotalFiles ! Each file represents a grid
   character(len=300) :: listfile,FarmFile
 
+#ifdef Use_6hourlyData
+  listfile=trim(fpath_6H)//trim(fname)
+#else
   listfile=trim(int_fpath)//trim(fname)
+#endif
   INQUIRE (file=trim(listfile), EXIST=file_exists)
   if (.not. file_exists) then
     write (*, '("read_GridLonLat: ", a, " does not exist")') trim(listfile)

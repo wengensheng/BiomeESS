@@ -16,17 +16,21 @@ CPPFLAGS=''
 CPPFLAGS+=' -DGlobalRun'
 CPPFLAGS+=' -DDO_Climate_VEG'
 CPPFLAGS+=' -DUse_GridCellData'
+CPPFLAGS+=' -DUse_6hourlyData'
 #CPPFLAGS+=' -DZippedNCfiles'
 #CPPFLAGS+=' -DHydro_test'
 #CPPFLAGS+=' -DSingleTreeTest'
 #CPPFLAGS+=' -DScreenOutput'
 CPPFLAGS+=' -DZip_outputs'
-#CPPFLAGS+=' -DHistCO2'
+CPPFLAGS+=' -DHistCO2'
+
+NETCDFFLAG='-I/usr/local/include -L/usr/local/lib -lnetcdff'
 
 echo $FSRCS
 echo $CPPFLAGS
+echo $NETCDFFLAG
 
-gfortran $FSRCS $CPPFLAGS -o ess_global -I/usr/local/include -L/usr/local/lib -lnetcdff
+gfortran $FSRCS $CPPFLAGS -o ess_global $NETCDFFLAG || { echo "Compile failed"; exit 1; }
 
 # Ensure executable built
 if [ ! -x "./ess_global" ]; then
@@ -38,21 +42,38 @@ rm -f *.mod
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
 GridRS='1' # Grid resolution, 1 for grid by grid (1x1), 2 for skipping one for each lon and lat (2x2)
-runTag='N2gLowNout' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
-DIRECTORY="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_"$runTag
+runTag='N2gCO21900' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+HOMEDIR="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/$runTag"
+ResultsDIR=$HOMEDIR"/Run_"$runTag
+RestartDIR=$HOMEDIR"/Restart_"$runTag
 
 # Check if the directory exists. If not, create it.
-if [ ! -d "$DIRECTORY" ]; then
-    echo "Directory $DIRECTORY does not exist. Creating it now..."
-    mkdir -p "$DIRECTORY"
+if [ ! -d "$ResultsDIR" ]; then
+    echo "Directory $ResultsDIR does not exist. Creating it now..."
+    mkdir -p "$ResultsDIR"
     if [ $? -eq 0 ]; then
-        echo "Directory $DIRECTORY created successfully."
+        echo "Directory $ResultsDIR created successfully."
     else
-        echo "Failed to create directory $DIRECTORY."
+        echo "Failed to create directory $ResultsDIR."
         exit 1 # Exit with an error code if creation fails
     fi
 else
-    echo "Directory $DIRECTORY already exists."
+    echo "Directory $ResultsDIR already exists."
+fi
+
+
+# Check if the directory exists. If not, create it.
+if [ ! -d "$RestartDIR" ]; then
+    echo "Directory $RestartDIR does not exist. Creating it now..."
+    mkdir -p "$RestartDIR"
+    if [ $? -eq 0 ]; then
+        echo "Directory $RestartDIR created successfully."
+    else
+        echo "Failed to create directory $RestartDIR."
+        exit 1 # Exit with an error code if creation fails
+    fi
+else
+    echo "Directory $RestartDIR already exists."
 fi
 
 # -----------------------------------------------------------------------------
@@ -67,7 +88,7 @@ fi
 START_VAL=1
 #MAXGRID=56395
 MAXGRID=57134
-MAXJOBS=25          # number of blocks AND max concurrent jobs (here they match)
+MAXJOBS=15          # 25 number of blocks AND max concurrent jobs (here they match)
 
 # --- derived settings ---
 N=$(( MAXGRID - START_VAL + 1 ))
@@ -109,7 +130,7 @@ pids=()
 for iB in "${!Grid2[@]}"; do
   runID='Block'$iB
   nmlID='Block'${Grid2[$iB]}
-  fp2=$DIRECTORY'/parameters_'$nmlID'.nml'
+  fp2=$ResultsDIR'/parameters_'$nmlID'.nml'
 
   echo "Block ${Grid1[$iB]}-${Grid2[$iB]}"
 
@@ -120,7 +141,8 @@ for iB in "${!Grid2[@]}"; do
     sed -e "s/StartGrid/${Grid1[$iB]}/g" \
         -e "s/EndGrid/${Grid2[$iB]}/g" \
         -e "s/ResGrid/$GridRS/g" \
-        -e "s#TargetDir#$DIRECTORY#g" \
+        -e "s#TargetDir#$ResultsDIR#g" \
+        -e "s#DIRreadin#$RestartDIR#g" \
            $fp1 > $fp2
 
     # Run the model with newly generated runscript and parameter file
@@ -131,7 +153,7 @@ for iB in "${!Grid2[@]}"; do
     PROCNAME="b${iB}_${Grid1[$iB]}"   # keep under 15 chars
     echo $PROCNAME
     nohup bash -c "exec -a '${PROCNAME}' ./ess_global '${fp2}'" \
-      > "${DIRECTORY}/${runTag}_${runID}.out" 2>&1 &
+      > "${ResultsDIR}/${runTag}_${runID}.out" 2>&1 &
     pids+=($!)
     echo "Launched PID $! for block $iB"
 

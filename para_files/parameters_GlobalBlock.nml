@@ -189,15 +189,17 @@ R0_Nfix   = 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0    ! Nit
 
 &global_setting_nml
 ! For netCDF files
-ncfilepath   = '/media/eweng/HD2/weng/Data/unzippedNC/',
-ncversion    = 'crujra.v2.4.5d.',
-veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/'
-veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
+ncfilepath   = '/media/eweng/HD2/weng/Data/TrendyForcingUnzipped/',
+ncversion    = 'crujra.v4.10.5d.',
+veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/',
+veg_file     = 'pft2011_0.5x0.5.nc', ! Vegetation coverage
 WriteForcing = .False., ! .True., ! Write interpolated grid forcing data
+WriteCell6H  = .False.,
 
 ! For the interpolated grid data files
-int_fpath    = '/media/eweng/HD2/weng/Data/Interpo_crctRad_30yrs/',
-int_prefix   = 'crujra.v2.4.5d.',
+int_fpath    = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/',
+fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/',
+int_prefix   = 'crujra.v4.10.5d.',
 GridListFile = 'GlobalVegGridList.csv',
 
 ! Total vegetated grids are 56395 when Lat 61~320 and Lon 1~720
@@ -205,8 +207,8 @@ LowerLon = 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75
 UpperLon = 720, !  209,
 LowerLat = 61,  ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
 UpperLat = 320, ! 247,252
-yr_start = 1990, ! 2010, ! Data start year of netCDF files
-yr_end   = 2019, ! 2011, ! Data end year
+yr_start = 1901, ! 2010, ! Data start year of netCDF files
+yr_end   = 1920, ! 2011, ! Data end year
 grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = ResGrid
@@ -238,17 +240,17 @@ climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
-model_run_years = 1190, !  1790,   ! 890, 
+model_run_years = 100, ! 1190, !  1790,   ! 890, 
 ! --- For HistCO2
-CO2_yr0  = 1991,   ! CO2 history start year, Minimum 1700
-CO2_yr1  = 2020,   ! CO2 history end year, Maximum 2025
-post_yrs = 400,    ! Model run after CO2 end year
+CO2_yr0  = 1901,   ! CO2 history start year, Minimum 1700
+CO2_yr1  = 1901,   ! CO2 history end year, Maximum 2025
+post_yrs = 0,    ! Model run after CO2 end year
 CO2_mp   = 1.0,    ! CO2 increase rate multiplier
-CO2Tag   = 'eCO2', ! Use CO2_Future
+CO2Tag   = 'aCO2', ! Use CO2_Future
 ! Checkpoint/restart
-do_restart_write = .False., ! Set to .True. to save state at end of run
+do_restart_write = .True. ! .False., ! Set to .True. to save state at end of run
 do_restart_read  = .False., ! Set to .True. to resume from a previous run
-restart_file     = './output/BiomeE_restart.bin',
+restart_file     = 'DIRreadin/BiomeE_restart.bin',
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True.,  !
 do_closedN_run  = .False., ! .True.  !

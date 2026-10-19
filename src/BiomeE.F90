@@ -323,8 +323,8 @@ module BiomeE_mod
 
 #ifdef HistCO2
         ! CO2 concentration for this year
-        write(*,*)'i_hist, CO2Yrs, spin_yrs, CO2_mp',i_hist, CO2Yrs, spin_yrs, CO2_mp
-        write(*,*)'Used CO2 concentration:',climateData%CO2
+        !write(*,*)'i_hist, CO2Yrs, spin_yrs, CO2_mp',i_hist, CO2Yrs, spin_yrs, CO2_mp
+        !write(*,*)'Used CO2 concentration:',climateData%CO2
         ! Next Year's i_hist and i_SC
         if(n_yr > spin_yrs .and. n_yr <= spin_yrs+hist_yrs) i_hist = Min(i_hist + 1, CO2Yrs)
         if(n_yr > spin_yrs + hist_yrs) i_Sc = min(i_Sc + 1, SC_Yrs)

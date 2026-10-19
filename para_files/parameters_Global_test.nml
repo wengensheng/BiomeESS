@@ -17,21 +17,21 @@ TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 
 ! Model run
 filepath_in = './input/',
-filepath_out= './output/',
+filepath_out= '/media/eweng/HD2/weng/DBEN/Simulations/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 CO2_c       = 370.0, ! ppm, The year of 2000
 model_run_years = 100,
 outputhourly    = .False. ! .True.
-outputdaily     = .True.  ! .False. !
+outputdaily     = True.   ! .False. !.
 do_closedN_run  = .False. ! .True.  !
 do_fire         = .True.  ! .False. !
 do_RecoverSP    = .True.  ! .False. !
 ! Checkpoint/restart
-do_restart_write = .False.,
+do_restart_write = .True. ! .False.,
 do_restart_read  = .False.,
-restart_file     = './output/BiomeE_restart.bin',
+restart_file     = '/media/eweng/HD2/weng/DBEN/Simulations/Restart/BiomeE_restart.bin'
 /
 
 &soil_data_nml
@@ -92,27 +92,28 @@ S_facuN   = 1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    0.0,    1.0
 
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 &global_setting_nml
-ncfilepath = '/Users/eweng/Documents/Data/CRU/zipped/',
-!ncfilepath = '/media/eweng/HD2/weng/Data/unzippedNC/',
-ncversion  = 'crujra.v2.4.5d.',
-veg_path   = '/Users/eweng/Documents/Data/Vegetation/',
-!veg_path  = '/media/eweng/HD2/weng/Data/Vegetation/',
-Ndp_path   = '/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/',
-veg_file   = 'pft2011_0.5x0.5.nc'
-!int_fpath  = '/media/eweng/HD2/weng/Data/interpolated/',
-!int_fpath  = '/Users/eweng/Documents/Data/CRU/zipped/interpolated/',
-int_fpath  = '/Users/eweng/Documents/BiomeESS/forcingData/interpolated/',
+!! For netCDF files
+ncfilepath   = '/media/eweng/HD2/weng/Data/TrendyForcingUnzipped/',
+ncversion    = 'crujra.v4.10.5d.',
+veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/',
+veg_file     = 'pft2011_0.5x0.5.nc', ! Vegetation coverage
+WriteForcing = .False., ! .True., ! Write interpolated grid forcing data
+WriteCell6H  = .False.,
 
-int_prefix = 'crujra.v2.4.5d.',
-GridListFile = 'GlobalVegGridList.csv', ! 'VegGridList2.csv' ! 'VegGridList_v2.4_2010_2019.csv', ! 'TestVegGrids.csv', !
-WriteForcing = .True., !  .False., ! 
+! For the interpolated grid data files
+int_fpath    = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/',
+fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/',
+int_prefix   = 'crujra.v4.10.5d.',
+GridListFile = 'GlobalVegGridList.csv',
+
+
 ! Total grids are 56395 when Lat 61~320 and Lon 1~720
 LowerLon = 205, ! 211, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 206, ! 212, ! 720, !  209,
 LowerLat = 250, ! 260, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
 UpperLat = 252, ! 261, ! 320, ! 247,252
-yr_start = 2010, ! Data start year of netCDF files
-yr_end   = 2011, ! Data end year
+yr_start = 1901, ! Data start year of netCDF files
+yr_end   = 1930, ! Data end year
 LC_year0 = 1176, ! the last year's farmland distribution (Started from year 850)
 grid_No1 = 1, ! 1,
 grid_No2 = 20, ! 56395, ! Maximum grids in the vegetated land

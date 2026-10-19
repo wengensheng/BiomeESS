@@ -3327,13 +3327,13 @@ subroutine vegn_species_recovery (vegn)
      vegn%n_cohorts = k
      ccnew => null()
 
-     ! Make carbon and nitrogen balance
-     if(addedC > 0.99*vegn%SOC(2)) &
-        write(*,*)'vegn_species_recovery: SOC(2) too small, C not balanced by',addedC-0.99*vegn%SOC(2)
-     if(addedN > 0.99*vegn%SON(2)) &
-        write(*,*)'vegn_species_recovery: SON(2) too small, N not balanced by',addedN-0.99*vegn%SON(2)
-     vegn%SOC(2) = vegn%SOC(2) - min(0.99*vegn%SOC(2),addedC)
-     vegn%SON(2) = vegn%SON(2) - min(0.99*vegn%SON(2),addedN)
+     ! Make carbon and nitrogen balance by substracting addedC and addedN from SOM5
+     if(addedC > 0.99*vegn%SOC(5)) &
+        write(*,*)'vegn_species_recovery: SOC(5) too small, C not balanced by',addedC-0.99*vegn%SOC(5)
+     if(addedN > 0.99*vegn%SON(5)) &
+        write(*,*)'vegn_species_recovery: SON(5) too small, N not balanced by',addedN-0.99*vegn%SON(5)
+     vegn%SOC(5) = vegn%SOC(5) - min(0.99*vegn%SOC(5),addedC)
+     vegn%SON(5) = vegn%SON(5) - min(0.99*vegn%SON(5),addedN)
   endif ! set up newly moved-in cohorts
 
 end subroutine vegn_species_recovery

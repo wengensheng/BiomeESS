@@ -454,9 +454,9 @@ contains
     B_sd(0:N_EST)      = [-60.,   -60.,   -25.,   -25.,   -25.,   -25.,   -25.,   -40.  ] ! Mortality sensitivity for seedlings
     A_DBH(0:N_EST)     = [4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0,    4.0   ] ! Max multiplier for DBH-based mortality
     B_DBH(0:N_EST)     = [.125,   .125,   .125,   .125,   .125,   .125,   .125,   .125  ] ! Size-based Mortality sensitivity, m
-    W_mu0(0:N_EST)     = [2.5,    2.5,    0.65,   0.85,   0.85,   0.85,   0.75,   1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
+    W_mu0(0:N_EST)     = [2.5,    2.5,    .65,    .85,    .85,    .85,    .75,    1.5   ] ! Jeremy's half-mortality transp deficit, high:0.5, low: 0.75, No effects: 2.5
     IgniteP(0:N_EST)   = [1.0,    1.0,    .01,    .02,    .02,    .02,    .02,    .02   ] ! Intrinsic flammability
-    mu0fire(0:N_EST)   = [0.2,    0.2,    .80,    .99,    .99,    .80,    .90,    .60   ] ! Intrinsic flammability
+    mu0fire(0:N_EST)   = [.99,    .99,    .80,    .99,    .99,    .80,    .90,    .60   ] ! Intrinsic flammability
     gamma_SW(0:N_EST)  = [0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02,   0.02  ] ! Wood Acambium respiration rate (kgC/m2/yr
     Tc0_OFF(0:N_EST)   = [12.,    8.,     15.,    15.,    -50.,   12.,    15.0,   12.   ] ! 283.16 ! OFF ! C for convenience
     Tc0_ON(0:N_EST)    = [10.,    5.,     10.,    10.,    -50.,   8.,     10.,     8.   ] ! 280.16 ! ON  ! C for convenience
@@ -467,6 +467,7 @@ contains
     gdd_par3(0:N_EST)  = [-0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02,  -0.02 ] ! -0.01d0
     R0_Nfix(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.03,   0.0   ] ! Nitrogen fixation rate, 0.03 kgN kgRootC-1 yr-1
     S_facuN(0:N_EST)   = [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.2,    0.0   ] ! Intensity of faculative N fixation
+    AgeRepro(0:N_EST)  = [0.0,    0.0,    5.0,    5.0,    5.0,    5.0,    5.0,    2.0   ] ! Minimum age for reproduction, year
     ! Not used in current model setting (Global ESS PFTs)
     gdd_crit(0:N_EST)  = [300.,   300.,   300.,   300.,   300.,   300.,   300.,   300.  ] ! 280.0 !
     s_hu(0:N_EST)      = [25.0,   25.0,   25.0,   25.0,   25.0,   25.0,   25.0,   25.0  ] ! hydraulic mortality sensitivity

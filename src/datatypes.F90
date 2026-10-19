@@ -1036,17 +1036,19 @@ module datatypes
   logical  :: Do_Harvest          = .False. ! Forest harvest
 
   ! For global/regional run, Weng, 2025-07-22
-  character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/'
-  character (len = 256) :: veg_path     = '/Users/eweng/Documents/Data/Vegetation/'
-  character (len = 256) :: Ndp_path     = '/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/'
-  character (len = 20)  :: ncversion    = 'crujra.v2.4.5d.'
+  character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/TrendyUnzipped/'
+  character (len = 256) :: veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/' ! '/Users/eweng/Documents/Data/Vegetation/'
+  character (len = 256) :: Ndp_path     = '/media/eweng/HD2/weng/Data/N_deposition/' !'/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/'
+  character (len = 20)  :: ncversion    = 'crujra.v4.10.5d.'
   character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
   character (len = 20)  :: LUC_file     = 'CropLand_states4_05deg.nc' ! Land use/cover file, George Hurtt
 
-  character (len = 256) :: int_fpath    = '/media/eweng/HD2/weng/Data/CRU/TRENDY2023/1HX1/interpolated/'
-  character (len = 80)  :: int_prefix   = 'crujra.v2.4.5d.'
+  character (len = 256) :: int_fpath    = '/media/eweng/HD2/weng/Data/Interpolated20260909/'
+  character (len = 256) :: fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/'
+  character (len = 80)  :: int_prefix   = 'crujra.v4.10.5d.' ! 'crujra.v2.4.5d.'
   character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv' ! in int_fpath
-  character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
+  !character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
+  character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','tswrf','spfh','pres','ugrd','vgrd']
   character (len = 6)   :: GridIDFMT    = '(I6.6)' ! For the file name string (GridID)
   character (len=30)    :: Vegstr       = 'TOTAL_VEG'
   character (len=9)     :: VegID(N_Vegs)= [character(len=9) :: &
@@ -1125,10 +1127,11 @@ module datatypes
   type(soil_pars_type), save :: soilpars(n_dim_soil_types) ! Soil hydraulics parameters
 
   ! ------------- Global run model setting name list ------------
-  namelist /global_setting_nml/ WriteCell6H, WriteForcing, yr_start, yr_end, &
-  ncfilepath, ncversion, veg_path, veg_file, LUC_file,LC_year0, &
-  int_fpath, int_prefix, GridListFile, grid_No1, grid_No2,      &
-  LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon, Ndp_path
+  namelist /global_setting_nml/ WriteCell6H, WriteForcing,    &
+  ncfilepath, int_fpath, fpath_6H, veg_path, Ndp_path,        &
+  ncversion, int_prefix, veg_file, LUC_file, GridListFile,    &
+  grid_No1, grid_No2, yr_start, yr_end, LC_year0,             &
+  LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon
 
   ! ------------- Model initialization name list ------------
   namelist /initial_state_nml/ N_VegTile,                      &

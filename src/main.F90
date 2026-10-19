@@ -102,14 +102,14 @@ program BiomeE
     ! Read interpolated data from disk files. Moved here to avoid reading errors
 #ifdef Use_6hourlyData
     ! Read the 6-hourly data into LandGrid(1), then interpolate to hourly
-    call read_6hourlyCRU(int_fpath,int_prefix,GridID,m,yr_start,yr_end,file_exists)
+    call read_6hourlyCRU(fpath_6H,ncversion,GridID,m,yr_start,yr_end,file_exists)
     if(.not. file_exists)then
       print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
       cycle
     endif
     call CRU_Interpolation(LandGrid(1),forcingData)
 #else
-    call read_interpolatedCRU(int_fpath,int_prefix,GridID,yr_start,yr_end,forcingData,file_exists)
+    call read_interpolatedCRU(int_fpath,ncversion,GridID,yr_start,yr_end,forcingData,file_exists)
     if(.not. file_exists)then
       print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
       cycle
