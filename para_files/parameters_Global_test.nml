@@ -17,21 +17,21 @@ TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 
 ! Model run
 filepath_in = './input/',
-filepath_out= '/media/eweng/HD2/weng/DBEN/Simulations/',
+filepath_out= './output/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 CO2_c       = 370.0, ! ppm, The year of 2000
 model_run_years = 100,
 outputhourly    = .False. ! .True.
-outputdaily     = True.   ! .False. !.
+outputdaily     = .True.   ! .False. !
 do_closedN_run  = .False. ! .True.  !
 do_fire         = .True.  ! .False. !
 do_RecoverSP    = .True.  ! .False. !
 ! Checkpoint/restart
 do_restart_write = .True. ! .False.,
 do_restart_read  = .False.,
-restart_file     = '/media/eweng/HD2/weng/DBEN/Simulations/Restart/BiomeE_restart.bin'
+restart_file     = './output/BiomeE_restart.bin'
 /
 
 &soil_data_nml
@@ -101,9 +101,8 @@ WriteForcing = .False., ! .True., ! Write interpolated grid forcing data
 WriteCell6H  = .False.,
 
 ! For the interpolated grid data files
-int_fpath    = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/',
+fpath_1H     = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/',
 fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/',
-int_prefix   = 'crujra.v4.10.5d.',
 GridListFile = 'GlobalVegGridList.csv',
 
 
@@ -111,7 +110,7 @@ GridListFile = 'GlobalVegGridList.csv',
 LowerLon = 205, ! 211, ! 1,   !  160: Kansas; 120: Nevada; Grid No. through longitude (-179.75 ~ 179.75)
 UpperLon = 206, ! 212, ! 720, !  209,
 LowerLat = 250, ! 260, ! 61, ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
-UpperLat = 252, ! 261, ! 320, ! 247,252
+UpperLat = 251, ! 261, ! 320, ! 247,252
 yr_start = 1901, ! Data start year of netCDF files
 yr_end   = 1930, ! Data end year
 LC_year0 = 1176, ! the last year's farmland distribution (Started from year 850)

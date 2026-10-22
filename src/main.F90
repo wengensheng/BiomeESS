@@ -15,6 +15,7 @@ program BiomeE
   implicit none
   !-----------
   character(len=256) :: fnml = './para_files/input.nml' ! 'parameters_ORNL_test.nml'
+  character(len=256) :: ListPath !Path to GridListFile and FarmListFile
   real :: start_time, end_time, last_time, elapsed_time
   integer :: timeArray(3), m
   ! Wall time counting
@@ -54,9 +55,15 @@ program BiomeE
   call model_para_init(fnml) ! Update hardwired global PFT & soil parameters from namelists
 
 #ifdef Use_GridCellData
-  call read_GridLonLat(GridListFile,file_exists)
+! Read the list files from ListPath
+#ifdef Use_6hourlyData
+  ListPath=trim(fpath_6H)
+#else
+  ListPath=trim(fpath_1H)
+#endif
+  call read_GridLonLat(ListPath,file_exists)
   if(.not. file_exists)then
-    write(*,*)trim(GridListFile), 'does not exist. Stopped!'
+    write(*,*)'Grid list or farm file missing. Stopped!'
     stop !
   endif
 #else
@@ -109,7 +116,7 @@ program BiomeE
     endif
     call CRU_Interpolation(LandGrid(1),forcingData)
 #else
-    call read_interpolatedCRU(int_fpath,ncversion,GridID,yr_start,yr_end,forcingData,file_exists)
+    call read_hourlyIntp(fpath_1H,ncversion,GridID,yr_start,yr_end,forcingData,file_exists)
     if(.not. file_exists)then
       print '(A, I8, A)', 'Grid ', GridID, ' is skipped b/c of no input file or shorter than needed.'
       cycle

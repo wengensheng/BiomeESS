@@ -226,7 +226,7 @@ the model into data-writing mode.
   ncversion    = 'crujra.v2.4.5d.'
   veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/'
   veg_file     = 'pft2011_0.5x0.5.nc'
-  int_fpath    = '/media/eweng/HD2/weng/Data/interpolated/'
+  fpath_1H    = '/media/eweng/HD2/weng/Data/interpolated/'
   int_prefix   = 'crujra.v2.4.5d.'
 
   GridListFile = 'GlobalVegGridList.csv'   ! replaced by sed per band
@@ -245,7 +245,7 @@ the model into data-writing mode.
 /
 ```
 
-Adjust `ncfilepath`, `veg_path`, `int_fpath`, and `yr_start`/`yr_end` to match your
+Adjust `ncfilepath`, `veg_path`, `fpath_1H`, and `yr_start`/`yr_end` to match your
 local data layout and the desired climate period.
 
 ### 5.5 Output
@@ -257,7 +257,7 @@ compiled with `-DUse_GridCellData`.
 
 ### 5.6 Connecting to `runMultiBlocks.x`
 
-After `GlobalDataRun.x` finishes, point `int_fpath` in
+After `GlobalDataRun.x` finishes, point `fpath_1H` in
 `para_files/parameters_GlobalBlock.nml` to the directory that was set as `DIRECTORY`
 here, then compile and run `runMultiBlocks.x` with `-DUse_GridCellData` enabled.
 
@@ -328,7 +328,7 @@ Key differences from the single-site namelist:
   ncversion   = 'crujra.v2.4.5d.'
   veg_path    = '/data/Vegetation/'
   veg_file    = 'pft2011_0.5x0.5.nc'
-  int_fpath   = '/data/Interpolated/'
+  fpath_1H   = '/data/Interpolated/'
   int_prefix  = 'crujra.v2.4.5d.'
   yr_start    = 1990
   yr_end      = 2019

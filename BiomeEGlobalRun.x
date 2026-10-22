@@ -41,11 +41,9 @@ fparameter='./para_files/parameters_Global_test.nml'
 echo $fparameter
 
 # Write to the file that will be read by the model
-#cat $fparameter > ./para_files/input.nml
 
 # Run model
 ./ess_global $fparameter
 
-#rm ./para_files/input.nml
 rm ess_global
 rm *.mod

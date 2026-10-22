@@ -77,11 +77,12 @@ module BiomeE_mod
     implicit none
     type(vegn_tile_type), pointer :: vegn => NULL()
     type(vegn_tile_type), pointer :: pveg => NULL()
-    integer :: i
+    integer :: i, n_cycles
 
     ! Setup total days of model run (forcing data have been read in)
-    totdays  = INT((model_run_years + post_yrs) / data_yrs + 1) * data_days
-    totyears = INT((model_run_years + post_yrs) / data_yrs + 1) * data_yrs
+    n_cycles = ceiling(real(model_run_years+post_yrs)/real(data_yrs))
+    totdays  = n_cycles * data_days
+    totyears = n_cycles * data_yrs
     if(output_days > 0)then
       skipped_days = totdays - output_days
     else

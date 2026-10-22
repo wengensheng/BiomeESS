@@ -1043,10 +1043,10 @@ module datatypes
   character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
   character (len = 20)  :: LUC_file     = 'CropLand_states4_05deg.nc' ! Land use/cover file, George Hurtt
 
-  character (len = 256) :: int_fpath    = '/media/eweng/HD2/weng/Data/Interpolated20260909/'
+  character (len = 256) :: fpath_1H     = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/'
   character (len = 256) :: fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/'
-  character (len = 80)  :: int_prefix   = 'crujra.v4.10.5d.' ! 'crujra.v2.4.5d.'
-  character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv' ! in int_fpath
+  character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv'
+  character (len = 50)  :: FarmListFile = 'GridFarmRatio.csv'
   !character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
   character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','tswrf','spfh','pres','ugrd','vgrd']
   character (len = 6)   :: GridIDFMT    = '(I6.6)' ! For the file name string (GridID)
@@ -1128,8 +1128,8 @@ module datatypes
 
   ! ------------- Global run model setting name list ------------
   namelist /global_setting_nml/ WriteCell6H, WriteForcing,    &
-  ncfilepath, int_fpath, fpath_6H, veg_path, Ndp_path,        &
-  ncversion, int_prefix, veg_file, LUC_file, GridListFile,    &
+  ncfilepath, veg_path, Ndp_path, fpath_1H, fpath_6H,         &
+  ncversion, veg_file, LUC_file, GridListFile, FarmListFile,  &
   grid_No1, grid_No2, yr_start, yr_end, LC_year0,             &
   LowerLon, UpperLon, LowerLat, UpperLat, StepLatLon
 

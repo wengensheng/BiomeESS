@@ -42,7 +42,7 @@ rm -f *.mod
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
 GridRS='1' # Grid resolution, 1 for grid by grid (1x1), 2 for skipping one for each lon and lat (2x2)
-runTag='N2gCO21900' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+runTag='N2gCO21901' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 HOMEDIR="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/$runTag"
 ResultsDIR=$HOMEDIR"/Run_"$runTag
 RestartDIR=$HOMEDIR"/Restart_"$runTag
@@ -141,8 +141,8 @@ for iB in "${!Grid2[@]}"; do
     sed -e "s/StartGrid/${Grid1[$iB]}/g" \
         -e "s/EndGrid/${Grid2[$iB]}/g" \
         -e "s/ResGrid/$GridRS/g" \
-        -e "s#TargetDir#$ResultsDIR#g" \
-        -e "s#DIRreadin#$RestartDIR#g" \
+        -e "s#DirResults#$ResultsDIR#g" \
+        -e "s#DirRestart#$RestartDIR#g" \
            $fp1 > $fp2
 
     # Run the model with newly generated runscript and parameter file

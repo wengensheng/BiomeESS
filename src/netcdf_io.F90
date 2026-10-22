@@ -16,7 +16,7 @@ module netcdf_io
   private
 
   public ReadNCfiles, CRU_Interpolation, Write_6hourly
-  public read_GridLonLat, read_interpolatedCRU, read_6hourlyCRU
+  public read_GridLonLat, read_hourlyIntp, read_6hourlyCRU
   public Release_grid_memory
 
 contains
@@ -252,7 +252,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
         if (.not. unzip_ok) then
           file_exists = .false.
           forcingData => null()
-          write (*, '("read_interpolatedCRU: unzip failed for ", a)') trim(fgz)
+          write (*, '("read_hourlyIntp: unzip failed for ", a)') trim(fgz)
           return
         endif
 
@@ -558,13 +558,13 @@ end subroutine Release_grid_memory
 
 !=============================================================================
 ! Read the interpolated data file list
-subroutine read_GridLonLat(fname,file_exists)
+subroutine read_GridLonLat(fpath,file_exists)
   implicit none
-  character(len=*),intent(in) :: fname
+  character(len=*),intent(in) :: fpath ! The path to GridListFile and FarmListFile
   logical, intent(inout) :: file_exists
 
   ! ------- Local vars ---------------
-  integer, parameter :: maxGrids = Nlon*Nlat/3
+  integer, parameter :: maxGrids = Nlon*Nlat/3 ! Land grids
   real    :: GridVF(N_Vegs, maxGrids),tmpVF(N_Vegs, maxGrids) ! Veg cover for all grids
 #ifdef WIEMIP_setting
   real    :: GFM(FM_Yrs, maxGrids),tmpFM(FM_Yrs, maxGrids)
@@ -573,25 +573,21 @@ subroutine read_GridLonLat(fname,file_exists)
   integer :: GridCode, istat1, istat2
   integer :: i,j,k,m,n
   integer :: TotalFiles ! Each file represents a grid
-  character(len=300) :: listfile,FarmFile
+  character(len=300) :: GridFile,FarmFile
 
-#ifdef Use_6hourlyData
-  listfile=trim(fpath_6H)//trim(fname)
-#else
-  listfile=trim(int_fpath)//trim(fname)
-#endif
-  INQUIRE (file=trim(listfile), EXIST=file_exists)
+  GridFile=trim(fpath)//trim(GridListFile)
+  INQUIRE (file=trim(GridFile), EXIST=file_exists)
   if (.not. file_exists) then
-    write (*, '("read_GridLonLat: ", a, " does not exist")') trim(listfile)
+    write (*, '("read_GridLonLat: ", a, " does not exist")') trim(GridFile)
     return
   endif
-  open(11,file=listfile,status='old',ACTION='read',IOSTAT=istat1)
+  open(11,file=GridFile,status='old',ACTION='read',IOSTAT=istat1)
 
 #ifdef WIEMIP_setting
-  FarmFile=trim(int_fpath)//'GridFarmRatio.csv'
+  FarmFile=trim(fpath)//trim(FarmListFile) !'GridFarmRatio.csv'
   INQUIRE (file=trim(FarmFile), EXIST=file_exists)
   if (.not. file_exists) then
-    write (*, '("read_GridLonLat: ", a, " does not exist")') trim(Farmfile)
+    write (*, '("read_GridLonLat: ", a, " does not exist")') trim(FarmFile)
     return
   endif
   open(12,file=Farmfile,status='old',ACTION='read',IOSTAT=istat2)
@@ -608,7 +604,7 @@ subroutine read_GridLonLat(fname,file_exists)
     ! Next grid
     m = m + 1
   enddo
-  write(*,*)'Total grids in the list fie:',m
+  write(*,*)'Total grids in the list file:',m
 
   ! Update GridNo and m with StepLatLon
   if(StepLatLon > 1 .or. UpperLon < 720)then ! Regional or partial run
@@ -758,7 +754,7 @@ subroutine read_6hourlyCRU(fpath,fprefix,GridID,m,year0,year1,file_exists)
 end subroutine read_6hourlyCRU
 
 !=============================================================================
-subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,file_exists)
+subroutine read_hourlyIntp(fpath,fprefix,GridID,year0,year1,forcingData,file_exists)
   character(len=*),intent(in) :: fpath,fprefix
   integer, intent(in) :: GridID, year0, year1
   type(climate_data_type), pointer :: forcingData(:)
@@ -790,7 +786,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   inquire(file=trim(climfile)//'.gz', exist=file_exists)
   if (.not. file_exists) then
     forcingData => null()
-    write (*, '("read_interpolatedCRU: ", a, " does not exist")') trim(climfile)//'.gz'
+    write (*, '("read_hourlyIntp: ", a, " does not exist")') trim(climfile)//'.gz'
     return
   endif
 
@@ -799,7 +795,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   if (.not. unzip_ok) then
     file_exists = .false.
     forcingData => null()
-    write (*, '("read_interpolatedCRU: unzip failed for ", a)') trim(climfile)//'.gz'
+    write (*, '("read_hourlyIntp: unzip failed for ", a)') trim(climfile)//'.gz'
     return
   endif
 
@@ -818,7 +814,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   if (istat2 /= 0) then
     file_exists = .false.
     forcingData => null()
-    write (*, '("read_interpolatedCRU: cannot open ", a, ", iostat=", I0)') trim(climfile), istat2
+    write (*, '("read_hourlyIntp: cannot open ", a, ", iostat=", I0)') trim(climfile), istat2
     deallocate(input_data, timecols)
     return
   endif
@@ -828,7 +824,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
   if (istat2 /= 0) then
     file_exists = .false.
     forcingData => null()
-    write (*, '("read_interpolatedCRU: failed reading header from ", a, ", iostat=", I0)') trim(climfile), istat2
+    write (*, '("read_hourlyIntp: failed reading header from ", a, ", iostat=", I0)') trim(climfile), istat2
     close(u)
     deallocate(input_data, timecols)
     return
@@ -852,7 +848,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
 
   ! Check the consistency between the file data lines and required
   if (m /= datalines) then
-    write (*, '("In read_interpolatedCRU, File ",a," is shorter than needed: lines: ",I12)') trim(fname), m
+    write (*, '("In read_hourlyIntp, File ",a," is shorter than needed: lines: ",I12)') trim(fname), m
     file_exists = .false.
     deallocate(input_data, timecols)
     forcingData => null()
@@ -900,7 +896,7 @@ subroutine read_interpolatedCRU(fpath,fprefix,GridID,year0,year1,forcingData,fil
 
   ! Release memory
   deallocate(input_data, timecols)
-end subroutine read_interpolatedCRU
+end subroutine read_hourlyIntp
 
 !==============================================================
 subroutine unzip_gzip_file(filename_gz, ok, exitstat, out_file)
