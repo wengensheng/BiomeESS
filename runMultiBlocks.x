@@ -42,7 +42,7 @@ rm -f *.mod
 # -----------------------------------------------------------------------------
 # ----------------- Setup output directory path ------------
 GridRS='1' # Grid resolution, 1 for grid by grid (1x1), 2 for skipping one for each lon and lat (2x2)
-runTag='N2gCO21901' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
+runTag='N2gCO2_2025' #'N3gWmu0Low' #'BaseN2gThnG' #'GrassThn' # 'N2g16Hyrs' #'Warming2C' # 'eCO2'
 HOMEDIR="/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/$runTag"
 ResultsDIR=$HOMEDIR"/Run_"$runTag
 RestartDIR=$HOMEDIR"/Restart_"$runTag

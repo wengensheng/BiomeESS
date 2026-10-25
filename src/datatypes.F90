@@ -972,24 +972,26 @@ module datatypes
   real :: TcrC3C4 = 0.0    ! Temperature threshold for C4 vs C3 grasses
 
   ! Input files
-  character(len=80)  :: filepath_in = './input/'
-  character(len=80)  :: filepath_out = './output/'
   character(len=80)  :: runID = 'test'
-  character(len=160) :: climfile = 'ORNL_forcing.txt'
-  character(len=160) :: Scefile = 'ORNL_forcing.txt'
+  character(len=256) :: input_path  = './input/'
+  character(len=256) :: output_path = './output/'
+  character(len=256) :: climfile = 'ORNL_forcing.txt'
+  character(len=256) :: Scefile  = 'ORNL_forcing.txt'
   character(len=160) :: PaleoPfile = 'RMA_P.csv' ! for DroughtPaleo
   character(len=160) :: PaleoTfile = 'RMA_T.csv'
   integer  :: iDraw = 1 ! Sample number
   real     :: siteLAT = 36.01 !site latitude, ORNL
   integer  :: N_VegTile = 1 ! Initial vegn tiles
+  integer  :: datalines ! the total lines in forcing data file
+  integer  :: data_yrs  ! Years of the forcing data
+  integer  :: data_days ! days of the forcing data
 
   ! Checkpoint / restart flags
   logical           :: do_restart_write = .False. ! Write restart file at end of run
   logical           :: do_restart_read  = .False. ! Read restart file at start of run
   character(len=256):: restart_file = './output/BiomeE_restart.bin'
-  integer  :: datalines ! the total lines in forcing data file
-  integer  :: data_yrs  ! Years of the forcing data
-  integer  :: data_days ! days of the forcing data
+  character(len=256):: restart_rpath = './output/' ! Directory for reading restart files. Replace restart_file's path if not empty
+  character(len=256):: restart_wpath = './output/' ! Directory for writing restart files. Replace restart_file's path if not empty
 
   ! For global/regional forcing data, soil conditions, and initial conditions
   ! CRU NetCDF file dimensions
@@ -1039,14 +1041,14 @@ module datatypes
   character (len = 256) :: ncfilepath   = '/media/eweng/HD2/weng/Data/TrendyUnzipped/'
   character (len = 256) :: veg_path     = '/media/eweng/HD2/weng/Data/Vegetation/' ! '/Users/eweng/Documents/Data/Vegetation/'
   character (len = 256) :: Ndp_path     = '/media/eweng/HD2/weng/Data/N_deposition/' !'/Users/eweng/Documents/BiomeESS/forcingData/N_deposition/'
-  character (len = 20)  :: ncversion    = 'crujra.v4.10.5d.'
-  character (len = 20)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
-  character (len = 20)  :: LUC_file     = 'CropLand_states4_05deg.nc' ! Land use/cover file, George Hurtt
+  character (len = 80)  :: ncversion    = 'crujra.v4.10.5d.'
+  character (len = 80)  :: veg_file     = 'pft2011_0.5x0.5.nc' ! Vegetation coverage
+  character (len = 80)  :: LUC_file     = 'CropLand_states4_05deg.nc' ! Land use/cover file, George Hurtt
 
   character (len = 256) :: fpath_1H     = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/'
   character (len = 256) :: fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/'
-  character (len = 50)  :: GridListFile = 'GlobalVegGridList.csv'
-  character (len = 50)  :: FarmListFile = 'GridFarmRatio.csv'
+  character (len = 80)  :: GridListFile = 'GlobalVegGridList.csv'
+  character (len = 80)  :: FarmListFile = 'GridFarmRatio.csv'
   !character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','dswrf','spfh','pres','ugrd','vgrd']
   character (len = 5)   :: ncfields(7)  = [character(len=5):: 'tmp','pre','tswrf','spfh','pres','ugrd','vgrd']
   character (len = 6)   :: GridIDFMT    = '(I6.6)' ! For the file name string (GridID)
@@ -1143,11 +1145,12 @@ module datatypes
   ! Climate envelopes for initializing PFTs
   MI0DeSB, MI0C3C4, TcrTREE, TcrC3C4,                          &
   ! Model run controls
-  filepath_in,filepath_out,climfile,outputhourly,outputdaily,  &
+  input_path, output_path, climfile, outputhourly, outputdaily,&
   runID,model_run_years,post_yrs,output_days,Sc_prcp,Sc_dT,    &
   CO2Tag, fixedCO2, CO2_c, dCO2, CO2_mp, CO2_yr0, CO2_yr1,     &
   ! Checkpoint / restart
   do_restart_write, do_restart_read, restart_file,             &
+  restart_rpath, restart_wpath,                                &
   ! Model components
   MergeLowDenCohorts, Do_DroughtMu, Do_RecoverSP, FreqY0,      &
   Do_ClosedN_run, Do_VariedKx, Do_variedWTC0, Do_mu0_F_WDen,   &

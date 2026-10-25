@@ -16,6 +16,10 @@
 ! the GridID before the extension, e.g.:
 !   restart_file = './output/BiomeE_restart.bin'
 !   -> actual path: './output/BiomeE_restart_205249.bin'
+!
+! The directory can be set separately for reading and writing with restart_rpath and
+! restart_wpath; the file name is always taken from restart_file. An empty path means
+! the directory part of restart_file is used.
 !============================================================================
 
 module restart_mod
@@ -34,18 +38,30 @@ contains
 !----------------------------------------------------------------------------
 ! Helper: build the actual file path (appends GridID when > 0)
 !----------------------------------------------------------------------------
-  function restart_path() result(path)
+  function restart_path(dir) result(path)
+    character(len=*), intent(in) :: dir ! restart_rpath or restart_wpath ('' = as in restart_file)
     character(len=512) :: path
+    character(len=256) :: rfile
     character(len=20)  :: gid_str
-    integer :: dot_pos, n
+    integer :: dot_pos, n, slash_pos
+
+    ! Replace the directory part of restart_file if dir is given
+    rfile = restart_file
+    if (len_trim(dir) > 0) then
+      slash_pos = index(restart_file, '/', back=.true.)
+      rfile = trim(dir)
+      n = len_trim(rfile)
+      if (rfile(n:n) /= '/') rfile = trim(rfile) // '/'
+      rfile = trim(rfile) // trim(restart_file(slash_pos+1:))
+    endif
 
     ! GridID default is 999999 (site run). Only append it for real global grids.
     if (GridID /= 999999) then
-      ! Find the last '.' in restart_file to insert GridID before extension
-      n = len_trim(restart_file)
+      ! Find the last '.' in rfile to insert GridID before extension
+      n = len_trim(rfile)
       dot_pos = 0
       do while (n > 0)
-        if (restart_file(n:n) == '.') then
+        if (rfile(n:n) == '.') then
           dot_pos = n
           exit
         endif
@@ -53,13 +69,13 @@ contains
       enddo
       write(gid_str, '("_", I6.6)') GridID
       if (dot_pos > 0) then
-        path = trim(restart_file(1:dot_pos-1)) // trim(gid_str) // &
-               trim(restart_file(dot_pos:len_trim(restart_file)))
+        path = trim(rfile(1:dot_pos-1)) // trim(gid_str) // &
+               trim(rfile(dot_pos:len_trim(rfile)))
       else
-        path = trim(restart_file) // trim(gid_str) // '.bin'
+        path = trim(rfile) // trim(gid_str) // '.bin'
       endif
     else
-      path = trim(restart_file)
+      path = trim(rfile)
     endif
   end function restart_path
 
@@ -289,7 +305,7 @@ contains
     return
 
 900 continue
-    write(*,'(A,A)') 'read_restart: error or end of file while reading cohort data from ', trim(restart_path())
+    write(*,'(A,A)') 'read_restart: error or end of file while reading cohort data from ', trim(restart_path(restart_rpath))
     error stop 'read_restart failed: the restart file is incomplete or from another version'
   end subroutine read_cohort
 
@@ -302,7 +318,7 @@ contains
     integer :: iunit, i, ios, total_cohorts, ntiles
     character(len=512) :: fpath
 
-    fpath = restart_path()
+    fpath = restart_path(restart_wpath)
     open(newunit=iunit, file=trim(fpath), form='unformatted', &
          status='replace', action='write', iostat=ios)
     if (ios /= 0) then
@@ -414,7 +430,7 @@ contains
     integer :: magic, version, n_soil, n_cl, n_ysw
     character(len=512) :: fpath
 
-    fpath = restart_path()
+    fpath = restart_path(restart_rpath)
     open(newunit=iunit, file=trim(fpath), form='unformatted', &
          status='old', action='read', iostat=ios)
     if (ios /= 0) then

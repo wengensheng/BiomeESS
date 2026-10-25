@@ -197,7 +197,7 @@ WriteForcing = .False., ! .True., ! Write interpolated grid forcing data
 WriteCell6H  = .False.,
 
 ! For the interpolated grid data files
-fpath_1H    = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/',
+fpath_1H     = '/media/eweng/HD2/weng/Data/GridClimate1H-30yrs/',
 fpath_6H     = '/media/eweng/HD2/weng/Data/GridClimate6H/',
 GridListFile = 'GlobalVegGridList.csv',
 
@@ -207,7 +207,7 @@ UpperLon = 720, !  209,
 LowerLat = 61,  ! 247, ! 252: Tennessee, Las Vegas. Grid No. through latitude (-89.75 ~ 89.75)
 UpperLat = 320, ! 247,252
 yr_start = 1901, ! 2010, ! Data start year of netCDF files
-yr_end   = 1920, ! 2011, ! Data end year
+yr_end   = 2025, ! 1920, ! 2011, ! Data end year
 grid_No1 = StartGrid, ! 1,
 grid_No2 = EndGrid,   ! 56395, ! Maximum grids in the vegetated land
 StepLatLon = ResGrid
@@ -232,24 +232,28 @@ TcrTREE = 10.0,   ! degree C, Tropical trees vs Temperate/boreal trees
 TcrC3C4 = 0.0,    ! degree C, C4 vs C3 grasses
 
 ! Model run
-filepath_in = './input/',   ! For site run forcing data only
-filepath_out= 'DirResults/', ! './output/',
+input_path  = './input/',   ! For site run forcing data only
+output_path = 'DirResults/', ! './output/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 370.0, ! 570.0, ! ppm, The year of 2000
-model_run_years = 900, ! 1190, !  1790,   ! 890, 
+model_run_years = 125, ! 900, ! 1190, !  1790,   ! 890, 
 ! --- For HistCO2
 CO2_yr0  = 1901,   ! CO2 history start year, Minimum 1700
-CO2_yr1  = 1901,   ! CO2 history end year, Maximum 2025
+CO2_yr1  = 2025,   ! 1901,   ! CO2 history end year, Maximum 2025
 post_yrs = 0,    ! Model run after CO2 end year
 CO2_mp   = 1.0,    ! CO2 increase rate multiplier
 CO2Tag   = 'aCO2', ! Use CO2_Future
 ! Checkpoint/restart
-do_restart_write = .True. ! .False., ! Set to .True. to save state at end of run
-do_restart_read  = .False., ! Set to .True. to resume from a previous run
-restart_file     = 'DirRestart/BiomeE_restart.bin',
+do_restart_write = .False., ! .True. ! Set to .True. to save state at end of run
+do_restart_read  = .True.,  ! .False., ! Set to .True. to resume from a previous run
+! ! 'DirRestart/BiomeE_restart.bin',
+restart_file  = 'BiomeE_restart.bin',
+restart_rpath = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/Restart_N2gCO21901/',
+restart_wpath = 'DirRestart/',
+
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True.,  !
 do_closedN_run  = .False., ! .True.  !

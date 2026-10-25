@@ -80,8 +80,8 @@ N_input          = NdepositionE-3, ! 0.0E-3 ! 2.4E-3 ! kg N m-2 yr-1, N deposit:
 
 ! Model run
 ! '../forcingData/DroughtMIPdrivers/',
-filepath_in = './input/',
-filepath_out= 'TargetDir/', ! './output/',
+input_path = './input/',
+output_path= 'TargetDir/', ! './output/',
 runID       = 'BCI_NfixTests', !
 climfile    = 'BCI_forcing.csv',
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall

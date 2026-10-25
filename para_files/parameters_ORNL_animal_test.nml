@@ -143,8 +143,8 @@ init_slow_SOC  = 40.0
 init_mineralN  = 5.0E-3
 N_input        = 2.4E-3
 
-filepath_in = './input/',
-filepath_out= './output/',
+input_path = './input/',
+output_path= './output/',
 runID       = 'ORNL_animal_test',
 climfile    = 'ORNL_forcing.txt',
 Sc_prcp     = 1.0,
@@ -160,5 +160,5 @@ do_VariedWTC0   = .True.
 do_VariedKx     = .True.
 do_restart_write = .False.,
 do_restart_read  = .False.,
-restart_file     = './output/BiomeE_restart.bin',
+restart_file     = 'BiomeE_restart.bin',
 /

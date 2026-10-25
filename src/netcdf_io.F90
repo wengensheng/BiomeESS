@@ -202,7 +202,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
   
     ! Write GridLonLat and forcing file names to a file
     if(WriteForcing)then
-      fout = trim(filepath_out)//trim(GridListFile) ! Grid ID, VegCover, and N_input
+      fout = trim(output_path)//trim(GridListFile) ! Grid ID, VegCover, and N_input
       open(NEWUNIT=Grids_UN1,file=trim(fout),ACTION='write', IOSTAT=istat1)
       !do m=1, N_VegGrids
       !  write(Grids_UN1, '(I8,11(",",E9.4))')GridLonLat(m),(GridVegT(i,m),i=1,N_vegs),LandGrid(m)%N_input
@@ -223,7 +223,7 @@ subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
     enddo
     ! Write farmland ratios of each grid
     if(WriteForcing)then
-      fout = trim(filepath_out)//'GridFarmRatio.csv' ! Data file name
+      fout = trim(output_path)//'GridFarmRatio.csv' ! Data file name
       open(NEWUNIT=Grids_UN2,file=trim(fout),ACTION='write', IOSTAT=istat2)
       !do m=1, N_VegGrids
       !  write(Grids_UN2, '(I8, 1176(",",f12.4))')GridLonLat(m),(GridFarm(i,m),i=1,FM_Yrs)
@@ -312,7 +312,7 @@ subroutine Write_6hourly(LandGrid)
   Nlines = SIZE(CRUtime)
 
   write(GridStr, GridIDFMT) GridID
-  fout = trim(filepath_out)//trim(ncversion)//trim(GridStr)//'_forcing6h.csv'
+  fout = trim(output_path)//trim(ncversion)//trim(GridStr)//'_forcing6h.csv'
   open(NEWUNIT=forcing_unit,file=trim(fout))
   write(forcing_unit,*)'Tair,RAIN,SWdown6h,SPFH,PRESSURE,WINDU,WINDV,Ndpst'
   do i=1,Nlines
@@ -508,7 +508,7 @@ subroutine CRU_Interpolation(LandGrid,forcingData)
     write(GridStr, GridIDFMT) GridID
 
     ! Write interpolated data
-    fout = trim(filepath_out)//trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
+    fout = trim(output_path)//trim(ncversion)//trim(GridStr)//'_forcing.csv' ! Data file name
     open(NEWUNIT=forcing_unit,file=trim(fout))
     write(forcing_unit,*)'Swdown,Tair,RH,RAIN,WIND,PRESSURE,Ndpst'
     do i=1,totalL

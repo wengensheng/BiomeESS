@@ -177,7 +177,7 @@ module io_mod
     logical :: file_exists
 
     ! Open forcing data
-    climfile=trim(filepath_in)//trim(fdata)
+    climfile=trim(input_path)//trim(fdata)
     ! Check whether file exists
     inquire (file=trim(climfile), exist=file_exists)
     if (.not. file_exists) then
@@ -324,7 +324,7 @@ module io_mod
     integer :: i,j,k
     integer :: m,n
 
-    climfile=trim(filepath_in)//trim(climfile)
+    climfile=trim(input_path)//trim(climfile)
     write(*,*)'inputfile: ',climfile
     ! open forcing data
     open(11,file=climfile,status='old',ACTION='read',IOSTAT=istat2)
@@ -447,8 +447,8 @@ module io_mod
     enddo
 
     ! Read in Paleo precipitation and temperature data, monthly, 1001~1901
-    PaleoPfile=trim(filepath_in)//trim(fPaleoP)
-    PaleoTfile=trim(filepath_in)//trim(fPaleoT)
+    PaleoPfile=trim(input_path)//trim(fPaleoP)
+    PaleoTfile=trim(input_path)//trim(fPaleoT)
     inquire (file=PaleoPfile, iostat=istat1)
     if (istat1 /= 0) then
       write (*, '("Error: input file ", a, " does not exist")') PaleoPfile
@@ -504,7 +504,7 @@ module io_mod
     if(WriteForcing) then
       ! Write climateData to a csv file, for checking only
       write(DrawID, '(I0)')iDraw
-      fname3 = trim(filepath_out)//trim(fPaleoP(1:3))//'_Hourly_'//trim(DrawID)//'.csv'
+      fname3 = trim(output_path)//trim(fPaleoP(1:3))//'_Hourly_'//trim(DrawID)//'.csv'
       open(15,file=trim(fname3))
       write(15,*)"YEAR,DOY,HoD,PAR,Swdown,Tair,Tsoil,RH,RAIN,WIND,PRESSURE,CO2"
       do i=1,PaleoForcingLines
@@ -542,7 +542,7 @@ module io_mod
     call init_annual_diagnostics_buffers()
 
     ! File path and names
-    fpath = trim(filepath_out)
+    fpath = trim(output_path)
     filesuffix   = trim(runID) ! tag for simulation experiments
 #ifdef GlobalRun
     write(LonLat, GridIDFMT) GridID

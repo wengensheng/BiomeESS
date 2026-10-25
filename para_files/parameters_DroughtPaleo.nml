@@ -76,8 +76,8 @@ init_mineralN    = 20.0E-3,! 402.5E-3, ! kg N m-2
 N_input          = 2.0E-3 ! 2.4E-3 ! N deposit, kg N m-2 yr-1,
 
 ! Model run
-filepath_in = '../forcingData/PaleoDrought/'
-filepath_out = 'TargetDir/', ! './output/PaleoDrought/',
+input_path = '../forcingData/PaleoDrought/'
+output_path = 'TargetDir/', ! './output/PaleoDrought/',
 climfile    = 'DroughtPaleo_SiteID_yrs1514_forcing.csv', !'ForcingFileName', ! 'DroughtPaleo_RMA_yrs1514_forcing.csv',  ! 'DroughtPaleo_RMA_forcing.csv', ! DCK, RMA, SJC
 PaleoPfile  = 'SiteID_P.csv',
 PaleoTfile  = 'SiteID_T.csv',

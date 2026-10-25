@@ -87,8 +87,8 @@ init_mineralN  = 5.0E-3, !  402.5E-3, ! ! kg N m-2
 N_input        = 1.5E-3, ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
-filepath_in = './input/',
-filepath_out= './output/',
+input_path = './input/',
+output_path= './output/',
 runID       = 'ORNL_test', ! Output file name
 climfile    = 'ORNL_forcing.txt', ! 'BCI_forcing.csv', !
 Sc_prcp     = 1.0, ! rainfall
@@ -114,5 +114,5 @@ CO2Tag   = 'aCO2', ! Use CO2_Future
 ! Checkpoint/restart
 do_restart_write = .False., ! Set to .True. to save state at end of run
 do_restart_read  = .False., ! Set to .True. to resume from a previous run
-restart_file     = './output/BiomeE_restart.bin',
+restart_file     = 'BiomeE_restart.bin',
 /

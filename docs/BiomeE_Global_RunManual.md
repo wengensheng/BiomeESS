@@ -125,9 +125,9 @@ Key sections to configure:
 
 ```fortran
 &initial_state_nml
-  filepath_in   = './input/'
-  filepath_out  = './output/'
-  climfile      = 'ORNL_forcing.txt'    ! forcing file name inside filepath_in
+  input_path   = './input/'
+  output_path  = './output/'
+  climfile      = 'ORNL_forcing.txt'    ! forcing file name inside input_path
   runID         = 'ORNL_test_'          ! prefix for all output files
 
   model_run_years = 500                 ! years to simulate
@@ -215,7 +215,7 @@ the model into data-writing mode.
 
 ```fortran
 &initial_state_nml
-  filepath_out = 'TargetDir/'       ! replaced by sed with $DIRECTORY
+  output_path = 'TargetDir/'       ! replaced by sed with $DIRECTORY
   runID        = 'ESSPT_'
 /
 
@@ -340,7 +340,7 @@ Key differences from the single-site namelist:
 /
 
 &initial_state_nml
-  filepath_out = '/scratch/GlobalRun_2024/'
+  output_path = '/scratch/GlobalRun_2024/'
   runID        = 'Global_'
   model_run_years = 120
 /
@@ -403,8 +403,8 @@ R0_Nfix   = ...                         ! N fixation (kgN kgRootC⁻¹ yr⁻¹)
 | `outputdaily` | Write daily output files | `.False.` |
 | `do_restart_write` | Write restart checkpoint | `.False.` |
 | `do_restart_read` | Start from a restart file | `.False.` |
-| `filepath_in` | Forcing data directory | `./input/` |
-| `filepath_out` | Output directory | `./output/` |
+| `input_path` | Forcing data directory | `./input/` |
+| `output_path` | Output directory | `./output/` |
 | `climfile` | Forcing filename (single-site) | — |
 | `runID` | Output filename prefix | — |
 
@@ -412,7 +412,7 @@ R0_Nfix   = ...                         ! N fixation (kgN kgRootC⁻¹ yr⁻¹)
 
 ## 8. Output Files
 
-All output files are written to `filepath_out` with names prefixed by `runID`.
+All output files are written to `output_path` with names prefixed by `runID`.
 
 | File suffix | Contents | Frequency |
 |---|---|---|
@@ -434,7 +434,7 @@ In global mode each grid cell writes its own set of files; outputs may be gzip-c
    do_restart_read  = .True.
    do_restart_write = .True.   ! to keep writing checkpoints
    ```
-3. Point `filepath_in` to the directory containing the restart file, or set the full path explicitly if required.
+3. Point `input_path` to the directory containing the restart file, or set the full path explicitly if required.
 
 ---
 
@@ -841,7 +841,7 @@ omnivore), body mass, intake rates, digestibility, and mortality parameters.
 
 | Problem | Likely cause | Fix |
 |---|---|---|
-| `cannot open file` error | Wrong `filepath_in` or `climfile` | Check absolute vs. relative paths |
+| `cannot open file` error | Wrong `input_path` or `climfile` | Check absolute vs. relative paths |
 | NetCDF link error at compile time | Library not found | Set `-I` and `-L` to your NetCDF install |
 | All-zero output | Forcing file columns misaligned | Verify tab-separated columns match §4.4 |
 | Blocks finish instantly with no output | `grid_No1 > grid_No2` | Check `sed` substitution in `runMultiBlocks.x` |

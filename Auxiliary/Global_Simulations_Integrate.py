@@ -15,6 +15,7 @@ import sys
 from datetime import datetime
 import gzip
 import csv
+import pandas as pd
 import matplotlib.pyplot as plt
 from cycler import cycler
 
@@ -53,7 +54,7 @@ EcoVars = ['CAI',    'LAI',  'GPP', 'Rauto', 'Rh', 'Burned', \
            'WC1_5',  'WC2_25', 'WC3_50', 'WC4_100', 'WC5_120', \
            'N_fxed', 'N_uptk', 'Nm_SL', 'Nm_FR','dNorg','dNgas','dNmin', \
            'treeCA', 'grassCA', 'BMgrass','PET', 'Frisk', 'Pburn','CH4',\
-           'mu','muC','Indv']
+           'HarvC','HarvN','mu','muC','Indv']
 
 EcoLongID = ['Crown area index','Leaf area index','Gross Primary Production',\
              'Autotrophic respiration','Heterotrophic Respiration','Burned carbon',\
@@ -70,6 +71,7 @@ EcoLongID = ['Crown area index','Leaf area index','Gross Primary Production',\
             'N_fixed', 'N uptake', 'Nm_SL', 'Nm_FR','Nloss1','Nloss2','Nloss3',\
             'Woody crown area','Grass crown area', 'BMgrass', \
             'Potential evapotranspiration','Fire risk','Fire probability', 'Methane', \
+            'Harvested carbon','Harvested nitrogen',\
             'Mortality rate','Mortality carbon flux','Woody individuals']
 
 EcoUnit = ['m2/m2','m2/m2','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2 yr-1',\
@@ -82,7 +84,7 @@ EcoUnit = ['m2/m2','m2/m2','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2
            'mm','mm','mm','mm','mm','gN m-2 yr-1','gN m-2 yr-1',\
            'gN m-2 yr-1','gN m-2 yr-1','gN m-2 yr-1','gN m-2 yr-1','gN m-2 yr-1',\
            'm2/m2','m2/m2','KgC m-2','mm/year','times/yr','times/yr','KgC m-2 yr-1', \
-           'fraction yr-1','KgC m-2 yr-1','individuals/m2']
+           'KgC m-2 yr-1','gN m-2 yr-1','fraction yr-1','KgC m-2 yr-1','individuals/m2']
 
 subfolder = ['Ecosystem','Cohort']
 
@@ -92,13 +94,22 @@ Npre     = 6
 N_gridV  = 0 # 58 # added two more N losses and CH4, 55 # 54, added YealryTmp, 11/23/2025
 totYrs   = 0 # Will be updated by reading an ecosystem data file
 
+
+def read_yearly_csv(fname_gz, ncols):
+    """Read the first ncols columns of a gzipped yearly csv (header skipped) as float64.
+    Much lighter than np.array(list(csv.reader(f))), which holds every value as a Python
+    string and exhausted memory over tens of thousands of files."""
+    return pd.read_csv(fname_gz, compression='gzip', header=0, skipinitialspace=True,
+                       usecols=range(ncols), dtype=np.float64).to_numpy()
+
 #%% --------------------- Check the files ---------------------
 # 'eCO2' # 'N2g1123' #  'N3g1121' # 'N3gLowNfx' # 'N3gTr10' # 'Ndps3g'
 # 'N4g1128' #  'Warming2C' # '0.5LonLat_N2g1125'
-expID = 'N2gLowNout' # 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
+expID = 'N2gCO21901' # 'N2gLowNout' # 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
 #Resolution = 1 #Grids selected
-
+# /media/eweng/HD2/weng/GlobalESSPFTs/Simulations/N2gCO21901/Run_N2gCO21901
 path0 = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_'+expID+'/'
+path0 = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/' + expID + '/Run_' + expID+ '/'
 fpath = path0 +'Yearly/'
 fpout = path0 +''
 
@@ -207,32 +218,22 @@ for ifile in range(N_files):
     # Open and read ecosystem file
     fname_gz = fpath + ecofiles[ifile]
     try:
-        with gzip.open(fname_gz, 'rt', newline='') as f:
-            reader = csv.reader(f)
-            header = next(reader)  # Read the header row
-            #print(f"Header: {header}")
-            LandYrV=(np.array(list(csv.reader(f,delimiter=','))))
-            VldFiles[ifile] = 1
-            N_valid = N_valid + 1
-    except IOError as e:
-        print(f"An I/O error occurred: {e}")
+        LandYr = read_yearly_csv(fname_gz, 2 + N_gridV)
+        VldFiles[ifile] = 1
+        N_valid = N_valid + 1
+    except (IOError, EOFError, ValueError) as e:
+        print(f"Cannot read {fname_gz}: {e}")
         continue # skip this cycle
 
     feco.write(ecofiles[ifile] + '\n')
 
-    # Land Data dimensions
-    if len(LandYrV) < totYrs/10:
+    # Skip files with too few years
+    rows = LandYr.shape[0]
+    if rows < totYrs/10:
         continue
-    rows = len(LandYrV)
-    col  = len(LandYrV[1]) - 1
-    LandYr = LandYrV[0:rows,0:col].astype(np.float64)
-    print (N_valid,ecofiles[ifile])
+    if N_valid % 1000 == 0: print (N_valid,ecofiles[ifile])
     AvgGridsData[0:N_gridV, n, m] = np.mean(LandYr[YR0:rows,2:2+N_gridV], axis=0)
-
-
-    # Remove variables and release memory
-    del LandYrV, LandYr
-    gc.collect()
+    del LandYr
 
 feco.close()
 
@@ -278,60 +279,42 @@ for ifile in range(N_files):
     # Open and read Cohort file
     fname_gz = fpath + cohfiles[ifile]
     try:
-        with gzip.open(fname_gz, 'rt', newline='') as f:
-            reader = csv.reader(f)
-            header = next(reader)  # Read the header row
-            #print(f"Header: {header}")
-            CCYrV=(np.array(list(csv.reader(f,delimiter=','))))
-            N_valid = N_valid + 1
-    except IOError as e:
-        print(f"An I/O error occurred: {e}")
+        CCYr = read_yearly_csv(fname_gz, 41)
+        N_valid = N_valid + 1
+    except (IOError, EOFError, ValueError) as e:
+        print(f"Cannot read {fname_gz}: {e}")
         continue # skip this cycle
+    if N_valid % 1000 == 0: print (N_valid,cohfiles[ifile])
 
-    # Cohort Data dimensions
-    rows = len(CCYrV)
-    col  = len(CCYrV[1]) - 1
-    CCYr = CCYrV[0:rows,0:col].astype(np.float64)
-    totCCL = rows
-    print (N_valid,cohfiles[ifile])
+    # Calculate PFT-level  GPP, NPP, BA, CA, BM, LAI, height (vectorized over cohorts)
+    iYr    = CCYr[:,1].astype(np.int64) - 1
+    iPFT   = CCYr[:,4].astype(np.int64)
+    top    = np.minimum(2, CCYr[:,5].astype(np.int64) - 1) == 0 # Only the top layer
+    keep   = (iYr >= 0) & (iYr < totYrs) & (iPFT >= 0) & (iPFT < N_pfts)
+    idx    = iYr*N_pfts + iPFT
+    nTot   = totYrs*N_pfts
+    Ndens  = CCYr[:,6]
+    bmass  = np.sum(CCYr[:,15:21], axis=1)
 
-    # Calculate PFT-level  GPP, NPP, BA, CA, BM, LAI, height
-    GPP[:,:] = 0.0
-    NPP[:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    BA [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    CA [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    LA [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    BM [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    HT [:,:] = 0.0 #    = np.zeros((totYrs, N_pfts))
-    den[:,:] = 0.0
-    mu [:,:] = 0.0 #    Mortality rate
-    muC[:,:] = 0.0 #    Mortality C flux
-    for i in range(totCCL-1):
-        iYr  = int(CCYr[i,1])-1
-        iPFT = int(CCYr[i,4]) # -1
-        iLayer = min(2,int(CCYr[i,5])-1)
-        # Compute cohort variables
-        GPP[iYr,iPFT] = GPP[iYr,iPFT] + CCYr[i,6]*CCYr[i,22]/10000
-        NPP[iYr,iPFT] = NPP[iYr,iPFT] + CCYr[i,6]*CCYr[i,23]/10000
-        BA[iYr,iPFT]  = BA[iYr,iPFT]  + CCYr[i,6]*PI*0.25*CCYr[i,11]**2
-        LA[iYr,iPFT]  = LA[iYr,iPFT]  + CCYr[i,6]*CCYr[i,14]/10000
-        BM[iYr,iPFT]  = BM[iYr,iPFT]  + CCYr[i,6]*np.sum(CCYr[i,15:21])/10000
-        HT[iYr,iPFT]  = max(HT[iYr,iPFT],CCYr[i,12])
-        
-        # Only the top layer
-        if iLayer == 0:
-            den[iYr,iPFT] = den[iYr,iPFT] + CCYr[i,6]
-            mu[iYr,iPFT]  = mu[iYr,iPFT]  + CCYr[i,6]*CCYr[i,29] # Density weighted
-            muC[iYr,iPFT] = muC[iYr,iPFT] + CCYr[i,6]*CCYr[i,29]*np.sum(CCYr[i,15:21])/10000
-            CA[iYr,iPFT]  = CA[iYr,iPFT]  + CCYr[i,6]*CCYr[i,13]/10000
-        
-        # Density weighted
-        if (iYr < int(CCYr[i+1,1])-1 or i == totCCL-2):
-            for j in range(8):
-                if den[iYr,j] > 1e-4:
-                    mu[iYr,j] = mu[iYr,j]/den[iYr,j]
-                else:
-                    mu[iYr,j] = 0.0
+    def PFTsum(w, sel):
+        ok = keep & sel
+        return np.bincount(idx[ok], weights=w[ok], minlength=nTot).reshape(totYrs, N_pfts)
+
+    allc = np.ones(len(CCYr), dtype=bool)
+    GPP = PFTsum(Ndens*CCYr[:,22]/10000, allc)
+    NPP = PFTsum(Ndens*CCYr[:,23]/10000, allc)
+    BA  = PFTsum(Ndens*PI*0.25*CCYr[:,11]**2, allc)
+    LA  = PFTsum(Ndens*CCYr[:,14]/10000, allc)
+    BM  = PFTsum(Ndens*bmass/10000, allc)
+    HT  = np.zeros(nTot)
+    np.maximum.at(HT, idx[keep], CCYr[keep,12])
+    HT  = HT.reshape(totYrs, N_pfts)
+    den = PFTsum(Ndens, top)
+    muW = PFTsum(Ndens*CCYr[:,29], top)
+    muC = PFTsum(Ndens*CCYr[:,29]*bmass/10000, top)
+    CA  = PFTsum(Ndens*CCYr[:,13]/10000, top)
+    # Density weighted mortality rate
+    mu  = np.divide(muW, den, out=np.zeros_like(muW), where=den > 1e-4)
 
     # Mean
     #iLat 175, iLong 251
@@ -358,8 +341,7 @@ for ifile in range(N_files):
 
 
     # Remove CCYr variables and release memory
-    del CCYr, CCYrV
-    gc.collect()
+    del CCYr
 
     # --------------- Write out Grid temporal files ---------------
     fcoh.write(cohfiles[ifile] + '\n')
@@ -448,7 +430,7 @@ AvgGridsData[N_gridV+2,:,:] = SumDen[:,:]
 # Write out ecosystem variables
 NCout=[]
 for iVar in range(Nvars):
-        NCout.append(f1.createVariable(EcoVars [iVar], 'f4', ('lat','lon')))
+        NCout.append(f1.createVariable(EcoVars [iVar], 'f4', ('lat','lon'), zlib=True, complevel=4, shuffle=True))
         NCout[iVar][:,:]      = AvgGridsData[iVar,:,:]
         NCout[iVar].long_name = EcoLongID[iVar]
         NCout[iVar].units     = EcoUnit[iVar]
@@ -456,7 +438,7 @@ for iVar in range(Nvars):
 # Write out PFT distribution
 PFTout=[]
 for iPFT in range(N_pfts):
-        PFTout.append(f1.createVariable(PFT_ID[iPFT], 'f4', ('lat','lon')))
+        PFTout.append(f1.createVariable(PFT_ID[iPFT], 'f4', ('lat','lon'), zlib=True, complevel=4, shuffle=True))
         PFTout[iPFT].long_name = PFTnames[iPFT]
         PFTout[iPFT].units     = PFTUnit[iPFT]
         PFTout[iPFT][:,:]      = meanPFTCA[iPFT,:,:]
@@ -466,7 +448,7 @@ PFTu_ID = ['uC4G',  'uC3G',  'uTrE',  'uTrD',  'uTmE',  'uTmD',  'uNfx',  'uDeS'
 MuUnit = ['yr-1','yr-1','yr-1','yr-1','yr-1','yr-1','yr-1','yr-1']
 Mort=[]
 for iPFT in range(N_pfts):
-        Mort.append(f1.createVariable(PFTu_ID[iPFT], 'f4', ('lat','lon')))
+        Mort.append(f1.createVariable(PFTu_ID[iPFT], 'f4', ('lat','lon'), zlib=True, complevel=4, shuffle=True))
         Mort[iPFT].long_name = PFTnames[iPFT]
         Mort[iPFT].units     = MuUnit[iPFT]
         Mort[iPFT][:,:]      = meanPFTmu[iPFT,:,:]
@@ -476,7 +458,7 @@ PFTd_ID = ['dC4G',  'dC3G',  'dTrE',  'dTrD',  'dTmE',  'dTmD',  'dNfx',  'dDeS'
 DenUnit = ['ha-1','ha-1','ha-1','ha-1','ha-1','ha-1','ha-1','ha-1']
 Qpft=[]
 for iPFT in range(N_pfts):
-        Qpft.append(f1.createVariable(PFTd_ID[iPFT], 'f4', ('lat','lon')))
+        Qpft.append(f1.createVariable(PFTd_ID[iPFT], 'f4', ('lat','lon'), zlib=True, complevel=4, shuffle=True))
         Qpft[iPFT].long_name = PFTnames[iPFT]
         Qpft[iPFT].units     = DenUnit[iPFT]
         Qpft[iPFT][:,:]      = meanPFTden[iPFT,:,:]
@@ -501,7 +483,7 @@ latitude[:]  = np.arange(Lat0,90.0, LonLatStep) #lat
 
 PFTout=[]
 for iPFT in range(N_pfts):
-        PFTout.append(f1.createVariable(PFT_ID[iPFT], 'f4', ('lat','lon')))
+        PFTout.append(f1.createVariable(PFT_ID[iPFT], 'f4', ('lat','lon'), zlib=True, complevel=4, shuffle=True))
         PFTout[iPFT].long_name = PFTnames[iPFT]
         PFTout[iPFT].units     = PFTUnit[iPFT]
         PFTout[iPFT][:,:]      = meanPFTCA[iPFT,:,:]

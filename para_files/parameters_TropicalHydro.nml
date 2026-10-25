@@ -85,8 +85,8 @@ init_mineralN = 5.0E-3,  ! 402.5E-3, ! kg N m-2
 N_input       = 0.0E-3,  ! 1.2E-3, !  2.4E-3 ! kg N m-2 yr-1, N deposit: 0.8 g N m-2 yr-1
 
 ! Model run
-filepath_in = '../forcingData/DroughtMIPdrivers/',
-filepath_out= './output/',
+input_path = '../forcingData/DroughtMIPdrivers/',
+output_path= './output/',
 runID       = 'BCI_HydroTest', ! 'BCI_NoHydro', ! 
 climfile    = 'BCI_forcing.csv' !'BiomeE_TNF_HBhourly.csv',  ! 'BiomeE_GYF_HBhourly.csv', !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall

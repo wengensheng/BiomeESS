@@ -1,8 +1,8 @@
 &initial_state_nml
 ! Model run
-filepath_in = './input/',
-!filepath_out= '/media/eweng/HD2/weng/Data/interp30yrs/',
-filepath_out= 'TargetDir/',
+input_path = './input/',
+!output_path= '/media/eweng/HD2/weng/Data/interp30yrs/',
+output_path= 'TargetDir/',
 runID       = 'ESSPT_', ! Output file name
 climfile    = 'KNZ_amb.csv' ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 /
