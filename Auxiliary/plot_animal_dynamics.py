@@ -7,11 +7,10 @@ Panel layout (2 × 2):
   [0,1]  Ecosystem plant C         — from Ecosystem_yearly.csv
   [1,0]  Annual intake             — Deer plant intake + Wolf prey intake combined
   [1,1]  Starvation mortality rate — both AFTs
+Two further figures show phase plots (deer vs wolf; plant C vs deer).
 """
 
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')   # non-interactive; remove to pop up a window
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -39,11 +38,18 @@ eco = pd.read_csv(eco_file, skipinitialspace=True)
 eco.columns = eco.columns.str.strip()
 eco = eco.sort_values('year')
 
+# ── restrict to years >= START_YEAR ──────────────────────────────────────────
+START_YEAR = 400
+deer = deer[deer['year'] >= START_YEAR]
+wolf = wolf[wolf['year'] >= START_YEAR]
+eco  = eco[eco['year'] >= START_YEAR]
+
 # ── style ─────────────────────────────────────────────────────────────────────
 COLORS = {0: '#2196F3', 1: '#F44336'}   # blue = deer, red = wolf
 COLOR_ECO = '#4CAF50'                   # green for ecosystem
 
-fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+plt.close(1)   # fixed figure numbers so reruns replace figures instead of adding new ones
+fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True, num=1)
 fig.suptitle('Animal population dynamics — ORNL animal test', fontsize=13)
 
 # ── [0,0]  Population density: dual y-axis ────────────────────────────────────
@@ -99,9 +105,47 @@ ax_mu.legend(fontsize=8)
 for ax in axes[1]:
     ax.set_xlabel('Year', fontsize=9)
 
-# ── save ──────────────────────────────────────────────────────────────────────
+#%% ── save ──────────────────────────────────────────────────────────────────────
 plt.tight_layout()
 out_png = ani_file.replace('_Animal_yearly.csv', '_dynamics.png')
 plt.savefig(out_png, dpi=150)
 print(f'Saved: {out_png}')
+
+# ── phase figure: deer–wolf and deer–plant ────────────────────────────────────
+ph = (deer[['year', 'nindivs']].rename(columns={'nindivs': 'deer'})
+      .merge(wolf[['year', 'nindivs']].rename(columns={'nindivs': 'wolf'}), on='year')
+      .merge(eco[['year', 'plantC']], on='year')
+      .sort_values('year'))
+ph['deer'] *= 1e4
+ph['wolf'] *= 1e4
+
+phase_specs = [
+    ('deer', 'wolf', 'Deer density  (ind ha⁻¹)', 'Wolf density  (ind ha⁻¹)',
+     'Phase plot — deer vs wolf', '_phase_deer_wolf.png'),
+    ('plantC', 'deer', 'Plant biomass  (kg C m⁻²)', 'Deer density  (ind ha⁻¹)',
+     'Phase plot — plant biomass vs deer', '_phase_plant_deer.png'),
+]
+
+for i, (xcol, ycol, xlab, ylab, title, suffix) in enumerate(phase_specs):
+    plt.close(2 + i)
+    fig2, ax = plt.subplots(figsize=(6.5, 5), num=2 + i)
+    x, y = ph[xcol].values, ph[ycol].values
+    ax.plot(x, y, color='0.6', linewidth=0.8, zorder=1)
+    sc = ax.scatter(x, y, c=ph['year'], cmap='viridis', s=18, zorder=2)
+    if len(x) > 1:
+        ax.annotate('', xy=(x[-1], y[-1]), xytext=(x[-2], y[-2]),
+                    arrowprops=dict(arrowstyle='->', color='k'))
+    ax.plot(x[0], y[0], 'o', mfc='none', mec='k', ms=9, label='start')
+    ax.plot(x[-1], y[-1], 'k*', ms=11, label='end')
+    ax.set_xlabel(xlab, fontsize=12)
+    ax.set_ylabel(ylab, fontsize=12)
+    #ax.set_title(f'{title} — ORNL animal test', fontsize=10)
+    ax.grid(True, linestyle='--', alpha=0.4)
+    ax.legend(fontsize=8)
+    fig2.colorbar(sc, ax=ax, label='Year')
+    fig2.tight_layout()
+    out_phase = ani_file.replace('_Animal_yearly.csv', suffix)
+    fig2.savefig(out_phase, dpi=150)
+    print(f'Saved: {out_phase}')
+
 plt.show()

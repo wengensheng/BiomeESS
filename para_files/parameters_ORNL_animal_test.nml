@@ -92,29 +92,29 @@ aft_f_N_body      =  0.025,    0.030,    ! kg N kg-1 body
 ! K_half_plant: leaf C density at half-max intake [kg C m-2]
 ! browse_height: height access fraction = browse_height/(height+browse_height)
 ! palatability: PFT selectivity (1=fully palatable, 0=avoided)
-aft_I_max_plant   =  0.04,     0.0,      ! fraction of body_C day-1; wolf=0
-aft_K_half_plant  =  0.50,     0.0,      ! kg C m-2
-aft_browse_height =  6.0,      0.0,      ! m; wolf cannot browse
+aft_I_max_plant   =  0.10,     0.0,      ! fraction of body_C day-1; wolf=0
+aft_K_half_plant  =  2.0,      0.0,      ! kg C m-2
+aft_browse_height =  1.5,      0.0,      ! m; wolf cannot browse
 aft_f_plant_diet  =  1.0,      0.0,      ! fraction of diet from plants
-aft_litter_pref   =  0.4,      0.0,      ! metabolic litter palatability
+aft_litter_pref   =  0.1,      0.0,      ! metabolic litter palatability
 
 !--- Prey foraging ---
 ! I_max_prey * body_C = max prey C intake rate [kg C ind-1 day-1]
 ! K_half_prey: prey body-C density at half-max predation [kg C m-2]
-aft_I_max_prey    =  0.0,      0.02,     ! fraction of body_C day-1; deer=0
-aft_K_half_prey   =  0.0,      2.5E-2,   ! kg C m-2
+aft_I_max_prey    =  0.0,      0.08,     ! fraction of body_C day-1; deer=0
+aft_K_half_prey   =  0.0,      5.0E-2,   ! kg C m-2
 aft_f_prey_diet   =  0.0,      1.0,      ! fraction of diet from prey
 
 !--- Digestion ---
-aft_digestibility =  0.65,     0.80,     ! digestible fraction of C intake
-aft_f_N_feces     =  0.05,     0.07,     ! N:C ratio of feces, kg N kg-1 C
+aft_digestibility =  0.20,     0.85,     ! digestible fraction of C intake
+aft_f_N_feces     =  0.02,     0.03,     ! N:C ratio of feces, kg N kg-1 C
 
 !--- Maintenance and mortality ---
 ! I_maint * body_C = daily maintenance C requirement [kg C ind-1 day-1]
-aft_I_maint       =  2.5E-3,   3.5E-3,   ! fraction of body_C day-1
-aft_mu_starve_max =  0.001,    0.002,    ! max starvation mortality, day-1
-aft_mu_background =  1.0E-4,   0.5E-4,   ! background mortality, day-1
-aft_r_max         =  2.0,      0.5,      ! max annual per-capita birth rate, yr-1
+aft_I_maint       =  15.E-3,   20.E-3,   ! fraction of body_C day-1
+aft_mu_starve_max =  0.002,    0.002,    ! max starvation mortality, day-1
+aft_mu_background =  1.0E-4,   1.0E-4,   ! background mortality, day-1
+aft_r_max         =  0.2,      0.2,      ! max annual per-capita birth rate, yr-1
 
 ! Palatability per AFT: one line per AFT, values = sp0, sp1, ..., sp5
 !   sp: 0=C4grass  1=evergreen  2=deciduous  3=deciduous  4=evergreen  5=deciduous
@@ -148,7 +148,7 @@ output_path= './output/',
 runID       = 'ORNL_animal_test',
 climfile    = 'ORNL_forcing.txt',
 Sc_prcp     = 1.0,
-model_run_years = 600,
+model_run_years = 900,
 outputhourly    = .False.
 outputdaily     = .True.
 Do_CH4          = .False.
