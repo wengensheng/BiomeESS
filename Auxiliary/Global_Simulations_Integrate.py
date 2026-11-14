@@ -105,10 +105,11 @@ def read_yearly_csv(fname_gz, ncols):
 #%% --------------------- Check the files ---------------------
 # 'eCO2' # 'N2g1123' #  'N3g1121' # 'N3gLowNfx' # 'N3gTr10' # 'Ndps3g'
 # 'N4g1128' #  'Warming2C' # '0.5LonLat_N2g1125'
-expID = 'N2gCO21901' # 'N2gLowNout' # 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
+expID = 'N2gCO2_2025' # 'N2gCO21901' # 'N2gLowNout' 
+# 'BaseN2gThnG' # 'N3gWmu0Low' # 'TmIgnN3g' # 'MI0Fr2N3g' 
 #Resolution = 1 #Grids selected
 # /media/eweng/HD2/weng/GlobalESSPFTs/Simulations/N2gCO21901/Run_N2gCO21901
-path0 = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_'+expID+'/'
+#path0 = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/GlobalRun_'+expID+'/'
 path0 = '/media/eweng/HD2/weng/GlobalESSPFTs/Simulations/' + expID + '/Run_' + expID+ '/'
 fpath = path0 +'Yearly/'
 fpout = path0 +''
@@ -166,7 +167,7 @@ f.close()
 
 totYrs  = len(LandYrV)
 N_gridV = len(LandYrV[1]) - 1 - 2 # two empty and one additional cols in each row
-YR0 = int(totYrs * 0.2) # for calculating averages
+YR0 = int(totYrs * 0.4) # for calculating averages
 
 # Obtain the resolution of model run
 Resolution = int(GridID[1] -GridID[0])
