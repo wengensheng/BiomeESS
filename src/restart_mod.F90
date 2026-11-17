@@ -31,7 +31,8 @@ module restart_mod
   public :: write_restart, read_restart
 
   integer, parameter :: RESTART_MAGIC   = 20260617 ! identifies a BiomeE restart file
-  integer, parameter :: RESTART_VERSION = 3        ! 2: header, ccID, facuC, HarvYrs, initialCC, animals; 3: thetaS, soilwater
+  integer, parameter :: RESTART_VERSION = 4        ! 2: header, ccID, facuC, HarvYrs, initialCC, animals; 3: thetaS, soilwater;
+                                                   ! 4: OrganC/OrganN as whole arrays, N_ORGANS in header
 
 contains
 
@@ -126,20 +127,12 @@ contains
   write(iunit) cc%GDD_ON
 
   !-- C pools --
-  write(iunit) cc%OrganC(I_LF)
-  write(iunit) cc%OrganC(I_RT)
-  write(iunit) cc%OrganC(I_SW)
-  write(iunit) cc%OrganC(I_HW)
-  write(iunit) cc%OrganC(I_SD)
+  write(iunit) cc%OrganC(1:N_ORGANS)
   write(iunit) cc%nsc
 
   !-- N pools --
   write(iunit) cc%NSN
-  write(iunit) cc%OrganN(I_LF)
-  write(iunit) cc%OrganN(I_SW)
-  write(iunit) cc%OrganN(I_HW)
-  write(iunit) cc%OrganN(I_RT)
-  write(iunit) cc%OrganN(I_SD)
+  write(iunit) cc%OrganN(1:N_ORGANS)
   write(iunit) cc%facuC
 
   !-- root / water supply --
@@ -237,11 +230,7 @@ contains
   read(iunit, err=900, end=900) cc%GDD_ON
 
   !-- C pools --
-  read(iunit, err=900, end=900) cc%OrganC(I_LF)
-  read(iunit, err=900, end=900) cc%OrganC(I_RT)
-  read(iunit, err=900, end=900) cc%OrganC(I_SW)
-  read(iunit, err=900, end=900) cc%OrganC(I_HW)
-  read(iunit, err=900, end=900) cc%OrganC(I_SD)
+  read(iunit, err=900, end=900) cc%OrganC(1:N_ORGANS)
   read(iunit, err=900, end=900) cc%nsc
 
   !-- N pools --
@@ -249,11 +238,7 @@ contains
   cc%NSCmax = ccNSCmax(cc)
   cc%NSNmax = ccNSNmax(cc)
   read(iunit, err=900, end=900) cc%NSN
-  read(iunit, err=900, end=900) cc%OrganN(I_LF)
-  read(iunit, err=900, end=900) cc%OrganN(I_SW)
-  read(iunit, err=900, end=900) cc%OrganN(I_HW)
-  read(iunit, err=900, end=900) cc%OrganN(I_RT)
-  read(iunit, err=900, end=900) cc%OrganN(I_SD)
+  read(iunit, err=900, end=900) cc%OrganN(1:N_ORGANS)
   read(iunit, err=900, end=900) cc%facuC
 
   !-- root / water supply --
@@ -328,7 +313,7 @@ contains
 
     !--- header: checked when the file is read ---
     write(iunit) RESTART_MAGIC, RESTART_VERSION
-    write(iunit) soil_L, CLmax, Ysw_max
+    write(iunit) soil_L, CLmax, Ysw_max, N_ORGANS
 
     ntiles = land%nTiles
     write(iunit) ntiles
@@ -427,7 +412,7 @@ contains
 
     type(vegn_tile_type), pointer :: vegn, pveg
     integer :: iunit, i, ios, ntiles, itile, total_cohorts
-    integer :: magic, version, n_soil, n_cl, n_ysw
+    integer :: magic, version, n_soil, n_cl, n_ysw, n_org
     character(len=512) :: fpath
 
     fpath = restart_path(restart_rpath)
@@ -448,10 +433,10 @@ contains
       write(*,'(A,I0,A,I0)') 'read_restart: file version ', version, ', code version ', RESTART_VERSION
       error stop 'read_restart failed: version mismatch'
     endif
-    read(iunit, err=900, end=900) n_soil, n_cl, n_ysw
-    if (n_soil /= soil_L .or. n_cl /= CLmax .or. n_ysw /= Ysw_max) then
-      write(*,'(A,3I5,A,3I5)') 'read_restart: array sizes (soil_L,CLmax,Ysw_max) in file:', &
-            n_soil, n_cl, n_ysw, ' vs code:', soil_L, CLmax, Ysw_max
+    read(iunit, err=900, end=900) n_soil, n_cl, n_ysw, n_org
+    if (n_soil /= soil_L .or. n_cl /= CLmax .or. n_ysw /= Ysw_max .or. n_org /= N_ORGANS) then
+      write(*,'(A,4I5,A,4I5)') 'read_restart: array sizes (soil_L,CLmax,Ysw_max,N_ORGANS) in file:', &
+            n_soil, n_cl, n_ysw, n_org, ' vs code:', soil_L, CLmax, Ysw_max, N_ORGANS
       error stop 'read_restart failed: array sizes differ from this build'
     endif
 
