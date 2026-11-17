@@ -625,8 +625,8 @@ module datatypes
     real :: NupYr     = 0.0 ! accumulated N uptake kgN m-2 yr-1
     real :: NfixedYr  = 0.0 ! fixe N in a tile
     ! for annual reporting at tile level
-    real :: NSC, SeedC, leafC, rootC, SwC, HwC
-    real :: NSN, SeedN, leafN, rootN, SwN, HwN
+    real :: NSC, OrganC(N_ORGANS) ! organ C, kgC m-2, indexed by I_LF, I_RT, I_SW, I_HW, I_SD
+    real :: NSN, OrganN(N_ORGANS) ! organ N, kgN m-2, same indices as OrganC
     real :: totSeedC,totSeedN
     ! for cohort plant types (climate-vegetation relationship, Biome, LM3)
     real :: t_ann  = 0.0 ! annual mean T, degK

@@ -47,8 +47,8 @@ PFTUnit = ['m2/m2','m2/m2','m2/m2','m2/m2','m2/m2','m2/m2','m2/m2','m2/m2']
 EcoVars = ['CAI',    'LAI',  'GPP', 'Rauto', 'Rh', 'Burned', \
            'Tavg', 'Rain', 'SoilWater','Transp','Evap','Runoff',\
            'plantC', 'soilC', 'plantN','soilN', \
-           'NSC',    'SeedC','leafC', 'rootC', 'swC', 'hwC',\
-           'NSN',    'SeedN','leafN', 'rootN', 'swN', 'hwN',\
+           'NSC',    'leafC', 'rootC', 'swC', 'hwC', 'SeedC',\
+           'NSN',    'leafN', 'rootN', 'swN', 'hwN', 'SeedN',\
            'fineL',  'strucL', 'McrbC', 'fastSOC', 'slowSOC',\
            'fineN',  'strucN', 'McrbN', 'fastSON', 'slowSON', 'mineralN',\
            'WC1_5',  'WC2_25', 'WC3_50', 'WC4_100', 'WC5_120', \
@@ -61,10 +61,10 @@ EcoLongID = ['Crown area index','Leaf area index','Gross Primary Production',\
             'Yearly mean temperature','Yearly rainfall','Soil water amount',\
             'Yearly transpiration','Yearly evaporation','Yearly runoff',\
             'Plant Biomass','Soil Organic Matter','Plant nitrogen','Soil nitrogen',\
-            'Non-structural carbon','Seed carbon', 'leaf carbon', 'root carbon', \
-            'Sapwood carbon', 'Heartwood carbon',\
-            'Non-structural nitrogen','Seed nitrogen', 'leaf nitrogen', 'root nitrogen', \
-            'Sapwood nitrogen', 'Heartwood nitrogen',\
+            'Non-structural carbon', 'leaf carbon', 'root carbon', \
+            'Sapwood carbon', 'Heartwood carbon', 'Seed carbon',\
+            'Non-structural nitrogen', 'leaf nitrogen', 'root nitrogen', \
+            'Sapwood nitrogen', 'Heartwood nitrogen', 'Seed nitrogen',\
             'fineL',  'strucL', 'McrbC', 'fastSOC', 'slowSOC',\
             'fineN',  'strucN', 'McrbN', 'fastSON', 'slowSON', 'mineralN',\
             'WC1_5',  'WC2_25', 'WC3_50', 'WC4_100', 'WC5_120', \

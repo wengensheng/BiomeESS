@@ -135,18 +135,10 @@ contains
     integer :: i
 
     vegn%NSC     = 0.0
-    vegn%SeedC   = 0.0
-    vegn%leafC   = 0.0
-    vegn%rootC   = 0.0
-    vegn%SwC     = 0.0
-    vegn%HwC     = 0.0
+    vegn%OrganC  = 0.0
 
     vegn%NSN     = 0.0
-    vegn%SeedN   = 0.0
-    vegn%leafN   = 0.0
-    vegn%rootN   = 0.0
-    vegn%SwN     = 0.0
-    vegn%HwN     = 0.0
+    vegn%OrganN  = 0.0
 
     vegn%W_sw = 0.0
     vegn%W_hw = 0.0
@@ -159,21 +151,13 @@ contains
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
         vegn%NSC     = vegn%NSC     + (cc%NSC + cc%facuC) * cc%nindivs
-        vegn%SeedC   = vegn%SeedC   + cc%OrganC(I_SD)  * cc%nindivs
-        vegn%leafC   = vegn%leafC   + cc%OrganC(I_LF)     * cc%nindivs
-        vegn%rootC   = vegn%rootC   + cc%OrganC(I_RT)     * cc%nindivs
-        vegn%SwC     = vegn%SwC     + cc%OrganC(I_SW)    * cc%nindivs
-        vegn%HwC     = vegn%HwC     + cc%OrganC(I_HW)    * cc%nindivs
+        vegn%OrganC  = vegn%OrganC  + cc%OrganC * cc%nindivs
         vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
         vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
         vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
 
         vegn%NSN     = vegn%NSN     + cc%NSN    * cc%nindivs
-        vegn%SeedN   = vegn%SeedN   + cc%OrganN(I_SD)  * cc%nindivs
-        vegn%leafN   = vegn%leafN   + cc%OrganN(I_LF)  * cc%nindivs
-        vegn%rootN   = vegn%rootN   + cc%OrganN(I_RT)  * cc%nindivs
-        vegn%SwN     = vegn%SwN     + cc%OrganN(I_SW)    * cc%nindivs
-        vegn%HwN     = vegn%HwN     + cc%OrganN(I_HW)    * cc%nindivs
+        vegn%OrganN  = vegn%OrganN  + cc%OrganN * cc%nindivs
 
         vegn%W_sw    = vegn%W_sw  + cc%W_sw * cc%nindivs
         vegn%W_hw    = vegn%W_hw  + cc%W_hw * cc%nindivs
@@ -956,8 +940,7 @@ contains
     real :: totC
     type(vegn_tile_type), intent(in) :: vegn
 
-    totC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +   &
-           vegn%SwC + vegn%HwC + sum(vegn%SOC(:))
+    totC = vegn%NSC + sum(vegn%OrganC(:)) + sum(vegn%SOC(:))
   end function PatchTotalC
 
   !-------------------------------------------
@@ -965,8 +948,7 @@ contains
     real :: totN
     type(vegn_tile_type), intent(in) :: vegn
 
-    totN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN + &
-           vegn%SwN + vegn%HwN + vegn%mineralN + sum(vegn%SON(:))
+    totN = vegn%NSN + sum(vegn%OrganN(:)) + vegn%mineralN + sum(vegn%SON(:))
   end function PatchTotalN
 
   ! ============================================================================

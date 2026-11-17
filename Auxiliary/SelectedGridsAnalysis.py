@@ -43,29 +43,29 @@ PFTnames = ['C4 grass',\
             'Desert shrubs']
 
 # Ecosystem file variables
-EcoVars = ['CAI',    'LAI',  'GPP', 'Rauto', 'Rh', 'Burned', \
-           'Tavg', 'Rain', 'SoilWater','Transp','Evap','Runoff',\
-           'plantC', 'soilC', 'plantN','soilN', \
-           'NSC',    'SeedC','leafC', 'rootC', 'swC', 'hwC',\
-           'NSN',    'SeedN','leafN', 'rootN', 'swN', 'hwN',\
-           'fineL',  'strucL', 'McrbC', 'fastSOC', 'slowSOC',\
-           'fineN',  'strucN', 'McrbN', 'fastSON', 'slowSON', 'mineralN',\
-           'WC1_5',  'WC2_25', 'WC3_50', 'WC4_100', 'WC5_120', \
-           'N_fxed', 'N_uptk', 'Nm_SL', 'Nm_FR','N_loss', \
-           'treecover', 'grasscover', 'BMgrass','PET', 'Frisk', 'Pburn',\
-           'mu','muC','Indv']
+EcoVars = ['CAI', 'LAI', 'GPP', 'Rauto', 'Rh', 'Burned',\
+           'Tmp', 'Rain', 'SoilWater', 'Transp', 'Evap', 'Runoff',\
+           'plantC', 'soilC', 'plantN', 'soilN', 'NSC', 'leafC',\
+           'rootC', 'swC', 'hwC', 'SeedC', 'NSN', 'leafN',\
+           'rootN', 'swN', 'hwN', 'SeedN', 'fineL', 'strucL',\
+           'McrbC', 'fastSOC', 'slowSOC', 'fineN', 'strucN', 'McrbN',\
+           'fastSON', 'slowSON', 'mineralN', 'WC1_5', 'WC2_25', 'WC3_50',\
+           'WC4_100', 'WC5_120', 'N_fxed', 'N_uptk', 'Nm_SL', 'Nm_FR',\
+           'dNorg', 'dNgas', 'dNmin', 'TreeCA', 'GrassCA', 'BMgrass',\
+           'PET', 'Frisk', 'Pfire', 'CH4', 'HarvC', 'HarvN',\
+           'mu', 'muC', 'Indv']
 
-EcoUnit = ['m2/m2','m2/m2','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2 yr-1','KgC m-2 yr-1',\
-           'degree C','mm/year','mm','mm/year','mm/year','mm/year',\
-           'KgC m-2','KgC m-2','gN m-2','gN m-2',\
-           'KgC m-2','KgC m-2','KgC m-2','KgC m-2','KgC m-2','KgC m-2',\
-           'gN m-2','gN m-2','gN m-2','gN m-2','gN m-2','gN m-2',\
-           'KgC m-2','KgC m-2','KgC m-2','KgC m-2','KgC m-2',\
-           'gN m-2','gN m-2','gN m-2','gN m-2','gN m-2','gN m-2',\
-           'mm','mm','mm','mm','mm',\
-           'gN m-2 yr-1','gN m-2 yr-1','gN m-2 yr-1','gN m-2 yr-1','gN m-2 yr-1',\
-           'm2/m2','m2/m2','KgC m-2','mm/year','times/yr','times/yr', \
-           'fraction yr-1','KgC m-2 yr-1','individuals/m2']
+EcoUnit = ['m2/m2', 'm2/m2', 'KgC m-2 yr-1', 'KgC m-2 yr-1', 'KgC m-2 yr-1', 'KgC m-2 yr-1',\
+           'degree C', 'mm/year', 'mm', 'mm/year', 'mm/year', 'mm/year',\
+           'KgC m-2', 'KgC m-2', 'gN m-2', 'gN m-2', 'KgC m-2', 'KgC m-2',\
+           'KgC m-2', 'KgC m-2', 'KgC m-2', 'KgC m-2', 'gN m-2', 'gN m-2',\
+           'gN m-2', 'gN m-2', 'gN m-2', 'gN m-2', 'KgC m-2', 'KgC m-2',\
+           'KgC m-2', 'KgC m-2', 'KgC m-2', 'gN m-2', 'gN m-2', 'gN m-2',\
+           'gN m-2', 'gN m-2', 'gN m-2', 'mm', 'mm', 'mm',\
+           'mm', 'mm', 'gN m-2 yr-1', 'gN m-2 yr-1', 'gN m-2 yr-1', 'gN m-2 yr-1',\
+           'gN m-2 yr-1', 'gN m-2 yr-1', 'gN m-2 yr-1', 'm2/m2', 'm2/m2', 'KgC m-2',\
+           'mm/year', 'times/yr', 'times/yr', 'KgC m-2 yr-1', 'KgC m-2 yr-1', 'gN m-2 yr-1',\
+           'fraction yr-1', 'KgC m-2 yr-1', 'individuals/m2']
 
 subfolder = ['Ecosystem','Cohort']
 

@@ -71,7 +71,7 @@ totCCL = rows
 #% Data calculation and analysis
 # Ecosystem variables
 #1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	25	26	27	28	29	30	31	32	33	34	35	36	37	38	39	40	41	42	43	44	45	46	47	48	49	50	51	52	53	54	55
-# year, CAI,  LAI,GPP,Rauto,Rh, burned,Tmp, rain,   SoilWater, Transp, Evap,Runoff,plantC,soilC,plantN,soilN,  NSC,SeedC,leafC,rootC,swC,  hwC,  NSN,SeedN,leafN,rootN,  swN,  hwN,fineL,      strucL,McrbC,     fastSOC,     slowSOC,fineN,      strucN,McrbN,     fastSON,     slowSON,    mineralN,WC1_5,      WC2_25,      WC3_50,     WC4_100,     WC5_120,      N_fxed,      N_uptk,Nm_SL,Nm_FR,dNorg,dNgas,dNmin,      TreeCA,     GrassCA, BMgrass,  PET,Frisk,Pfire,  CH4,HarvC,HarvN,
+# year, CAI,  LAI,GPP,Rauto,Rh, burned,Tmp, rain,   SoilWater, Transp, Evap,Runoff,plantC,soilC,plantN,soilN,  NSC,leafC,rootC,swC,  hwC,SeedC,  NSN,leafN,rootN,  swN,  hwN,SeedN,fineL,      strucL,McrbC,     fastSOC,     slowSOC,fineN,      strucN,McrbN,     fastSON,     slowSON,    mineralN,WC1_5,      WC2_25,      WC3_50,     WC4_100,     WC5_120,      N_fxed,      N_uptk,Nm_SL,Nm_FR,dNorg,dNgas,dNmin,      TreeCA,     GrassCA, BMgrass,  PET,Frisk,Pfire,  CH4,HarvC,HarvN,
 LandC = np.copy(LandYr[:,[4,5,6,14,15]]) # GPP, Rauto, Rh, PlantC, SoilC
 LandN = np.copy(LandYr[:,[16,17,48,46,52]]) # PlantN, SoilN, mineralN, FixedN, Nloss
 

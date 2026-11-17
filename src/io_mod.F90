@@ -602,8 +602,8 @@ module io_mod
       'c_No','PFT','layer','Pheno','ndm','ncd',     &
       'density','Acrown','LAI','LeafAge',           &
       'gpp','resp','transp','NPPL','NPPR','NPPW',   &
-      'NSC','seedC','leafC','rootC','SW-C','HW-C',  &
-      'NSN','seedN','leafN','rootN','SW-N','HW-N',  &
+      'NSC','leafC','rootC','SW-C','HW-C','seedC',  &
+      'NSN','leafN','rootN','SW-N','HW-N','seedN',  &
       'W_LF','W_SW','W_HW',                         &
       'GDD','ALT','AWD'
 
@@ -695,7 +695,7 @@ module io_mod
     'leafN', 'rootN', 'swN', 'hwN', 'SeedN', 'NSN',   &
     'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC', &
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON', &
-    'mineralN','Nm_SL', 'N_up', 'Nm_FR', 'N_loss',    &
+    'mineralN','N_up', 'Nm_FR', 'N_loss',    &
     'CO2','CH4'
 
 #else
@@ -716,8 +716,8 @@ module io_mod
     'CAI','LAI','GPP', 'Rauto', 'Rh', 'burned',                  &
     'Tmp','rain','SoilWater','Transp','Evap','Runoff',           &
     'plantC', 'soilC', 'plantN', 'soilN',                        &
-    'NSC', 'SeedC', 'leafC', 'rootC', 'swC', 'hwC',              &
-    'NSN', 'SeedN', 'leafN', 'rootN', 'swN', 'hwN',              &
+    'NSC', 'leafC', 'rootC', 'swC', 'hwC', 'SeedC',              &
+    'NSN', 'leafN', 'rootN', 'swN', 'hwN', 'SeedN',              &
     'fineL', 'strucL', 'McrbC', 'fastSOC', 'slowSOC',            &
     'fineN', 'strucN', 'McrbN', 'fastSON', 'slowSON','mineralN', &
     'WC1_5','WC2_25','WC3_50','WC4_100','WC5_120',               &
@@ -856,9 +856,8 @@ module io_mod
         cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
         cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
         cc%OrganG(I_LF),cc%OrganG(I_RT),cc%OrganG(I_SW),                &
-        cc%NSC,cc%OrganC(I_SD),cc%OrganC(I_LF),cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),       &
-        cc%NSN*1000,cc%OrganN(I_SD)*1000, cc%OrganN(I_LF)*1000,        &
-        cc%OrganN(I_RT)*1000,cc%OrganN(I_SW)*1000,cc%OrganN(I_HW)*1000,           &
+        cc%NSC,(cc%OrganC(j),j=I_LF,I_SD),               &
+        cc%NSN*1000,(cc%OrganN(j)*1000,j=I_LF,I_SD),     &
         cc%W_lf,cc%W_sw,cc%W_hw,cc%gdd,cc%ALT,cc%AWD
       enddo
       !! Tile daily
@@ -944,7 +943,7 @@ module io_mod
           iyr_out,i,cc%ccID,cc%species,sp%lifeform,    &
           cc%layer,cc%nindivs*10000,cc%layerfrac,      &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
-          cc%OrganC(I_LF),cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),cc%OrganC(I_SD),cc%nsc,   &
+          (cc%OrganC(j),j=I_LF,I_SD),cc%nsc,           &
           cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
           call append_annual_line(fno5, line)
@@ -953,9 +952,8 @@ module io_mod
         write(line,'(4(I8,","),300(E15.6,","))')iyears,i,   &
         cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
         cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
-        cc%Aleafmax,cc%OrganC(I_LF),cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),cc%OrganC(I_SD),   &
-        cc%nsc,cc%OrganN(I_LF)*1000,cc%OrganN(I_RT)*1000,cc%OrganN(I_SW)*1000,   &
-        cc%OrganN(I_HW)*1000,cc%OrganN(I_SD)*1000, cc%NSN*1000,           &
+        cc%Aleafmax,(cc%OrganC(j),j=I_LF,I_SD),cc%nsc,    &
+        (cc%OrganN(j)*1000,j=I_LF,I_SD),cc%NSN*1000,      &
         cc%NupYr*1000,cc%annualGPP,cc%annualNPP,          &
         cc%OrganG(I_LF),cc%OrganG(I_RT),cc%OrganG(I_SW),cc%annualTrsp,   &
         cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
@@ -965,8 +963,8 @@ module io_mod
         write(line,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
         iyears,i,cc%ccID,cc%species,cc%layer,            &
         cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,      &
-        cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%OrganC(I_LF),    &
-        cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),cc%OrganC(I_SD),cc%nsc,cc%NSN,      &
+        cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,          &
+        (cc%OrganC(j),j=I_LF,I_SD),cc%nsc,cc%NSN,        &
         cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf,     &
         froot,fwood,cc%mu,cc%annualTrsp,cc%totDemand,    &
         cc%NupYr,cc%NfixedYr,cc%gdd_ON,cc%Tc_OFF,        &
@@ -996,10 +994,8 @@ module io_mod
 
     if(iyr_out > 0) then
       call vegn_sum_tile(vegn)
-      plantC = vegn%NSC + vegn%SeedC + vegn%leafC + vegn%rootC +  &
-               vegn%SwC + vegn%HwC
-      plantN = vegn%NSN + vegn%SeedN + vegn%leafN + vegn%rootN +  &
-               vegn%SwN + vegn%HwN
+      plantC = vegn%NSC + sum(vegn%OrganC(:))
+      plantN = vegn%NSN + sum(vegn%OrganN(:))
       
       soilC  = sum(vegn%SOC(:))
       soilN  = sum(vegn%SON(:)) + vegn%mineralN
@@ -1010,11 +1006,10 @@ module io_mod
       vegn%CAI,vegn%LAImax,vegn%annualGPP,vegn%annualResp,vegn%annualRh,  &
       vegn%annualPrcp, vegn%SoilWater, vegn%annualTrsp, vegn%annualEvap,  &
       vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,            &
-      vegn%leafC, vegn%rootC, vegn%SwC, vegn%HwC, vegn%SeedC,             &
-      vegn%NSC, vegn%leafN*1000,vegn%rootN*1000,vegn%SwN*1000,            &
-      vegn%HwN*1000, vegn%SeedN*1000, vegn%NSN*1000,                      &
+      (vegn%OrganC(j),j=I_LF,I_SD), vegn%NSC,                             &
+      (vegn%OrganN(j)*1000,j=I_LF,I_SD), vegn%NSN*1000,                   &
       (vegn%SOC(j),j=1,5), (vegn%SON(j)*1000,j=1,5),                      &
-      vegn%mineralN*1000, vegn%annualN*1000, vegn%NupYr*1000,             &
+      vegn%mineralN*1000, vegn%NupYr*1000,             &
       vegn%Nm_Fire*1000, N_loss_yr, vegn%CO2_c,vegn%annualCH4
       call append_annual_line(fno6, line)
 #elif DroughtMIP
@@ -1023,10 +1018,10 @@ module io_mod
         vegn%tileID,iyears - yr_Sc,vegn%CAI,vegn%LAI,                   &
         vegn%annualGPP,vegn%annualResp,vegn%annualRh,vegn%C_burned,     &
         vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
-        vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
-        vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
-        vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
-        vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
+        vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,        &
+        vegn%NSC, (vegn%OrganC(j),j=I_LF,I_SD),                         &
+        vegn%NSN*1000,(vegn%OrganN(j)*1000,j=I_LF,I_SD),                &
+        (vegn%SOC(j),j=1,5),                                            &
         (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,vegn%annualCH4,     &
         (vegn%wcl(j),j=1,soil_L)
         call append_annual_line(fno6, line)
@@ -1037,10 +1032,10 @@ module io_mod
       vegn%tileID,iyears,vegn%CAI,vegn%LAI,vegn%annualGPP,            &
       vegn%annualResp,vegn%annualRh,vegn%C_burned,vegn%YearlyTmp,     &
       vegn%annualPrcp,vegn%SoilWater,vegn%annualTrsp,vegn%annualEvap, &
-      vegn%annualRoff,plantC,soilC,plantN*1000,soilN*1000,vegn%NSC,   &
-      vegn%SeedC,vegn%leafC,vegn%rootC,vegn%SwC,vegn%HwC,             &
-      vegn%NSN*1000,vegn%SeedN*1000,vegn%leafN*1000,vegn%rootN*1000,  &
-      vegn%SwN*1000,vegn%HwN*1000,(vegn%SOC(j),j=1,5),                &
+      vegn%annualRoff, plantC, soilC, plantN*1000, soilN*1000,        &
+      vegn%NSC,      (vegn%OrganC(j),     j=I_LF,I_SD),               &
+      vegn%NSN*1000, (vegn%OrganN(j)*1000,j=I_LF,I_SD),               &
+      (vegn%SOC(j),j=1,5),                                            &
       (vegn%SON(j)*1000,j=1,5),vegn%mineralN*1000,                    &
       (vegn%wcl(j),j=1,soil_L),vegn%NfixedYr*1000,vegn%NupYr*1000,    &
       vegn%Nm_Soil*1000,vegn%Nm_Fire*1000,                            &
