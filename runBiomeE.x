@@ -12,7 +12,7 @@ FSRCS="src/datatypes.F90 \
 CPPFLAGS=''
 #CPPFLAGS+='-DHydro_test'
 #CPPFLAGS+=' -DFixedFireRisk'
-CPPFLAGS+=' -DDO_ANIMAL'
+#CPPFLAGS+=' -DDO_ANIMAL'
 #CPPFLAGS+=' -DSingleTreeTest'
 #CPPFLAGS+=' -DHistCO2'
 CPPFLAGS+=' -DScreenOutput'
@@ -27,9 +27,9 @@ gfortran $FSRCS $CPPFLAGS -cpp -o ess
 
 # namelist file (Parameter and model setting file)
 #fparameter='./para_files/parameters_BCI_EG_DC.nml'
-#fparameter='./para_files/parameters_Konza_test.nml'
 #fparameter='./para_files/parameters_BCItest.nml'
-fparameter='./para_files/parameters_ORNL_animal_test.nml'
+#fparameter='./para_files/parameters_ORNL_animal_test.nml'
+fparameter='./para_files/parameters_Konza_test.nml'
 
 echo $fparameter
 

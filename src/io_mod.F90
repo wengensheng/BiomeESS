@@ -527,7 +527,8 @@ module io_mod
     ! ----------Local vars ------------
     implicit none
     character(len=150) :: YearlyCohort2, DailyPatch2  ! For DroughtMIP only
-    character(len=120) :: filesuffix, fpath
+    character(len=120) :: filesuffix
+    character(len=256) :: fpath
     character(len=6)   :: LonLat =''
     integer :: istat1, istat2, istat3
 #ifdef Hydro_test
