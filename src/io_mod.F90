@@ -776,7 +776,7 @@ module io_mod
         write(fno1,'(7(I8,","),40(F12.4,","))')vegn%tileID, &
         iyears,idoy,ihour,cc%ccID,cc%species,cc%layer,    &
         cc%nindivs*10000,cc%dbh,cc%height,cc%Acrown,      &
-        cc%bl,cc%LAI,cc%gpp,cc%npp,cc%transp,             &
+        cc%OrganC(I_LF),cc%LAI,cc%gpp,cc%npp,cc%transp,             &
 #ifdef Hydro_test
         cc%psi_leaf,cc%psi_stem,cc%W_lf,cc%W_sw
 #else
@@ -791,7 +791,7 @@ module io_mod
         forcing%rain,vegn%GPP,vegn%resp,vegn%transp,         &
         vegn%evap,vegn%runoff,vegn%soilwater,                &
         vegn%wcl(2),vegn%psi_soil(2),vegn%K_soil(2),         &
-        cc1%bl,cc1%psi_leaf,cc1%psi_stem,cc1%W_lf,         &
+        cc1%OrganC(I_LF),cc1%psi_leaf,cc1%psi_stem,cc1%W_lf,         &
         cc1%W_sw,cc1%transp
       end associate
     endif
@@ -855,10 +855,10 @@ module io_mod
         cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,     &
         cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
         cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
-        cc%NPPleaf,cc%NPProot,cc%NPPwood,                &
-        cc%NSC,cc%seedC,cc%bl,cc%br,cc%bsw,cc%bHW,       &
-        cc%NSN*1000,cc%seedN*1000, cc%leafN*1000,        &
-        cc%rootN*1000,cc%swN*1000,cc%hwN*1000,           &
+        cc%OrganG(I_LF),cc%OrganG(I_RT),cc%OrganG(I_SW),                &
+        cc%NSC,cc%OrganC(I_SD),cc%OrganC(I_LF),cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),       &
+        cc%NSN*1000,cc%OrganN(I_SD)*1000, cc%OrganN(I_LF)*1000,        &
+        cc%OrganN(I_RT)*1000,cc%OrganN(I_SW)*1000,cc%OrganN(I_HW)*1000,           &
         cc%W_lf,cc%W_sw,cc%W_hw,cc%gdd,cc%ALT,cc%AWD
       enddo
       !! Tile daily
@@ -910,11 +910,11 @@ module io_mod
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
-        treeG = MAX(1.0E-6, cc%seedC + cc%NPPleaf + cc%NPProot + cc%NPPwood)
-        fseed = cc%seedC/treeG
-        fleaf = cc%NPPleaf/treeG
-        froot = cc%NPProot/treeG
-        fwood = cc%NPPwood/treeG
+        treeG = MAX(1.0E-6, cc%OrganC(I_SD) + cc%OrganG(I_LF) + cc%OrganG(I_RT) + cc%OrganG(I_SW))
+        fseed = cc%OrganC(I_SD)/treeG
+        fleaf = cc%OrganG(I_LF)/treeG
+        froot = cc%OrganG(I_RT)/treeG
+        fwood = cc%OrganG(I_SW)/treeG
         dDBH  = (cc%DBH - cc%DBH_ys) * 1000.0 ! mm
         dBA   = 3.1415926 * (cc%DBH**2 - cc%DBH_ys**2)/4.0
         dCA   = cc%Acrown - DBH2CA(cc%DBH_ys,cc%species)
@@ -944,7 +944,7 @@ module io_mod
           iyr_out,i,cc%ccID,cc%species,sp%lifeform,    &
           cc%layer,cc%nindivs*10000,cc%layerfrac,      &
           cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,      &
-          cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,   &
+          cc%OrganC(I_LF),cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),cc%OrganC(I_SD),cc%nsc,   &
           cc%annualGPP,cc%annualNPP,dDBH,dBA,dCA,      &
           treeG,fseed,fleaf,froot,fwood,cc%mu
           call append_annual_line(fno5, line)
@@ -953,11 +953,11 @@ module io_mod
         write(line,'(4(I8,","),300(E15.6,","))')iyears,i,   &
         cc%species,cc%layer,cc%layerfrac,cc%nindivs*10000,&
         cc%mu,dDBH,dCA,cc%dbh,cc%height,cc%Acrown,        &
-        cc%Aleafmax,cc%bl,cc%br,cc%bsw,cc%bHW,cc%seedC,   &
-        cc%nsc,cc%leafN*1000,cc%rootN*1000,cc%swN*1000,   &
-        cc%hwN*1000,cc%seedN*1000, cc%NSN*1000,           &
+        cc%Aleafmax,cc%OrganC(I_LF),cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),cc%OrganC(I_SD),   &
+        cc%nsc,cc%OrganN(I_LF)*1000,cc%OrganN(I_RT)*1000,cc%OrganN(I_SW)*1000,   &
+        cc%OrganN(I_HW)*1000,cc%OrganN(I_SD)*1000, cc%NSN*1000,           &
         cc%NupYr*1000,cc%annualGPP,cc%annualNPP,          &
-        cc%NPPleaf,cc%NPProot,cc%NPPwood,cc%annualTrsp,   &
+        cc%OrganG(I_LF),cc%OrganG(I_RT),cc%OrganG(I_SW),cc%annualTrsp,   &
         cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
         call append_annual_line(fno5, line)
 
@@ -965,8 +965,8 @@ module io_mod
         write(line,'(6(I8,","),300(E15.6,","))')vegn%tileID, &
         iyears,i,cc%ccID,cc%species,cc%layer,            &
         cc%nindivs*10000,cc%layerfrac,dDBH,dBA,dCA,      &
-        cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%bl,    &
-        cc%br,cc%bsw,cc%bHW,cc%seedC,cc%nsc,cc%NSN,      &
+        cc%dbh,cc%height,cc%Acrown,cc%Aleafmax,cc%OrganC(I_LF),    &
+        cc%OrganC(I_RT),cc%OrganC(I_SW),cc%OrganC(I_HW),cc%OrganC(I_SD),cc%nsc,cc%NSN,      &
         cc%annualGPP,cc%annualNPP,treeG,fseed,fleaf,     &
         froot,fwood,cc%mu,cc%annualTrsp,cc%totDemand,    &
         cc%NupYr,cc%NfixedYr,cc%gdd_ON,cc%Tc_OFF,        &

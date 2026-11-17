@@ -126,20 +126,20 @@ contains
   write(iunit) cc%GDD_ON
 
   !-- C pools --
-  write(iunit) cc%bl
-  write(iunit) cc%br
-  write(iunit) cc%bsw
-  write(iunit) cc%bHW
-  write(iunit) cc%seedC
+  write(iunit) cc%OrganC(I_LF)
+  write(iunit) cc%OrganC(I_RT)
+  write(iunit) cc%OrganC(I_SW)
+  write(iunit) cc%OrganC(I_HW)
+  write(iunit) cc%OrganC(I_SD)
   write(iunit) cc%nsc
 
   !-- N pools --
   write(iunit) cc%NSN
-  write(iunit) cc%leafN
-  write(iunit) cc%swN
-  write(iunit) cc%hwN
-  write(iunit) cc%rootN
-  write(iunit) cc%seedN
+  write(iunit) cc%OrganN(I_LF)
+  write(iunit) cc%OrganN(I_SW)
+  write(iunit) cc%OrganN(I_HW)
+  write(iunit) cc%OrganN(I_RT)
+  write(iunit) cc%OrganN(I_SD)
   write(iunit) cc%facuC
 
   !-- root / water supply --
@@ -237,11 +237,11 @@ contains
   read(iunit, err=900, end=900) cc%GDD_ON
 
   !-- C pools --
-  read(iunit, err=900, end=900) cc%bl
-  read(iunit, err=900, end=900) cc%br
-  read(iunit, err=900, end=900) cc%bsw
-  read(iunit, err=900, end=900) cc%bHW
-  read(iunit, err=900, end=900) cc%seedC
+  read(iunit, err=900, end=900) cc%OrganC(I_LF)
+  read(iunit, err=900, end=900) cc%OrganC(I_RT)
+  read(iunit, err=900, end=900) cc%OrganC(I_SW)
+  read(iunit, err=900, end=900) cc%OrganC(I_HW)
+  read(iunit, err=900, end=900) cc%OrganC(I_SD)
   read(iunit, err=900, end=900) cc%nsc
 
   !-- N pools --
@@ -249,11 +249,11 @@ contains
   cc%NSCmax = ccNSCmax(cc)
   cc%NSNmax = ccNSNmax(cc)
   read(iunit, err=900, end=900) cc%NSN
-  read(iunit, err=900, end=900) cc%leafN
-  read(iunit, err=900, end=900) cc%swN
-  read(iunit, err=900, end=900) cc%hwN
-  read(iunit, err=900, end=900) cc%rootN
-  read(iunit, err=900, end=900) cc%seedN
+  read(iunit, err=900, end=900) cc%OrganN(I_LF)
+  read(iunit, err=900, end=900) cc%OrganN(I_SW)
+  read(iunit, err=900, end=900) cc%OrganN(I_HW)
+  read(iunit, err=900, end=900) cc%OrganN(I_RT)
+  read(iunit, err=900, end=900) cc%OrganN(I_SD)
   read(iunit, err=900, end=900) cc%facuC
 
   !-- root / water supply --

@@ -28,6 +28,14 @@ module datatypes
   ! Vegetation and soil types
   integer, parameter :: n_dim_soil_types = 9
   integer, parameter :: MSPECIES   = 30 ! 15
+
+  ! Plant organ indices for cohort OrganC and OrganN
+  integer, parameter :: N_ORGANS = 5
+  integer, parameter :: I_LF     = 1 ! leaves
+  integer, parameter :: I_RT     = 2 ! fine roots
+  integer, parameter :: I_SW     = 3 ! sapwood
+  integer, parameter :: I_HW     = 4 ! heartwood
+  integer, parameter :: I_SD     = 5 ! seed
   integer, parameter :: N_EST      = 7 ! 8 ESS PFTs since started from 0.
   integer, parameter :: Nsoiltypes = 7
   integer, parameter :: LEAF_ON    = 1
@@ -320,10 +328,7 @@ module datatypes
     real :: fNSCmax          ! multiplier for target NSC (NSCmax)
     real :: transT           ! Structural transitional time for canopy layer trees
     ! Default C/N ratios
-    real :: CNleaf0
-    real :: CNroot0
-    real :: CNwood0
-    real :: CNseed0
+    real :: CN0(N_ORGANS) ! C/N ratios of organs, indexed by I_LF, I_RT, I_SW, I_HW, I_SD
     ! phenology
     real :: Tc0_OFF      ! degree C, for turning OFF a growth season
     real :: Tc0_ON       ! degree C, for turning ON a growth season
@@ -413,33 +418,27 @@ module datatypes
     real :: resr = 0.0 ! root respiration
     real :: resn = 0.0 ! N fixation respiration
     real :: resg = 0.0 ! growth respiration
-    real :: NPPleaf = 0.0 ! C allocated to leaf, root, and wood
-    real :: NPProot = 0.0 !
-    real :: NPPwood = 0.0 !
+    real :: OrganG(3) = 0.0 ! C allocated to leaf, root, and sapwood (I_LF, I_RT, I_SW)
 
-    ! Carbon pools
-    real :: bl     = 0.0 ! biomass of leaves, kg C/individual
-    real :: br     = 0.0 ! biomass of fine roots, kg C/individual
-    real :: bsw    = 0.0 ! biomass of sapwood, kg C/individual
-    real :: bHW    = 0.0 ! biomass of heartwood, kg C/individual
-    real :: seedC  = 0.0 ! biomass put aside for future progeny, kg C/individual
-    real :: nsc    = 0.0 ! non-structural carbon, kg C/individual
+    ! Plant carbon and nitrogen pools
+    ! Organ carbon, kg C/individual, indexed by I_LF, I_RT, I_SW, I_HW, I_SD:
+    ! leaves, fine roots, sapwood, heartwood, seed (biomass put aside for progeny)
+    real    :: nsc    = 0.0 ! non-structural carbon, kg C/individual
+    real    :: OrganC(N_ORGANS) = 0.0
+    real(8) :: NSN              = 0.0 ! non-structural N pool
+    real(8) :: OrganN(N_ORGANS) = 0.0 ! Organ nitrogen, kg N/individual, same indices as OrganC
+
+    ! N uptake from soil
+    real(8) :: NSNmax   = 0.0
+    real(8) :: N_uptake = 0.0
+
+    ! N fixation
+    real(8) :: fixedN = 0.0 ! fixed N at each step per tree
+    real(8) :: facuC  = 0.0 ! C pool for facultative N fixation, re-allocated from growth due to N deficit
 
     ! Browsing by herbivore, daily (kg C or N tree-1 day-1)
     real :: brsC   = 0.0 ! carbon of leaves eaten by herbivores
     real :: brsN   = 0.0 ! nitrogen of leaves eaten by herbivores
-
-    ! ---- Nitrogen model related parameters
-    real(8) :: NSNmax = 0.
-    real(8) :: NSN    = 0. ! non-structural N pool
-    real(8) :: leafN  = 0.
-    real(8) :: swN    = 0.
-    real(8) :: hwN    = 0. ! N of heart wood
-    real(8) :: rootN  = 0. ! N of fine roots
-    real(8) :: seedN  = 0. !
-    real(8) :: fixedN = 0. ! fixed N at each stem per tree
-    real(8) :: N_uptake = 0.
-    real    :: facuC  = 0. ! C pool for facultative N fixation, re-allocated from growth due to N deficit
 
     ! ---- water uptake-related variables
     real :: root_length(soil_L) ! m

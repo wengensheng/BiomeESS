@@ -221,7 +221,7 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
   ! All biomass quantities are in kg C m-2 (no DM conversion needed).
   ! Leaf access is height-limited: fraction = browse_height / (height + browse_height).
   ! Litter access is controlled by sp%litter_pref (0 = no litter eating).
-  ! C removed from cc%bl and vegn%SOC(1) is distributed by palatability-weighted forage.
+  ! C removed from cc%OrganC(I_LF) and vegn%SOC(1) is distributed by palatability-weighted forage.
   ! cc%brsC and cc%brsN record the daily leaf C and N eaten from each plant cohort.
   implicit none
   type(ani_cohort_type), target, intent(inout) :: ac
@@ -245,8 +245,8 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
   B_vegn = 0.0 ; w_vegn = 0.0
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
-    ! cc%bl is kg C ind-1; scale by density and height-limited browse fraction -> kg C m-2
-    B_cc(i) = cc%bl * cc%nindivs * sp%browse_height / (cc%height + sp%browse_height)
+    ! cc%OrganC(I_LF) is kg C ind-1; scale by density and height-limited browse fraction -> kg C m-2
+    B_cc(i) = cc%OrganC(I_LF) * cc%nindivs * sp%browse_height / (cc%height + sp%browse_height)
     w_cc(i) = sp%palatability(cc%species) * B_cc(i)
     B_vegn  = B_vegn + B_cc(i)
     w_vegn  = w_vegn + w_cc(i)
@@ -277,13 +277,13 @@ subroutine ani_plant_intake(ac, vegn, intake_ind, intake_tot, C_removed_tot)
     ! cap at available leaf C for this cohort
     C_removed_cc = min(C_removed_cc, B_cc(i))
     if (cc%nindivs > 0.0 .and. C_removed_cc > 0.0) then
-      frac_remain = max(0.0, 1.0 - C_removed_cc / max(cc%bl * cc%nindivs, 1.e-12))
+      frac_remain = max(0.0, 1.0 - C_removed_cc / max(cc%OrganC(I_LF) * cc%nindivs, 1.e-12))
       ! Record leaf C and N eaten from this cohort (kg m-2 day-1) before scaling
-      N_removed_cc = safe_div(real(cc%leafN), cc%bl) * C_removed_cc
+      N_removed_cc = safe_div(real(cc%OrganN(I_LF)), cc%OrganC(I_LF)) * C_removed_cc
       cc%brsC = cc%brsC   + C_removed_cc
       cc%brsN = cc%brsN   + N_removed_cc
-      cc%bl    = cc%bl    * frac_remain
-      cc%leafN = cc%leafN * frac_remain
+      cc%OrganC(I_LF)    = cc%OrganC(I_LF)    * frac_remain
+      cc%OrganN(I_LF) = cc%OrganN(I_LF) * frac_remain
     end if
   end do
 

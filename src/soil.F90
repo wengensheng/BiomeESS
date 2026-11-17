@@ -662,9 +662,9 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     z = 0
     do l = 1, size(dz)
       ! calculate the volumetric fine root biomass density [kgC/m3] for current layer
-      ! NOTE: sum(brv*dz) must be equal to cohort%br, which is achieved by normalizing
+      ! NOTE: sum(brv*dz) must be equal to cohort%OrganC(I_RT), which is achieved by normalizing
       ! factor
-      vbr = cohort%br * &
+      vbr = cohort%OrganC(I_RT) * &
       (exp(-z/cohort%root_zeta) - exp(-(z+dz(l))/cohort%root_zeta))*factor/dz(l)
       ! calculate the volumetric fine root length
       vrl(l) = vbr*spdata(sp)%srl
@@ -711,11 +711,11 @@ subroutine SoilWaterDynamics(forcing, vegn)    !outputs
     if(sum_rf>0) &
     uptake_frac_max(:) = uptake_frac_max(:)/sum_rf
 
-    if (cohort%br <= 0) then
+    if (cohort%OrganC(I_RT) <= 0) then
       vegn_uptake_term(:) = 0.0
     else
       vegn_uptake_term(:) = uptake_frac_max(:) * &
-      res_scaler * spdata(cohort%species)%root_r * cohort%br
+      res_scaler * spdata(cohort%species)%root_r * cohort%OrganC(I_RT)
     endif
 
   end subroutine

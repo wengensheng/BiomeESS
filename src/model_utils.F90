@@ -159,21 +159,21 @@ contains
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
         vegn%NSC     = vegn%NSC     + (cc%NSC + cc%facuC) * cc%nindivs
-        vegn%SeedC   = vegn%SeedC   + cc%seedC  * cc%nindivs
-        vegn%leafC   = vegn%leafC   + cc%bl     * cc%nindivs
-        vegn%rootC   = vegn%rootC   + cc%br     * cc%nindivs
-        vegn%SwC     = vegn%SwC     + cc%bsw    * cc%nindivs
-        vegn%HwC     = vegn%HwC     + cc%bHW    * cc%nindivs
+        vegn%SeedC   = vegn%SeedC   + cc%OrganC(I_SD)  * cc%nindivs
+        vegn%leafC   = vegn%leafC   + cc%OrganC(I_LF)     * cc%nindivs
+        vegn%rootC   = vegn%rootC   + cc%OrganC(I_RT)     * cc%nindivs
+        vegn%SwC     = vegn%SwC     + cc%OrganC(I_SW)    * cc%nindivs
+        vegn%HwC     = vegn%HwC     + cc%OrganC(I_HW)    * cc%nindivs
         vegn%CAI     = vegn%CAI     + cc%Acrown * cc%nindivs
         vegn%LAI     = vegn%LAI     + cc%Aleaf  * cc%nindivs
         vegn%ArootL  = vegn%ArootL  + cc%ArootL * cc%nindivs
 
         vegn%NSN     = vegn%NSN     + cc%NSN    * cc%nindivs
-        vegn%SeedN   = vegn%SeedN   + cc%seedN  * cc%nindivs
-        vegn%leafN   = vegn%leafN   + cc%leafN  * cc%nindivs
-        vegn%rootN   = vegn%rootN   + cc%rootN  * cc%nindivs
-        vegn%SwN     = vegn%SwN     + cc%swN    * cc%nindivs
-        vegn%HwN     = vegn%HwN     + cc%hwN    * cc%nindivs
+        vegn%SeedN   = vegn%SeedN   + cc%OrganN(I_SD)  * cc%nindivs
+        vegn%leafN   = vegn%leafN   + cc%OrganN(I_LF)  * cc%nindivs
+        vegn%rootN   = vegn%rootN   + cc%OrganN(I_RT)  * cc%nindivs
+        vegn%SwN     = vegn%SwN     + cc%OrganN(I_SW)    * cc%nindivs
+        vegn%HwN     = vegn%HwN     + cc%OrganN(I_HW)    * cc%nindivs
 
         vegn%W_sw    = vegn%W_sw  + cc%W_sw * cc%nindivs
         vegn%W_hw    = vegn%W_hw  + cc%W_hw * cc%nindivs
@@ -283,9 +283,7 @@ contains
     cc%NupYr     = 0.0
     cc%NfixedYr  = 0.0
     cc%totDemand = 0.0
-    cc%NPPleaf   = 0.0
-    cc%NPProot   = 0.0
-    cc%NPPwood   = 0.0
+    cc%OrganG    = 0.0
     cc%DBH_ys    = cc%DBH
     cc%Aleafmax  = 0.0
     cc%brsC      = 0.0
@@ -619,10 +617,11 @@ contains
     spdata%alpha_FR = alpha_FR  ! root urnover rate
 
     !! Nitrogen Weng 2012-10-24
-    !spdata%CNleaf0 = CNleaf0
-    spdata%CNwood0  = CNwood0
-    spdata%CNroot0  = CNroot0
-    spdata%CNseed0  = CNseed0
+    !spdata%CN0(I_LF) = CNleaf0 ! leaf C/N is set from LMA/LNA in init_derived_species_data
+    spdata%CN0(I_RT) = CNroot0
+    spdata%CN0(I_SW) = CNwood0
+    spdata%CN0(I_HW) = CNwood0
+    spdata%CN0(I_SD) = CNseed0
     spdata%R0_Nfix  = R0_Nfix
     !spdata%C0_Nfix  = C0_Nfix ! scalar, not an array, same cost for all PFTs
     spdata%S_facuN  = S_facuN
@@ -678,7 +677,7 @@ contains
     sp%Vmax = 0.02 * sp%LNbase ! 0.03125 * sp%LNbase ! Vmax/LNbase= 25E-6/0.8E-3 = 0.03125 !
     !  CN0 of leaves
     sp%LNA     = sp%LNbase +  sp%LMA/sp%CN0leafST
-    sp%CNleaf0 = sp%LMA/sp%LNA
+    sp%CN0(I_LF) = sp%LMA/sp%LNA
     !  Leaf life span as a function of LMA
     sp%leafLS = c_LLS * sp%LMA
     if(sp%leafLS>1.0)then
@@ -941,7 +940,7 @@ contains
   function IndividualTotC(cc) result (totC)
     real :: totC ! returned value
     type(cohort_type), intent(in) :: cc    ! cohort to update
-    totC = cc%NSC + cc%facuC + cc%bl + cc%bsw + cc%bHW + cc%br + cc%seedC
+    totC = cc%NSC + cc%facuC + cc%OrganC(I_LF) + cc%OrganC(I_SW) + cc%OrganC(I_HW) + cc%OrganC(I_RT) + cc%OrganC(I_SD)
   end function
 
   !-------------------------------------------
@@ -949,7 +948,7 @@ contains
     real :: totN ! returned value
     type(cohort_type), intent(in) :: cc    ! cohort to update
 
-    totN = cc%NSN + cc%leafN + cc%swN + cc%hwN + cc%rootN + cc%seedN
+    totN = cc%NSN + cc%OrganN(I_LF) + cc%OrganN(I_SW) + cc%OrganN(I_HW) + cc%OrganN(I_RT) + cc%OrganN(I_SD)
   end function
 
   !-------------------------------------------
@@ -1035,7 +1034,7 @@ contains
     type(cohort_type), intent(in) :: cc    ! cohort to update
 
     associate(sp=>spdata(cc%species))
-      NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CNleaf0*sp%leafLS)+cc%br_max/sp%CNroot0)
+      NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CN0(I_LF)*sp%leafLS)+cc%br_max/sp%CN0(I_RT))
     end associate
   end function
 
