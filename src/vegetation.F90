@@ -516,64 +516,64 @@ subroutine twostream(mu,mu_bar,LAI,albedo_g,phi1,phi2,rl,tl, &
   K = G_mu/mu
 
   ! given optical parameters, calculate coefficients of basic equation
-  g1 = (1-(rl+tl)/2+(rl-tl)/eta)/mu_bar;
-  g2 = (  (rl+tl)/2+(rl-tl)/eta)/mu_bar;
-  g3 = G_mu*((rl+tl)/2+mu*(rl-tl)/eta/G_mu);
-  g4 = G_mu*((rl+tl)/2-mu*(rl-tl)/eta/G_mu);
+  g1 = (1-(rl+tl)/2+(rl-tl)/eta)/mu_bar
+  g2 = (  (rl+tl)/2+(rl-tl)/eta)/mu_bar
+  g3 = G_mu*((rl+tl)/2+mu*(rl-tl)/eta/G_mu)
+  g4 = G_mu*((rl+tl)/2-mu*(rl-tl)/eta/G_mu)
 
   ! calculate eigenvalue of free solution (=exponent coefficient of
   ! free solution, notes 12)
-  kappa = sqrt(g1**2-g2**2);
+  kappa = sqrt(g1**2-g2**2)
 
   ! calculate forced term coefficients for diffuse light intensity
-  c_up = ( K*g3-g1*g3-g2*g4)/(K*K-g1*g1+g2*g2);
-  c_dn = (-K*g4-g1*g4-g2*g3)/(K*K-g1*g1+g2*g2);
+  c_up = ( K*g3-g1*g3-g2*g4)/(K*K-g1*g1+g2*g2)
+  c_dn = (-K*g4-g1*g4-g2*g3)/(K*K-g1*g1+g2*g2)
   ! calculate intermediate coefficients for solution
-  x1 = g1+g2+kappa; x2 = g1+g2-kappa;
+  x1 = g1+g2+kappa; x2 = g1+g2-kappa
 
   !write(*,*)mu,K,g1,g2,g3,g4,c_up,c_dn
 
   ! calculate coefficients of the matrix
-  a11 = x2;
-  a12 = x1;
-  d1  = -c_dn;
-  a21 = exp(kappa*LAI)*(x1-albedo_g*x2);
-  a22 = exp(-kappa*LAI)*(x2-albedo_g*x1);
-  d2  = exp(-K*LAI)*(albedo_g*c_dn + albedo_g*mu - c_up);
+  a11 = x2
+  a12 = x1
+  d1  = -c_dn
+  a21 = exp(kappa*LAI)*(x1-albedo_g*x2)
+  a22 = exp(-kappa*LAI)*(x2-albedo_g*x1)
+  d2  = exp(-K*LAI)*(albedo_g*c_dn + albedo_g*mu - c_up)
   ! solve the equation system
-  D = a11*a22-a12*a21;
-  A = (d1*a22-d2*a12)/D;
-  B = (a11*d2-a21*d1)/D;
+  D = a11*a22-a12*a21
+  A = (d1*a22-d2*a12)/D
+  B = (a11*d2-a21*d1)/D
 
   ! calculate coefficients of the diffuse light solution
-  a_up = A*x1; b_up=B*x2;
-  a_dn = A*x2; b_dn=B*x1;
+  a_up = A*x1; b_up=B*x2
+  a_dn = A*x2; b_dn=B*x1
 
   ! calculate downward diffuse light at the bottom of the canopy
-  dif_dn_bot = a_dn*exp(kappa*LAI) + b_dn*exp(-kappa*LAI)+c_dn*exp(-K*LAI);
-  dif_up_bot = a_up*exp(kappa*LAI) + b_up*exp(-kappa*LAI)+c_up*exp(-K*LAI);
+  dif_dn_bot = a_dn*exp(kappa*LAI) + b_dn*exp(-kappa*LAI)+c_dn*exp(-K*LAI)
+  dif_up_bot = a_up*exp(kappa*LAI) + b_up*exp(-kappa*LAI)+c_up*exp(-K*LAI)
 
   ! calculate canopy transmittance and scattered part for direct light
   scatter_dir = dif_dn_bot/mu; ! scatter
   transm_dir  = exp(-K*LAI); ! transmittance for unmolested direct light
 
   ! calculate canopy reflectance for direct light
-  dif_up_top = a_up + b_up + c_up;
-  albedo_dir = dif_up_top/mu;
+  dif_up_top = a_up + b_up + c_up
+  albedo_dir = dif_up_top/mu
 
   ! calculate upward diffuse light at the top of the canopy
   ! no need to recalculate D, since the matrix is the same
-  d1 = 1.0;
-  d2 = 0.0;
-  A = (d1*a22-d2*a12)/D;
-  B = (a11*d2-a21*d1)/D;
+  d1 = 1.0
+  d2 = 0.0
+  A = (d1*a22-d2*a12)/D
+  B = (a11*d2-a21*d1)/D
 
   ! calculate coefficients of the diffuse light solution
-  a_up = A*x1; b_up=B*x2;
-  a_dn = A*x2; b_dn=B*x1;
+  a_up = A*x1; b_up=B*x2
+  a_dn = A*x2; b_dn=B*x1
 
-  transm_dif = a_dn*exp(kappa*LAI) + b_dn*exp(-kappa*LAI);
-  albedo_dif = a_up + b_up;
+  transm_dif = a_dn*exp(kappa*LAI) + b_dn*exp(-kappa*LAI)
+  albedo_dif = a_up + b_up
 
 end subroutine twostream
 
@@ -957,7 +957,7 @@ subroutine Seasonal_fall(cc,vegn)
      cc%OrganN(I_LF:I_SW) = cc%OrganN(I_LF:I_SW) - dN
 
      !update NPP for leaves, fine roots, and wood
-     cc%OrganG = cc%OrganG - l_fract * dB
+     cc%OrganG(I_LF:I_SW) = cc%OrganG(I_LF:I_SW) - l_fract * dB
      cc%Aleaf   = BL2Aleaf(cc%OrganC(I_LF),cc)
      cc%LAI     = vegn%CAI_L(cc%layer)*cc%Aleaf/(cc%Acrown *(1.0-sp%f_cGap))
 
@@ -1073,7 +1073,7 @@ subroutine vegn_growth(vegn)
       end if
 
       ! --- Update plant pools -------------------------------------------
-      Gtot    = dB(I_RT) + dB(I_LF) + dB(I_SD) + dB(I_SW) ! same summation order as before the dB refactor
+      Gtot    = sum(dB(:)) ! dB(I_HW) is always 0.
       cc%NSC  = cc%NSC - Gtot
       cc%resg = f_respG * Gtot ! Will be deducted from NSC in vegn_respiration
 
@@ -1096,8 +1096,8 @@ subroutine vegn_growth(vegn)
       cc%OrganN(I_SW)  = cc%OrganN(I_SW) - extraN
       cc%NSN  = cc%NSN + extraN - f_N_add * cc%NSN - Nsupply
 
-      ! Accumulated C allocated to leaf, root, and wood
-      cc%OrganG = cc%OrganG + dB(I_LF:I_SW)
+      ! Accumulated C allocated to leaf, root, sapwood, heartwood (0), and seed
+      cc%OrganG = cc%OrganG + dB
 
       ! --- Update plant architecture ------------------------------------
       DBH0 = cc%DBH
@@ -1221,8 +1221,8 @@ subroutine vegn_tissue_turnover(vegn)
      cc%OrganC(I_LF:I_SW) = cc%OrganC(I_LF:I_SW) - dB
      cc%OrganN(I_LF:I_SW) = cc%OrganN(I_LF:I_SW) - dN
 
-     ! update NPP for leaves, fine roots, and wood
-     cc%OrganG = cc%OrganG - l_fract * dB
+     ! update NPP for leaves, fine roots, and sapwood
+     cc%OrganG(I_LF:I_SW) = cc%OrganG(I_LF:I_SW) - l_fract * dB
 
      ! Put C and N into soil pools
      dAleaf = BL2Aleaf(dB(I_LF),cc)

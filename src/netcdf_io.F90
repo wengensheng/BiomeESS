@@ -22,7 +22,7 @@ module netcdf_io
 contains
 !===================================================
 subroutine ReadNCfiles (cru_path, veg_path, ndp_path,file_exists)
-  ! Read in all netcdf files for global run, including;
+  ! Read in all netcdf files for global run, including:
   ! climate, vegetation, and nitrogen deposition data
   ! Updated 04/04/2026
    use, intrinsic :: ieee_arithmetic

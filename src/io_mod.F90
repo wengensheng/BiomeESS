@@ -855,7 +855,7 @@ module io_mod
         cc%species,cc%layer,cc%status,cc%ndm,cc%ncd,     &
         cc%nindivs*10000.,cc%Acrown,cc%LAI,cc%leafage,   &
         cc%dailygpp,cc%dailyresp,cc%dailytrsp,           &
-        cc%OrganG(I_LF),cc%OrganG(I_RT),cc%OrganG(I_SW),                &
+        (cc%OrganG(j),j=I_LF,I_SW),                      &
         cc%NSC,(cc%OrganC(j),j=I_LF,I_SD),               &
         cc%NSN*1000,(cc%OrganN(j)*1000,j=I_LF,I_SD),     &
         cc%W_lf,cc%W_sw,cc%W_hw,cc%gdd,cc%ALT,cc%AWD
@@ -909,11 +909,11 @@ module io_mod
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
-        treeG = MAX(1.0E-6, cc%OrganC(I_SD) + cc%OrganG(I_LF) + cc%OrganG(I_RT) + cc%OrganG(I_SW))
-        fseed = cc%OrganC(I_SD)/treeG
+        treeG = MAX(1.0E-6, sum(cc%OrganG(:)))
         fleaf = cc%OrganG(I_LF)/treeG
         froot = cc%OrganG(I_RT)/treeG
         fwood = cc%OrganG(I_SW)/treeG
+        fseed = cc%OrganG(I_SD)/treeG
         dDBH  = (cc%DBH - cc%DBH_ys) * 1000.0 ! mm
         dBA   = 3.1415926 * (cc%DBH**2 - cc%DBH_ys**2)/4.0
         dCA   = cc%Acrown - DBH2CA(cc%DBH_ys,cc%species)
@@ -955,7 +955,7 @@ module io_mod
         cc%Aleafmax,(cc%OrganC(j),j=I_LF,I_SD),cc%nsc,    &
         (cc%OrganN(j)*1000,j=I_LF,I_SD),cc%NSN*1000,      &
         cc%NupYr*1000,cc%annualGPP,cc%annualNPP,          &
-        cc%OrganG(I_LF),cc%OrganG(I_RT),cc%OrganG(I_SW),cc%annualTrsp,   &
+        (cc%OrganG(j),j=I_LF,I_SW),cc%annualTrsp,         &
         cc%totDemand,cc%Asap,cc%Ktrunk,cc%treeHU,cc%treeW0
         call append_annual_line(fno5, line)
 

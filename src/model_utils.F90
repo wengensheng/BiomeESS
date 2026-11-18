@@ -1275,7 +1275,7 @@ contains
     !---- Local vars -----------------
     integer :: i,j,k
 
-    i = 1; j = 1; k = 1;
+    i = 1; j = 1; k = 1
     do while(i <= na .and. j <= nb)
       if (x(a(i)) >= x(b(j))) then
         c(k) = a(i) ; i = i+1

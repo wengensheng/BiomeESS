@@ -418,7 +418,7 @@ module datatypes
     real :: resr = 0.0 ! root respiration
     real :: resn = 0.0 ! N fixation respiration
     real :: resg = 0.0 ! growth respiration
-    real :: OrganG(3) = 0.0 ! C allocated to leaf, root, and sapwood (I_LF, I_RT, I_SW)
+    real :: OrganG(N_ORGANS) = 0.0 ! C allocated to plant C pools
 
     ! Plant carbon and nitrogen pools
     ! Organ carbon, kg C/individual, indexed by I_LF, I_RT, I_SW, I_HW, I_SD:
