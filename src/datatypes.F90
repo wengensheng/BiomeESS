@@ -271,7 +271,6 @@ module datatypes
     real :: alpha_ps     ! photosynthesis efficiency
     real :: m_cond       ! Stomatal Sensitivity (g1): how "cautious" a plant is. low m indicates a water-conservative strategy
     real :: Vmax         ! max rubisco rate, mol m-2 s-1
-    real :: Vannual      ! annual productivity per unit area at full fun (kgC m-2 yr-1)
     real :: gamma_L      ! leaf respiration coeficient (per yr)
     real :: gamma_LN     ! leaf respiration coeficient per unit N
     real :: ps_wet       ! wet leaf photosynthesis down-regulation
@@ -749,6 +748,8 @@ module datatypes
   real :: f_N_add   = 0.02    ! re-fill of N for sapwood
   real :: fLFR_max  = 0.85    ! max allocation to leaves and fine roots each step
   real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
+  real :: CO2_ref   = 400.0   ! Reference CO2 concentration (ppm) above which Vm is downregulated (gs_leuning)
+  real :: k_Vm      = 2.5     ! Vm acclimation: phi = (1+k_Vm)*CO2_ref/(CO2+k_Vm*CO2_ref), capped at 1 (large k_Vm = off)
   real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
   real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
   real :: C0_Nfix   = 12.0    ! gC/gN, carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
@@ -849,7 +850,6 @@ module datatypes
   real :: Vmax(0:MSPECIES)     = 35.0E-6 ! mol m-2 s-1
   real :: m_cond(0:MSPECIES)   = 9.0 ! 7.0 !
   real :: alpha_ps(0:MSPECIES) =  0.06 !
-  real :: Vannual(0:MSPECIES)  = 1.2 ! kgC m-2 yr-1
   real :: ps_wet(0:MSPECIES)   = 0.3 ! wet leaf photosynthesis down-regulation: 0.3 means
   ! photosynthesis of completely wet leaf will be 30% reduction
 
@@ -1168,7 +1168,7 @@ module datatypes
   pt, phenotype, lifeform, f_taper,f_cGap,                      &
   alphaHT,alphaCA,alphaBM,thetaHT,thetaCA,thetaBM,              &
   ! Leaf
-  LMA,LAImax,Vmax,m_cond,Vannual,ps_wet,c_LLS,leaf_size,        &
+  LMA,LAImax,Vmax,m_cond,ps_wet,c_LLS,CO2_ref,k_Vm,leaf_size,   &
   ! Wood and root
   rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,          &
   rho_N_up0, N_roots0,                                          &

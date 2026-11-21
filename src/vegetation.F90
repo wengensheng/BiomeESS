@@ -255,8 +255,10 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real :: kc, ko          ! Michaelis-Menten constants for CO2 and O2
   real :: ci
   real :: capgam          ! CO2 compensation point
-  real :: f2, f3
+  real :: k_ci
   real :: coef0, coef1
+  real :: phi_Vm          ! Vm acclimation factor
+  real :: vm_eff
   real :: Resp
 
   ! conductance related
@@ -265,9 +267,6 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
   real :: ds              ! humidity deficit, kg/kg
   real :: hl              ! saturated specific humidity at leaf temp, kg/kg
   real :: do1
-
-  ! miscellaneous / numerics
-  real :: dum2
 
   ! new average computations
   real :: lai_eq
@@ -366,16 +365,14 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
     if (light_top > light_crit) then
 
        if (pt == PT_C4) then
-          coef0 = (1.0 + ds/do1) / sp%m_cond
+          coef0 = (1.0 + ds/do1) / sp%m_cond  ! Inverse of the VPD-adjusted Leuning slope (1/g1_eff)
           ci    = (ca + 1.6*coef0*capgam) / (1.0 + 1.6*coef0)
 
           if (ci > capgam) then
-             f2   = vm
-             f3   = 18000.0 * vm * ci
-             dum2 = min(f2, f3)
+             vm_eff = vm * min(1.0, 18000.0 * ci)
 
-             ! lai_eq = -log(dum2/(sp%alpha_ps*light_top))/kappa
-             arg = dum2 / max(sp%alpha_ps*light_top, zero_thld)
+             ! lai_eq = -log(vm_eff/(sp%alpha_ps*light_top))/kappa
+             arg = vm_eff / max(sp%alpha_ps*light_top, zero_thld)
              if (arg > zero_thld) then
                 lai_eq = -log(arg) / kappa_eff
              else
@@ -384,7 +381,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              lai_eq = min(max(0.0, lai_eq), lai)
 
              Ag_l  = sp%alpha_ps * par_net * (exp(-lai_eq*kappa_eff) - exp(-lai*kappa_eff)) / kappa_eff
-             Ag_rb = dum2 * lai_eq
+             Ag_rb = vm_eff * lai_eq
 
              Ag = (Ag_l + Ag_rb) / ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
                                   * (1.0+exp(0.4*(tl-45.0-TFREEZE))))
@@ -398,17 +395,17 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
           endif
 
        else  ! C3
-          coef0 = (1.0 + ds/do1) / sp%m_cond
+          coef0 = (1.0 + ds/do1) / sp%m_cond ! Inverse of the VPD-adjusted Leuning slope (1/g1_eff)
           coef1 = kc * (1.0 + 0.209/ko)
           ci    = (ca + 1.6*coef0*capgam) / (1.0 + 1.6*coef0)
-
-          f2   = vm * (ci - capgam) / (ci + coef1)
-          f3   = vm / 2.0
-          dum2 = min(f2, f3)
+          k_ci  = (ci - capgam) / (ci + coef1)
+          ! Vm acclimation to elevated CO2 (saturating form); phi = 1 at CO2_ref, capped at 1 below it
+          phi_Vm = min(1.0,(1.0+k_Vm)*CO2_ref/(ca*1.0e6 + k_Vm*CO2_ref))
+          vm_eff = vm * phi_Vm * min(k_ci, 0.5)
 
           if (ci > capgam) then
-             ! lai_eq=-log(dum2*(ci+2*capgam)/(ci-capgam)/(sp%alpha_ps*light_top))/kappa
-             arg = dum2 * (ci + 2.0*capgam) / max((ci - capgam) * sp%alpha_ps * light_top, zero_thld)
+             ! lai_eq=-log(vm_eff*(ci+2*capgam)/(ci-capgam)/(sp%alpha_ps*light_top))/kappa
+             arg = vm_eff * (ci + 2.0*capgam) / max((ci - capgam) * sp%alpha_ps * light_top, zero_thld)
              !(sp%alpha_ps*light_top*kappa) --> (sp%alpha_ps*light_top) ! Yang Qi: no kappa)
              if (arg > zero_thld) then
                 lai_eq = -log(arg) / kappa_eff
@@ -420,7 +417,7 @@ subroutine gs_Leuning(rad_top, rad_net, tl, ea, lai, &
              Ag_l  = sp%alpha_ps * (ci-capgam)/(ci+2.0*capgam) * par_net  &
                    * (exp(-lai_eq*kappa_eff) - exp(-lai*kappa_eff)) / kappa_eff
                    ! Yang Qi: 1.0-exp(-lai*kappa)) --> kappa (kappa_eff)
-             Ag_rb = dum2 * lai_eq
+             Ag_rb = vm_eff * lai_eq
 
              Ag = (Ag_l + Ag_rb) / ((1.0+exp(0.4*(5.0-tl+TFREEZE))) &
                                   * (1.0+exp(0.4*(tl-45.0-TFREEZE))))

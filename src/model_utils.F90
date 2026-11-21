@@ -532,7 +532,6 @@ contains
     spdata%phenotype= phenotype
     spdata%f_cGap   = f_cGap
     spdata%Vmax     = Vmax
-    spdata%Vannual  = Vannual
     spdata%m_cond   = m_cond
     spdata%alpha_ps = alpha_ps
     spdata%ps_wet   = ps_wet
