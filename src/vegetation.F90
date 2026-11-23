@@ -802,7 +802,7 @@ subroutine vegn_phenology(vegn)  ! daily step
   logical :: PhenoON, PhenoOFF
   logical :: DoReset(vegn%n_cohorts) ! grass cohorts to be reset today
   real    :: spC(0:MSPECIES), spN(0:MSPECIES) ! pooled C and N by grass species, kg
-  real    :: totGrassC, Acrown0, Nmax
+  real    :: totGrassC, Acrown0, Nmax, exC, exN
   integer :: ifirst(0:MSPECIES)  ! first cohort holding the pooled species
   logical :: SpTrig(0:MSPECIES)  ! species starting a growing season today
   integer :: isp
@@ -873,7 +873,8 @@ subroutine vegn_phenology(vegn)  ! daily step
   ! All reset cohorts of a species are combined into one cohort. The total
   ! density is capped so that the species' crown area at seedling size does not
   ! exceed its biomass share of MaxGrassCA. Seedling structure stays at size
-  ! s0_plant and the unused C and N go to the seedlings' NSC and NSN.
+  ! s0_plant and the unused C and N go to the seedlings' NSC and NSN (above
+  ! NSCmax/NSNmax the excess goes to metabolic litter).
   if (any(DoReset)) then
     spC(:) = 0.0; spN(:) = 0.0; ifirst(:) = 0
     ! Species that start a growing season today trigger pooling
@@ -915,13 +916,23 @@ subroutine vegn_phenology(vegn)  ! daily step
               vegn%cohorts(i)%nindivs = 0.0
           enddo
           cc%nindivs = nindivs
-          ! Seedling structure is kept at size s0_plant; the unused C and N
-          ! are put into the seedlings' NSC and NSN pools
+
+          ! Seedling structure is kept at size s0_plant
           totC = sp%s0_plant
           totN = sp%s0_plant / sp%CN0(I_RT)
           call setup_seedling(cc, totC, totN)
+
+          ! Unused C and Nare put into the seedlings' NSC and NSN pools
           cc%nsc = cc%nsc + max(0.0, spC(isp) - nindivs * totC) / nindivs
           cc%NSN = cc%NSN + max(0.0, spN(isp) - nindivs * totN) / nindivs
+          ! NSC and NSN above their maxima go to metabolic litter
+          exC = max(0.0, cc%nsc - cc%NSCmax) * nindivs
+          exN = max(0.0, cc%NSN - cc%NSNmax) * nindivs
+          cc%nsc = cc%nsc - exC / nindivs
+          cc%NSN = cc%NSN - exN / nindivs
+          vegn%SOC(1)  = vegn%SOC(1) + exC
+          vegn%SON(1)  = vegn%SON(1) + exN
+          vegn%NorgP2S = vegn%NorgP2S + exN
         endif
       end associate
     enddo
