@@ -132,6 +132,7 @@ contains
 
     type(cohort_type),pointer :: cc
     real :: BMG
+    logical :: GrowingSeasaon
     integer :: i
 
     vegn%NSC     = 0.0
@@ -147,6 +148,7 @@ contains
     vegn%LAI    = 0.0
     vegn%CAI    = 0.0
     vegn%ArootL = 0.0
+    GrowingSeasaon = .True.
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
       associate ( sp => spdata(cc%species))
@@ -162,10 +164,13 @@ contains
         vegn%W_sw    = vegn%W_sw  + cc%W_sw * cc%nindivs
         vegn%W_hw    = vegn%W_hw  + cc%W_hw * cc%nindivs
         vegn%W_lf    = vegn%W_lf  + cc%W_lf * cc%nindivs
+
+        ! If all top layer cohorts are in growing seasaon
+        if (cc%layer == 1 .and. cc%status /= LEAF_ON ) GrowingSeasaon = .False.
       end associate
     enddo
 
-    if(all(vegn%cohorts(:)%status == LEAF_ON))then
+    if(GrowingSeasaon)then
       vegn%TreeCA  = 0.0
       vegn%GrassCA = 0.0
       BMG          = 0.0
@@ -923,7 +928,7 @@ contains
   function IndividualTotC(cc) result (totC)
     real :: totC ! returned value
     type(cohort_type), intent(in) :: cc    ! cohort to update
-    totC = cc%NSC + cc%facuC + cc%OrganC(I_LF) + cc%OrganC(I_SW) + cc%OrganC(I_HW) + cc%OrganC(I_RT) + cc%OrganC(I_SD)
+    totC = cc%NSC + cc%facuC + sum(cc%OrganC(:)) ! + cc%OrganC(I_SW) + cc%OrganC(I_HW) + cc%OrganC(I_RT) + cc%OrganC(I_SD)
   end function
 
   !-------------------------------------------

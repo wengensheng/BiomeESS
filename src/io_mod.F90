@@ -984,7 +984,7 @@ module io_mod
         i,cc%species,cc%layer, &
         cc%nindivs*10000,cc%layerfrac,dDBH,cc%dbh,cc%nsc, &
         cc%Atrunk,cc%Asap,cc%Ktrunk,cc%annualGPP,cc%mu,   &
-        cc%annualTrsp/cc%totDemand,cc%treeHU,cc%treeW0
+        cc%w_scale,cc%treeHU,cc%treeW0
 #endif
 
       end associate

@@ -18,7 +18,7 @@ climfile    = 'KNZ_amb.csv', ! 'ORNL_forcing.txt' ! 'BCI_forcing.csv' !
 Sc_prcp     = 1.0, ! 0.5 ! 0.25, ! 1/4 rainfall
 Sc_dT       = 0.0, ! degree C
 CO2_c       = 400.0, ! 570.0, ! ppm, The year of 2000
-model_run_years =  900, ! 1590, !
+model_run_years =  1800, ! 1590, !
 outputhourly    = .False., ! .True.
 outputdaily     = .False., ! .True.,  !
 do_closedN_run  = .True.,  ! .False., !
@@ -48,9 +48,9 @@ diff_S0    = 0.1,  ! critical difference for merging of two cohorts
 c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs = 0.035., leafLS = 1.0
 C0_Nfix    = 12.0     ! gC/gN, carbon cost of N fixation
 !MI0Fire   = 0.33,  ! 0.20, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
-FSBM0      = 0.08, ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
-r_BK0      = -150.0, ! Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
-EnvF0      = 0.25, ! 0.33, ! Climate fire risk per year, when Do_FixedFrisk == .True.
+FSBM0      = 0.40,   ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+r_BK0      = -150.0, ! -150.0, Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
+EnvF0      = 0.25,   ! Climate fire risk per year, when Do_FixedFrisk == .True.
 
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4

@@ -800,7 +800,14 @@ subroutine vegn_phenology(vegn)  ! daily step
   real    :: gdd_ON, Tc_OFF
   real    :: totC, totN, ccNSC, ccNSN, nindivs
   logical :: PhenoON, PhenoOFF
+  logical :: DoReset(vegn%n_cohorts) ! grass cohorts to be reset today
+  real    :: spC(0:MSPECIES), spN(0:MSPECIES) ! pooled C and N by grass species, kg
+  real    :: totGrassC, Acrown0, Nmax
+  integer :: ifirst(0:MSPECIES)  ! first cohort holding the pooled species
+  logical :: SpTrig(0:MSPECIES)  ! species starting a growing season today
+  integer :: isp
 
+  DoReset(:) = .false.
   ! -------------- update vegn GDD and tc_pheno ---------------------------
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2  ! C
   do i = 1, vegn%n_cohorts
@@ -853,23 +860,72 @@ subroutine vegn_phenology(vegn)  ! daily step
           cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
         end if
 
-        ! Reset deciduous grasses at the first day of a growing season
-        if (sp%lifeform == 0 .and. (cc%firstday .and. cc%age > 0.5)) then
-          ccNSC = IndividualTotC(cc) * cc%nindivs
-          ccNSN = TreeTotalN(cc) * cc%nindivs
-          nindivs = min(ccNSC / sp%s0_plant, ccNSN / (sp%s0_plant / sp%CN0(I_RT)))
-          if (nindivs > zero_thld) then
-            cc%nindivs = nindivs 
-            totC = ccNSC / cc%nindivs
-            totN = ccNSN / cc%nindivs
-            call setup_seedling(cc, totC, totN)
-          endif
-        end if
+        ! Mark deciduous grasses to be reset at the first day of a growing season
+        ! (the reset is done below, pooled by species)
+        if (sp%lifeform == 0 .and. (cc%firstday .and. cc%age > 0.5)) DoReset(i) = .true.
       else
         cc%status = LEAF_ON  ! evergreen species
       endif
     end associate
   end do
+
+  ! ---------- Reset deciduous grasses, pooled by species -------------------
+  ! All reset cohorts of a species are combined into one cohort. The total
+  ! density is capped so that the species' crown area at seedling size does not
+  ! exceed its biomass share of MaxGrassCA. Seedling structure stays at size
+  ! s0_plant and the unused C and N go to the seedlings' NSC and NSN.
+  if (any(DoReset)) then
+    spC(:) = 0.0; spN(:) = 0.0; ifirst(:) = 0
+    ! Species that start a growing season today trigger pooling
+    SpTrig(:) = .false.
+    do i = 1, vegn%n_cohorts
+      if (DoReset(i)) SpTrig(vegn%cohorts(i)%species) = .true.
+    enddo
+    ! Also pool deciduous grasses of those species that are leaf-off or in deep layers
+    do i = 1, vegn%n_cohorts
+      cc => vegn%cohorts(i)
+      if (DoReset(i) .or. .not. SpTrig(cc%species)) cycle
+      if (spdata(cc%species)%lifeform == 0 .and. spdata(cc%species)%phenotype == 0 &
+          .and. cc%age > 0.5 .and. cc%nindivs > zero_thld .and.                    &
+          (cc%status /= LEAF_ON .or. cc%layer > MaxGrassLyr)) DoReset(i) = .true.
+    enddo
+    do i = 1, vegn%n_cohorts
+      if (.not. DoReset(i)) cycle
+      cc => vegn%cohorts(i)
+      isp = cc%species
+      spC(isp) = spC(isp) + IndividualTotC(cc) * cc%nindivs
+      spN(isp) = spN(isp) + TreeTotalN(cc)     * cc%nindivs
+      ! Pooled biomass goes into the first cohort starting a growing season today
+      if (ifirst(isp) == 0 .and. cc%firstday) ifirst(isp) = i
+    enddo
+    totGrassC = sum(spC)
+    do isp = 0, MSPECIES
+      if (ifirst(isp) == 0 .or. totGrassC <= zero_thld) cycle
+      associate (sp => spdata(isp))
+        ! Crown area of an individual at seedling size (see setup_seedling)
+        Acrown0 = DBH2CA(BM2DBH(f_iniBSW * sp%s0_plant, isp), isp)
+        Nmax    = (spC(isp)/totGrassC) * MaxGrassCA / max(Acrown0, zero_thld)
+        nindivs = min(spC(isp) / sp%s0_plant,                          &
+                      spN(isp) / (sp%s0_plant / sp%CN0(I_RT)), Nmax)
+        if (nindivs > zero_thld) then
+          cc => vegn%cohorts(ifirst(isp))
+          ! Remove the other cohorts of this species (removed later by vegn_Remove_empty_cc)
+          do i = 1, vegn%n_cohorts
+            if (DoReset(i) .and. vegn%cohorts(i)%species == isp .and. i /= ifirst(isp)) &
+              vegn%cohorts(i)%nindivs = 0.0
+          enddo
+          cc%nindivs = nindivs
+          ! Seedling structure is kept at size s0_plant; the unused C and N
+          ! are put into the seedlings' NSC and NSN pools
+          totC = sp%s0_plant
+          totN = sp%s0_plant / sp%CN0(I_RT)
+          call setup_seedling(cc, totC, totN)
+          cc%nsc = cc%nsc + max(0.0, spC(isp) - nindivs * totC) / nindivs
+          cc%NSN = cc%NSN + max(0.0, spN(isp) - nindivs * totN) / nindivs
+        endif
+      end associate
+    enddo
+  endif
   if (any(vegn%cohorts(:)%firstday)) call vegn_RelayerCohorts(vegn)
 
   ! ---------- Turn OFF a growing season -----------------------------------
@@ -1674,7 +1730,7 @@ subroutine vegn_fire (vegn, deltat)
   !  r_BK0: shape parameter, for bark resistance, exponential equation,
   !                                  120 --> 0.006 m of bark 0.5 survival
 
-  ! Environmental risk
+  ! ------- 1st: Environmental risk ------------
   if(Do_FixedFrisk) then
     Frisk = EnvF0 ! Fixed environment risk
   else
@@ -1682,7 +1738,7 @@ subroutine vegn_fire (vegn, deltat)
     Frisk = 1.0/(1.0 + exp(A_MI*(P_ET - MI0Fire)))
   endif
 
-  ! Ignition probabilities of grasses and woody PFTs
+  ! ------- 2nd: Ignition probabilities of grasses and woody PFTs ------------
   Ign_G0 = 0.0
   Ign_W0 = 0.0
   do i = 1, vegn%n_cohorts
@@ -1696,21 +1752,27 @@ subroutine vegn_fire (vegn, deltat)
     end associate
   enddo
 
-  ! Burning probability
+  ! ------- 3rd: Burning probability --------------
   f_grass = min(1.0, vegn%GrassCA)
   f_wood  = min(1.0, vegn%TreeCA)
   flmb_G  = Ign_G0 * f_grass
   flmb_W  = Ign_W0 * f_wood
   P_Ign   = 1.0 - (1.- flmb_G * Frisk)*(1. - flmb_W * Frisk)
 
-  ! fire effects on vegetation and soil
+  ! ------- 4th: fire impacts on cohorts and soil --------------
   CALL RANDOM_NUMBER(r_Ign)
   Cfire = 0.0; Cfast = 0.0; Cslow = 0.0
   Nfire = 0.0; Nfast = 0.0; Nslow = 0.0
   if(r_Ign < P_Ign)then ! Fire_ON
+    ! Grass fire severity (s_fireG), defined as a function of grass biomass
+    ! Fire should have higher serverity and kills more shrubs at higher grass biomass. 
+    ! Extreme droughts can lead to expansion of shrubs. (05/01/2024, Kelvin) 
+    s_fireG = min(1.0, (vegn%GrassBM / FSBM0)**2) ! grass fire severity if it happens
+
+    ! Go through each cohort
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      if(cc%nindivs <= 0.0) cycle ! --- Skip empty cohorts ----
+      if(cc%nindivs <= min_nindivs) cycle ! --- Skip empty cohorts ----
       associate ( sp => spdata(cc%species))
       p_fire = 1.0  ! Grass fire sensitivity as default
       if(sp%lifeform > 0) then  ! Woody plants
@@ -1719,12 +1781,7 @@ subroutine vegn_fire (vegn, deltat)
             ! rFR = 0.2 + 0.8 * rFR ! or rFR = 0.2 + 0.6 * rFR
             p_fire = min(1.0, 1.25 * f_wood) * s0_max * MERGE(1.0, rFR, Do_FixedFireS)
          else                                     ! grass fire
-            ! 05/01/2024 (Kelvin), s_fireG should be a function of grass biomass.
-            ! At high grass biomass, the fire has higher serverity and kills
-            ! more shrubs. So, extreme droughts can trigger expansion of shrubs.
             ! (1. - cc%D_bark/(cc%D_bark+D_BK0)) ! Alternative tree's sensitivity to grass fire
-            ! s_fireG is grass fire severity, defined as a function of grass biomass
-            s_fireG = min(1.0, (vegn%GrassBM / FSBM0)**2) ! grass fire severity
             p_fire  = f_grass * s_fireG * exp(r_BK0 * f_bk*cc%dbh)
          endif
       endif
@@ -1913,7 +1970,7 @@ real function mortality_rate(cc) result(mu) ! per year
   integer :: n ! the latest ring
   real :: f_L, f_S, f_D ! Layer, seeding, and size effects on mortality
   real :: mu_bg      ! Background mortality rate
-  real :: mu_hydro   ! Hydraulic failure
+  real :: f_trsp, mu_hydro   ! Hydraulic failure
 
   !---------------------
   associate ( sp => spdata(cc%species))
@@ -1931,13 +1988,13 @@ real function mortality_rate(cc) result(mu) ! per year
 #else
     if(DO_DroughtMu)then
       ! Annual drought mortality, From Lichstein et al. 2024 (J. Ecology)
-      ! It can be turned off by setting a large sp%W_mu0
-      if(cc%totDemand > 0.00001)then
-        cc%w_scale = cc%annualTrsp/cc%totDemand
+      ! A large sp%W_mu0 turns it off.
+      if(cc%totDemand > zero_thld)then
+        f_trsp = cc%annualTrsp/cc%totDemand
       else
-        cc%w_scale = 1.0
+        f_trsp = 1.0
       endif
-      mu_hydro = 1.0/(1.0 + exp(-20.0*(1.0 - cc%w_scale - sp%W_mu0)))
+      mu_hydro = 1.0/(1.0 + exp(-20.0*(1.0 - f_trsp - sp%W_mu0)))
     endif
 #endif
     ! Total mortality rate:
@@ -2035,10 +2092,17 @@ subroutine vegn_hydraulic_states(vegn, deltat)
        enddo
      end associate
 
+     ! Update annual w_scale
+     if(cc%totDemand > zero_thld)then
+        cc%w_scale = cc%annualTrsp/cc%totDemand
+     else
+        cc%w_scale = 1.0
+     endif
+
      ! Update Asap and Ktrunk
      call calculate_Asap_Ktrunk (cc)
 
-     ! Put the unused facultative N fixation C back to NSC each year
+     ! Put unused facultative N fixation C back to NSC each year
      cc%nsc   = cc%nsc + cc%facuC
      cc%facuC = 0.0
   enddo
