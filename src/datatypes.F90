@@ -323,8 +323,7 @@ module datatypes
     real :: phiRL            ! ratio of fine root to leaf area
     real :: phiCSA           ! ratio of sapwood CSA to target leaf area
     real :: tauNSC           ! residence time of C in NSC (to define storage capacity)
-    real :: fNSNmax          ! multiplier for target NSN (NSNmax)
-    real :: fNSCmax          ! multiplier for target NSC (NSCmax)
+    real :: fNCmax          ! multiplier for target NSC and NSN (NSCmax, NSNmax)
     real :: transT           ! Structural transitional time for canopy layer trees
     ! Default C/N ratios
     real :: CN0(N_ORGANS) ! C/N ratios of organs, indexed by I_LF, I_RT, I_SW, I_HW, I_SD
@@ -593,6 +592,10 @@ module datatypes
     real :: YearlyTmp = 0.0 ! Yearly mean air temperature, Celcius degree
     real :: Frisk     = 0.0 ! Probability of climatic fire risk
     real :: Pfire     = 0.0 ! Probability of burning
+    ! Grass thinning diagnostics (yearly)
+    real :: TopGCmax  = 0.0 ! Maximum daily grass CA in the top layer before thinning
+    real :: ThinDays  = 0.0 ! Number of days with grass thinning
+    real :: ThinC     = 0.0 ! Carbon of thinned grasses, kgC m-2 yr-1
 
     ! Harvest carbon and nitrogen
     integer :: HarvYrs  = 0.0 ! Years since last harvest
@@ -737,8 +740,10 @@ module datatypes
 
   ! Growth parameters:
   integer :: MaxGrassLyr = 2  ! Maximal layers that grasses can survive
-  real :: MaxGrassAge = 3.0   ! Maximum grass  age (years)
+  real :: ResetGrassYr= 1.8   ! Maximum grass  age (years)
   real :: MaxGrassCA = 1.2    ! Maximum grass CA in the top layer
+  real :: OldGrassAge= 2.9    ! Old grasses, kill or reset
+  real :: f_cover    = 0.50   ! Fraction of grass coverage at resetting grass individuals
   real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
   real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
   real :: f_respG   = 0.50    ! respiration cost as a fraction of net growth
@@ -789,7 +794,7 @@ module datatypes
   real :: FSBM0        = 0.2   ! kgC m-2, grass fire severity parameter, as a function of grass BM
   real :: f_bk         = 0.1105! coefficient of bark thickness, Hoffmann et al. 2012.
   ! shrubs: Y=1.105*X^1.083; trees: Y=0.31*X^1.276 for (Y:mm, X:cm)
-  real :: r_BK0        = -240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
+  real :: r_BK0        = 240.0! bark resistance, exponential equation, 120 --> 0.006 m of bark
   real :: f_wood_burned= 0.2   ! Burned fraction for woody biomass and structural litter
   real :: f_fine_burned= 0.7   ! Burned fraction for fine litter
 
@@ -831,8 +836,7 @@ module datatypes
   real :: phiRL(0:MSPECIES)   = 3.5 ! ratio of fine root area to leaf area
   real :: phiCSA(0:MSPECIES)  = 0.25E-4 ! ratio of sapwood area to leaf area
   real :: tauNSC(0:MSPECIES)  = 3.0 ! NSC residence time,years
-  real :: fNSNmax(0:MSPECIES) = 5.0 ! multiplier for NSNmax as sum of potential bl and br
-  real :: fNSCmax(0:MSPECIES) = 3.0 ! multiplier for NSCmax as sum of bl_max and br_max
+  real :: fNCmax(0:MSPECIES)  = 3.0 ! multiplier for NSCmax and NSNmax as sum of bl_max and br_max
   real :: transT(0:MSPECIES)  = 3.0 ! Years
   real :: f_cGap(0:MSPECIES)  = 0.1 ! The gaps between trees
   real :: LFR_rate(0:MSPECIES)= 1.0/21.0
@@ -1174,10 +1178,10 @@ module datatypes
   rho_N_up0, N_roots0,                                          &
   ! Growth, respiration, and nitrogen fixation
   f_iniBSW, f_respG, LFR_rate, fLFR_max, phiRL, phiCSA,         &
-  tauNSC, fNSCmax, fNSNmax, retransN, f_N_add,                  &
+  fNCmax, tauNSC, retransN, f_N_add,                            &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   R0_Nfix, S_facuN, C0_Nfix, C0_Nfacu, f_NfixM,                 &
-  MaxGrassLyr, MaxGrassAge, MaxGrassCA,                         &
+  OldGrassAge, ResetGrassYr, MaxGrassLyr, MaxGrassCA, f_cover,  &
   ! Phenology
   Tc0_OFF, Tc0_ON, T0_chill, betaON, betaOFF, AWD_crit,         &
   Days_thld, cold_thld, N0_GD,                                  &

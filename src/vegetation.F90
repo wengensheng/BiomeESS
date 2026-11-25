@@ -12,7 +12,7 @@ module esdvm
  public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics
  public :: vegn_phenology, vegn_fire, vegn_hydraulic_states, vegn_harvest
  public :: vegn_RelayerCohorts, vegn_mergecohorts,vegn_Remove_empty_cc
- public :: kill_old_grass
+ public :: kill_old_grass, reset_old_grasses
 
  !----------- For specific experiments -------------------
  public :: vegn_SingleCohort_annual_update
@@ -717,7 +717,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
         cc => vegn%cohorts(i)
         associate (sp => spdata(cc%species))
         !A scheme for deciduous to get enough N:
-        !cc%NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CN0(I_LF)*sp%leafLS)+cc%br_max/sp%CN0(I_RT))
+        !cc%NSNmax = sp%fNCmax*(cc%bl_max/(sp%CN0(I_LF)*sp%leafLS)+cc%br_max/sp%CN0(I_RT))
         if(cc%NSN < cc%NSNmax) &
           N_Roots = N_Roots + cc%OrganC(I_RT) * cc%nindivs
 
@@ -796,18 +796,12 @@ subroutine vegn_phenology(vegn)  ! daily step
 
   ! ---- local vars
   type(cohort_type), pointer :: cc
-  integer :: i
   real    :: gdd_ON, Tc_OFF
-  real    :: totC, totN, ccNSC, ccNSN, nindivs
-  logical :: PhenoON, PhenoOFF
-  logical :: DoReset(vegn%n_cohorts) ! grass cohorts to be reset today
-  real    :: spC(0:MSPECIES), spN(0:MSPECIES) ! pooled C and N by grass species, kg
-  real    :: totGrassC, Acrown0, Nmax, exC, exN
-  integer :: ifirst(0:MSPECIES)  ! first cohort holding the pooled species
   logical :: SpTrig(0:MSPECIES)  ! species starting a growing season today
-  integer :: isp
+  logical :: DoReset(vegn%n_cohorts) ! grass cohorts to be reset today
+  logical :: PhenoON, PhenoOFF
+  integer :: i
 
-  DoReset(:) = .false.
   ! -------------- update vegn GDD and tc_pheno ---------------------------
   vegn%tc_pheno = vegn%tc_pheno * 0.8 + vegn%Tc_daily * 0.2  ! C
   do i = 1, vegn%n_cohorts
@@ -834,6 +828,8 @@ subroutine vegn_phenology(vegn)  ! daily step
 
   ! --------- Change phenology status -------------------------------------
   ! Turn ON the phenology of deciduous species
+  DoReset(:) = .false.
+  SpTrig(:)  = .false.
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species))
@@ -860,82 +856,25 @@ subroutine vegn_phenology(vegn)  ! daily step
           cc%psi_leaf = cc%psi_stem - HT2MPa(cc%height)
         end if
 
-        ! Mark deciduous grasses to be reset at the first day of a growing season
-        ! (the reset is done below, pooled by species)
-        if (sp%lifeform == 0 .and. (cc%firstday .and. cc%age > 0.5)) DoReset(i) = .true.
+        ! Mark grass species to be reset at the first day of a growing season
+        if (sp%lifeform == 0 .and. cc%firstday .and.              &
+            cc%age >= ResetGrassYr .and. cc%nindivs > zero_thld)  &
+          SpTrig(cc%species) = .true.
       else
         cc%status = LEAF_ON  ! evergreen species
       endif
     end associate
   end do
 
+  ! Pool all the cohorts of the grass species in SpTrig
+  do i = 1, vegn%n_cohorts
+    cc => vegn%cohorts(i)
+    DoReset(i) = SpTrig(cc%species) .and. cc%age >= ResetGrassYr .and. cc%nindivs > zero_thld
+  enddo
+
   ! ---------- Reset deciduous grasses, pooled by species -------------------
-  ! All reset cohorts of a species are combined into one cohort. The total
-  ! density is capped so that the species' crown area at seedling size does not
-  ! exceed its biomass share of MaxGrassCA. Seedling structure stays at size
-  ! s0_plant and the unused C and N go to the seedlings' NSC and NSN (above
-  ! NSCmax/NSNmax the excess goes to metabolic litter).
   if (any(DoReset)) then
-    spC(:) = 0.0; spN(:) = 0.0; ifirst(:) = 0
-    ! Species that start a growing season today trigger pooling
-    SpTrig(:) = .false.
-    do i = 1, vegn%n_cohorts
-      if (DoReset(i)) SpTrig(vegn%cohorts(i)%species) = .true.
-    enddo
-    ! Also pool deciduous grasses of those species that are leaf-off or in deep layers
-    do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      if (DoReset(i) .or. .not. SpTrig(cc%species)) cycle
-      if (spdata(cc%species)%lifeform == 0 .and. spdata(cc%species)%phenotype == 0 &
-          .and. cc%age > 0.5 .and. cc%nindivs > zero_thld .and.                    &
-          (cc%status /= LEAF_ON .or. cc%layer > MaxGrassLyr)) DoReset(i) = .true.
-    enddo
-    do i = 1, vegn%n_cohorts
-      if (.not. DoReset(i)) cycle
-      cc => vegn%cohorts(i)
-      isp = cc%species
-      spC(isp) = spC(isp) + IndividualTotC(cc) * cc%nindivs
-      spN(isp) = spN(isp) + TreeTotalN(cc)     * cc%nindivs
-      ! Pooled biomass goes into the first cohort starting a growing season today
-      if (ifirst(isp) == 0 .and. cc%firstday) ifirst(isp) = i
-    enddo
-    totGrassC = sum(spC)
-    do isp = 0, MSPECIES
-      if (ifirst(isp) == 0 .or. totGrassC <= zero_thld) cycle
-      associate (sp => spdata(isp))
-        ! Crown area of an individual at seedling size (see setup_seedling)
-        Acrown0 = DBH2CA(BM2DBH(f_iniBSW * sp%s0_plant, isp), isp)
-        Nmax    = (spC(isp)/totGrassC) * MaxGrassCA / max(Acrown0, zero_thld)
-        nindivs = min(spC(isp) / sp%s0_plant,                          &
-                      spN(isp) / (sp%s0_plant / sp%CN0(I_RT)), Nmax)
-        if (nindivs > zero_thld) then
-          cc => vegn%cohorts(ifirst(isp))
-          ! Remove the other cohorts of this species (removed later by vegn_Remove_empty_cc)
-          do i = 1, vegn%n_cohorts
-            if (DoReset(i) .and. vegn%cohorts(i)%species == isp .and. i /= ifirst(isp)) &
-              vegn%cohorts(i)%nindivs = 0.0
-          enddo
-          cc%nindivs = nindivs
-
-          ! Seedling structure is kept at size s0_plant
-          totC = sp%s0_plant
-          totN = sp%s0_plant / sp%CN0(I_RT)
-          call setup_seedling(cc, totC, totN)
-
-          ! Unused C and Nare put into the seedlings' NSC and NSN pools
-          cc%nsc = cc%nsc + max(0.0, spC(isp) - nindivs * totC) / nindivs
-          cc%NSN = cc%NSN + max(0.0, spN(isp) - nindivs * totN) / nindivs
-          ! NSC and NSN above their maxima go to metabolic litter
-          exC = max(0.0, cc%nsc - cc%NSCmax) * nindivs
-          exN = max(0.0, cc%NSN - cc%NSNmax) * nindivs
-          cc%nsc = cc%nsc - exC / nindivs
-          cc%NSN = cc%NSN - exN / nindivs
-          vegn%SOC(1)  = vegn%SOC(1) + exC
-          vegn%SON(1)  = vegn%SON(1) + exN
-          vegn%NorgP2S = vegn%NorgP2S + exN
-        endif
-      end associate
-    enddo
+    call reset_grass_cohorts(vegn, DoReset)
   endif
   if (any(vegn%cohorts(:)%firstday)) call vegn_RelayerCohorts(vegn)
 
@@ -1362,41 +1301,46 @@ end subroutine vegn_cohort_update
 
 !===============================================================================
 subroutine grass_thinning(vegn)
-  ! Kill extra grasses, 12/03/2025
+  ! Kill extra grasses in each canopy layer, 12/03/2025
+  ! Grass crown area (leaf-on grasses) in any layer is limited to MaxGrassCA
   implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars -------------
   type(cohort_type), pointer :: cc    ! current cohort
-  real :: TopGC, r_rem ! for grass thinning
-  integer :: i
+  real :: GC, r_rem ! grass CA in a layer, fraction to remove
+  integer :: i, j, ly, maxly
 
-  ! Calculate grass CA (TopGC) in the top layer for grass thinning
-  TopGC = 0.0
+  maxly = 1
   do i = 1, vegn%n_cohorts
-      cc => vegn%cohorts(i)
-      if(cc%layer > 1) exit
-      associate ( sp => spdata(cc%species))
-        if(sp%lifeform == 0 .and. cc%layer == 1 .and. cc%status == LEAF_ON) then
-          TopGC = TopGC + cc%Acrown*cc%nindivs
-        endif
-      end associate
+    maxly = max(maxly, vegn%cohorts(i)%layer)
   enddo
 
-  ! Reduce cohort density when TopGC is 0.05 greater than MaxGrassCA
-  if(TopGC > MaxGrassCA + 0.05)then ! 0.05 is used for delaying correction
-    r_rem = 1.0 - MaxGrassCA/TopGC
+  do ly = 1, maxly
+    ! Calculate grass CA (GC) in layer ly
+    GC = 0.0
     do i = 1, vegn%n_cohorts
       cc => vegn%cohorts(i)
-      if(cc%layer > 1) exit
-      associate ( sp => spdata(cc%species))
-      if(sp%lifeform == 0 .and. cc%layer == 1 .and. cc%status == LEAF_ON)then
-        call plant2soil(vegn,cc,r_rem*cc%nindivs)
-        cc%nindivs = (1.0 - r_rem) * cc%nindivs
-      endif
-      end associate
+      if(cc%layer == ly .and. spdata(cc%species)%lifeform == 0 .and. &
+         cc%status == LEAF_ON) GC = GC + cc%Acrown*cc%nindivs
     enddo
-  endif
+    if (ly == 1) vegn%TopGCmax = max(vegn%TopGCmax, GC) ! diagnostics
+
+    ! Reduce cohort density when GC is 0.05 greater than MaxGrassCA
+    if(GC > MaxGrassCA + 0.05)then ! 0.05 is used for delaying correction
+      r_rem = 1.0 - MaxGrassCA/GC
+      if (ly == 1) vegn%ThinDays = vegn%ThinDays + 1.0 ! diagnostics
+      do j = 1, vegn%n_cohorts
+        cc => vegn%cohorts(j)
+        if(cc%layer == ly .and. spdata(cc%species)%lifeform == 0 .and. &
+           cc%status == LEAF_ON)then
+          vegn%ThinC = vegn%ThinC + r_rem*cc%nindivs*IndividualTotC(cc) ! diagnostics
+          call plant2soil(vegn,cc,r_rem*cc%nindivs)
+          cc%nindivs = (1.0 - r_rem) * cc%nindivs
+        endif
+      enddo
+    endif
+  enddo
 end subroutine grass_thinning ! daily
 
 !========================================================================
@@ -1779,6 +1723,7 @@ subroutine vegn_fire (vegn, deltat)
     ! Fire should have higher serverity and kills more shrubs at higher grass biomass. 
     ! Extreme droughts can lead to expansion of shrubs. (05/01/2024, Kelvin) 
     s_fireG = min(1.0, (vegn%GrassBM / FSBM0)**2) ! grass fire severity if it happens
+    write(*, '(A, F5.3)')'grass fire severity = ',s_fireG
 
     ! Go through each cohort
     do i = 1, vegn%n_cohorts
@@ -1793,7 +1738,7 @@ subroutine vegn_fire (vegn, deltat)
             p_fire = min(1.0, 1.25 * f_wood) * s0_max * MERGE(1.0, rFR, Do_FixedFireS)
          else                                     ! grass fire
             ! (1. - cc%D_bark/(cc%D_bark+D_BK0)) ! Alternative tree's sensitivity to grass fire
-            p_fire  = f_grass * s_fireG * exp(r_BK0 * f_bk*cc%dbh)
+            p_fire  = f_grass * s_fireG * exp(-r_BK0 * f_bk*cc%dbh)
          endif
       endif
       mu_fire = sp%mu0fire * p_fire
@@ -2889,46 +2834,154 @@ subroutine kill_old_grass(vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
-  !logical :: merged(vegn%n_cohorts)        ! mask to skip cohorts that were already merged
-  logical :: OldGrass
+  logical :: OldGrass(vegn%n_cohorts)     ! mask of old grass cohorts
   integer :: i,j,k
 
- ! calculate the number of cohorts that are not old grass
-  k = 0
+  ! Flag old grass cohorts
   do i = 1, vegn%n_cohorts
-    cp =>vegn%cohorts(i)
-    associate(sp=>spdata(cp%species))
-      OldGrass = (sp%lifeform ==0 .and. cp%age > MaxGrassAge)
-      if (.not. OldGrass) k=k+1
-    end associate
+    cp => vegn%cohorts(i)
+    OldGrass(i) = (spdata(cp%species)%lifeform == 0 .and. cp%age > OldGrassAge)
   enddo
-  if (k==0)then
-     write(*,*)'in kill_old_grass: All cohorts are old grass, No action!'
-     !stop
+
+  ! Number of cohorts that are not old grass
+  k = count(.not. OldGrass)
+  if (k == 0) then
+    write(*,*)'in kill_old_grass: All cohorts are old grass, No action!'
   endif
 
-  ! exclude cohorts that are old grass
-  if (k>0 .and. k<vegn%n_cohorts)then
-     allocate(cc(k))
-     j=0
-     do i = 1,vegn%n_cohorts
-        cp =>vegn%cohorts(i)
-        associate(sp=>spdata(cp%species))
-        OldGrass = (sp%lifeform ==0 .and. cp%age > MaxGrassAge)
-        if (.not. OldGrass) then
-           j=j+1
-           cc(j) = cp
-        else
-           ! Carbon and Nitrogen from plants to soil pools
-           call plant2soil(vegn,cp,cp%nindivs)
-        endif
-        end associate
-     enddo
-     vegn%n_cohorts = j
-     deallocate (vegn%cohorts)
-     vegn%cohorts=>cc
+  ! Exclude cohorts that are old grass
+  if (k > 0 .and. k < vegn%n_cohorts) then
+    allocate(cc(k))
+    j = 0
+    do i = 1, vegn%n_cohorts
+      cp => vegn%cohorts(i)
+      if (OldGrass(i)) then
+        ! Carbon and Nitrogen from plants to soil pools
+        call plant2soil(vegn,cp,cp%nindivs)
+      else
+        j = j + 1
+        cc(j) = cp
+      endif
+    enddo
+    vegn%n_cohorts = j
+    deallocate (vegn%cohorts)
+    vegn%cohorts => cc
   endif
 end subroutine kill_old_grass
+
+! ============================================================================
+! Reset grass cohorts older than OldGrassAge 
+! Old grass cohorts of a species are pooled into one seedling cohort, as in
+! the grass reset of vegn_phenology
+subroutine reset_old_grasses(vegn)
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+
+  ! ---- local vars
+  logical :: DoReset(vegn%n_cohorts)
+  integer :: i
+
+  DoReset(:) = .false.
+  do i = 1, vegn%n_cohorts
+    associate (cp => vegn%cohorts(i), sp => spdata(vegn%cohorts(i)%species))
+      if (sp%lifeform == 0 .and. cp%age > OldGrassAge .and. cp%nindivs > zero_thld) &
+        DoReset(i) = .true.
+    end associate
+  enddo
+  if (any(DoReset)) call reset_grass_cohorts(vegn, DoReset)
+end subroutine reset_old_grasses
+
+! ============================================================================
+! Reset grass cohorts flagged in DoReset, pooled by species
+! All flagged cohorts of a species are combined into one cohort (the first
+! flagged cohort starting a growing season today, else the first flagged one).
+! The total density is capped so that the species' crown area at seedling size
+! does not exceed f_cover * MaxGrassCA times its share of the C of all living
+! grasses (reset or not). Seedling structure stays at
+! size s0_plant and the unused C and N go to the seedlings' NSC and NSN (above
+! NSCmax/NSNmax the excess goes to metabolic litter). The other flagged cohorts
+! get nindivs = 0 and are removed later by vegn_Remove_empty_cc.
+! Used by vegn_phenology and reset_old_grasses
+subroutine reset_grass_cohorts(vegn, DoReset)
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+  logical,              intent(in)    :: DoReset(vegn%n_cohorts)
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc
+  real    :: totC, totN, nindivs, totGrassC, Acrown0, GrassMax, exC, exN
+  real    :: spC(0:MSPECIES), spN(0:MSPECIES) ! pooled C and N by grass species, kg
+  integer :: ifirst(0:MSPECIES)  ! cohort holding the pooled species
+  integer :: status0
+  integer :: i, isp
+
+  spC(:) = 0.0; spN(:) = 0.0; ifirst(:) = 0
+  do i = 1, vegn%n_cohorts
+    if (.not. DoReset(i)) cycle
+    cc => vegn%cohorts(i)
+    isp = cc%species
+    spC(isp) = spC(isp) + IndividualTotC(cc) * cc%nindivs
+    spN(isp) = spN(isp) + TreeTotalN(cc)     * cc%nindivs
+    ! Pooled biomass goes into the first cohort starting a growing season today
+    if (ifirst(isp) == 0 .and. cc%firstday) ifirst(isp) = i
+  enddo
+  ! Without a cohort starting a growing season, use the first flagged cohort
+  do i = 1, vegn%n_cohorts
+    if (DoReset(i) .and. ifirst(vegn%cohorts(i)%species) == 0) ifirst(vegn%cohorts(i)%species) = i
+  enddo
+
+  ! Total C of all living grasses, including those not reset today
+  totGrassC = 0.0
+  do i = 1, vegn%n_cohorts
+    cc => vegn%cohorts(i)
+    if (spdata(cc%species)%lifeform == 0 .and. cc%nindivs > zero_thld) &
+      totGrassC = totGrassC + IndividualTotC(cc) * cc%nindivs
+  enddo
+
+  do isp = 0, MSPECIES
+    if (ifirst(isp) == 0 .or. totGrassC <= zero_thld) cycle
+    associate (sp => spdata(isp))
+      ! Crown area of an individual at seedling size (see setup_seedling)
+      Acrown0  = max(DBH2CA(BM2DBH(f_iniBSW * sp%s0_plant, isp), isp), 0.002)
+      GrassMax = f_cover * (spC(isp)/totGrassC) * MaxGrassCA / Acrown0
+      nindivs  = min(GrassMax, spC(isp) / sp%s0_plant,       &
+                    sp%CN0(I_RT) * spN(isp) / sp%s0_plant)
+      if (nindivs > zero_thld) then
+        cc => vegn%cohorts(ifirst(isp))
+        ! Remove the other cohorts of this species
+        do i = 1, vegn%n_cohorts
+          if (DoReset(i) .and. vegn%cohorts(i)%species == isp .and. i /= ifirst(isp)) &
+            vegn%cohorts(i)%nindivs = 0.0
+        enddo
+        cc%nindivs = nindivs
+
+        ! Seedling structure is kept at size s0_plant
+        status0 = cc%status
+        totC = sp%s0_plant
+        totN = sp%s0_plant / sp%CN0(I_RT)
+        call setup_seedling(cc, totC, totN)
+        ! Leaf on at the start of a growing season; otherwise keep the old status
+        if (cc%firstday) then
+          cc%status = LEAF_ON
+        else
+          cc%status = status0
+        endif
+
+        ! Unused C and N are put into the seedlings' NSC and NSN pools
+        cc%nsc = cc%nsc + max(0.0, spC(isp) - nindivs * totC) / nindivs
+        cc%NSN = cc%NSN + max(0.0, spN(isp) - nindivs * totN) / nindivs
+        ! NSC and NSN above their maxima go to metabolic litter
+        exC = max(0.0, cc%nsc - cc%NSCmax) * nindivs
+        exN = max(0.0, cc%NSN - cc%NSNmax) * nindivs
+        cc%nsc = cc%nsc - exC / nindivs
+        cc%NSN = cc%NSN - exN / nindivs
+        vegn%SOC(1)  = vegn%SOC(1) + exC
+        vegn%SON(1)  = vegn%SON(1) + exN
+        vegn%NorgP2S = vegn%NorgP2S + exN
+      endif
+    end associate
+  enddo
+end subroutine reset_grass_cohorts
 
 ! ============================================================================
 ! Merge cohort c1 into c2, regardless of their sizes and densities

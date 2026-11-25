@@ -178,7 +178,7 @@ contains
         cc => vegn%cohorts(i)
         associate ( sp => spdata(cc%species))
           if(sp%lifeform==0) then
-            BMG = BMG + IndividualTotC(cc) * cc%nindivs
+            BMG = BMG + (sum(cc%OrganC(:))-cc%OrganC(2)) * cc%nindivs
             if(cc%layer == 1) vegn%GrassCA = vegn%GrassCA + cc%Acrown*cc%nindivs
           else
             if(cc%layer == 1) vegn%TreeCA  = vegn%TreeCA  + cc%Acrown*cc%nindivs
@@ -242,6 +242,9 @@ contains
     vegn%dNgas_Yr   = 0.0
     vegn%dNmin_Yr   = 0.0
     vegn%GrassBM    = 0.0
+    vegn%TopGCmax   = 0.0
+    vegn%ThinDays   = 0.0
+    vegn%ThinC      = 0.0
     vegn%annualPET  = 0.0
     vegn%YearlyTmp  = 0.0
   end subroutine Zero_vegn_diagnostics
@@ -597,8 +600,8 @@ contains
     spdata%LAImax_u = LAImax/3.0
     spdata%LAI_light= LAI_light
     spdata%tauNSC   = tauNSC
-    spdata%fNSCmax  = fNSCmax
-    spdata%fNSNmax  = fNSNmax
+    spdata%fNCmax  = fNCmax
+    spdata%fNCmax  = fNCmax
     spdata%transT   = transT
     spdata%phiRL    = phiRL
     spdata%phiCSA   = phiCSA
@@ -1010,7 +1013,7 @@ contains
     real :: NSCmax ! returned value, Target NSC
     type(cohort_type), intent(in) :: cc    ! cohort to update
     associate(sp=>spdata(cc%species))
-      NSCmax = sp%fNSCmax * (cc%bl_max + cc%br_max)
+      NSCmax = sp%fNCmax * (cc%bl_max + cc%br_max)
     end associate
   end function
 
@@ -1020,7 +1023,7 @@ contains
     type(cohort_type), intent(in) :: cc    ! cohort to update
 
     associate(sp=>spdata(cc%species))
-      NSNmax = sp%fNSNmax*(cc%bl_max/(sp%CN0(I_LF)*sp%leafLS)+cc%br_max/sp%CN0(I_RT))
+      NSNmax = sp%fNCmax*(cc%bl_max/(sp%CN0(I_LF)*sp%leafLS)+cc%br_max/sp%CN0(I_RT))
     end associate
   end function
 
