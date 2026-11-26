@@ -5,7 +5,6 @@ thksl    = 0.1, 0.2, 0.4, 0.8, 1.5,  ! m, soil layer thickness
 /
 
 &vegn_parameters_nml
-f_iniBSW   = 0.1,
 K0SOM      = 0.8, 0.25, 2.5, 2.0, 0.05,   ! turnover rates of SOM pools
 K_DeNitr   = 1.2,
 rho_SON    = 0.0,

@@ -38,7 +38,6 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &vegn_parameters_nml
-f_iniBSW   = 0.1,
 K0SOM      = 0.5, 0.20, 2.0, 0.8, 0.1,   ! turnover rates of SOM pools
 K_DeNitr   = 1.0,  ! 1.2 ! 2.4 ! rate of a year, 2.5
 rho_SON    = 0.0,  ! organic nitrogen release rate
@@ -49,10 +48,10 @@ c_LLS      = 28.5714, ! yr/(kg C m-2), 1/LMAs, ! leafLS = c_LLS * LMA, when LMAs
 C0_Nfix    = 12.0     ! gC/gN, carbon cost of N fixation
 !MI0Fire   = 0.33,  ! 0.20, ! 0.5, ! 0.3, ! when P/ET = MI0Fire, Frisk = 0.5; High for high fire probability at given P
 MaxGrassCA = 1.05,   ! Maximum grass crown area
-FSBM0      = 0.20,   ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
+FSBM0      = 0.10,   ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 f_cover    = 0.8,    ! Fraction of grass coverage at resetting grass individuals
-r_BK0      = 360.0, ! -150.0, Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
-EnvF0      = 0.33,   ! Climate fire risk per year, when Do_FixedFrisk == .True.
+r_BK0      = 240.0,  ! -150.0, Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
+EnvF0      = 0.20,   ! Climate fire risk per year, when Do_FixedFrisk == .True.
 
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4

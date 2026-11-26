@@ -1506,19 +1506,26 @@ subroutine setup_seedling(cc,totC,totN)
   ! ----- local var -----------
   integer :: layer, i
   real    :: scalef
+  real    :: fSW, fRT ! sapwood and root fractions of totC
   ! ----------------------------
   associate(sp=>spdata(cc%species))
      layer = max(1, cc%layer)
-     cc%status = LEAF_OFF ! Force the evergreen newborns to sleep on the first day 
+     cc%status = LEAF_OFF ! Force the evergreen newborns to sleep on the first day
+     ! Zero cohort variables (topyear is used in update_max_LFR_NSN)
+     cc%topyear = 0.0
+     cc%age     = 0.0
      ! Leaf age
      cc%leafage = 0.0
-     ! Carbon pools
+
+     ! Carbon pools: sapwood fraction solved from totC with a minimal root
+     ! (0.1 of sapwood) and NSC = NSCmax (see seedling_allocation)
+     call seedling_allocation(sp, totC, fSW, fRT)
      cc%OrganC(I_LF) = 0.0
-     cc%OrganC(I_RT) = 0.1 * totC
-     cc%OrganC(I_SW) = f_iniBSW * totC
+     cc%OrganC(I_RT) = fRT * totC
+     cc%OrganC(I_SW) = fSW * totC
      cc%OrganC(I_HW) = 0.0
      cc%OrganC(I_SD) = 0.0
-     cc%nsc    = totC - cc%OrganC(I_SW) -cc%OrganC(I_RT)
+     cc%nsc    = totC - cc%OrganC(I_SW) -cc%OrganC(I_RT) ! = NSCmax
      cc%facuC  = 0.0 ! totC includes facuC
      ! Nitrogen pools
      do i = I_LF, I_SD ! leaf, root, sapwood, heartwood, seed
@@ -1541,10 +1548,6 @@ subroutine setup_seedling(cc,totC,totN)
      ! Structure
      call BM2Architecture(cc,cc%OrganC(I_SW)+cc%OrganC(I_HW) )
      call update_max_LFR_NSN(cc)
-
-     ! Zero cohort variables
-     cc%topyear = 0.0
-     cc%age     = 0.0
 
      ! Hydraulic states
      cc%transp= 0.0
@@ -2898,8 +2901,9 @@ end subroutine reset_old_grasses
 ! The total density is capped so that the species' crown area at seedling size
 ! does not exceed f_cover * MaxGrassCA times its share of the C of all living
 ! grasses (reset or not). Seedling structure stays at
-! size s0_plant and the unused C and N go to the seedlings' NSC and NSN (above
-! NSCmax/NSNmax the excess goes to metabolic litter). The other flagged cohorts
+! size s0_plant; all the species' N is evenly distributed to the seedlings
+! (totN = spN/nindivs), and unused C goes to the seedlings' NSC (above NSCmax
+! the excess goes to metabolic litter). The other flagged cohorts
 ! get nindivs = 0 and are removed later by vegn_Remove_empty_cc.
 ! Used by vegn_phenology and reset_old_grasses
 subroutine reset_grass_cohorts(vegn, DoReset)
@@ -2909,7 +2913,7 @@ subroutine reset_grass_cohorts(vegn, DoReset)
 
   ! ---- local vars
   type(cohort_type), pointer :: cc
-  real    :: totC, totN, nindivs, totGrassC, Acrown0, GrassMax, exC, exN
+  real    :: totC, totN, nindivs, totGrassC, Acrown0, GrassMax, exC
   real    :: spC(0:MSPECIES), spN(0:MSPECIES) ! pooled C and N by grass species, kg
   integer :: ifirst(0:MSPECIES)  ! cohort holding the pooled species
   integer :: status0
@@ -2942,10 +2946,10 @@ subroutine reset_grass_cohorts(vegn, DoReset)
     if (ifirst(isp) == 0 .or. totGrassC <= zero_thld) cycle
     associate (sp => spdata(isp))
       ! Crown area of an individual at seedling size (see setup_seedling)
-      Acrown0  = max(DBH2CA(BM2DBH(f_iniBSW * sp%s0_plant, isp), isp), 0.002)
+      Acrown0  = max(DBH2CA(BM2DBH(sp%f_iniBSW * sp%s0_plant, isp), isp), 0.002)
       GrassMax = f_cover * (spC(isp)/totGrassC) * MaxGrassCA / Acrown0
-      nindivs  = min(GrassMax, spC(isp) / sp%s0_plant,       &
-                    sp%CN0(I_RT) * spN(isp) / sp%s0_plant)
+      ! Number of seedlings is defined by available C and s0_plant
+      nindivs  = min(GrassMax, spC(isp) / sp%s0_plant)
       if (nindivs > zero_thld) then
         cc => vegn%cohorts(ifirst(isp))
         ! Remove the other cohorts of this species
@@ -2955,10 +2959,11 @@ subroutine reset_grass_cohorts(vegn, DoReset)
         enddo
         cc%nindivs = nindivs
 
-        ! Seedling structure is kept at size s0_plant
+        ! Seedling structure is kept at size s0_plant;
+        ! all available N is evenly distributed to the seedlings
         status0 = cc%status
         totC = sp%s0_plant
-        totN = sp%s0_plant / sp%CN0(I_RT)
+        totN = spN(isp) / nindivs
         call setup_seedling(cc, totC, totN)
         ! Leaf on at the start of a growing season; otherwise keep the old status
         if (cc%firstday) then
@@ -2967,17 +2972,12 @@ subroutine reset_grass_cohorts(vegn, DoReset)
           cc%status = status0
         endif
 
-        ! Unused C and N are put into the seedlings' NSC and NSN pools
+        ! Unused C (when nindivs is limited by GrassMax) is put into NSC
         cc%nsc = cc%nsc + max(0.0, spC(isp) - nindivs * totC) / nindivs
-        cc%NSN = cc%NSN + max(0.0, spN(isp) - nindivs * totN) / nindivs
-        ! NSC and NSN above their maxima go to metabolic litter
+        ! NSC above NSCmax goes to metabolic litter
         exC = max(0.0, cc%nsc - cc%NSCmax) * nindivs
-        exN = max(0.0, cc%NSN - cc%NSNmax) * nindivs
         cc%nsc = cc%nsc - exC / nindivs
-        cc%NSN = cc%NSN - exN / nindivs
         vegn%SOC(1)  = vegn%SOC(1) + exC
-        vegn%SON(1)  = vegn%SON(1) + exN
-        vegn%NorgP2S = vegn%NorgP2S + exN
       endif
     end associate
   enddo

@@ -13,7 +13,6 @@ vwc_sat     = 0.380, 0.445, 0.448, 0.412,  0.414,  0.446,  0.424, ! vol/vol
 /
 
 &vegn_parameters_nml
-f_iniBSW = 0.1,
 K0SOM    = 0.8, 0.25, 3.0, 1.5, 0.05,   ! K0SOC5, ! turnover rates of SOM pools
 CUEmax0  = 0.10,   ! Maximum CUE of microbes
 K_DeNitr = 0.0,    ! 1.2 ! 2.4 ! rate of a year, 2.5

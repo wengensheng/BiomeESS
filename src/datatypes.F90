@@ -341,6 +341,7 @@ module datatypes
     real :: AgeRepro     ! the age that can reproduce
     real :: v_seed       ! fracton of G_SF to G_F
     real :: s0_plant     ! size of the seedlings, kgC/indiv
+    real :: f_iniBSW     ! sapwood fraction of a seedling of size s0_plant (derived)
     real :: prob_g       ! seed germination probability
     real :: prob_e       ! seed establishment probability
     real :: mu0_topL     ! yearly mortality rate of canopy layer trees
@@ -749,7 +750,6 @@ module datatypes
   real :: f_respG   = 0.50    ! respiration cost as a fraction of net growth
   real :: l_fract   = 0.0     ! 0.25  ! 0.5 ! fraction of the carbon retained after leaf drop
   real :: retransN  = 0.0     ! retranslocation coefficient of Nitrogen
-  real :: f_iniBSW  = 0.1     ! 0.01, 0.2
   real :: f_N_add   = 0.02    ! re-fill of N for sapwood
   real :: fLFR_max  = 0.85    ! max allocation to leaves and fine roots each step
   real :: c_LLS     = 28.5714 ! yr/(kg C m-2), 1/LMAs, ! Leaf life span: leafLS = c_LLS * LMA, (LMAs = 0.035., leafLS = 1.0)
@@ -1177,7 +1177,7 @@ module datatypes
   rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,          &
   rho_N_up0, N_roots0,                                          &
   ! Growth, respiration, and nitrogen fixation
-  f_iniBSW, f_respG, LFR_rate, fLFR_max, phiRL, phiCSA,         &
+  f_respG, LFR_rate, fLFR_max, phiRL, phiCSA,                   &
   fNCmax, tauNSC, retransN, f_N_add,                            &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   R0_Nfix, S_facuN, C0_Nfix, C0_Nfacu, f_NfixM,                 &

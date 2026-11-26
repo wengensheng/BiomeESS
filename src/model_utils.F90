@@ -12,7 +12,7 @@ module model_utils
   public :: Preset_GlobalPFTs, Set_PFTs_from_Data, Assign_Std_Cohorts
   public :: vegn_hourly_sum, vegn_daily_sum, vegn_sum_tile, Zero_diagnostics, Zero_vegn_diagnostics, Zero_cohort_diagnostics
   public :: BM2Architecture, DBH2HT, DBH2CA, DBH2BM, BM2DBH
-  public :: ccNSCmax, ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI
+  public :: ccNSCmax, ccNSNmax, CA2BLmax, BLmax2BRmax, BL2Aleaf, Aleaf2LAI, seedling_allocation
   public :: IndividualTotC, TreeTotalN, PatchTotalC, PatchTotalN
   public :: PotentialET, A_function, calc_solarzen, qscomp, esat
   public :: rank_descending
@@ -699,6 +699,9 @@ contains
     endif
     !write(*,'(40(F10.4,","))')sp%kx0,sp%WTC0,sp%CR_Wood,sp%psi50_WD,sp%psi0_WD,sp%Kexp_WD,sp%f_supply,sp%mu0_topL
 
+    ! Sapwood fraction of seedlings of size s0_plant (root = br_max, NSC = NSCmax)
+    call seedling_allocation(sp, sp%s0_plant, sp%f_iniBSW)
+
     ! -------- Check parameter boundaries
     if(sp%lifeform==0)then
       sp%transT = dt_daily_yr ! Grass BLmax transition in canopy layer is short
@@ -1007,6 +1010,49 @@ contains
     integer,intent(in) :: SP
     DBH = (BM/spdata(SP)%alphaBM) ** ( 1.0/spdata(SP)%thetaBM )
   end function
+
+  !-------------------------------------------
+  subroutine seedling_allocation(sp, totC, fSW, fRT)
+    !@sum Solve the C allocation of a seedling (no leaves, no heartwood) with
+    !@+   total C totC, with a minimal root (fR0 of sapwood) and NSC = NSCmax:
+    !@+     totC = W + fR0*W + NSCmax(W), W: sapwood C
+    !@+   For a seedling (layer = 1, topyear = 0, f_CO2 = 1, see update_max_LFR_NSN):
+    !@+     bl_max = 0.5 * LAImax * LMA * (1-f_cGap) * Acrown
+    !@+     br_max = phiRL * bl_max/(LMA*SRA)
+    !@+     NSCmax = fNCmax * (bl_max + br_max)
+    !@+     Acrown = alphaCA * (W/alphaBM)**(thetaCA/thetaBM)
+    !@+   => totC = (1+fR0)*W + K*W**p, K = fNCmax*(1+r)*a*alphaCA/alphaBM**p
+    !@+      with a = bl_max/Acrown, r = br_max/bl_max, p = thetaCA/thetaBM
+    !@+   The right side increases monotonically with W, so the root is unique.
+    !@+   Roots grow to br_max from NSC at leaf-on (see vegn_growth).
+    type(spec_data_type), intent(in) :: sp
+    real, intent(in)  :: totC          ! total C of the seedling, kgC/indiv
+    real, intent(out) :: fSW           ! sapwood fraction, W/totC
+    real, intent(out), optional :: fRT ! root fraction, fR0*W/totC
+    !------local vars ----------
+    real, parameter :: fR0 = 0.1       ! initial root C as a fraction of sapwood C
+    real :: a, r, K, p, x, W, g, dg, dx
+    integer :: i
+
+    a = 0.5 * sp%LAImax * sp%LMA * (1.0 - sp%f_cGap)
+    r = sp%phiRL / (sp%LMA * sp%SRA)
+    p = sp%thetaCA / sp%thetaBM
+    K = sp%fNCmax * (1.0 + r) * a * sp%alphaCA / sp%alphaBM**p
+    ! Newton's method in x = ln(W): g(x) = (1+fR0)*exp(x) + K*exp(p*x) - totC
+    ! is increasing and convex, so it converges monotonically from x0 = ln(totC)
+    x = log(totC)
+    do i = 1, 50
+      W  = exp(x)
+      g  = (1.0 + fR0) * W + K * W**p - totC
+      dg = (1.0 + fR0) * W + p * K * W**p
+      dx = g / dg
+      x  = x - dx
+      if (abs(dx) < 1.0e-7) exit
+    enddo
+    W   = exp(x)
+    fSW = W / totC
+    if (present(fRT)) fRT = fR0 * fSW
+  end subroutine seedling_allocation
 
   !-------------------------------------------
   function ccNSCmax(cc) result (NSCmax)

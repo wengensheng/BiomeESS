@@ -650,9 +650,14 @@ Each year in `vegn_reproduction`, cohorts in the top canopy layer (layer == 1) t
 are older than AgeRepro and have accumulated seed carbon above the minimum seedling
 mass s0_plant produce a new cohort of seedlings. Seed carbon and nitrogen pooled from
 all reproducible parent cohorts of the same PFT are converted to seedling density:
-`nindivs = seedC / s0_plant`. Seedling biomass is initialised by `setup_seedling`:
-10 % of totC to fine roots, f_iniBSW × totC to sapwood, and the remainder to NSC;
-leaves start at zero (LEAF_OFF).
+`nindivs = seedC / s0_plant`, and seed nitrogen is evenly distributed to the
+seedlings (`totN = seedN / nindivs`). Seedling biomass is initialised by
+`setup_seedling`: leaves start at zero (LEAF_OFF), fine roots are 0.1 × sapwood,
+and sapwood is solved from totC (`seedling_allocation`) so that the remaining
+carbon in NSC equals NSCmax, i.e. totC = 1.1 W + NSCmax(W), where W is sapwood C and
+NSCmax follows from the crown area of a seedling of that sapwood mass. The solved
+sapwood fraction for a seedling of size s0_plant is stored per PFT as `sp%f_iniBSW`.
+Roots grow to br_max from NSC at leaf-on.
 
 #### Cohort Management
 
