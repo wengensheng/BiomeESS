@@ -12,7 +12,7 @@ module esdvm
  public :: vegn_CNW_budget_fast,vegn_daily_update, vegn_demographics
  public :: vegn_phenology, vegn_fire, vegn_hydraulic_states, vegn_harvest
  public :: vegn_RelayerCohorts, vegn_mergecohorts,vegn_Remove_empty_cc
- public :: kill_old_grass, reset_old_grasses
+ public :: Remove_old_grasses, reset_old_grasses
 
  !----------- For specific experiments -------------------
  public :: vegn_SingleCohort_annual_update
@@ -1432,7 +1432,7 @@ subroutine vegn_reproduction (vegn)
   if (newcohorts >= 1) then   ! build new cohorts for seedlings
      ! Make room for the new cohorts (existing cohorts are kept in place)
      n0 = vegn%n_cohorts
-     call cc_reserve(vegn, n0 + newcohorts)
+     call Cohort_reserve(vegn, n0 + newcohorts)
 
      ! set up new cohorts
      k = n0
@@ -2782,8 +2782,7 @@ subroutine vegn_mergecohorts(vegn)
 end subroutine vegn_mergecohorts
 
 ! ============================================================================
-! kill low density cohorts, a new function seperated from vegn_mergecohorts
-! Weng, 2014-07-22
+! Remove low density cohorts, seperated from vegn_mergecohorts, Weng, 2014-07-22
 ! If MergeLowDenCohorts is True, this routine only remove zero density
 ! cohorts and the low density cohorts that have no other cohorts with the
 ! same PFT in a layer. Weng, 06/25/2025
@@ -2801,13 +2800,13 @@ subroutine vegn_Remove_empty_cc(vegn)
 
   ! Remove cohorts that have low individuals (their mass goes to soil pools)
   ! If k == 0, keep all cohorts: the model does not allow zero cohorts.
-  if (k > 0 .and. k < vegn%n_cohorts) call cc_compact(vegn, keep)
+  if (k > 0 .and. k < vegn%n_cohorts) call Cohort_compact(vegn, keep)
 end subroutine vegn_Remove_empty_cc
 
 ! ============================================================================
 ! kill old grass cohorts (cc%age > ResetAge+2), leftover of phenological reseting for any reason
 ! Weng, 01/22/2023
-subroutine kill_old_grass(vegn)
+subroutine Remove_old_grasses(vegn)
   implicit none
   type(vegn_tile_type), intent(inout) :: vegn
 
@@ -2826,13 +2825,11 @@ subroutine kill_old_grass(vegn)
 
   ! Number of cohorts that are not old grass
   k = count(.not. OldGrass)
-  if (k == 0) then
-    write(*,*)'in kill_old_grass: All cohorts are old grass, No action!'
-  endif
 
   ! Remove cohorts that are old grass (their C and N go to soil pools)
-  if (k > 0 .and. k < vegn%n_cohorts) call cc_compact(vegn, .not. OldGrass)
-end subroutine kill_old_grass
+  if (k > 0 .and. k < vegn%n_cohorts) call Cohort_compact(vegn, .not. OldGrass)
+  if (k == 0) write(*,*)'in Remove_old_grasses: All cohorts are old grass, No action!'
+end subroutine Remove_old_grasses
 
 ! ============================================================================
 ! Helpers for changing the number of cohorts, Weng, 11/27/2026
@@ -2842,7 +2839,7 @@ end subroutine kill_old_grass
 ! Make sure vegn%cohorts can hold n cohorts. Existing cohorts are kept.
 ! The array is reallocated only when it is too small (capacity doubles), so
 ! pointers to cohorts must be re-associated after calling this routine.
-subroutine cc_reserve(vegn, n)
+subroutine Cohort_reserve(vegn, n)
   implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   integer,              intent(in)    :: n
@@ -2867,12 +2864,12 @@ subroutine cc_reserve(vegn, n)
     deallocate(vegn%cohorts)
   endif
   vegn%cohorts => cc
-end subroutine cc_reserve
+end subroutine Cohort_reserve
 
 !----------------------------------------------------------------------------
 ! Remove the cohorts with keep = .false. in place, keeping the order of the
 ! others. The C and N of the removed cohorts go to soil pools (plant2soil).
-subroutine cc_compact(vegn, keep)
+subroutine Cohort_compact(vegn, keep)
   implicit none
   type(vegn_tile_type), intent(inout) :: vegn
   logical,              intent(in)    :: keep(:) ! size >= vegn%n_cohorts
@@ -2890,7 +2887,7 @@ subroutine cc_compact(vegn, keep)
     endif
   enddo
   vegn%n_cohorts = j
-end subroutine cc_compact
+end subroutine Cohort_compact
 
 ! ============================================================================
 ! Reset grass cohorts older than ResetAge+2 
@@ -3420,7 +3417,7 @@ subroutine vegn_species_recovery (vegn)
   newcohorts = n ! New corhots to be parameterized by n missing PFTs
   if (newcohorts >= 1) then   ! build new cohorts for seedlings
      ! Make room for the new cohorts (existing cohorts are kept in place)
-     call cc_reserve(vegn, vegn%n_cohorts + newcohorts)
+     call Cohort_reserve(vegn, vegn%n_cohorts + newcohorts)
 
      ! set up new cohorts
      k = vegn%n_cohorts

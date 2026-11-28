@@ -301,7 +301,7 @@ module BiomeE_mod
             write(*,*)"zero cohorts, reset!"
             call reset_vegn_initial(vegn)
           endif
-          call kill_old_grass(vegn)
+          call Remove_old_grasses(vegn)
           !call vegn_gap_fraction_update(vegn) !for CROWN_GAP_FILLING
           call vegn_RelayerCohorts(vegn)
           call vegn_mergecohorts(vegn)
