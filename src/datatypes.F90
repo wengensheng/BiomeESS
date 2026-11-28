@@ -291,7 +291,6 @@ module datatypes
     real :: Kw_root      ! fine root water conductivity mol m m-2 s−1 Pa−1 !
     real :: root_perm    ! assume it is a fraction of root area active for water flow
     !real :: rho_N_up0   ! maximum N uptake rate
-    !real :: N_roots0    ! root biomass at half of max. N-uptake rate
     real :: R0_Nfix      ! Reference N fixation rate (kgN kgC-1 root)
     !real :: C0_Nfix      ! Carbon cost of N fixation (kgC kgN-1) ! Commented out by Weng, 10/01/2026
     real :: S_facuN      ! Intensity of faculative N fixation, 0~1 fraction of N-deficit C put into facuC
@@ -744,7 +743,7 @@ module datatypes
   real :: ResetAge   = 0.8    ! Grass age threshold for resetting to seedlings (years)
   real :: MaxGrassCA = 1.2    ! Maximum grass CA in the top layer
   real :: f_cover    = 0.50   ! Fraction of grass coverage at resetting grass individuals
-  real :: m_rhizome = 2.0     ! multiplier for for rhizome C storage of grasses, times NSCmax
+  real :: m_rhizome = 2.0     ! multiplier for rhizome C storage of grasses, times NSCmax
   real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
   real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
   real :: f_respG   = 0.50    ! respiration cost as a fraction of net growth
@@ -756,7 +755,7 @@ module datatypes
   real :: CO2_ref   = 400.0   ! Reference CO2 concentration (ppm) above which Vm is downregulated (gs_leuning)
   real :: k_Vm      = 2.5     ! Vm acclimation: phi = (1+k_Vm)*CO2_ref/(CO2+k_Vm*CO2_ref), capped at 1 (large k_Vm = off)
   real :: rho_N_up0 = 0.1     ! 0.05 ! hourly N uptake rate, fraction of the total mineral N
-  real :: N_roots0  = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
+  real :: TotFR0    = 0.4     ! root biomass at half max N-uptake rate,kg C m-2
   real :: C0_Nfix   = 12.0    ! gC/gN, carbon cost of N fixation, FUN model, Fisher et al. 2010, GBC; Kim
   real :: C0_Nfacu  = 0.0     ! 3.0, Additional C cost for facultative N fixation (gC/gN)
   real :: f_NfixM   = 0.0     ! 0.2, Additional root respiration for N fixers (fraction)
@@ -884,7 +883,6 @@ module datatypes
   ! Water Resource Research Vol. 44, W01432, converted to mass units
 
   !real :: rho_N_up0(0:MSPECIES) = 0.5 ! fraction of mineral N per hour
-  !real :: N_roots0(0:MSPECIES) = 0.3 ! kgC m-2
 
   ! Respiration rates
   real :: gamma_L(0:MSPECIES)  = 0.02 !
@@ -1175,7 +1173,7 @@ module datatypes
   LMA,LAImax,Vmax,m_cond,ps_wet,c_LLS,CO2_ref,k_Vm,leaf_size,   &
   ! Wood and root
   rho_wood,rho_FR,root_r,root_zeta,root_perm, Kw_root,          &
-  rho_N_up0, N_roots0,                                          &
+  rho_N_up0, TotFR0,                                            &
   ! Growth, respiration, and nitrogen fixation
   f_respG, LFR_rate, fLFR_max, phiRL, phiCSA,                   &
   fNCmax, tauNSC, retransN, f_N_add,                            &

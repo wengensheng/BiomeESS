@@ -704,13 +704,13 @@ subroutine vegn_N_uptake(vegn, tsoil)
   type(cohort_type),pointer :: cc
   real    :: totNup    ! kgN m-2
   real    :: avgNup
-  real    :: rho_N_up,N_roots   ! actual N uptake rate
+  real    :: rho_N_up,TotFR   ! actual N uptake rate
   integer :: i
 
   !! Nitrogen uptake parameter
   ! It considers competition here. How much N one can absorp depends on
   ! how many roots it has and how many roots other individuals have.
-  N_Roots  = 0.0
+  TotFR  = 0.0
   vegn%N_uptake = 0.0
   if(vegn%mineralN > zero_thld)then
      do i = 1, vegn%n_cohorts
@@ -719,18 +719,18 @@ subroutine vegn_N_uptake(vegn, tsoil)
         !A scheme for deciduous to get enough N:
         !cc%NSNmax = sp%fNCmax*(cc%bl_max/(sp%CN0(I_LF)*sp%leafLS)+cc%br_max/sp%CN0(I_RT))
         if(cc%NSN < cc%NSNmax) &
-          N_Roots = N_Roots + cc%OrganC(I_RT) * cc%nindivs
+          TotFR = TotFR + cc%OrganC(I_RT) * cc%nindivs
 
         end associate
      enddo
      ! M-M equation for Nitrogen absoption, McMurtrie et al. 2012, Ecology & Evolution
      ! rate at given root biomass and period of time
-     if(N_roots>0.0)then
+     if(TotFR>0.0)then
         ! Add a temperature response equation herefor rho_N_up0 (Zhu Qing 2016)
-        ! rho_N_up = 1.-exp(-rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr) ! rate at given root density and time period
-        rho_N_up = rho_N_up0 * N_roots/(N_roots0+N_roots) * hours_per_year * dt_fast_yr
+        ! rho_N_up = 1.-exp(-rho_N_up0 * TotFR/(TotFR0+TotFR) * hours_per_year * dt_fast_yr) ! rate at given root density and time period
+        rho_N_up = rho_N_up0 * TotFR/(TotFR0+TotFR) * hours_per_year * dt_fast_yr
         totNup = rho_N_up * vegn%mineralN * exp(9000.0 * (1./298.16 - 1./tsoil)) ! kgN m-2 time step-1
-        avgNup = totNup / N_roots ! kgN time step-1 kg roots-1
+        avgNup = totNup / TotFR ! kgN time step-1 kg roots-1
         ! Nitrogen uptaken by each cohort, N_uptake
         vegn%N_uptake = 0.0
         do i = 1, vegn%n_cohorts
@@ -746,7 +746,7 @@ subroutine vegn_N_uptake(vegn, tsoil)
            endif
         enddo
         cc =>null()
-     endif ! N_roots>0
+     endif ! TotFR>0
   endif
 end subroutine vegn_N_uptake
 
@@ -828,8 +828,8 @@ subroutine vegn_phenology(vegn)  ! daily step
 
   ! --------- Change phenology status -------------------------------------
   ! Turn ON the phenology of deciduous species
-  DoReset(:) = .false.
-  SpTrig(:)  = .false.
+  DoReset(:) = .false.  ! vegn%n_cohorts
+  SpTrig(:)  = .false.  ! 0:MSPECIES
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
     associate (sp => spdata(cc%species))
@@ -876,7 +876,7 @@ subroutine vegn_phenology(vegn)  ! daily step
   if (any(DoReset)) then
     call reset_grass_cohorts(vegn, DoReset)
   endif
-  if (any(vegn%cohorts(:)%firstday)) call vegn_RelayerCohorts(vegn)
+  if (any(vegn%cohorts(1:vegn%n_cohorts)%firstday)) call vegn_RelayerCohorts(vegn)
 
   ! ---------- Turn OFF a growing season -----------------------------------
   do i = 1, vegn%n_cohorts
@@ -1387,12 +1387,11 @@ subroutine vegn_reproduction (vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cc ! parent and child cohort pointers
-  type(cohort_type), dimension(:),pointer :: ccold, ccnew   ! pointer to old cohort array
   integer,dimension(MSPECIES) :: reproPFTs
   real,   dimension(MSPECIES) :: seedC, seedN ! seed pool of productible PFTs
   real :: totC,totN  ! the biomass of a new seedling
   integer :: newcohorts, matchflag, nPFTs ! number of new cohorts to be created
-  integer :: nCohorts, istat
+  integer :: n0 ! number of cohorts before reproduction
   integer :: i, k, n  ! cohort indices
 
   ! Looping through all reproducible cohorts and Check if reproduction happens
@@ -1431,20 +1430,18 @@ subroutine vegn_reproduction (vegn)
   ! Generate new cohorts
   newcohorts = nPFTs
   if (newcohorts >= 1) then   ! build new cohorts for seedlings
-     ccold => vegn%cohorts ! keep old cohort information
-     nCohorts = vegn%n_cohorts + newcohorts
-     allocate(ccnew(1:nCohorts), STAT = istat)
-     ccnew(1:vegn%n_cohorts) = ccold(1:vegn%n_cohorts) ! copy old cohort information
-     vegn%cohorts => ccnew
+     ! Make room for the new cohorts (existing cohorts are kept in place)
+     n0 = vegn%n_cohorts
+     call cc_reserve(vegn, n0 + newcohorts)
 
      ! set up new cohorts
-     k = vegn%n_cohorts
+     k = n0
      do i = 1, newcohorts
         k = k+1 ! increment new cohort index
         ! Copy old information to new cohort, Weng, 2021-06-02
-        do n =1, vegn%n_cohorts ! go through old cohorts
-          if(reproPFTs(i) == ccold(n)%species)then
-            ccnew(k) = ccold(n) ! Use the information from parent cohort
+        do n =1, n0 ! go through old cohorts
+          if(reproPFTs(i) == vegn%cohorts(n)%species)then
+            vegn%cohorts(k) = vegn%cohorts(n) ! Use the information from parent cohort
             exit
           endif
         enddo
@@ -1489,10 +1486,8 @@ subroutine vegn_reproduction (vegn)
           !       vegn%NorgP2S = vegn%NorgP2S + N_failedseed
         end associate
      enddo
-     deallocate (ccold)
      MaxCohortID = MaxCohortID + newcohorts
      vegn%n_cohorts = k
-     ccnew => null()
   endif ! set up new born cohorts
 
 end subroutine vegn_reproduction
@@ -2523,7 +2518,7 @@ subroutine initialize_vegn_tile(vegn)
    call vegn_RelayerCohorts(vegn)    ! Sorting cohorts
 
    ! Setup an ID for each cohort
-   do i=1,size(vegn%cohorts) ! vegn%n_cohorts
+   do i=1,vegn%n_cohorts
       cp => vegn%cohorts(i)
       cp%ccID = i
    enddo
@@ -2535,10 +2530,10 @@ subroutine initialize_vegn_tile(vegn)
    vegn%totN      = vegn%initialN0
 
    ! Make a copy of the initial cohorts
-   allocate(cc(1:init_cohort_N), STAT = istat)
-   cc = vegn%cohorts
+   allocate(cc(1:vegn%n_cohorts), STAT = istat)
+   cc = vegn%cohorts(1:vegn%n_cohorts)
    vegn%initialCC   => cc
-   vegn%n_initialCC = init_cohort_N
+   vegn%n_initialCC = vegn%n_cohorts
    cc => null()
 
 end subroutine initialize_vegn_tile
@@ -2798,34 +2793,15 @@ subroutine vegn_Remove_empty_cc(vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
-  type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
-  integer :: i,j,k
+  logical :: keep(vegn%n_cohorts) ! cohorts with nindivs > min_nindivs
+  integer :: k
 
- ! calculate the number of cohorts with indivs>min_nindivs
-  k = 0
-  do i = 1, vegn%n_cohorts
-     if (vegn%cohorts(i)%nindivs > min_nindivs) k=k+1
-  enddo
+  keep = vegn%cohorts(1:vegn%n_cohorts)%nindivs > min_nindivs
+  k = count(keep)
 
-  ! exclude cohorts that have low individuals
-  if (k == 0) then
-   ! Do nothing and keep all cohorts: the model does not allow zero cohorts.
-  elseif (k < vegn%n_cohorts) then
-     allocate(cc(k))
-     j=0
-     do i = 1,vegn%n_cohorts
-        cp =>vegn%cohorts(i)
-        if (cp%nindivs > min_nindivs) then
-           j=j+1
-           cc(j) = cp
-        else
-           call plant2soil(vegn,cp,cp%nindivs) ! Put plant mass to soil pools
-        end if
-     enddo
-     deallocate (vegn%cohorts)
-     vegn%cohorts=>cc
-     vegn%n_cohorts = k
-  endif
+  ! Remove cohorts that have low individuals (their mass goes to soil pools)
+  ! If k == 0, keep all cohorts: the model does not allow zero cohorts.
+  if (k > 0 .and. k < vegn%n_cohorts) call cc_compact(vegn, keep)
 end subroutine vegn_Remove_empty_cc
 
 ! ============================================================================
@@ -2836,10 +2812,10 @@ subroutine kill_old_grass(vegn)
   type(vegn_tile_type), intent(inout) :: vegn
 
   ! ---- local vars
-  type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
+  type(cohort_type), pointer :: cp
   logical :: OldGrass(vegn%n_cohorts)     ! mask of old grass cohorts
   real    :: oldage
-  integer :: i,j,k
+  integer :: i,k
 
   ! Flag old grass cohorts
   oldage = ResetAge + 2.0
@@ -2854,25 +2830,67 @@ subroutine kill_old_grass(vegn)
     write(*,*)'in kill_old_grass: All cohorts are old grass, No action!'
   endif
 
-  ! Exclude cohorts that are old grass
-  if (k > 0 .and. k < vegn%n_cohorts) then
-    allocate(cc(k))
-    j = 0
-    do i = 1, vegn%n_cohorts
-      cp => vegn%cohorts(i)
-      if (OldGrass(i)) then
-        ! Carbon and Nitrogen from plants to soil pools
-        call plant2soil(vegn,cp,cp%nindivs)
-      else
-        j = j + 1
-        cc(j) = cp
-      endif
-    enddo
-    vegn%n_cohorts = j
-    deallocate (vegn%cohorts)
-    vegn%cohorts => cc
-  endif
+  ! Remove cohorts that are old grass (their C and N go to soil pools)
+  if (k > 0 .and. k < vegn%n_cohorts) call cc_compact(vegn, .not. OldGrass)
 end subroutine kill_old_grass
+
+! ============================================================================
+! Helpers for changing the number of cohorts, Weng, 11/27/2026
+! vegn%cohorts can be larger than vegn%n_cohorts (spare capacity); only
+! vegn%cohorts(1:vegn%n_cohorts) are active cohorts.
+!----------------------------------------------------------------------------
+! Make sure vegn%cohorts can hold n cohorts. Existing cohorts are kept.
+! The array is reallocated only when it is too small (capacity doubles), so
+! pointers to cohorts must be re-associated after calling this routine.
+subroutine cc_reserve(vegn, n)
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+  integer,              intent(in)    :: n
+
+  ! ---- local vars
+  type(cohort_type), pointer :: cc(:)
+  integer :: nmax
+
+  if (associated(vegn%cohorts)) then
+    if (size(vegn%cohorts) >= n) then
+      return
+    else
+      nmax = max(n, 2*size(vegn%cohorts))
+    endif
+  else
+    nmax = n
+  endif
+
+  allocate(cc(nmax))
+  if (associated(vegn%cohorts)) then
+    cc(1:vegn%n_cohorts) = vegn%cohorts(1:vegn%n_cohorts)
+    deallocate(vegn%cohorts)
+  endif
+  vegn%cohorts => cc
+end subroutine cc_reserve
+
+!----------------------------------------------------------------------------
+! Remove the cohorts with keep = .false. in place, keeping the order of the
+! others. The C and N of the removed cohorts go to soil pools (plant2soil).
+subroutine cc_compact(vegn, keep)
+  implicit none
+  type(vegn_tile_type), intent(inout) :: vegn
+  logical,              intent(in)    :: keep(:) ! size >= vegn%n_cohorts
+
+  ! ---- local vars
+  integer :: i, j
+
+  j = 0
+  do i = 1, vegn%n_cohorts
+    if (keep(i)) then
+      j = j + 1
+      if (j < i) vegn%cohorts(j) = vegn%cohorts(i)
+    else
+      call plant2soil(vegn, vegn%cohorts(i), vegn%cohorts(i)%nindivs)
+    endif
+  enddo
+  vegn%n_cohorts = j
+end subroutine cc_compact
 
 ! ============================================================================
 ! Reset grass cohorts older than ResetAge+2 
@@ -3328,14 +3346,12 @@ subroutine vegn_species_recovery (vegn)
 
   ! ---- local vars
   type(cohort_type), pointer :: cc ! parent and child cohort pointers
-  type(cohort_type), dimension(:),pointer :: ccold, ccnew   ! pointer to old cohort array
   integer,dimension(16) :: initialPFTs, currPFTs, missingPFTs
   real :: addedC, addedN ! seed pool of productible PFTs
   real :: totC, totN
   integer :: newcohorts, matchflag
   integer :: nPFT0 ! number of initial PFTs
   integer :: nPFTs ! number of new cohorts to be created
-  integer :: nCohorts, istat
   integer :: i, j, k, n ! cohort indices
 
   ! Looping through all current cohorts and get the exsiting PFTs
@@ -3403,13 +3419,8 @@ subroutine vegn_species_recovery (vegn)
   addedN = 0.0
   newcohorts = n ! New corhots to be parameterized by n missing PFTs
   if (newcohorts >= 1) then   ! build new cohorts for seedlings
-     ccold => vegn%cohorts ! keep old cohort information
-     nCohorts = vegn%n_cohorts + newcohorts
-     allocate(ccnew(1:nCohorts), STAT = istat)
-     ccnew(1:vegn%n_cohorts) = ccold(1:vegn%n_cohorts) ! copy old cohort information
-     vegn%cohorts => ccnew
-
-     deallocate (ccold)
+     ! Make room for the new cohorts (existing cohorts are kept in place)
+     call cc_reserve(vegn, vegn%n_cohorts + newcohorts)
 
      ! set up new cohorts
      k = vegn%n_cohorts
@@ -3435,7 +3446,6 @@ subroutine vegn_species_recovery (vegn)
 
      MaxCohortID = MaxCohortID + newcohorts
      vegn%n_cohorts = k
-     ccnew => null()
 
      ! Make carbon and nitrogen balance by substracting addedC and addedN from SOM5
      if(addedC > 0.99*vegn%SOC(5)) &
