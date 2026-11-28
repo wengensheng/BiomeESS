@@ -858,7 +858,7 @@ subroutine vegn_phenology(vegn)  ! daily step
 
         ! Mark grass species to be reset at the first day of a growing season
         if (sp%lifeform == 0 .and. cc%firstday .and.              &
-            cc%age >= ResetGrassYr .and. cc%nindivs > zero_thld)  &
+            cc%age >= ResetAge .and. cc%nindivs > zero_thld)  &
           SpTrig(cc%species) = .true.
       else
         cc%status = LEAF_ON  ! evergreen species
@@ -869,7 +869,7 @@ subroutine vegn_phenology(vegn)  ! daily step
   ! Pool all the cohorts of the grass species in SpTrig
   do i = 1, vegn%n_cohorts
     cc => vegn%cohorts(i)
-    DoReset(i) = SpTrig(cc%species) .and. cc%age >= ResetGrassYr .and. cc%nindivs > zero_thld
+    DoReset(i) = SpTrig(cc%species) .and. cc%age >= ResetAge .and. cc%nindivs > zero_thld
   enddo
 
   ! ---------- Reset deciduous grasses, pooled by species -------------------
@@ -2829,7 +2829,7 @@ subroutine vegn_Remove_empty_cc(vegn)
 end subroutine vegn_Remove_empty_cc
 
 ! ============================================================================
-! kill old grass cohorts
+! kill old grass cohorts (cc%age > ResetAge+2), leftover of phenological reseting for any reason
 ! Weng, 01/22/2023
 subroutine kill_old_grass(vegn)
   implicit none
@@ -2838,12 +2838,14 @@ subroutine kill_old_grass(vegn)
   ! ---- local vars
   type(cohort_type), pointer :: cp, cc(:) ! array to hold new cohorts
   logical :: OldGrass(vegn%n_cohorts)     ! mask of old grass cohorts
+  real    :: oldage
   integer :: i,j,k
 
   ! Flag old grass cohorts
+  oldage = ResetAge + 2.0
   do i = 1, vegn%n_cohorts
     cp => vegn%cohorts(i)
-    OldGrass(i) = (spdata(cp%species)%lifeform == 0 .and. cp%age > OldGrassAge)
+    OldGrass(i) = (spdata(cp%species)%lifeform == 0 .and. cp%age > oldage)
   enddo
 
   ! Number of cohorts that are not old grass
@@ -2873,7 +2875,7 @@ subroutine kill_old_grass(vegn)
 end subroutine kill_old_grass
 
 ! ============================================================================
-! Reset grass cohorts older than OldGrassAge 
+! Reset grass cohorts older than ResetAge+2 
 ! Old grass cohorts of a species are pooled into one seedling cohort, as in
 ! the grass reset of vegn_phenology
 subroutine reset_old_grasses(vegn)
@@ -2882,12 +2884,14 @@ subroutine reset_old_grasses(vegn)
 
   ! ---- local vars
   logical :: DoReset(vegn%n_cohorts)
+  real    :: oldage
   integer :: i
 
+  oldage = ResetAge + 2.0
   DoReset(:) = .false.
   do i = 1, vegn%n_cohorts
     associate (cp => vegn%cohorts(i), sp => spdata(vegn%cohorts(i)%species))
-      if (sp%lifeform == 0 .and. cp%age > OldGrassAge .and. cp%nindivs > zero_thld) &
+      if (sp%lifeform == 0 .and. cp%age > oldage .and. cp%nindivs > zero_thld) &
         DoReset(i) = .true.
     end associate
   enddo
@@ -2902,8 +2906,9 @@ end subroutine reset_old_grasses
 ! does not exceed f_cover * MaxGrassCA times its share of the C of all living
 ! grasses (reset or not). Seedling structure stays at
 ! size s0_plant; all the species' N is evenly distributed to the seedlings
-! (totN = spN/nindivs), and unused C goes to the seedlings' NSC (above NSCmax
-! the excess goes to metabolic litter). The other flagged cohorts
+! (totN = spN/nindivs), and unused C goes to the seedlings' NSC as rhizome
+! storage (above m_rhizome*NSCmax the excess goes to metabolic litter).
+! The other flagged cohorts
 ! get nindivs = 0 and are removed later by vegn_Remove_empty_cc.
 ! Used by vegn_phenology and reset_old_grasses
 subroutine reset_grass_cohorts(vegn, DoReset)
@@ -2974,8 +2979,8 @@ subroutine reset_grass_cohorts(vegn, DoReset)
 
         ! Unused C (when nindivs is limited by GrassMax) is put into NSC
         cc%nsc = cc%nsc + max(0.0, spC(isp) - nindivs * totC) / nindivs
-        ! NSC above NSCmax goes to metabolic litter
-        exC = max(0.0, cc%nsc - cc%NSCmax) * nindivs
+        ! NSC above m_rhizome*NSCmax goes to metabolic litter
+        exC = max(0.0, cc%nsc - cc%NSCmax*m_rhizome) * nindivs
         cc%nsc = cc%nsc - exC / nindivs
         vegn%SOC(1)  = vegn%SOC(1) + exC
       endif

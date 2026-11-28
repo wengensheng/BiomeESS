@@ -323,7 +323,7 @@ module datatypes
     real :: phiRL            ! ratio of fine root to leaf area
     real :: phiCSA           ! ratio of sapwood CSA to target leaf area
     real :: tauNSC           ! residence time of C in NSC (to define storage capacity)
-    real :: fNCmax          ! multiplier for target NSC and NSN (NSCmax, NSNmax)
+    real :: fNCmax           ! multiplier for target NSC and NSN (NSCmax, NSNmax)
     real :: transT           ! Structural transitional time for canopy layer trees
     ! Default C/N ratios
     real :: CN0(N_ORGANS) ! C/N ratios of organs, indexed by I_LF, I_RT, I_SW, I_HW, I_SD
@@ -741,10 +741,10 @@ module datatypes
 
   ! Growth parameters:
   integer :: MaxGrassLyr = 2  ! Maximal layers that grasses can survive
-  real :: ResetGrassYr= 1.8   ! Maximum grass  age (years)
+  real :: ResetAge   = 0.8    ! Grass age threshold for resetting to seedlings (years)
   real :: MaxGrassCA = 1.2    ! Maximum grass CA in the top layer
-  real :: OldGrassAge= 2.9    ! Old grasses, kill or reset
   real :: f_cover    = 0.50   ! Fraction of grass coverage at resetting grass individuals
+  real :: m_rhizome = 2.0     ! multiplier for for rhizome C storage of grasses, times NSCmax
   real :: fsc_fine  = 1.0     ! fraction of fast turnover carbon in fine biomass
   real :: fsc_wood  = 0.0     ! fraction of fast turnover carbon in wood biomass
   real :: f_respG   = 0.50    ! respiration cost as a fraction of net growth
@@ -1181,7 +1181,8 @@ module datatypes
   fNCmax, tauNSC, retransN, f_N_add,                            &
   transT, l_fract, gamma_L, gamma_LN, gamma_SW, gamma_FR,       &
   R0_Nfix, S_facuN, C0_Nfix, C0_Nfacu, f_NfixM,                 &
-  OldGrassAge, ResetGrassYr, MaxGrassLyr, MaxGrassCA, f_cover,  &
+  ! Grass-specific setting
+  ResetAge, MaxGrassLyr, MaxGrassCA, f_cover, m_rhizome,        &
   ! Phenology
   Tc0_OFF, Tc0_ON, T0_chill, betaON, betaOFF, AWD_crit,         &
   Days_thld, cold_thld, N0_GD,                                  &

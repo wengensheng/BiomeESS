@@ -51,7 +51,7 @@ MaxGrassCA = 1.05,   ! Maximum grass crown area
 FSBM0      = 0.10,   ! 0.15, ! 0.2, ! 0.4, kgC m-2, for grass fire severity
 f_cover    = 0.8,    ! Fraction of grass coverage at resetting grass individuals
 r_BK0      = 240.0,  ! -150.0, Woody plant's sensitivity to fire at given bark thickness (-infinite, 0), more close to zero more sensitive
-EnvF0      = 0.20,   ! Climate fire risk per year, when Do_FixedFrisk == .True.
+EnvF0      = 0.10,   ! Climate fire risk per year, when Do_FixedFrisk == .True.
 
 ! species   0:C4G,  1:C3G,  2:TrE,  3:TrD,  4:TmE,  5:TmD,  6:Nfx,  7:DeS
 pt        = 1,      0,      0,      0,      0,      0,      0,      0,      ! 0 for C3, 1 for C4
