@@ -2837,8 +2837,9 @@ end subroutine Remove_old_grasses
 ! vegn%cohorts(1:vegn%n_cohorts) are active cohorts.
 !----------------------------------------------------------------------------
 ! Make sure vegn%cohorts can hold n cohorts. Existing cohorts are kept.
-! The array is reallocated only when it is too small (capacity doubles), so
+! The array is reallocated (to exactly n) only when it is too small, so
 ! pointers to cohorts must be re-associated after calling this routine.
+! No extra capacity is added since vegn_RelayerCohorts resizes the array anyway.
 subroutine Cohort_reserve(vegn, n)
   implicit none
   type(vegn_tile_type), intent(inout) :: vegn
@@ -2846,19 +2847,14 @@ subroutine Cohort_reserve(vegn, n)
 
   ! ---- local vars
   type(cohort_type), pointer :: cc(:)
-  integer :: nmax
 
+  ! Nested IFs: size() must not be evaluated for a null pointer
   if (associated(vegn%cohorts)) then
-    if (size(vegn%cohorts) >= n) then
-      return
-    else
-      nmax = max(n, 2*size(vegn%cohorts))
-    endif
-  else
-    nmax = n
+    if (size(vegn%cohorts) >= n) return
   endif
 
-  allocate(cc(nmax))
+  ! Set up a new cohort array
+  allocate(cc(n))
   if (associated(vegn%cohorts)) then
     cc(1:vegn%n_cohorts) = vegn%cohorts(1:vegn%n_cohorts)
     deallocate(vegn%cohorts)

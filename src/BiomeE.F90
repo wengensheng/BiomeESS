@@ -134,7 +134,6 @@ module BiomeE_mod
 #ifdef DO_ANIMAL
         call initialize_ani_tile(vegn) ! allocate and init animal cohorts
 #endif
-        call vegn_RelayerCohorts(vegn)
         call Zero_diagnostics(vegn)
         vegn%Tc_pheno = forcingData(1)%Tair
         vegn%tileID = i
